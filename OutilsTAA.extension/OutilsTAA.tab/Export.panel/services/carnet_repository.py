@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Persistance locale des carnets Export."""
+"""Persistance locale des carnets et dossiers Export."""
 
 import json
 import os
@@ -7,25 +7,52 @@ import os
 from publication_item import PublicationItem
 from publication_set import PublicationSet
 from publication_source import PublicationSource
+from publication_folder import PublicationFolder
+from publication_settings import PublicationSettings
 
 
 class CarnetRepository(object):
-    """Enregistre les carnets persistants dans un fichier JSON."""
+    """Enregistre l'arborescence Export dans un fichier JSON."""
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
+    DEFAULT_FOLDER_ID = "default"
+    DEFAULT_FOLDER_NAME = "Général"
 
     def __init__(self, storage_path):
         if not storage_path:
             raise ValueError("Le chemin de stockage est obligatoire.")
         self.storage_path = storage_path
 
+    def _ensure_structure(self, data):
+        """Ajoute les dossiers à un ancien fichier de carnets si nécessaire."""
+        if "folders" not in data:
+            data["folders"] = [{
+                "id": self.DEFAULT_FOLDER_ID,
+                "name": self.DEFAULT_FOLDER_NAME,
+                "parent_id": None,
+                "persistent": True
+            }]
+            for value in data.get("sets", []):
+                value.setdefault("folder_id", self.DEFAULT_FOLDER_ID)
+        elif not data["folders"]:
+            data["folders"].append({
+                "id": self.DEFAULT_FOLDER_ID,
+                "name": self.DEFAULT_FOLDER_NAME,
+                "parent_id": None,
+                "persistent": True
+            })
+        data["schema_version"] = self.SCHEMA_VERSION
+        return data
+
     def list_all(self):
-        """Retourne tous les carnets persistants enregistrés."""
         data = self._read()
         return [self._from_dict(value) for value in data.get("sets", [])]
 
+    def list_folders(self):
+        data = self._read()
+        return [self._folder_from_dict(value) for value in data.get("folders", [])]
+
     def get(self, set_id):
-        """Retourne un carnet par son identifiant stable."""
         if not set_id:
             return None
         for publication_set in self.list_all():
@@ -34,101 +61,139 @@ class CarnetRepository(object):
         return None
 
     def save(self, publication_set):
-        """Crée ou met à jour un carnet persistant."""
         if publication_set is None:
             raise ValueError("Le carnet est manquant.")
         if not publication_set.id:
             raise ValueError("Le carnet doit posséder un identifiant.")
 
         publication_set.persistent = True
-        # Conserver la source réelle du carnet (PARAMETER ou MANUAL).
-        # Ne pas transformer un carnet issu d'un paramètre en carnet manuel.
         if publication_set.source is None:
             publication_set.source = PublicationSource(PublicationSource.MANUAL)
+        if not publication_set.folder_id:
+            publication_set.folder_id = self.DEFAULT_FOLDER_ID
+        if publication_set.publication_settings is None:
+            publication_set.publication_settings = PublicationSettings(
+                output_directory=publication_set.output_directory
+            )
 
-        data = self._read()
+        data = self._ensure_structure(self._read())
         serialized = self._to_dict(publication_set)
         sets = data.get("sets", [])
-
         replaced = False
         for index, value in enumerate(sets):
             if value.get("id") == publication_set.id:
                 sets[index] = serialized
                 replaced = True
                 break
-
         if not replaced:
             sets.append(serialized)
-
-        data["schema_version"] = self.SCHEMA_VERSION
         data["sets"] = sets
         self._write(data)
         return publication_set
 
+    def save_folder(self, folder):
+        if folder is None or not folder.id:
+            raise ValueError("Le dossier doit posséder un identifiant.")
+        folder.persistent = True
+        data = self._ensure_structure(self._read())
+        serialized = {
+            "id": folder.id,
+            "name": folder.name,
+            "parent_id": folder.parent_id,
+            "persistent": True
+        }
+        folders = data.get("folders", [])
+        replaced = False
+        for index, value in enumerate(folders):
+            if value.get("id") == folder.id:
+                folders[index] = serialized
+                replaced = True
+                break
+        if not replaced:
+            folders.append(serialized)
+        data["folders"] = folders
+        self._write(data)
+        return folder
+
     def delete(self, set_id):
-        """Supprime un carnet persistant. Retourne True s'il existait."""
-        data = self._read()
+        data = self._ensure_structure(self._read())
         sets = data.get("sets", [])
         filtered = [value for value in sets if value.get("id") != set_id]
-
         if len(filtered) == len(sets):
             return False
-
         data["sets"] = filtered
+        self._write(data)
+        return True
+
+    def delete_folder(self, folder_id):
+        if folder_id == self.DEFAULT_FOLDER_ID:
+            return False
+        data = self._ensure_structure(self._read())
+        folders = data.get("folders", [])
+        child_ids = set(value.get("id") for value in folders
+                        if value.get("parent_id") == folder_id)
+        if child_ids:
+            return False
+        if any(value.get("folder_id") == folder_id for value in data.get("sets", [])):
+            return False
+        filtered = [value for value in folders if value.get("id") != folder_id]
+        if len(filtered) == len(folders):
+            return False
+        data["folders"] = filtered
         self._write(data)
         return True
 
     def _read(self):
         if not os.path.exists(self.storage_path):
-            return {"schema_version": self.SCHEMA_VERSION, "sets": []}
-
+            return {
+                "schema_version": self.SCHEMA_VERSION,
+                "folders": [{"id": self.DEFAULT_FOLDER_ID,
+                              "name": self.DEFAULT_FOLDER_NAME,
+                              "parent_id": None, "persistent": True}],
+                "sets": []
+            }
         with open(self.storage_path, "r") as handle:
             data = json.load(handle)
-
         if not isinstance(data, dict):
             raise ValueError("Le fichier de carnets est invalide.")
-
-        data.setdefault("schema_version", self.SCHEMA_VERSION)
         data.setdefault("sets", [])
-        return data
+        return self._ensure_structure(data)
 
     def _write(self, data):
         directory = os.path.dirname(self.storage_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
-
         temporary_path = self.storage_path + ".tmp"
         with open(temporary_path, "w") as handle:
             json.dump(data, handle, ensure_ascii=False, indent=2)
-
         if os.path.exists(self.storage_path):
             os.remove(self.storage_path)
         os.rename(temporary_path, self.storage_path)
 
     @staticmethod
     def _to_dict(publication_set):
+        settings = publication_set.publication_settings
         return {
             "id": publication_set.id,
             "name": publication_set.name,
             "persistent": True,
+            "folder_id": publication_set.folder_id,
             "output_directory": publication_set.output_directory,
             "filename_template_id": publication_set.filename_template_id,
+            "publication_settings": settings.to_dict() if settings else None,
             "source": {
                 "mode": publication_set.source.mode,
                 "parameter_name": publication_set.source.parameter_name,
                 "parameter_value": publication_set.source.parameter_value
             },
-            "items": [
-                {
-                    "unique_id": item.unique_id,
-                    "sheet_id": item.sheet_id,
-                    "item_type": item.item_type,
-                    "sheet_number": item.sheet_number,
-                    "sheet_name": item.sheet_name,
-                    "parameter_value": item.parameter_value
-                }
-                for item in publication_set.items
-            ]
+            "items": [{
+                "unique_id": item.unique_id,
+                "sheet_id": item.sheet_id,
+                "item_type": item.item_type,
+                "sheet_number": item.sheet_number,
+                "sheet_name": item.sheet_name,
+                "parameter_value": item.parameter_value
+            } for item in publication_set.items]
         }
 
     @staticmethod
@@ -139,26 +204,29 @@ class CarnetRepository(object):
             source_data.get("parameter_name"),
             source_data.get("parameter_value")
         )
-
         items = []
         for item_data in value.get("items", []):
-            items.append(
-                PublicationItem(
-                    item_data.get("unique_id"),
-                    item_data.get("sheet_id"),
-                    item_data.get("item_type", "SHEET"),
-                    item_data.get("sheet_number"),
-                    item_data.get("sheet_name"),
-                    item_data.get("parameter_value")
-                )
-            )
-
+            items.append(PublicationItem(
+                item_data.get("unique_id"), item_data.get("sheet_id"),
+                item_data.get("item_type", "SHEET"),
+                item_data.get("sheet_number"), item_data.get("sheet_name"),
+                item_data.get("parameter_value")
+            ))
+        settings = PublicationSettings.from_dict(value.get("publication_settings"))
+        if value.get("publication_settings") is None:
+            settings.output_directory = value.get("output_directory")
         return PublicationSet(
-            name=value.get("name", ""),
-            items=items,
-            source=source,
+            name=value.get("name", ""), items=items, source=source,
             output_directory=value.get("output_directory"),
             filename_template_id=value.get("filename_template_id"),
-            set_id=value.get("id"),
-            persistent=True
+            set_id=value.get("id"), persistent=True,
+            folder_id=value.get("folder_id", CarnetRepository.DEFAULT_FOLDER_ID),
+            publication_settings=settings
+        )
+
+    @staticmethod
+    def _folder_from_dict(value):
+        return PublicationFolder(
+            value.get("name", ""), value.get("id"),
+            value.get("parent_id"), True
         )
