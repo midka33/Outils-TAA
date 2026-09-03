@@ -4,7 +4,7 @@
 ## Architecture du dépôt
 
 ```text
-OutilsTAA/
+Outils-TAA/
 ├── README.md
 ├── docs/
 ├── OutilsTAA.extension/
@@ -16,14 +16,24 @@ OutilsTAA/
 ```text
 OutilsTAA.extension/
 ├── OutilsTAA.tab/
-│   ├── Publication.panel/
-│   ├── Calcul.panel/
+│   ├── Export.panel/
+│   ├── Calculs.panel/
 │   ├── Controle.panel/
 │   ├── Annotation.panel/
 │   └── Utilitaires.panel/
 ├── lib/
 └── resources/
 ```
+
+Les noms affichés à l'utilisateur sont :
+
+- **Export**
+- **Calculs des pièces**
+- **Contrôle**
+- **Annotation**
+- **Utilitaires**
+
+Les noms de dossiers pyRevit restent volontairement sans accents afin de respecter les conventions techniques : `Controle.panel` et `Calculs.panel`.
 
 ## Bibliothèque commune
 
@@ -34,13 +44,18 @@ lib/common/
 ├── dialogs.py
 ├── parameter_utils.py
 ├── revit_utils.py
+├── collector_utils.py
 ├── progress.py
-└── transaction.py
+├── transaction.py
+├── file_utils.py
+└── exceptions.py
 ```
 
 ## Principes
 
 - Une responsabilité par classe.
 - Pas de duplication.
-- Réutiliser lib/common.
+- Réutiliser `lib/common`.
 - Séparer UI, logique métier et accès Revit.
+- Les noms fonctionnels affichés dans l'interface sont en français.
+- Les identifiants techniques utilisent des noms ASCII, sans espaces ni accents.
