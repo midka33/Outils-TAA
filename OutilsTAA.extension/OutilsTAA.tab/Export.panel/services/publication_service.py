@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Service de préparation d'une publication."""
 
 
