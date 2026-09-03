@@ -17,12 +17,17 @@ Le format suit les principes de *Keep a Changelog*.
 - Identifiant stable des carnets et déduplication des éléments par `UniqueId`.
 - Persistance JSON des carnets manuels.
 - Tests unitaires du moteur de création et de persistance des carnets.
+- Service PDF natif Revit avec publication combinée ou séparée.
+- Service DWG natif Revit avec publication séparée ou combinée via `MergedViews`.
+- Orchestrateur de publication avec validation des feuilles, contrôle `CanBePrinted` et rapport synthétique.
+- Tests unitaires de l'orchestrateur de publication.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
 - `Calculs des pièces` est désormais le nom fonctionnel officiel de l'ancien module RoomCalculator.
 - Normalisation de la structure cible du dépôt pour pyRevit.
 - `PublicationSet` porte désormais son identifiant, son état de persistance et ses options de sortie.
+- Les services d'export isolent maintenant les appels directs à l'API Revit de l'orchestration métier.
 
 ## [0.1.0] - 2026-07-21
 
