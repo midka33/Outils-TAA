@@ -6,6 +6,8 @@ import os
 from pyrevit import forms
 from System.Windows import Visibility
 
+from publication_report import PublicationReportWindow
+
 
 class PreviewRow(object):
     """Ligne d'aperçu affichée dans le DataGrid WPF."""
@@ -230,7 +232,7 @@ class ExportWindow(forms.WPFWindow):
             self.OutputDirectoryTextBox.Text = folder
 
     def Publish_Click(self, sender, args):
-        """Lance la publication du carnet courant avec les réglages de l'écran."""
+        """Lance la publication puis affiche le rapport détaillé."""
         publication_set = self._get_publication_set()
         if publication_set is None:
             forms.alert(
@@ -266,24 +268,10 @@ class ExportWindow(forms.WPFWindow):
             dwg_true_color=true_color
         )
 
-        if result.get("success"):
-            details = []
-            for item in result.get("results", []):
-                details.append(
-                    "{0} {1} : {2} élément(s)".format(
-                        item.get("format"), item.get("mode"), item.get("count", 0)
-                    )
-                )
-            forms.alert(
-                "Publication terminée.\n\n" + "\n".join(details),
-                title="Publication"
-            )
-        else:
-            errors = result.get("errors") or ["Erreur inconnue pendant la publication."]
-            forms.alert(
-                "La publication a échoué :\n\n" + "\n".join(errors),
-                title="Publication"
-            )
+        result["output_directory"] = output_directory.strip()
+
+        report_window = PublicationReportWindow(result, owner=self)
+        report_window.show_dialog()
 
     def DeleteCarnet_Click(self, sender, args):
         entry = self.PersistentCarnetsList.SelectedItem
