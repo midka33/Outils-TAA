@@ -7,14 +7,17 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Added
-- Création du projet Outils TAA.
-- Définition de l'architecture cible.
-- Début du Developer Handbook.
+- Architecture explicite du repository.
+- Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.
+- Structure initiale des modules `Export` et `Calculs`.
+- Première infrastructure `lib/common`.
+- Documentation dédiée à **Calculs des pièces**.
+- Documentation de contribution, sécurité et roadmap.
 
-### Planned
-- Migration de PublisherAI.
-- Migration de RoomCalculator.
-- Mise en place des bibliothèques communes.
+### Changed
+- `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
+- `Calculs des pièces` est désormais le nom fonctionnel officiel de l'ancien module RoomCalculator.
+- Normalisation de la structure cible du dépôt pour pyRevit.
 
 ## [0.1.0] - 2026-07-21
 
