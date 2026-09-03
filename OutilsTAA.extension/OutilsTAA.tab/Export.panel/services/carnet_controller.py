@@ -3,14 +3,15 @@
 
 
 class CarnetController(object):
-    """Orchestre découverte, création, résolution et persistance des carnets."""
+    """Orchestre découverte, création, résolution et publication des carnets."""
 
     def __init__(self, export_service, carnet_service, parameter_service,
-                 repository=None):
+                 repository=None, publication_service=None):
         self.export_service = export_service
         self.carnet_service = carnet_service
         self.parameter_service = parameter_service
         self.repository = repository
+        self.publication_service = publication_service
 
     def get_context(self):
         """Retourne le contexte initial nécessaire à l'écran WPF."""
@@ -75,4 +76,18 @@ class CarnetController(object):
         return self.carnet_service.resolve_persistent_carnet(
             publication_set,
             sheets
+        )
+
+    def publish(self, publication_set, output_directory,
+                export_pdf=True, export_dwg=False, dwg_setup_name=None):
+        """Publie un carnet via le moteur de publication."""
+        if self.publication_service is None:
+            raise RuntimeError("Le service de publication n'est pas configuré.")
+
+        return self.publication_service.publish(
+            publication_set,
+            output_directory,
+            export_pdf,
+            export_dwg,
+            dwg_setup_name
         )
