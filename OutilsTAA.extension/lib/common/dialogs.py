@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Point d'entrée commun pour les dialogues utilisateur."""
 
 
