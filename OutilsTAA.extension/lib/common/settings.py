@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Gestion des préférences locales Outils TAA.
 
 Le stockage concret sera branché sur le mécanisme retenu par le projet.
