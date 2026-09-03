@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 1.2  
+**Version :** 1.3  
 **Statut :** Spécification fonctionnelle de référence  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -181,14 +181,16 @@ La première version doit couvrir :
 6. détection des éléments manquants dans les carnets persistants ;
 7. affichage et sélection des carnets ;
 8. choix du dossier de destination ;
-9. export d'un PDF combiné par carnet ;
-10. export d'un DWG par feuille ;
-11. création d'un dossier par carnet pour les DWG ;
-12. système de modèles de nommage des livrables ;
-13. nettoyage et sécurisation des noms ;
-14. suivi de progression ;
-15. gestion des erreurs ;
-16. rapport final de publication.
+9. export PDF combiné par carnet ;
+10. export PDF séparé par feuille ;
+11. création automatique des dossiers nécessaires pour les exports PDF séparés ;
+12. export d'un DWG par feuille ;
+13. création d'un dossier par carnet pour les DWG ;
+14. système de modèles de nommage des livrables ;
+15. nettoyage et sécurisation des noms ;
+16. suivi de progression ;
+17. gestion des erreurs ;
+18. rapport final de publication.
 
 La V1 doit rester volontairement simple et fiable.
 
@@ -211,7 +213,7 @@ Carnets proposés
         ↓
 Sélection des carnets
         ↓
-Formats + nommage + destination
+Formats + mode PDF + nommage + destination
         ↓
 Publication
 ```
@@ -229,7 +231,7 @@ Sélection des feuilles / vues
         ↓
 Enregistrement du carnet
         ↓
-Formats + nommage + destination
+Formats + mode PDF + nommage + destination
         ↓
 Publication
 ```
@@ -245,7 +247,7 @@ Résolution des éléments
         ↓
 Vérification des éléments manquants
         ↓
-Formats + nommage + destination
+Formats + mode PDF + nommage + destination
         ↓
 Publication
 ```
@@ -270,7 +272,16 @@ Une feuille sans valeur pour le paramètre sélectionné doit être identifiée 
 
 ## 8. Export PDF
 
-La V1 produit **un PDF combiné par carnet**.
+Export doit proposer **deux modes de publication PDF** :
+
+1. **PDF combiné** : un seul PDF contenant toutes les feuilles du carnet ;
+2. **PDF séparés** : un PDF par feuille du carnet.
+
+Les deux modes utilisent le **moteur PDF natif de Revit** en priorité.
+
+### 8.1 PDF combiné
+
+Le mode combiné produit un seul fichier PDF par carnet.
 
 Exemple :
 
@@ -281,13 +292,126 @@ Exports/
 └── APS.pdf
 ```
 
-L'export doit utiliser en priorité le **moteur PDF natif de Revit** et ne doit pas dépendre inutilement d'un logiciel PDF externe.
-
 Le nom du PDF est généré à partir du **modèle de nommage actif**. Si aucun modèle spécifique n'est configuré, le comportement par défaut reste le nom du carnet après nettoyage.
 
 Le système de nommage est décrit à la section 10.
 
 Un carnet vide ne doit pas générer silencieusement un PDF vide ; il est signalé dans le rapport.
+
+### 8.2 PDF séparés
+
+Le mode séparé produit **un fichier PDF par feuille** du carnet.
+
+Exemple :
+
+```text
+Exports/
+├── PRO/
+│   ├── A101.pdf
+│   └── A102.pdf
+├── DCE/
+│   ├── A103.pdf
+│   └── A104.pdf
+└── APS/
+    └── A105.pdf
+```
+
+Le dossier de destination racine est défini par l'utilisateur. Export doit créer automatiquement les sous-dossiers nécessaires lorsqu'ils n'existent pas.
+
+Par défaut, lorsque plusieurs carnets sont publiés, les PDF séparés doivent être regroupés dans un sous-dossier portant le nom sécurisé du carnet. Cela évite les collisions entre feuilles portant le même numéro dans des contextes différents et reproduit une logique de classement proche du Publisher d'Archicad.
+
+Pour un carnet unique, l'utilisateur peut également choisir de publier directement dans le dossier racine si cette option est proposée par l'interface. La structure par carnet reste le comportement recommandé par défaut.
+
+### 8.3 Nommage des PDF séparés
+
+Le système de modèles de nommage doit fonctionner aussi pour les PDF séparés.
+
+Contrairement au PDF combiné, les variables provenant de la feuille sont directement résolues sur la feuille concernée.
+
+Exemple de modèle :
+
+```text
+{Projet:NuméroProjet}_{Feuille:Numéro}_{Feuille:Nom}
+```
+
+Résultat :
+
+```text
+23045_A101_Plan RDC.pdf
+23045_A102_Plan R+1.pdf
+```
+
+Le nommage peut également intégrer le carnet :
+
+```text
+{Projet:NuméroProjet}_{Carnet}_{Feuille:Numéro}
+```
+
+Le modèle actif doit être compatible avec le mode PDF choisi.
+
+### 8.4 Création des dossiers
+
+La création des dossiers fait partie du moteur de publication et non d'une étape manuelle préalable.
+
+Avant chaque écriture, Export doit :
+
+1. déterminer le chemin final ;
+2. vérifier que le dossier parent existe ;
+3. créer les dossiers manquants si l'option de création automatique est active ;
+4. vérifier que le chemin est accessible en écriture ;
+5. vérifier les collisions éventuelles ;
+6. lancer l'export.
+
+Aucun dossier requis ne doit être supposé déjà existant.
+
+Exemple :
+
+```text
+D:\Projet\Exports
+        ↓
+Création automatique
+        ↓
+D:\Projet\Exports\DCE
+        ↓
+A103.pdf
+A104.pdf
+```
+
+Si la création du dossier échoue, la publication concernée doit être bloquée et l'erreur affichée explicitement.
+
+### 8.5 Collisions et fichiers existants
+
+Export ne doit pas écraser silencieusement un fichier existant.
+
+Le comportement doit être configurable à terme, avec au minimum les possibilités suivantes :
+
+- signaler le conflit et bloquer le fichier concerné ;
+- demander confirmation avant remplacement ;
+- générer une nouvelle version selon une stratégie explicitement choisie.
+
+La V1 privilégie la sécurité et la détection explicite des collisions.
+
+### 8.6 Ordre et progression
+
+Pour les PDF séparés, les feuilles sont traitées dans l'ordre déterministe défini par le carnet, par défaut selon le numéro de feuille Revit.
+
+La progression doit indiquer au minimum :
+
+```text
+Carnet : DCE
+PDF séparés : 3 / 18
+Feuille : A103 – Plan RDC
+```
+
+Une erreur sur une feuille ne doit pas masquer les autres résultats. Le rapport final doit distinguer les fichiers réussis, ignorés et en erreur.
+
+### 8.7 Moteur PDF
+
+L'export doit utiliser en priorité le **moteur PDF natif de Revit** et ne doit pas dépendre inutilement d'un logiciel PDF externe.
+
+Les préférences et configurations PDF accessibles via l'API Revit doivent être réutilisées plutôt que recréées inutilement dans Export. Les limitations de l'API doivent être vérifiées pour Revit 2025.4 avant d'exposer une option dans l'interface.
+
+Les réglages de qualité ou de mise en page qui ne sont pas directement accessibles par l'API ne doivent pas être simulés par Export sans justification technique.
 
 ---
 
@@ -311,7 +435,9 @@ Exports/
 
 Les paramètres DWG doivent être centralisés. La préférence fonctionnelle retenue pour Export est **DWG True Color**.
 
-Le système de nommage doit pouvoir être réutilisé ultérieurement pour les DWG, mais la V1 expose prioritairement les modèles de nommage pour les PDF combinés.
+Les configurations DWG enregistrées dans Revit doivent être réutilisées lorsque l'API le permet. Export doit privilégier la sélection d'une configuration native Revit plutôt que de dupliquer inutilement ses réglages.
+
+Le système de nommage doit pouvoir être réutilisé ultérieurement pour les DWG, mais la V1 expose prioritairement les modèles de nommage pour les PDF.
 
 ---
 
@@ -321,7 +447,7 @@ Le système de nommage doit pouvoir être réutilisé ultérieurement pour les D
 
 Export doit permettre à l'utilisateur de définir **comment les fichiers produits sont nommés**, sans imposer une convention unique.
 
-Le système doit notamment permettre de construire le nom d'un PDF combiné à partir de données issues :
+Le système doit notamment permettre de construire le nom d'un PDF combiné ou séparé à partir de données issues :
 
 - du **projet Revit** ;
 - de la **feuille / mise en page Revit** ;
@@ -335,7 +461,7 @@ Exemple :
 {Projet:NuméroProjet}_{Carnet}_{Feuille:Phase}_{Feuille:Indice}
 ```
 
-peut produire :
+peut produire, pour un PDF combiné lorsque les valeurs de feuille sont homogènes :
 
 ```text
 23045_DCE_ARCHITECTE_DCE_A.pdf
@@ -375,7 +501,7 @@ La liste exacte dépend des paramètres réellement disponibles dans le projet.
 
 #### Feuille / mise en page
 
-Valeurs provenant de la `ViewSheet` utilisée pour le carnet, par exemple :
+Valeurs provenant de la `ViewSheet` utilisée pour le document, par exemple :
 
 ```text
 {Feuille:Numéro}
@@ -496,6 +622,16 @@ Aperçu
 
 L'aperçu doit être calculé sur le carnet sélectionné et permettre de détecter immédiatement les variables absentes ou en conflit.
 
+Pour le mode PDF séparé, l'aperçu doit également pouvoir afficher un exemple basé sur une feuille du carnet :
+
+```text
+Modèle
+[ {Projet:NuméroProjet}_{Feuille:Numéro}_{Feuille:Nom} ]
+
+Aperçu
+23045_A101_Plan RDC.pdf
+```
+
 ### 10.9 Modèles enregistrés
 
 Les modèles de nommage peuvent être enregistrés et réutilisés.
@@ -561,6 +697,18 @@ Le nommage doit garantir :
 - comportement déterministe ;
 - gestion des collisions.
 
+Pour les PDF séparés, l'organisation des dossiers fait partie de la publication. Export doit créer automatiquement les dossiers nécessaires conformément à la structure configurée.
+
+La structure recommandée est :
+
+```text
+Dossier racine
+└── Nom du carnet
+    ├── PDF feuille 1
+    ├── PDF feuille 2
+    └── PDF feuille 3
+```
+
 La logique de sécurisation doit être isolée dans un `FilenameService` et ne doit pas être dupliquée dans les services PDF/DWG.
 
 La génération des noms à partir d'un modèle relève de `FilenameTemplateService`.
@@ -593,50 +741,58 @@ La configuration du nommage doit être accessible sans alourdir l'interface prin
 Concept V1 :
 
 ```text
-┌──────────────────────────────────────────────────────┐
-│ EXPORT                                               │
-│ Gestion et publication des carnets                   │
-│                                                      │
-│ CARNETS                                              │
-│                                                      │
-│ Paramètre : [ Sous-titre                    ▼ ]      │
-│                                                      │
-│ ☑ PRO                 Automatique   24 feuilles     │
-│ ☑ DCE                 Automatique   18 feuilles     │
-│ ☐ APS                 Automatique   12 feuilles     │
-│                                                      │
-│ ★ DCE Architecte    Manuel enregistré  5 feuilles   │
-│ ⚠ Ancien carnet      1 élément manquant              │
-│                                                      │
-│ [ + Nouveau carnet ] [ Modifier ] [ Supprimer ]     │
-│                                                      │
-│ FORMATS                                              │
-│ ☑ PDF                 ☑ DWG                          │
-│                                                      │
-│ NOM DU PDF                                           │
-│ [ {Projet:NuméroProjet}_{Carnet}_{ParamètreCarnet} ]│
-│ [ Insérer un paramètre ▼ ]                           │
-│ Aperçu : 23045_DCE_DCE.pdf                           │
-│                                                      │
-│ DESTINATION                                          │
-│ [ D:\Projet\Exports                       ] [ ... ] │
-│                                                      │
-│ Annuler                                   [ EXPORTER ]│
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ EXPORT                                                       │
+│ Gestion et publication des carnets                           │
+│                                                              │
+│ CARNETS                                                      │
+│                                                              │
+│ Paramètre : [ Sous-titre                            ▼ ]      │
+│                                                              │
+│ ☑ PRO                 Automatique   24 feuilles             │
+│ ☑ DCE                 Automatique   18 feuilles             │
+│ ☐ APS                 Automatique   12 feuilles             │
+│                                                              │
+│ ★ DCE Architecte    Manuel enregistré  5 feuilles           │
+│ ⚠ Ancien carnet      1 élément manquant                      │
+│                                                              │
+│ [ + Nouveau carnet ] [ Modifier ] [ Supprimer ]             │
+│                                                              │
+│ FORMATS                                                      │
+│ ☑ PDF          Mode : (●) Combiné  (○) Séparés             │
+│ ☑ DWG                                                         │
+│                                                              │
+│ NOM DU PDF                                                   │
+│ [ {Projet:NuméroProjet}_{Carnet}_{ParamètreCarnet} ]        │
+│ [ Insérer un paramètre ▼ ]                                  │
+│ Aperçu : 23045_DCE_DCE.pdf                                  │
+│                                                              │
+│ ORGANISATION PDF SÉPARÉS                                     │
+│ ☑ Créer automatiquement les dossiers nécessaires             │
+│                                                              │
+│ DESTINATION                                                  │
+│ [ D:\Projet\Exports                                  ] [ ... ]│
+│                                                              │
+│ Annuler                                           [ EXPORTER ]│
+└──────────────────────────────────────────────────────────────┘
 ```
 
 L'utilisateur doit pouvoir :
 
 1. choisir un modèle existant ;
 2. créer/modifier un modèle ;
-3. insérer un paramètre projet ;
-4. insérer un paramètre de feuille/mise en page ;
-5. insérer une information du carnet ;
-6. insérer la valeur du paramètre de regroupement ;
-7. visualiser un aperçu ;
-8. enregistrer le modèle pour une utilisation ultérieure.
+3. choisir le mode PDF combiné ou séparé ;
+4. activer la création automatique des dossiers nécessaires ;
+5. insérer un paramètre projet ;
+6. insérer un paramètre de feuille/mise en page ;
+7. insérer une information du carnet ;
+8. insérer la valeur du paramètre de regroupement ;
+9. visualiser un aperçu ;
+10. enregistrer le modèle pour une utilisation ultérieure.
 
 L'interface de création/modification d'un carnet manuel doit permettre la sélection multiple des feuilles et leur affichage dans l'ordre de publication.
+
+Le choix du mode PDF doit rester simple : les paramètres techniques avancés ne doivent pas encombrer l'écran principal.
 
 ---
 
@@ -646,7 +802,9 @@ La publication doit afficher une progression compréhensible : nombre d'élémen
 
 Avant l'export PDF, les modèles de nommage doivent être validés pour tous les carnets sélectionnés.
 
-Les erreurs doivent être remontées explicitement : dossier inaccessible, chemin invalide, fichier existant, échec PDF/DWG, feuille invalide, paramètre absent, valeur vide, conflit de paramètre de feuille, élément manquant d'un carnet enregistré, erreur Revit ou annulation utilisateur.
+Pour le mode PDF séparé, la validation doit également vérifier les chemins et dossiers nécessaires avant ou pendant l'export.
+
+Les erreurs doivent être remontées explicitement : dossier inaccessible, création de dossier impossible, chemin invalide, fichier existant, échec PDF/DWG, feuille invalide, paramètre absent, valeur vide, conflit de paramètre de feuille, élément manquant d'un carnet enregistré, erreur Revit ou annulation utilisateur.
 
 Une erreur ne doit pas être masquée.
 
@@ -665,11 +823,24 @@ errors
 output_directory
 ```
 
-Exemple :
+Le compteur `exported_pdf_count` correspond au nombre de fichiers PDF réellement produits, qu'ils soient combinés ou séparés.
+
+Exemple en mode combiné :
 
 ```text
 Publication terminée
 PDF exportés : 3
+DWG exportés : 54
+Éléments ignorés : 1
+Erreurs : 0
+Destination : D:\Projet\Exports
+```
+
+Exemple en mode séparé :
+
+```text
+Publication terminée
+PDF exportés : 54
 DWG exportés : 54
 Éléments ignorés : 1
 Erreurs : 0
@@ -695,7 +866,8 @@ Export.pushbutton/
 │   ├── publication_item.py
 │   ├── publication_source.py
 │   ├── publication_result.py
-│   └── filename_template.py
+│   ├── filename_template.py
+│   └── pdf_publication_options.py
 ├── services/
 │   ├── export_service.py
 │   ├── sheet_service.py
@@ -705,7 +877,8 @@ Export.pushbutton/
 │   ├── pdf_export_service.py
 │   ├── dwg_export_service.py
 │   ├── filename_template_service.py
-│   └── filename_service.py
+│   ├── filename_service.py
+│   └── export_configuration_service.py
 └── README.md
 ```
 
@@ -723,11 +896,13 @@ Export.pushbutton/
 
 **FilenameService** : nettoie et sécurise le nom final avant écriture sur disque.
 
-**PdfExportService** : utilise l'API PDF native de Revit et produit le PDF du carnet à partir du nom fourni par le système de nommage.
+**ExportConfigurationService** : récupère et valide les configurations d'export natives Revit accessibles par l'API, notamment les configurations DWG enregistrées et les paramètres PDF disponibles. Il ne doit pas dupliquer inutilement les réglages natifs de Revit.
 
-**DwgExportService** : exporte une feuille en DWG et applique les paramètres centralisés.
+**PdfExportService** : utilise l'API PDF native de Revit et produit soit un PDF combiné par carnet, soit un PDF séparé par feuille selon `PdfPublicationOptions`. Il reçoit les chemins et noms déjà résolus et gère la création des dossiers nécessaires.
 
-**ExportService** : orchestre validation, résolution des carnets, validation du nommage, export, progression et résultat.
+**DwgExportService** : exporte une feuille en DWG et applique les paramètres centralisés ou la configuration DWG Revit sélectionnée.
+
+**ExportService** : orchestre validation, résolution des carnets, validation du nommage, préparation des dossiers, export, progression et résultat.
 
 L'interface ne contient pas la logique métier.
 
@@ -795,12 +970,32 @@ Exemple :
 id : taa_standard_pdf
 name : TAA – Standard PDF
 template : {Projet:NuméroProjet}_{Carnet}_{ParamètreCarnet}
-scope : PDF_COMBINED
+scope : PDF
 extension : pdf
 fallback_policy : ERROR
 ```
 
 Le modèle doit être indépendant du service d'export afin de pouvoir être réutilisé pour d'autres livrables à terme.
+
+### `PdfPublicationOptions`
+
+```text
+mode
+create_carnet_subfolders
+output_directory
+filename_template_id
+```
+
+`mode` doit au minimum accepter :
+
+```text
+COMBINED
+SEPARATE
+```
+
+`create_carnet_subfolders` indique si Export doit créer automatiquement un sous-dossier par carnet pour les PDF séparés. Le comportement recommandé par défaut est `true`.
+
+Les paramètres techniques natifs de Revit ne doivent pas être dupliqués ici lorsqu'une configuration native peut être réutilisée directement.
 
 ---
 
@@ -809,6 +1004,10 @@ Le modèle doit être indépendant du service d'export afin de pouvoir être ré
 Les carnets manuels persistants doivent être enregistrés séparément des simples préférences d'interface.
 
 Les modèles de nommage enregistrés doivent également être persistants afin d'être réutilisables d'une publication à l'autre.
+
+Les préférences propres au mode PDF, notamment le choix **combiné / séparé** et la stratégie de création des sous-dossiers, peuvent être conservées comme préférences de publication sans être confondues avec les carnets.
+
+Les références aux configurations natives Revit doivent être stockées comme références de configuration et validées au moment de la publication. Export ne doit pas considérer une configuration Revit supprimée ou modifiée comme définitivement valide.
 
 La persistance doit notamment pouvoir conserver :
 
@@ -827,6 +1026,12 @@ FilenameTemplate
   ├── template
   ├── scope
   └── fallback_policy
+
+PdfPublicationOptions
+  ├── mode
+  ├── create_carnet_subfolders
+  ├── output_directory
+  └── filename_template_id
 ```
 
 Le système doit permettre de modifier un modèle sans modifier rétroactivement les fichiers déjà publiés.
@@ -851,7 +1056,7 @@ Tester :
 - élément manquant ;
 - résolution après modification du projet.
 
-### PDF
+### PDF combiné
 
 Tester :
 
@@ -874,6 +1079,28 @@ Tester :
 - réutilisation d'un modèle enregistré ;
 - interruption de publication.
 
+### PDF séparé
+
+Tester :
+
+- une feuille ;
+- plusieurs feuilles ;
+- un carnet ;
+- plusieurs carnets ;
+- création automatique du dossier du carnet ;
+- dossier déjà existant ;
+- création de dossier impossible ;
+- destination inaccessible ;
+- modèle avec paramètres projet ;
+- modèle avec paramètres de feuille ;
+- modèle avec paramètre de regroupement ;
+- nommage de chaque feuille ;
+- collisions entre fichiers ;
+- fichiers existants ;
+- interruption de publication ;
+- erreur sur une feuille sans bloquer silencieusement le reste ;
+- ordre déterministe des feuilles.
+
 ### DWG
 
 Tester :
@@ -885,6 +1112,8 @@ Tester :
 - nommage ;
 - caractères spéciaux ;
 - fichier existant ;
+- configuration DWG native sélectionnée ;
+- configuration DWG supprimée ou indisponible ;
 - échec d'export.
 
 ### `FilenameTemplateService`
@@ -932,7 +1161,10 @@ Les tests d'intégration doivent couvrir :
 - lecture des paramètres de feuille ;
 - lecture du paramètre de regroupement ;
 - résolution des carnets persistants ;
-- export PDF ;
+- export PDF combiné ;
+- export PDF séparé ;
+- création des dossiers ;
+- lecture des configurations natives d'export lorsque disponibles ;
 - export DWG ;
 - transactions lorsque nécessaires.
 
@@ -944,6 +1176,8 @@ Tester :
 - fermeture ;
 - paramètres obligatoires ;
 - sélection des carnets ;
+- choix du mode PDF ;
+- activation/désactivation de la création des sous-dossiers ;
 - création/modification d'un modèle ;
 - insertion d'un paramètre ;
 - aperçu du nom ;
@@ -959,9 +1193,11 @@ Tester :
 Pour chaque publication :
 
 - vérifier que le PDF est lisible ;
-- vérifier l'ordre des feuilles ;
-- vérifier le nom du PDF ;
+- vérifier l'ordre des feuilles pour les PDF combinés ;
+- vérifier qu'un PDF séparé correspond bien à la feuille attendue ;
+- vérifier le nom des PDF ;
 - vérifier que les valeurs affichées dans le nom correspondent au projet ;
+- vérifier que les dossiers sont créés correctement ;
 - vérifier que les DWG sont correctement générés ;
 - vérifier l'arborescence de sortie.
 
@@ -1047,6 +1283,66 @@ Un carnet persistant contient une feuille supprimée du projet.
 
 Export signale l'élément manquant avant la publication et ne le retire pas silencieusement du carnet.
 
+### Scénario I – PDF séparés avec création de dossiers
+
+L'utilisateur sélectionne le carnet `DCE` et choisit :
+
+```text
+PDF : Séparés
+Créer les dossiers : Oui
+Destination : D:\Projet\Exports
+```
+
+Le carnet contient `A101`, `A102` et `A103`.
+
+Export crée automatiquement :
+
+```text
+D:\Projet\Exports\DCE\
+```
+
+et produit :
+
+```text
+D:\Projet\Exports\DCE\A101.pdf
+D:\Projet\Exports\DCE\A102.pdf
+D:\Projet\Exports\DCE\A103.pdf
+```
+
+### Scénario J – PDF séparés avec modèle de nommage
+
+Le modèle est :
+
+```text
+{Projet:NuméroProjet}_{Feuille:Numéro}_{Feuille:Nom}
+```
+
+Pour `A101 – Plan RDC`, Export produit :
+
+```text
+23045_A101_Plan RDC.pdf
+```
+
+Chaque feuille est résolue individuellement, sans conflit de paramètre de feuille entre plusieurs feuilles.
+
+### Scénario K – Plusieurs carnets en PDF séparés
+
+L'utilisateur sélectionne `PRO` et `DCE` avec le mode PDF séparé.
+
+Export crée :
+
+```text
+Exports/
+├── PRO/
+│   ├── A101.pdf
+│   └── A102.pdf
+└── DCE/
+    ├── A201.pdf
+    └── A202.pdf
+```
+
+Les fichiers de carnets différents ne se mélangent pas.
+
 ---
 
 ## 20. Principes de conception à respecter
@@ -1056,11 +1352,14 @@ Export signale l'élément manquant avant la publication et ne le retire pas sil
 3. **Un carnet est une configuration ; une publication est une exécution.**
 4. **Le nommage est configurable et ne doit pas être codé en dur.**
 5. **Les paramètres projet et feuille peuvent être utilisés dans les modèles de nommage.**
-6. **Un conflit de valeurs de feuille ne doit jamais être résolu silencieusement.**
+6. **Un conflit de valeurs de feuille ne doit jamais être résolu silencieusement pour un PDF combiné.**
 7. **Le nettoyage du nom final reste centralisé dans `FilenameService`.**
 8. **La résolution du modèle reste séparée de l'export PDF/DWG.**
 9. **Les configurations persistantes doivent être indépendantes des préférences visuelles de l'interface.**
-10. **Le résultat doit être déterministe, explicite et reproductible.**
+10. **Le PDF peut être publié en mode combiné ou séparé.**
+11. **Les dossiers nécessaires aux PDF séparés doivent pouvoir être créés automatiquement.**
+12. **Les réglages natifs Revit accessibles par l'API doivent être réutilisés plutôt que dupliqués inutilement.**
+13. **Le résultat doit être déterministe, explicite et reproductible.**
 
 ---
 
@@ -1079,17 +1378,25 @@ Carnets persistants réutilisables
         ↓
 PublicationItem[]
         ↓
+Formats et modes de publication
+        ↓
 Modèle de nommage
         ↓
 Résolution des paramètres
         ↓
 Sécurisation du nom
         ↓
-PDF + DWG
+Création des dossiers nécessaires
+        ↓
+PDF combiné / PDF séparés + DWG
         ↓
 Rapport de publication
 ```
 
-Le nom du PDF n'est donc plus limité au nom du carnet. Il peut être construit à partir d'un **modèle configurable**, utilisant les informations du projet Revit, des feuilles/mises en page, du carnet et du paramètre ayant servi à créer le carnet.
+Le PDF peut donc être produit soit comme **un document combiné par carnet**, soit comme **un fichier séparé par feuille**. Dans ce second mode, Export prend en charge la création automatique des sous-dossiers nécessaires et applique le même système de nommage configurable à chaque fichier.
 
-Cette architecture permet de faire évoluer ultérieurement le même système de nommage vers les DWG, les dossiers, les sous-dossiers ou d'autres formats de publication sans remettre en cause le moteur de publication.
+Le nom du PDF n'est plus limité au nom du carnet. Il peut être construit à partir d'un **modèle configurable**, utilisant les informations du projet Revit, des feuilles/mises en page, du carnet et du paramètre ayant servi à créer le carnet.
+
+Les configurations d'export natives Revit accessibles par l'API doivent être réutilisées afin d'éviter de recréer dans Export des réglages déjà gérés par Revit.
+
+Cette architecture permet de faire évoluer ultérieurement le même système de nommage et d'organisation vers les DWG, les dossiers, les sous-dossiers ou d'autres formats de publication sans remettre en cause le moteur de publication.
