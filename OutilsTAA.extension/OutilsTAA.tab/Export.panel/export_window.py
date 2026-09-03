@@ -7,6 +7,7 @@ from pyrevit import forms
 from System.Windows import Visibility
 
 from export_report_window import PublicationReportWindow
+from carnet_sheets_window import CarnetSheetsWindow
 
 
 class PreviewRow(object):
@@ -202,6 +203,26 @@ class ExportWindow(forms.WPFWindow):
             ).format(missing_total)
         else:
             self.MissingInfo.Visibility = Visibility.Collapsed
+
+    def Carnet_MouseDoubleClick(self, sender, args):
+        """Ouvre le détail des mises en pages du carnet sélectionné."""
+        entry = self.PersistentCarnetsList.SelectedItem
+        if entry is None:
+            return
+
+        publication_set = entry.publication_set
+        if publication_set.persistent:
+            resolution = self.controller.resolve_persistent(publication_set)
+            if resolution.missing_count:
+                publication_set = _copy_publication_set_with_items(
+                    publication_set,
+                    resolution.items
+                )
+            else:
+                publication_set = resolution
+
+        window = CarnetSheetsWindow(publication_set, owner=self)
+        window.ShowDialog()
 
     def PersistentCarnet_SelectionChanged(self, sender, args):
         """Conserve la sélection de ligne uniquement pour les actions administratives."""
@@ -408,6 +429,25 @@ class ExportWindow(forms.WPFWindow):
 
     def Close_Click(self, sender, args):
         self.Close()
+
+
+def _copy_publication_set_with_items(publication_set, items):
+    """Crée une vue légère du carnet avec uniquement les feuilles résolues."""
+    try:
+        clone = type(publication_set)(
+            publication_set.id,
+            publication_set.name,
+            items,
+            persistent=publication_set.persistent
+        )
+    except TypeError:
+        clone = type(publication_set)(
+            publication_set.id,
+            publication_set.name,
+            items
+        )
+        clone.persistent = publication_set.persistent
+    return clone
 
 
 class _CarnetListEntry(object):
