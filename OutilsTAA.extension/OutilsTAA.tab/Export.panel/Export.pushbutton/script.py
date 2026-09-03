@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Point d'entrée pyRevit du module Export."""
+"""Entry point for the Export module."""
 
 import os
 import sys
@@ -25,18 +25,18 @@ from export_window import ExportWindow
 
 
 def _get_storage_path():
-    """Retourne le fichier local de carnets persistants de l'utilisateur."""
+    """Return the local persistent carnet storage path."""
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
     directory = os.path.join(app_data, "Outils-TAA", "Export")
     return os.path.join(directory, "carnets.json")
 
 
 def main():
-    """Lance l'interface WPF du module Export."""
+    """Launch the Export WPF window."""
     try:
         from pyrevit import revit
     except ImportError:
-        raise RuntimeError("pyRevit n'est pas disponible.")
+        raise RuntimeError("pyRevit is not available.")
 
     export_service = ExportService(revit.doc, parameter_utils)
     carnet_service = CarnetService(export_service)
