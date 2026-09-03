@@ -13,7 +13,6 @@ from carnet_manager_window import CarnetManagerWindow
 
 class PreviewRow(object):
     """Ligne d'aperçu affichée dans le DataGrid WPF."""
-
     def __init__(self, name, count, status="Prêt"):
         self.Name = name
         self.Count = count
@@ -22,14 +21,12 @@ class PreviewRow(object):
 
 class ExportWindow(forms.WPFWindow):
     """Interface principale de publication des carnets."""
-
     def __init__(self, controller, repository):
         self.controller = controller
         self.repository = repository
         self.selected_publication_sets = []
         self.session_carnets = []
         self.current_project_unique_ids = set()
-
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
@@ -45,7 +42,6 @@ class ExportWindow(forms.WPFWindow):
         self._update_selection_info()
 
     def _load_dwg_setups(self):
-        """Charge les configurations DWG natives disponibles dans Revit."""
         try:
             setups = self.controller.publication_service.dwg_service.get_predefined_setups()
         except Exception:
@@ -54,23 +50,19 @@ class ExportWindow(forms.WPFWindow):
         self.DwgSetupCombo.SelectedIndex = 0
 
     def _refresh_persistent_carnets(self):
-        """Affiche uniquement les carnets liés au document Revit courant."""
         rows = []
         for publication_set in self.controller.list_persistent():
             if not self._belongs_to_current_project(publication_set):
                 continue
             resolution = self.controller.resolve_persistent(publication_set)
             rows.append(_CarnetListEntry(publication_set, resolution.missing_count))
-
         for publication_set in self.session_carnets:
             if self._belongs_to_current_project(publication_set):
                 rows.append(_CarnetListEntry(publication_set, 0, persistent=False))
-
         self.PersistentCarnetsList.ItemsSource = rows
         self._restore_checked_carnets()
 
     def _belongs_to_current_project(self, publication_set):
-        """Un carnet est visible s'il contient au moins une feuille du projet courant."""
         if publication_set is None:
             return False
         return any(
@@ -88,16 +80,13 @@ class ExportWindow(forms.WPFWindow):
         self._sync_selection_from_grid(refresh_preview=False)
 
     def OpenCarnetManager_Click(self, sender, args):
-        """Ouvre la fenêtre dédiée à la création et à l'ajout des carnets."""
         manager = CarnetManagerWindow(self.controller, owner=self)
         manager.ShowDialog()
-        if not manager.result:
-            return
-        self.session_carnets.extend(manager.result)
-        self._refresh_persistent_carnets()
+        if manager.result:
+            self.session_carnets.extend(manager.result)
+            self._refresh_persistent_carnets()
 
     def CarnetCheckChanged(self, sender, args):
-        """Met à jour la sélection des carnets cochés."""
         self._sync_selection_from_grid()
 
     def _sync_selection_from_grid(self, refresh_preview=True):
@@ -142,26 +131,22 @@ class ExportWindow(forms.WPFWindow):
             else:
                 sheet_total += len(carnet.items)
         self.CarnetsSelectionInfo.Text = (
-            "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s)."
-            .format(len(self.selected_publication_sets), sheet_total)
-            if self.selected_publication_sets
-            else "Cochez les carnets à publier."
+            "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s).".format(
+                len(self.selected_publication_sets), sheet_total
+            ) if self.selected_publication_sets else "Cochez les carnets à publier."
         )
 
     def SelectAllCarnets_Click(self, sender, args):
-        """Coche tous les carnets visibles."""
         for index in range(self.PersistentCarnetsList.Items.Count):
             self.PersistentCarnetsList.Items[index].IsSelected = True
         self._sync_selection_from_grid()
 
     def UnselectAllCarnets_Click(self, sender, args):
-        """Décoche tous les carnets visibles."""
         for index in range(self.PersistentCarnetsList.Items.Count):
             self.PersistentCarnetsList.Items[index].IsSelected = False
         self._sync_selection_from_grid()
 
     def ConsultCarnet_Click(self, sender, args):
-        """Ouvre les mises en pages du carnet sélectionné dans la liste."""
         entry = self.PersistentCarnetsList.SelectedItem
         if entry is None:
             forms.alert("Sélectionnez un carnet à consulter.", title="Export")
@@ -169,7 +154,6 @@ class ExportWindow(forms.WPFWindow):
         self._open_carnet_contents(entry.publication_set)
 
     def Carnet_MouseDoubleClick(self, sender, args):
-        """Permet d'ouvrir directement un carnet par double-clic."""
         entry = self.PersistentCarnetsList.SelectedItem
         if entry is not None:
             self._open_carnet_contents(entry.publication_set)
@@ -186,13 +170,9 @@ class ExportWindow(forms.WPFWindow):
                      export_dwg, pdf_combined, dwg_combined, setup_name,
                      true_color):
         return self.controller.publish(
-            publication_set,
-            output_directory,
-            export_pdf=export_pdf,
-            export_dwg=export_dwg,
-            pdf_combined=pdf_combined,
-            dwg_combined=dwg_combined,
-            dwg_setup_name=setup_name,
+            publication_set, output_directory, export_pdf=export_pdf,
+            export_dwg=export_dwg, pdf_combined=pdf_combined,
+            dwg_combined=dwg_combined, dwg_setup_name=setup_name,
             dwg_true_color=true_color
         )
 
@@ -200,12 +180,10 @@ class ExportWindow(forms.WPFWindow):
         if not self.selected_publication_sets:
             forms.alert("Cochez au moins un carnet dans la liste.", title="Publication")
             return
-
         output_directory = self.OutputDirectoryTextBox.Text
         if not output_directory or not output_directory.strip():
             forms.alert("Choisissez un dossier de destination.", title="Publication")
             return
-
         export_pdf = bool(self.PdfCheckBox.IsChecked)
         export_dwg = bool(self.DwgCheckBox.IsChecked)
         pdf_combined = bool(self.PdfCombinedRadio.IsChecked)
@@ -216,9 +194,7 @@ class ExportWindow(forms.WPFWindow):
             forms.alert("Sélectionnez au moins un format.", title="Publication")
             return
 
-        all_results = []
-        all_errors = []
-        all_warnings = []
+        all_results, all_errors, all_warnings = [], [], []
         all_success = True
         for publication_set in self.selected_publication_sets:
             try:
@@ -245,13 +221,10 @@ class ExportWindow(forms.WPFWindow):
             "carnet": ("{0} carnet(s)".format(len(self.selected_publication_sets))
                         if len(self.selected_publication_sets) > 1
                         else self.selected_publication_sets[0].name),
-            "results": all_results,
-            "errors": all_errors,
-            "warnings": all_warnings,
-            "output_directory": output_directory.strip()
+            "results": all_results, "errors": all_errors,
+            "warnings": all_warnings, "output_directory": output_directory.strip()
         }
-        report_window = PublicationReportWindow(report, owner=self)
-        report_window.show_dialog()
+        PublicationReportWindow(report, owner=self).ShowDialog()
 
     def BrowseOutput_Click(self, sender, args):
         folder = forms.pick_folder(title="Choisir le dossier de publication")
@@ -264,10 +237,7 @@ class ExportWindow(forms.WPFWindow):
             return
         publication_set = entry.publication_set
         if not publication_set.persistent:
-            self.session_carnets = [
-                carnet for carnet in self.session_carnets
-                if carnet.id != publication_set.id
-            ]
+            self.session_carnets = [c for c in self.session_carnets if c.id != publication_set.id]
         else:
             confirmed = forms.alert(
                 "Supprimer le carnet « {0} » ?".format(publication_set.name),
@@ -277,8 +247,7 @@ class ExportWindow(forms.WPFWindow):
                 return
             self.repository.delete(publication_set.id)
         self.selected_publication_sets = [
-            carnet for carnet in self.selected_publication_sets
-            if carnet.id != publication_set.id
+            c for c in self.selected_publication_sets if c.id != publication_set.id
         ]
         self._refresh_persistent_carnets()
         self._show_selected_preview()
@@ -289,7 +258,6 @@ class ExportWindow(forms.WPFWindow):
 
 class _CarnetListEntry(object):
     """Objet d'affichage d'un carnet persistant ou de session."""
-
     def __init__(self, publication_set, missing_count, persistent=True):
         self.publication_set = publication_set
         self.IsSelected = False
@@ -305,7 +273,6 @@ class _CarnetListEntry(object):
 
 class _ResolvedCarnetView(object):
     """Vue minimale utilisée pour afficher un carnet résolu."""
-
     def __init__(self, name, items):
         self.name = name
         self.items = list(items or [])
