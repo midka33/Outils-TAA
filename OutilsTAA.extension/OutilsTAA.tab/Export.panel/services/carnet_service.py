@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Moteur de création et de résolution des carnets Export."""
 
 import uuid
