@@ -16,10 +16,12 @@ for path in (EXTENSION_DIR, MODEL_DIR, SERVICE_DIR):
 from lib.common import parameter_utils
 from export_service import ExportService
 from carnet_service import CarnetService
+from parameter_service import ParameterService
+from carnet_controller import CarnetController
 
 
 def main():
-    """Point d'entrée principal du module Export."""
+    """Point d'entrée principal de la couche métier Export."""
     try:
         from pyrevit import revit
     except ImportError:
@@ -27,10 +29,14 @@ def main():
 
     export_service = ExportService(revit.doc, parameter_utils)
     carnet_service = CarnetService(export_service)
+    parameter_service = ParameterService(parameter_utils)
 
-    # Le moteur est maintenant capable de créer les trois types de carnets.
-    # L'interface utilisateur et l'export PDF/DWG seront branchés ensuite.
-    return carnet_service
+    # La fenêtre WPF consommera cette façade sans accéder directement à Revit.
+    return CarnetController(
+        export_service,
+        carnet_service,
+        parameter_service
+    )
 
 
 if __name__ == "__main__":
