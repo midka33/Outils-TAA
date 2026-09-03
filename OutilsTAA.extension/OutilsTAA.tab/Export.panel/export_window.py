@@ -67,7 +67,6 @@ class ExportWindow(forms.WPFWindow):
             self.PublicationTree.Items.Add(node)
             folder_items[folder.id] = node
 
-        # Les dossiers imbriqués sont ajoutés sous leur parent.
         changed = True
         while changed:
             changed = False
@@ -94,14 +93,18 @@ class ExportWindow(forms.WPFWindow):
     def _make_folder_node(self, folder):
         node = TreeViewItem()
         node.Tag = ("FOLDER", folder)
-        node.Header = TextBlock(Text=folder.name, FontWeight="Bold")
+        header = TextBlock()
+        header.Text = folder.name
+        header.FontWeight = "Bold"
+        node.Header = header
         return node
 
     def _make_carnet_node(self, carnet):
         node = TreeViewItem()
         node.Tag = ("CARNET", carnet)
-        check = CheckBox(Content=carnet.name, IsChecked=self._is_selected(carnet),
-                         VerticalAlignment="Center")
+        check = CheckBox()
+        check.Content = carnet.name
+        check.IsChecked = self._is_selected(carnet)
         check.Tag = carnet
         check.Margin = Thickness(0, 1, 0, 1)
         check.Checked += self.CarnetChecked
@@ -110,7 +113,8 @@ class ExportWindow(forms.WPFWindow):
         for item in sorted(carnet.items or [], key=lambda x: ((x.sheet_number or ""), (x.sheet_name or ""))):
             child = TreeViewItem()
             child.Tag = ("SHEET", item)
-            child.Header = TextBlock(Text="{0} — {1}".format(item.sheet_number or "", item.sheet_name or ""))
+            child.Header = TextBlock(Text="{0} — {1}".format(
+                item.sheet_number or "", item.sheet_name or ""))
             node.Items.Add(child)
         return node
 
@@ -128,7 +132,8 @@ class ExportWindow(forms.WPFWindow):
             if not self._is_selected(carnet):
                 self.selected_publication_sets.append(carnet)
         else:
-            self.selected_publication_sets = [c for c in self.selected_publication_sets if c.id != carnet.id]
+            self.selected_publication_sets = [c for c in self.selected_publication_sets
+                                              if c.id != carnet.id]
         self._update_selection_info()
 
     def Tree_SelectedItemChanged(self, sender, args):
