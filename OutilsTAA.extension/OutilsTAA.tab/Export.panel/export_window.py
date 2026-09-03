@@ -1,14 +1,9 @@
-"""Fenêtre WPF du module Export.
-
-La fenêtre ne contient pas de logique Revit : elle dialogue avec
-CarnetController et prépare les données pour le futur moteur PDF/DWG.
-"""
+"""Fenêtre WPF du module Export."""
 
 import os
 
-from pyrevit import forms, revit
-
-from carnet_view_model import CarnetListItem
+from pyrevit import forms
+from System.Windows import Visibility
 
 
 class PreviewRow(object):
@@ -28,19 +23,16 @@ class ExportWindow(forms.WPFWindow):
         self.repository = repository
         self.current_items = []
         self.current_persistent = None
-        self._context = None
 
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
 
     def _load_context(self):
-        self._context = self.controller.get_context()
-        self.ParameterCombo.ItemsSource = self._context["parameters"]
-
+        context = self.controller.get_context()
+        self.ParameterCombo.ItemsSource = context["parameters"]
         if self.ParameterCombo.Items.Count:
             self.ParameterCombo.SelectedIndex = 0
-
         self._refresh_persistent_carnets()
         self._update_mode()
 
@@ -48,22 +40,21 @@ class ExportWindow(forms.WPFWindow):
         rows = []
         for publication_set in self.controller.list_persistent():
             resolution = self.controller.resolve_persistent(publication_set)
-            rows.append(
-                _CarnetListEntry(
-                    publication_set,
-                    resolution.missing_count
-                )
-            )
+            rows.append(_CarnetListEntry(publication_set, resolution.missing_count))
         self.PersistentCarnetsList.ItemsSource = rows
 
     def _update_mode(self):
         if self.ModeParameter.IsChecked:
-            self.ManualPanel.Visibility = forms.Visibility.Collapsed
+            self.ManualPanel.Visibility = Visibility.Collapsed
             self.CreateButton.Content = "Créer les carnets"
             self._update_parameter_preview()
         else:
-            self.ManualPanel.Visibility = forms.Visibility.Visible
-            self.CreateButton.Content = "Enregistrer le carnet" if self.ModeManual.IsChecked else "Utiliser la sélection"
+            self.ManualPanel.Visibility = Visibility.Visible
+            self.CreateButton.Content = (
+                "Enregistrer le carnet"
+                if self.ModeManual.IsChecked
+                else "Utiliser la sélection"
+            )
             self._show_manual_selection()
 
     def _update_parameter_preview(self):
@@ -75,36 +66,33 @@ class ExportWindow(forms.WPFWindow):
 
         preview = self.controller.get_parameter_preview(parameter_name)
         self.ParameterInfo.Text = (
-            "{0} feuille(s) • {1} carnet(s) détecté(s) • {2} feuille(s) affectée(s)."
-            .format(
-                preview["sheet_count"],
-                preview["carnet_count"],
-                preview["assigned_sheet_count"]
-            )
+            "{0} feuille(s) • {1} carnet(s) détecté(s) • "
+            "{2} feuille(s) affectée(s)."
+        ).format(
+            preview["sheet_count"],
+            preview["carnet_count"],
+            preview["assigned_sheet_count"]
         )
 
-        rows = []
-        for item in preview["values"]:
-            rows.append(PreviewRow(item["value"], item["count"]))
-        self.PreviewGrid.ItemsSource = rows
-        self.MissingInfo.Visibility = forms.Visibility.Collapsed
+        self.PreviewGrid.ItemsSource = [
+            PreviewRow(item["value"], item["count"])
+            for item in preview["values"]
+        ]
+        self.MissingInfo.Visibility = Visibility.Collapsed
 
     def _show_manual_selection(self):
-        if self.current_items:
-            self.ManualSelectionInfo.Text = "{0} feuille(s) sélectionnée(s).".format(
-                len(self.current_items)
-            )
-            self.PreviewGrid.ItemsSource = [
-                PreviewRow(
-                    item.sheet_number,
-                    1,
-                    item.sheet_name
-                )
-                for item in self.current_items
-            ]
-        else:
+        if not self.current_items:
             self.ManualSelectionInfo.Text = "Aucune sélection."
             self.PreviewGrid.ItemsSource = []
+            return
+
+        self.ManualSelectionInfo.Text = "{0} feuille(s) sélectionnée(s).".format(
+            len(self.current_items)
+        )
+        self.PreviewGrid.ItemsSource = [
+            PreviewRow(item.sheet_number, 1, item.sheet_name)
+            for item in self.current_items
+        ]
 
     def ParameterCombo_SelectionChanged(self, sender, args):
         if self.ModeParameter.IsChecked:
@@ -114,50 +102,40 @@ class ExportWindow(forms.WPFWindow):
         self._update_mode()
 
     def SelectSheets_Click(self, sender, args):
-        from Autodesk.Revit.DB import ViewSheet
-        from pyrevit import forms as pyrevit_forms
-
         sheets = self.controller.export_service.get_sheets()
-        selected = pyrevit_forms.SelectFromList.show(
+        selected = forms.SelectFromList.show(
             sheets,
             title="Sélectionner les feuilles",
             multiselect=True,
-            name_attr="Name",
-            description_attr="SheetNumber"
+            name_attr="SheetNumber",
+            description_attr="Name"
         )
-
-        if selected:
-            self.current_items = self.controller.export_service.build_publication_items(
-                selected
-            )
-        else:
-            self.current_items = []
+        self.current_items = (
+            self.controller.export_service.build_publication_items(selected)
+            if selected else []
+        )
         self._show_manual_selection()
 
     def PersistentCarnet_SelectionChanged(self, sender, args):
         entry = self.PersistentCarnetsList.SelectedItem
-        if entry is None:
-            self.current_persistent = None
+        self.current_persistent = entry.publication_set if entry else None
+        if self.current_persistent is None:
             return
 
-        self.current_persistent = entry.publication_set
         resolution = self.controller.resolve_persistent(self.current_persistent)
-
-        rows = [
+        self.PreviewGrid.ItemsSource = [
             PreviewRow(item.sheet_number, 1, item.sheet_name)
             for item in resolution.items
         ]
-        self.PreviewGrid.ItemsSource = rows
 
         if resolution.missing_count:
-            self.MissingInfo.Visibility = forms.Visibility.Visible
+            self.MissingInfo.Visibility = Visibility.Visible
             self.MissingInfo.Text = (
-                "ATTENTION : {0} élément(s) du carnet sont introuvables dans "
-                "le document courant. Ils ne seront pas publiés tant qu'ils "
-                "n'auront pas été réaffectés."
+                "ATTENTION : {0} élément(s) du carnet sont introuvables "
+                "dans le document courant. Ils ne seront pas publiés."
             ).format(resolution.missing_count)
         else:
-            self.MissingInfo.Visibility = forms.Visibility.Collapsed
+            self.MissingInfo.Visibility = Visibility.Collapsed
 
     def Create_Click(self, sender, args):
         if self.ModeParameter.IsChecked:
@@ -165,18 +143,12 @@ class ExportWindow(forms.WPFWindow):
             return
 
         if not self.current_items:
-            forms.alert(
-                "Sélectionnez au moins une feuille.",
-                title="Export"
-            )
+            forms.alert("Sélectionnez au moins une feuille.", title="Export")
             return
 
         name = self.CarnetNameTextBox.Text
         if not name or not name.strip():
-            forms.alert(
-                "Saisissez un nom de carnet.",
-                title="Export"
-            )
+            forms.alert("Saisissez un nom de carnet.", title="Export")
             return
 
         if self.ModeManual.IsChecked and self.PersistentCheckBox.IsChecked:
@@ -198,11 +170,9 @@ class ExportWindow(forms.WPFWindow):
             PreviewRow(carnet.name, len(carnet.items))
             for carnet in carnets
         ]
-
         forms.alert(
             "{0} carnet(s) préparé(s) à partir de « {1} ».".format(
-                len(carnets),
-                parameter_name
+                len(carnets), parameter_name
             ),
             title="Export"
         )
@@ -212,26 +182,27 @@ class ExportWindow(forms.WPFWindow):
         if entry is None:
             return
 
-        if not forms.alert(
+        confirmed = forms.alert(
             "Supprimer le carnet « {0} » ?".format(entry.publication_set.name),
             title="Export",
             yes=True,
             no=True
-        ):
+        )
+        if not confirmed:
             return
 
         self.repository.delete(entry.publication_set.id)
         self.current_persistent = None
         self._refresh_persistent_carnets()
         self.PreviewGrid.ItemsSource = []
-        self.MissingInfo.Visibility = forms.Visibility.Collapsed
+        self.MissingInfo.Visibility = Visibility.Collapsed
 
     def Close_Click(self, sender, args):
         self.Close()
 
 
 class _CarnetListEntry(object):
-    """Objet d'affichage d'un carnet persistant dans la liste WPF."""
+    """Objet d'affichage d'un carnet persistant."""
 
     def __init__(self, publication_set, missing_count):
         self.publication_set = publication_set
