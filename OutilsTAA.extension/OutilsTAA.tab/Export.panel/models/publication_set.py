@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Modèle métier d'un carnet de publication."""
 
 
