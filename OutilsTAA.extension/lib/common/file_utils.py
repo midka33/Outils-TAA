@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Utilitaires de fichiers sans logique métier."""
 
 import os
