@@ -1,4 +1,2 @@
-"""Infrastructure commune Outils TAA.
-
-Ce package ne dépend d'aucun module métier.
-"""
+# -*- coding: utf-8 -*-
+"""Infrastructure commune Outils TAA."""
