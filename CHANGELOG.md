@@ -13,11 +13,16 @@ Le format suit les principes de *Keep a Changelog*.
 - Première infrastructure `lib/common`.
 - Documentation dédiée à **Calculs des pièces**.
 - Documentation de contribution, sécurité et roadmap.
+- Moteur de création des carnets `Export` avec les modes `PARAMETER`, `MANUAL` et `TEMPORARY`.
+- Identifiant stable des carnets et déduplication des éléments par `UniqueId`.
+- Persistance JSON des carnets manuels.
+- Tests unitaires du moteur de création et de persistance des carnets.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
 - `Calculs des pièces` est désormais le nom fonctionnel officiel de l'ancien module RoomCalculator.
 - Normalisation de la structure cible du dépôt pour pyRevit.
+- `PublicationSet` porte désormais son identifiant, son état de persistance et ses options de sortie.
 
 ## [0.1.0] - 2026-07-21
 
