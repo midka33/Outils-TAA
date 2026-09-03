@@ -6,16 +6,16 @@ import sys
 
 CURRENT_DIR = os.path.dirname(__file__)
 EXTENSION_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
-
-if EXTENSION_DIR not in sys.path:
-    sys.path.append(EXTENSION_DIR)
-
+MODEL_DIR = os.path.join(CURRENT_DIR, "models")
 SERVICE_DIR = os.path.join(CURRENT_DIR, "services")
-if SERVICE_DIR not in sys.path:
-    sys.path.append(SERVICE_DIR)
+
+for path in (EXTENSION_DIR, MODEL_DIR, SERVICE_DIR):
+    if path not in sys.path:
+        sys.path.append(path)
 
 from lib.common import parameter_utils
 from export_service import ExportService
+from carnet_service import CarnetService
 
 
 def main():
@@ -25,12 +25,12 @@ def main():
     except ImportError:
         raise RuntimeError("pyRevit n'est pas disponible.")
 
-    service = ExportService(revit.doc, parameter_utils)
-    sheets = service.get_sheets()
+    export_service = ExportService(revit.doc, parameter_utils)
+    carnet_service = CarnetService(export_service)
 
-    # Cette première version prépare uniquement le jeu de feuilles.
-    # L'interface et les moteurs PDF/DWG seront ajoutés par étapes.
-    return service.build_publication_items(sheets)
+    # Le moteur est maintenant capable de créer les trois types de carnets.
+    # L'interface utilisateur et l'export PDF/DWG seront branchés ensuite.
+    return carnet_service
 
 
 if __name__ == "__main__":
