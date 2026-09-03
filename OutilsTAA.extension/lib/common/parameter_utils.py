@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Lecture et validation des paramètres Revit."""
 
 
