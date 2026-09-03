@@ -14,12 +14,14 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | Module | Statut |
 |---|---|
 | **Export** | 🚧 En développement |
-| **RoomCalculator** | 🚧 Migration |
+| **Calculs des pièces** | 🚧 Migration |
 | Quality Control | 📋 Planifié |
 | Annotation | 📋 Planifié |
 | Utilitaires | 📋 Planifié |
 
 > **Export** est le nom officiel du module précédemment désigné sous le nom **PublisherAI**. Le nom PublisherAI n'est plus utilisé comme nom fonctionnel du module.
+>
+> **Calculs des pièces** est le nom officiel du module précédemment désigné sous le nom **RoomCalculator**. Le nom RoomCalculator n'est plus utilisé comme nom fonctionnel du module.
 
 ## Compatibilité
 
