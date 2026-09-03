@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Accès Revit centralisé.
 
 Les modules métier doivent privilégier ces adaptateurs plutôt que de disperser
