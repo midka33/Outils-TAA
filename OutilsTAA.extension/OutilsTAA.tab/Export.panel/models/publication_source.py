@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Modèle décrivant l'origine d'un carnet de publication."""
 
 
