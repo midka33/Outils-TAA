@@ -1,0 +1,51 @@
+name: Update development standards
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-standards:
+    if: ${{ !contains(github.event.head_commit.message, 'docs: add development rules') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add development rules
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('docs/03_Standards_Developpement.md')
+          text = path.read_text(encoding='utf-8')
+
+          encoding_block = '''\n\n## 16.1 Encodage des fichiers Python\n\nTous les fichiers Python (`.py`) du projet doivent être enregistrés en **UTF-8**.\n\nPour garantir la compatibilité avec **IronPython 2 utilisé par pyRevit**, tout fichier Python doit déclarer explicitement son encodage en première ligne :\n\n```python\n# -*- coding: utf-8 -*-\n```\n\nCette déclaration doit être placée avant toute autre ligne du fichier.\n\nCette règle doit être appliquée systématiquement, même lorsque le fichier ne contient pas encore de caractères accentués, afin d'éviter les erreurs de parsing liées à l'encodage lors de l'exécution dans pyRevit.\n'''
+
+          if '## 16.1 Encodage des fichiers Python' not in text:
+              marker = '\n\n# 17. Gestion des erreurs'
+              if marker not in text:
+                  raise SystemExit('Marker for encoding rule not found')
+              text = text.replace(marker, encoding_block + marker, 1)
+
+          bug_block = '''\n\n## 2.2 Capitalisation des bugs et prévention de leur réapparition\n\nLorsqu'un bug est résolu, sa **cause racine** doit être recherchée et documentée lorsqu'elle révèle une erreur de conception, de codage, de compatibilité ou de processus reproductible.\n\nSi cette cause peut être évitée par une règle générale, une règle correspondante doit être ajoutée ou précisée dans les standards de développement.\n\nLe cycle attendu est :\n\n```text\nBug\n  ↓\nReproduction\n  ↓\nCause racine\n  ↓\nCorrection\n  ↓\nRègle préventive dans les standards\n  ↓\nTest ou contrôle permettant de vérifier la règle\n```\n\nL'objectif est de transformer les erreurs rencontrées pendant le développement en **connaissance durable du projet**, afin de ne pas reproduire les mêmes erreurs dans les outils suivants.\n\nSi une règle existe déjà, elle doit être complétée ou renforcée plutôt que dupliquée.\n\nLorsqu'une règle issue d'un bug entraîne une modification du code, des tests ou de l'architecture, la correction et la règle doivent être liées dans le commit ou la documentation correspondante lorsque cela est pertinent.\n'''
+
+          if '## 2.2 Capitalisation des bugs et prévention de leur réapparition' not in text:
+              marker = '\n\n# 3. Principe DRY'
+              if marker not in text:
+                  raise SystemExit('Marker for bug rule not found')
+              text = text.replace(marker, bug_block + marker, 1)
+
+          path.write_text(text, encoding='utf-8')
+      - name: Commit standards
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/03_Standards_Developpement.md
+          git diff --cached --quiet && exit 0
+          git commit -m "docs: add development rules"
+          git push
