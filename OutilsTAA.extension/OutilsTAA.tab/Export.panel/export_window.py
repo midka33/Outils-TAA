@@ -24,6 +24,7 @@ class ExportWindow(forms.WPFWindow):
         self.repository = repository
         self.current_items = []
         self.current_persistent = None
+        self.session_carnets = []
 
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
@@ -54,6 +55,10 @@ class ExportWindow(forms.WPFWindow):
         for publication_set in self.controller.list_persistent():
             resolution = self.controller.resolve_persistent(publication_set)
             rows.append(_CarnetListEntry(publication_set, resolution.missing_count))
+
+        for publication_set in self.session_carnets:
+            rows.append(_CarnetListEntry(publication_set, 0, persistent=False))
+
         self.PersistentCarnetsList.ItemsSource = rows
 
     def _update_mode(self):
@@ -110,7 +115,9 @@ class ExportWindow(forms.WPFWindow):
     def _get_publication_set(self):
         """Retourne le carnet actuellement publiable."""
         if self.current_persistent is not None:
-            return self.controller.resolve_persistent(self.current_persistent)
+            if self.current_persistent.persistent:
+                return self.controller.resolve_persistent(self.current_persistent)
+            return self.current_persistent
 
         if self.current_items:
             name = self.CarnetNameTextBox.Text
@@ -150,18 +157,25 @@ class ExportWindow(forms.WPFWindow):
         if self.current_persistent is None:
             return
 
-        resolution = self.controller.resolve_persistent(self.current_persistent)
+        if self.current_persistent.persistent:
+            resolution = self.controller.resolve_persistent(self.current_persistent)
+            items = resolution.items
+            missing_count = resolution.missing_count
+        else:
+            items = self.current_persistent.items
+            missing_count = 0
+
         self.PreviewGrid.ItemsSource = [
             PreviewRow(item.sheet_number, 1, item.sheet_name)
-            for item in resolution.items
+            for item in items
         ]
 
-        if resolution.missing_count:
+        if missing_count:
             self.MissingInfo.Visibility = Visibility.Visible
             self.MissingInfo.Text = (
                 "ATTENTION : {0} élément(s) du carnet sont introuvables "
                 "dans le document courant. Ils ne seront pas publiés."
-            ).format(resolution.missing_count)
+            ).format(missing_count)
         else:
             self.MissingInfo.Visibility = Visibility.Collapsed
 
@@ -184,7 +198,9 @@ class ExportWindow(forms.WPFWindow):
             self._refresh_persistent_carnets()
             forms.alert("Carnet enregistré.", title="Export")
         else:
-            self.controller.create_manual_temporary(name, self.current_items)
+            carnet = self.controller.create_manual_temporary(name, self.current_items)
+            self.session_carnets.append(carnet)
+            self._refresh_persistent_carnets()
             forms.alert("Carnet temporaire préparé pour la session.", title="Export")
 
     def _create_parameter_carnets(self):
@@ -194,14 +210,16 @@ class ExportWindow(forms.WPFWindow):
             return
 
         carnets = self.controller.create_from_parameter(parameter_name)
+        self.session_carnets.extend(carnets)
+        self._refresh_persistent_carnets()
         self.PreviewGrid.ItemsSource = [
             PreviewRow(carnet.name, len(carnet.items))
             for carnet in carnets
         ]
         forms.alert(
-            "{0} carnet(s) préparé(s) à partir de « {1} ».".format(
-                len(carnets), parameter_name
-            ),
+            "{0} carnet(s) préparé(s) à partir de « {1} ».\n"
+            "Ils sont disponibles dans la liste des carnets pour publication."
+            .format(len(carnets), parameter_name),
             title="Export"
         )
 
@@ -272,6 +290,16 @@ class ExportWindow(forms.WPFWindow):
         if entry is None:
             return
 
+        if not entry.publication_set.persistent:
+            self.session_carnets = [
+                carnet for carnet in self.session_carnets
+                if carnet.id != entry.publication_set.id
+            ]
+            self.current_persistent = None
+            self._refresh_persistent_carnets()
+            self.PreviewGrid.ItemsSource = []
+            return
+
         confirmed = forms.alert(
             "Supprimer le carnet « {0} » ?".format(entry.publication_set.name),
             title="Export",
@@ -292,13 +320,15 @@ class ExportWindow(forms.WPFWindow):
 
 
 class _CarnetListEntry(object):
-    """Objet d'affichage d'un carnet persistant."""
+    """Objet d'affichage d'un carnet persistant ou de session."""
 
-    def __init__(self, publication_set, missing_count):
+    def __init__(self, publication_set, missing_count, persistent=True):
         self.publication_set = publication_set
-        self.DisplayName = "{0} — {1}".format(
-            publication_set.name,
+        suffix = (
             "ATTENTION : {0} manquant(s)".format(missing_count)
             if missing_count
             else "{0} feuille(s)".format(len(publication_set.items))
         )
+        if not persistent:
+            suffix += " — session"
+        self.DisplayName = "{0} — {1}".format(publication_set.name, suffix)
