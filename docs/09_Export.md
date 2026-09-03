@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 2.0  
+**Version :** 2.1  
 **Statut :** Spécification fonctionnelle de référence  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -25,7 +25,8 @@ La V2 renforce cette philosophie avec :
 - plusieurs périmètres de publication ;
 - une gestion complète de l'exécution ;
 - un rapport détaillé et traçable de chaque publication ;
-- une architecture extensible à d'autres formats futurs.
+- une architecture extensible à d'autres formats futurs ;
+- la réutilisation explicite des configurations natives d'export Revit.
 
 ---
 
@@ -105,6 +106,7 @@ Il peut contenir :
 - l'organisation des dossiers ;
 - les modèles de nommage ;
 - les configurations DWG Revit ;
+- les configurations PDF/Impression accessibles par l'API ;
 - les règles de résolution des carnets ;
 - le périmètre de publication ;
 - les comportements d'écrasement/collision ;
@@ -339,6 +341,7 @@ PublicationProfile
 ├── Organisation des dossiers
 ├── Nommage
 ├── Configuration DWG
+├── Configuration PDF / impression lorsque disponible
 ├── Périmètre
 ├── Règles de collision
 └── Paramètres d'exécution
@@ -1065,6 +1068,7 @@ Publication Services
   ├── PublicationResolver
   ├── PublicationTreeService
   ├── SettingsResolver
+  ├── ExportConfigurationService
   ├── ValidationService
   ├── FilenameTemplateService
   ├── OutputPathService
@@ -1327,6 +1331,9 @@ Les règles suivantes sont non négociables :
 10. **La publication doit pouvoir produire un rapport exploitable même en cas d'échec partiel.**
 11. **Les comportements Revit non garantis doivent être explicitement documentés et testés.**
 12. **Les formats futurs ne doivent pas imposer de refonte du modèle métier.**
+13. **Export ne doit pas recopier inutilement les configurations natives d'export de Revit.**
+14. **Revit reste la source de vérité pour les réglages natifs au moment de la publication.**
+15. **Une configuration native devenue indisponible ne doit jamais être remplacée silencieusement.**
 
 ---
 
@@ -1350,7 +1357,8 @@ Les règles suivantes sont non négociables :
 - détection des documents modifiés ;
 - amélioration de la prévisualisation ;
 - raccourcis de publication ;
-- duplication de profils/carnets.
+- duplication de profils/carnets ;
+- intégration propre des configurations natives Revit dans le profil de publication.
 
 ### V2.2 – Extensibilité
 
@@ -1380,3 +1388,248 @@ Export V2 sera considéré comme ayant atteint son objectif lorsque l'utilisateu
 13. obtenir un rapport précis et reproductible.
 
 > **La réussite de la V2 ne se mesure donc plus uniquement à la capacité de produire un PDF ou un DWG. Elle se mesure à la capacité d'Export à devenir un véritable gestionnaire de publications pour Revit, inspiré du workflow Publisher d'Archicad.**
+
+---
+
+## 31. Configurations d'export natives Revit
+
+Cette section regroupe les règles précédemment documentées séparément pour les configurations d'export Revit. Elle constitue désormais la référence unique pour ce sujet.
+
+### 31.1 Principe directeur
+
+Export doit réutiliser autant que possible les **configurations natives d'export et d'impression de Revit**, plutôt que de recréer dans son interface les réglages déjà disponibles dans Revit.
+
+La logique est :
+
+```text
+Carnet
+  ↓
+Documents à publier
+  ↓
+Format choisi
+  ↓
+Configuration d'export Revit
+  ↓
+Publication
+```
+
+Le carnet définit **quoi publier** ; la configuration d'export définit **comment le document est produit**.
+
+Export ne doit donc pas dupliquer inutilement les réglages de qualité, de format, de représentation ou de sortie déjà gérés par Revit.
+
+### 31.2 PDF — moteur natif Revit
+
+La publication PDF doit utiliser en priorité le **moteur PDF natif de Revit**.
+
+Lorsque Revit 2025.4 expose un réglage pertinent via son API, Export doit pouvoir le réutiliser ou le transmettre à l'export plutôt que de maintenir une copie indépendante.
+
+Les réglages potentiellement concernés peuvent notamment inclure, selon ce qui est effectivement exposé par l'API cible :
+
+- format papier ;
+- orientation ;
+- couleur / noir et blanc ;
+- vectoriel / raster lorsque disponible ;
+- qualité ou résolution lorsque disponible ;
+- paramètres d'impression associés aux feuilles.
+
+**Règle importante :** Export ne doit jamais supposer qu'une option visible dans l'interface Revit dispose automatiquement d'un équivalent dans l'API. Chaque réglage doit être vérifié contre l'API Revit 2025.4 avant implémentation.
+
+### 31.3 Pas de faux « profil PDF Revit »
+
+Contrairement aux configurations DWG, Export ne doit pas présenter comme native une notion de **« profil PDF Revit »** si Revit ne fournit pas réellement cet objet sous cette forme.
+
+Si Export mémorise une configuration logique PDF, celle-ci doit être clairement identifiée comme une configuration **Export**, et non comme une configuration native Revit.
+
+### 31.4 DWG — configurations natives Revit
+
+Pour le DWG, Export doit privilégier les **configurations d'export DWG enregistrées dans Revit** plutôt que de recréer tous les réglages dans l'application.
+
+Selon les capacités de l'API Revit 2025.4, la configuration sélectionnée peut notamment contrôler :
+
+- version AutoCAD ;
+- unités ;
+- correspondance des calques ;
+- couleurs ;
+- épaisseurs de lignes ;
+- polices ;
+- motifs ;
+- références externes ;
+- autres options natives d'export DWG.
+
+La préférence fonctionnelle du projet reste **DWG True Color**, sous réserve de la configuration Revit sélectionnée.
+
+Revit 2025 expose `ExportDWGSettings` pour les configurations DWG/DXF enregistrées dans le document. Export doit réutiliser ces configurations plutôt que d'en stocker une copie complète.
+
+### 31.5 Référence à une configuration
+
+Un carnet ou un profil de publication ne doit pas recopier intégralement une configuration DWG native.
+
+Il conserve une **référence à la configuration Revit sélectionnée**, puis vérifie qu'elle existe encore au moment de la publication.
+
+```text
+Publication
+    ↓
+Référence configuration DWG
+    ↓
+Configuration toujours disponible ?
+   ├── Oui → export
+   └── Non → erreur explicite
+```
+
+Une configuration supprimée ou devenue indisponible ne doit jamais être remplacée silencieusement par une autre configuration.
+
+### 31.6 Source de vérité
+
+Une configuration Revit peut être modifiée après avoir été sélectionnée dans Export.
+
+Export doit donc considérer la configuration native comme la **source de vérité au moment de la publication** :
+
+```text
+Référence enregistrée dans Export
+          ↓
+Résolution dans Revit au lancement
+          ↓
+Configuration actuelle
+          ↓
+Publication avec les réglages actuels
+```
+
+L'application ne doit pas utiliser une copie obsolète des réglages.
+
+Si une configuration n'est plus disponible, l'utilisateur doit être averti avant le lancement de l'export.
+
+### 31.7 Service dédié
+
+La recherche, la présentation, la résolution et la validation des configurations ne doivent pas être placées dans les exporteurs PDF/DWG.
+
+Le service recommandé est :
+
+```text
+ExportConfigurationService
+```
+
+Responsabilités :
+
+- détecter les configurations disponibles ;
+- exposer les configurations utilisables par Export ;
+- résoudre la configuration choisie ;
+- vérifier sa disponibilité avant publication ;
+- fournir les options à `PdfExportService` et `DwgExportService` ;
+- signaler les incompatibilités ou limites de l'API.
+
+Architecture cible :
+
+```text
+PublicationProfile
+      ↓
+ExportConfigurationService
+      ↓
+┌───────────────────────────────┐
+│ PDF : réglages accessibles    │
+│ DWG : configuration Revit     │
+└───────────────────────────────┘
+      ↓
+PdfExportService / DwgExportService
+```
+
+### 31.8 Interface utilisateur
+
+L'interface doit rester simple et masquer les réglages avancés lorsque ceux-ci sont déjà gérés par Revit.
+
+Exemple cible :
+
+```text
+FORMATS
+
+☑ PDF
+   Configuration : [ Réglages accessibles ▼ ]
+
+☑ DWG
+   Configuration : [ TAA - DWG True Color ▼ ]
+```
+
+Pour le PDF, le libellé exact et les possibilités de sélection doivent être adaptés aux réglages réellement accessibles dans l'API Revit 2025.4.
+
+Pour le DWG, la liste doit proposer les configurations natives disponibles dans le projet.
+
+Un accès **« Ouvrir les réglages Revit »** ou équivalent peut être prévu lorsque l'utilisateur doit modifier une configuration native plutôt que la dupliquer dans Export.
+
+### 31.9 Persistance
+
+Les préférences propres à Export et les configurations natives de Revit doivent rester distinctes.
+
+#### Préférences Export
+
+Export peut mémoriser :
+
+- dernier format utilisé ;
+- dernière configuration sélectionnée ;
+- dernier dossier de destination ;
+- modèle de nommage ;
+- autres préférences d'interface.
+
+#### Configurations natives Revit
+
+Export ne doit pas recopier inutilement :
+
+- les configurations DWG natives ;
+- les réglages d'impression natifs ;
+- les paramètres que Revit sait déjà conserver.
+
+Il doit conserver une **référence** et vérifier sa validité au moment de l'utilisation.
+
+### 31.10 Relation avec le nommage
+
+Le système de modèles de nommage reste indépendant des réglages d'export.
+
+```text
+Carnet
+  ├── Documents
+  ├── Modèle de nommage
+  └── Configuration d'export
+          ↓
+       Publication
+          ↓
+    Fichier final
+```
+
+Le modèle de nommage détermine **le nom du fichier**.
+
+La configuration d'export détermine **la manière dont le fichier est produit**.
+
+Ces deux responsabilités ne doivent pas être mélangées.
+
+### 31.11 Tests spécifiques aux configurations Revit
+
+#### PDF
+
+Tester :
+
+- détection des réglages accessibles via l'API ;
+- utilisation correcte des paramètres sélectionnés ;
+- comportement lorsqu'un réglage n'est pas exposé par l'API ;
+- cohérence avec le moteur PDF natif de Revit ;
+- absence de duplication inutile des paramètres Revit.
+
+#### DWG
+
+Tester :
+
+- détection des configurations DWG enregistrées ;
+- sélection d'une configuration précise ;
+- export avec cette configuration ;
+- configuration supprimée ;
+- configuration modifiée dans Revit ;
+- conservation du choix utilisateur entre deux publications lorsque la configuration existe toujours.
+
+#### Régression
+
+Les changements de configuration ne doivent pas modifier :
+
+- la constitution des carnets ;
+- l'ordre des feuilles ;
+- les modèles de nommage ;
+- la destination des fichiers ;
+- le rapport de publication.
+
+> **Principe directeur : Export orchestre les configurations ; Revit reste la source de vérité pour les réglages natifs d'export.**
