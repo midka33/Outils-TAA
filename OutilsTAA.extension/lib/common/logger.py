@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Journalisation centralisée d'Outils TAA."""
 
 import logging
