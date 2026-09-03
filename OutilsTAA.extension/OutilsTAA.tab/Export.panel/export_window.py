@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Fenêtre WPF du module Export."""
 
 import os
