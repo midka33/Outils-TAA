@@ -59,7 +59,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Cochez les carnets à publier." TextWrapping="Wrap" Margin="2,0,2,6"/>
+                            <TextBlock Grid.Row="0" Text="Cochez les carnets à publier. Double-cliquez sur un carnet pour consulter ses mises en pages." TextWrapping="Wrap" Margin="2,0,2,6"/>
                             <DataGrid Grid.Row="1" x:Name="PersistentCarnetsList"
                                       AutoGenerateColumns="False"
                                       CanUserAddRows="False"
@@ -69,6 +69,7 @@
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled"
                                       SelectionMode="Single"
+                                      MouseDoubleClick="Carnet_MouseDoubleClick"
                                       MinHeight="180">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Header="Publier" Width="55">
