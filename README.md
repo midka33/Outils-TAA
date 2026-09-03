@@ -50,4 +50,4 @@ La spécification de référence du module **Export** est disponible dans `docs/
 
 ## Licence
 
-À définir.
+Le repository contient le fichier `LICENSE` qui définit les conditions d'utilisation du projet.
