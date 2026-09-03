@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Fenêtre WPF du module Export."""
+"""Fenêtre WPF principale du module Export."""
 
 import os
 
@@ -8,6 +8,7 @@ from System.Windows import Visibility
 
 from export_report_window import PublicationReportWindow
 from carnet_sheets_window import CarnetSheetsWindow
+from carnet_manager_window import CarnetManagerWindow
 
 
 class PreviewRow(object):
@@ -20,28 +21,28 @@ class PreviewRow(object):
 
 
 class ExportWindow(forms.WPFWindow):
-    """Interface de création, gestion et publication des carnets Export."""
+    """Interface principale de publication des carnets."""
 
     def __init__(self, controller, repository):
         self.controller = controller
         self.repository = repository
-        self.current_items = []
-        self.current_persistent = None
         self.selected_publication_sets = []
         self.session_carnets = []
+        self.current_project_unique_ids = set()
 
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
 
     def _load_context(self):
-        context = self.controller.get_context()
-        self.ParameterCombo.ItemsSource = context["parameters"]
-        if self.ParameterCombo.Items.Count:
-            self.ParameterCombo.SelectedIndex = 0
+        sheets = self.controller.export_service.get_sheets()
+        self.current_project_unique_ids = set(
+            sheet.UniqueId for sheet in sheets
+            if sheet is not None and getattr(sheet, "UniqueId", None)
+        )
         self._load_dwg_setups()
         self._refresh_persistent_carnets()
-        self._update_mode()
+        self._update_selection_info()
 
     def _load_dwg_setups(self):
         """Charge les configurations DWG natives disponibles dans Revit."""
@@ -49,243 +50,141 @@ class ExportWindow(forms.WPFWindow):
             setups = self.controller.publication_service.dwg_service.get_predefined_setups()
         except Exception:
             setups = []
-
-        values = [""] + list(setups)
-        self.DwgSetupCombo.ItemsSource = values
+        self.DwgSetupCombo.ItemsSource = [""] + list(setups)
         self.DwgSetupCombo.SelectedIndex = 0
 
     def _refresh_persistent_carnets(self):
+        """Affiche uniquement les carnets liés au document Revit courant."""
         rows = []
         for publication_set in self.controller.list_persistent():
+            if not self._belongs_to_current_project(publication_set):
+                continue
             resolution = self.controller.resolve_persistent(publication_set)
             rows.append(_CarnetListEntry(publication_set, resolution.missing_count))
 
         for publication_set in self.session_carnets:
-            rows.append(_CarnetListEntry(publication_set, 0, persistent=False))
+            if self._belongs_to_current_project(publication_set):
+                rows.append(_CarnetListEntry(publication_set, 0, persistent=False))
 
         self.PersistentCarnetsList.ItemsSource = rows
+        self._restore_checked_carnets()
 
-    def _update_mode(self):
-        if self.ModeParameter.IsChecked:
-            self.ManualPanel.Visibility = Visibility.Collapsed
-            self.CreateButton.Content = "Créer les carnets"
-            self._update_parameter_preview()
-        else:
-            self.ManualPanel.Visibility = Visibility.Visible
-            self.CreateButton.Content = (
-                "Enregistrer le carnet"
-                if self.ModeManual.IsChecked
-                else "Utiliser la sélection"
-            )
-            self._show_manual_selection()
-
-    def _update_parameter_preview(self):
-        parameter_name = self.ParameterCombo.SelectedItem
-        if not parameter_name:
-            self.ParameterInfo.Text = "Aucun paramètre disponible."
-            self.PreviewGrid.ItemsSource = []
-            return
-
-        preview = self.controller.get_parameter_preview(parameter_name)
-        self.ParameterInfo.Text = (
-            "{0} feuille(s) • {1} carnet(s) détecté(s) • "
-            "{2} feuille(s) affectée(s)."
-        ).format(
-            preview["sheet_count"],
-            preview["carnet_count"],
-            preview["assigned_sheet_count"]
+    def _belongs_to_current_project(self, publication_set):
+        """Un carnet est visible s'il contient au moins une feuille du projet courant."""
+        if publication_set is None:
+            return False
+        return any(
+            item is not None and item.unique_id in self.current_project_unique_ids
+            for item in (publication_set.items or [])
         )
 
-        self.PreviewGrid.ItemsSource = [
-            PreviewRow(item["value"], item["count"])
-            for item in preview["values"]
-        ]
-        self.MissingInfo.Visibility = Visibility.Collapsed
-
-    def _show_manual_selection(self):
-        if not self.current_items:
-            self.ManualSelectionInfo.Text = "Aucune sélection."
-            self.PreviewGrid.ItemsSource = []
-            return
-
-        self.ManualSelectionInfo.Text = "{0} feuille(s) sélectionnée(s).".format(
-            len(self.current_items)
+    def _restore_checked_carnets(self):
+        selected_ids = set(
+            carnet.id for carnet in self.selected_publication_sets if carnet is not None
         )
-        self.PreviewGrid.ItemsSource = [
-            PreviewRow(item.sheet_number, 1, item.sheet_name)
-            for item in self.current_items
-        ]
-
-    def _get_publication_set(self):
-        """Retourne le carnet actuellement publiable en mode manuel."""
-        if self.current_persistent is not None:
-            if self.current_persistent.persistent:
-                return self.controller.resolve_persistent(self.current_persistent)
-            return self.current_persistent
-
-        if self.current_items:
-            name = self.CarnetNameTextBox.Text
-            if name and name.strip():
-                return self.controller.create_manual_temporary(
-                    name.strip(), self.current_items
-                )
-
-        return None
-
-    def ParameterCombo_SelectionChanged(self, sender, args):
-        if self.ModeParameter.IsChecked:
-            self.selected_publication_sets = []
-            self._update_parameter_preview()
-
-    def Mode_Checked(self, sender, args):
-        self.selected_publication_sets = []
-        self.current_persistent = None
-        self._update_mode()
-
-    def SelectSheets_Click(self, sender, args):
-        sheets = self.controller.export_service.get_sheets()
-        selected = forms.SelectFromList.show(
-            sheets,
-            title="Sélectionner les feuilles",
-            multiselect=True,
-            name_attr="SheetNumber",
-            description_attr="Name"
-        )
-        self.current_items = (
-            self.controller.export_service.build_publication_items(selected)
-            if selected else []
-        )
-        self.current_persistent = None
-        self.selected_publication_sets = []
-        self._show_manual_selection()
-
-    def CarnetCheckChanged(self, sender, args):
-        """Met à jour la sélection des carnets à publier après une case cochée."""
-        selected = []
         for index in range(self.PersistentCarnetsList.Items.Count):
             entry = self.PersistentCarnetsList.Items[index]
-            if entry.IsSelected:
-                selected.append(entry.publication_set)
+            entry.IsSelected = entry.publication_set.id in selected_ids
+        self._sync_selection_from_grid(refresh_preview=False)
 
-        self.selected_publication_sets = selected
-        self.current_persistent = None
+    def OpenCarnetManager_Click(self, sender, args):
+        """Ouvre la fenêtre dédiée à la création et à l'ajout des carnets."""
+        manager = CarnetManagerWindow(self.controller, owner=self)
+        manager.ShowDialog()
+        if not manager.result:
+            return
+        self.session_carnets.extend(manager.result)
+        self._refresh_persistent_carnets()
 
+    def CarnetCheckChanged(self, sender, args):
+        """Met à jour la sélection des carnets cochés."""
+        self._sync_selection_from_grid()
+
+    def _sync_selection_from_grid(self, refresh_preview=True):
+        self.selected_publication_sets = [
+            self.PersistentCarnetsList.Items[index].publication_set
+            for index in range(self.PersistentCarnetsList.Items.Count)
+            if self.PersistentCarnetsList.Items[index].IsSelected
+        ]
+        if refresh_preview:
+            self._show_selected_preview()
+        self._update_selection_info()
+
+    def _show_selected_preview(self):
         rows = []
         missing_total = 0
-        sheet_total = 0
-        for publication_set in selected:
+        for publication_set in self.selected_publication_sets:
             if publication_set.persistent:
                 resolution = self.controller.resolve_persistent(publication_set)
                 items = resolution.items
                 missing_total += resolution.missing_count
             else:
                 items = publication_set.items
-
-            sheet_total += len(items)
             rows.append(PreviewRow(publication_set.name, len(items)))
-
         self.PreviewGrid.ItemsSource = rows
-        if selected:
-            self.CarnetsSelectionInfo.Text = (
-                "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s)."
-                .format(len(selected), sheet_total)
-            )
-        else:
-            self.CarnetsSelectionInfo.Text = (
-                "En mode Paramètre, cochez les carnets à publier."
-            )
-
         if missing_total:
             self.MissingInfo.Visibility = Visibility.Visible
             self.MissingInfo.Text = (
-                "ATTENTION : {0} élément(s) sont introuvables dans le document "
-                "courant. Ils ne seront pas publiés."
+                "ATTENTION : {0} élément(s) sont introuvables dans le document courant. "
+                "Ils ne seront pas publiés."
             ).format(missing_total)
         else:
             self.MissingInfo.Visibility = Visibility.Collapsed
 
-    def Carnet_MouseDoubleClick(self, sender, args):
-        """Ouvre le détail des mises en pages du carnet sélectionné."""
+    def _update_selection_info(self):
+        sheet_total = 0
+        for carnet in self.selected_publication_sets:
+            if carnet.persistent:
+                try:
+                    sheet_total += len(self.controller.resolve_persistent(carnet).items)
+                except Exception:
+                    sheet_total += len(carnet.items)
+            else:
+                sheet_total += len(carnet.items)
+        self.CarnetsSelectionInfo.Text = (
+            "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s)."
+            .format(len(self.selected_publication_sets), sheet_total)
+            if self.selected_publication_sets
+            else "Cochez les carnets à publier."
+        )
+
+    def SelectAllCarnets_Click(self, sender, args):
+        """Coche tous les carnets visibles."""
+        for index in range(self.PersistentCarnetsList.Items.Count):
+            self.PersistentCarnetsList.Items[index].IsSelected = True
+        self._sync_selection_from_grid()
+
+    def UnselectAllCarnets_Click(self, sender, args):
+        """Décoche tous les carnets visibles."""
+        for index in range(self.PersistentCarnetsList.Items.Count):
+            self.PersistentCarnetsList.Items[index].IsSelected = False
+        self._sync_selection_from_grid()
+
+    def ConsultCarnet_Click(self, sender, args):
+        """Ouvre les mises en pages du carnet sélectionné dans la liste."""
         entry = self.PersistentCarnetsList.SelectedItem
         if entry is None:
+            forms.alert("Sélectionnez un carnet à consulter.", title="Export")
             return
+        self._open_carnet_contents(entry.publication_set)
 
-        publication_set = entry.publication_set
+    def Carnet_MouseDoubleClick(self, sender, args):
+        """Permet d'ouvrir directement un carnet par double-clic."""
+        entry = self.PersistentCarnetsList.SelectedItem
+        if entry is not None:
+            self._open_carnet_contents(entry.publication_set)
+
+    def _open_carnet_contents(self, publication_set):
         if publication_set.persistent:
             resolution = self.controller.resolve_persistent(publication_set)
-            if resolution.missing_count:
-                publication_set = _copy_publication_set_with_items(
-                    publication_set,
-                    resolution.items
-                )
-            else:
-                publication_set = resolution
-
-        window = CarnetSheetsWindow(publication_set, owner=self)
-        window.ShowDialog()
-
-    def PersistentCarnet_SelectionChanged(self, sender, args):
-        """Conserve la sélection de ligne uniquement pour les actions administratives."""
-        pass
-
-    def Create_Click(self, sender, args):
-        if self.ModeParameter.IsChecked:
-            self._create_parameter_carnets()
-            return
-
-        if not self.current_items:
-            forms.alert("Sélectionnez au moins une feuille.", title="Export")
-            return
-
-        name = self.CarnetNameTextBox.Text
-        if not name or not name.strip():
-            forms.alert("Saisissez un nom de carnet.", title="Export")
-            return
-
-        if self.ModeManual.IsChecked and self.PersistentCheckBox.IsChecked:
-            self.controller.create_manual_persistent(name, self.current_items)
-            self._refresh_persistent_carnets()
-            forms.alert("Carnet enregistré.", title="Export")
+            resolved = _ResolvedCarnetView(publication_set.name, resolution.items)
         else:
-            carnet = self.controller.create_manual_temporary(name, self.current_items)
-            self.session_carnets.append(carnet)
-            self._refresh_persistent_carnets()
-            forms.alert("Carnet temporaire préparé pour la session.", title="Export")
-
-    def _create_parameter_carnets(self):
-        parameter_name = self.ParameterCombo.SelectedItem
-        if not parameter_name:
-            forms.alert("Aucun paramètre sélectionné.", title="Export")
-            return
-
-        carnets = self.controller.create_from_parameter(parameter_name)
-        self.session_carnets.extend(carnets)
-        self._refresh_persistent_carnets()
-        self.PreviewGrid.ItemsSource = [
-            PreviewRow(carnet.name, len(carnet.items))
-            for carnet in carnets
-        ]
-        self.CarnetsSelectionInfo.Text = (
-            "{0} carnet(s) détecté(s). Cochez ceux à publier dans la liste."
-            .format(len(carnets))
-        )
-        forms.alert(
-            "{0} carnet(s) préparé(s) à partir de « {1} ».\n"
-            "Cochez maintenant les carnets à publier."
-            .format(len(carnets), parameter_name),
-            title="Export"
-        )
-
-    def BrowseOutput_Click(self, sender, args):
-        """Ouvre le sélecteur de dossier pyRevit."""
-        folder = forms.pick_folder(title="Choisir le dossier de publication")
-        if folder:
-            self.OutputDirectoryTextBox.Text = folder
+            resolved = publication_set
+        CarnetSheetsWindow(resolved, owner=self).ShowDialog()
 
     def _publish_one(self, publication_set, output_directory, export_pdf,
                      export_dwg, pdf_combined, dwg_combined, setup_name,
                      true_color):
-        """Publie un carnet et retourne son résultat."""
         return self.controller.publish(
             publication_set,
             output_directory,
@@ -298,24 +197,9 @@ class ExportWindow(forms.WPFWindow):
         )
 
     def Publish_Click(self, sender, args):
-        """Publie un ou plusieurs carnets puis affiche le rapport détaillé."""
-        if self.ModeParameter.IsChecked:
-            publication_sets = list(self.selected_publication_sets)
-            if not publication_sets:
-                forms.alert(
-                    "Cochez au moins un carnet dans la liste.",
-                    title="Publication"
-                )
-                return
-        else:
-            publication_set = self._get_publication_set()
-            if publication_set is None:
-                forms.alert(
-                    "Sélectionnez un carnet enregistré ou préparez une sélection manuelle.",
-                    title="Publication"
-                )
-                return
-            publication_sets = [publication_set]
+        if not self.selected_publication_sets:
+            forms.alert("Cochez au moins un carnet dans la liste.", title="Publication")
+            return
 
         output_directory = self.OutputDirectoryTextBox.Text
         if not output_directory or not output_directory.strip():
@@ -328,7 +212,6 @@ class ExportWindow(forms.WPFWindow):
         dwg_combined = bool(self.DwgCombinedRadio.IsChecked)
         setup_name = self.DwgSetupCombo.SelectedItem or None
         true_color = bool(self.DwgTrueColorCheckBox.IsChecked)
-
         if not export_pdf and not export_dwg:
             forms.alert("Sélectionnez au moins un format.", title="Publication")
             return
@@ -337,117 +220,71 @@ class ExportWindow(forms.WPFWindow):
         all_errors = []
         all_warnings = []
         all_success = True
-
-        for publication_set in publication_sets:
+        for publication_set in self.selected_publication_sets:
             try:
                 result = self._publish_one(
-                    publication_set,
-                    output_directory.strip(),
-                    export_pdf,
-                    export_dwg,
-                    pdf_combined,
-                    dwg_combined,
-                    setup_name,
-                    true_color
+                    publication_set, output_directory.strip(), export_pdf,
+                    export_dwg, pdf_combined, dwg_combined, setup_name, true_color
                 )
             except Exception as exc:
-                result = {
-                    "success": False,
-                    "carnet": publication_set.name,
-                    "results": [],
-                    "errors": [str(exc)],
-                    "warnings": []
-                }
-
-            carnet_name = publication_set.name
+                result = {"success": False, "carnet": publication_set.name,
+                          "results": [], "errors": [str(exc)], "warnings": []}
             for item_result in result.get("results", []):
                 item_result = dict(item_result)
-                item_result["carnet"] = carnet_name
+                item_result["carnet"] = publication_set.name
                 all_results.append(item_result)
-
             for error in result.get("errors", []):
-                all_errors.append("{0} : {1}".format(carnet_name, error))
+                all_errors.append("{0} : {1}".format(publication_set.name, error))
             for warning in result.get("warnings", []):
-                all_warnings.append("{0} : {1}".format(carnet_name, warning))
-
+                all_warnings.append("{0} : {1}".format(publication_set.name, warning))
             if not result.get("success"):
                 all_success = False
 
         report = {
             "success": all_success,
-            "carnet": (
-                "{0} carnet(s)".format(len(publication_sets))
-                if len(publication_sets) > 1
-                else publication_sets[0].name
-            ),
+            "carnet": ("{0} carnet(s)".format(len(self.selected_publication_sets))
+                        if len(self.selected_publication_sets) > 1
+                        else self.selected_publication_sets[0].name),
             "results": all_results,
             "errors": all_errors,
             "warnings": all_warnings,
             "output_directory": output_directory.strip()
         }
-
         report_window = PublicationReportWindow(report, owner=self)
         report_window.show_dialog()
+
+    def BrowseOutput_Click(self, sender, args):
+        folder = forms.pick_folder(title="Choisir le dossier de publication")
+        if folder:
+            self.OutputDirectoryTextBox.Text = folder
 
     def DeleteCarnet_Click(self, sender, args):
         entry = self.PersistentCarnetsList.SelectedItem
         if entry is None:
             return
-
-        if not entry.publication_set.persistent:
+        publication_set = entry.publication_set
+        if not publication_set.persistent:
             self.session_carnets = [
                 carnet for carnet in self.session_carnets
-                if carnet.id != entry.publication_set.id
+                if carnet.id != publication_set.id
             ]
-            self.current_persistent = None
-            self.selected_publication_sets = [
-                carnet for carnet in self.selected_publication_sets
-                if carnet.id != entry.publication_set.id
-            ]
-            self._refresh_persistent_carnets()
-            self.PreviewGrid.ItemsSource = []
-            return
-
-        confirmed = forms.alert(
-            "Supprimer le carnet « {0} » ?".format(entry.publication_set.name),
-            title="Export",
-            yes=True,
-            no=True
-        )
-        if not confirmed:
-            return
-
-        self.repository.delete(entry.publication_set.id)
-        self.current_persistent = None
+        else:
+            confirmed = forms.alert(
+                "Supprimer le carnet « {0} » ?".format(publication_set.name),
+                title="Export", yes=True, no=True
+            )
+            if not confirmed:
+                return
+            self.repository.delete(publication_set.id)
         self.selected_publication_sets = [
             carnet for carnet in self.selected_publication_sets
-            if carnet.id != entry.publication_set.id
+            if carnet.id != publication_set.id
         ]
         self._refresh_persistent_carnets()
-        self.PreviewGrid.ItemsSource = []
-        self.MissingInfo.Visibility = Visibility.Collapsed
+        self._show_selected_preview()
 
     def Close_Click(self, sender, args):
         self.Close()
-
-
-def _copy_publication_set_with_items(publication_set, items):
-    """Crée une vue légère du carnet avec uniquement les feuilles résolues."""
-    try:
-        clone = type(publication_set)(
-            publication_set.id,
-            publication_set.name,
-            items,
-            persistent=publication_set.persistent
-        )
-    except TypeError:
-        clone = type(publication_set)(
-            publication_set.id,
-            publication_set.name,
-            items
-        )
-        clone.persistent = publication_set.persistent
-    return clone
 
 
 class _CarnetListEntry(object):
@@ -464,11 +301,11 @@ class _CarnetListEntry(object):
             self.Status = "Session"
         else:
             self.Status = "Disponible"
-        suffix = (
-            "ATTENTION : {0} manquant(s)".format(missing_count)
-            if missing_count
-            else "{0} feuille(s)".format(len(publication_set.items))
-        )
-        if not persistent:
-            suffix += " — session"
-        self.DisplayName = "{0} — {1}".format(publication_set.name, suffix)
+
+
+class _ResolvedCarnetView(object):
+    """Vue minimale utilisée pour afficher un carnet résolu."""
+
+    def __init__(self, name, items):
+        self.name = name
+        self.items = list(items or [])
