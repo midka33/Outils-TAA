@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Façade métier préparant les données consommées par l'interface WPF."""
 
 
