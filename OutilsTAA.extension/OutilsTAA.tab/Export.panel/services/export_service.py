@@ -1,6 +1,6 @@
-"""Service d'orchestration du module Export."""
+"""Service d'accès aux feuilles Revit pour le module Export."""
 
-from models.publication_item import PublicationItem
+from publication_item import PublicationItem
 
 
 class ExportService(object):
@@ -58,3 +58,13 @@ class ExportService(object):
             )
 
         return items
+
+    def get_publication_items(self, parameter_name=None,
+                              parameter_value=None):
+        """Retourne les éléments publiables du document selon un filtre optionnel."""
+        sheets = self.get_sheets()
+        return self.build_publication_items(
+            sheets,
+            parameter_name,
+            parameter_value
+        )
