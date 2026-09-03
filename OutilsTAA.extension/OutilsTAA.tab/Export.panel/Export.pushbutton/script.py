@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Entry point for the Export module."""
 
+import hashlib
 import os
 import sys
 
@@ -25,11 +26,47 @@ from carnet_repository import CarnetRepository
 from export_window import ExportWindow
 
 
-def _get_storage_path():
-    """Return the local persistent carnet storage path."""
+def _get_project_identity(document):
+    """Retourne une identité stable du projet Revit courant."""
+    if document is None:
+        return "unknown-project"
+
+    # Pour un modèle collaboratif, utiliser le chemin du modèle central.
+    # Cela garantit que tous les utilisateurs d'un même projet partagent
+    # les mêmes carnets, tout en séparant les projets différents.
+    try:
+        from Autodesk.Revit.DB import ModelPathUtils
+        central_path = document.GetWorksharingCentralModelPath()
+        if central_path:
+            return ModelPathUtils.ConvertModelPathToUserVisiblePath(central_path)
+    except Exception:
+        pass
+
+    # Modèle non collaboratif : le chemin du fichier est suffisamment stable.
+    try:
+        if document.PathName:
+            return document.PathName
+    except Exception:
+        pass
+
+    # Dernier recours pour un document non enregistré.
+    try:
+        if document.Title:
+            return "UNSAVED:" + document.Title
+    except Exception:
+        pass
+
+    return "unknown-project"
+
+
+def _get_storage_path(document):
+    """Retourne le fichier de carnets propre au projet Revit courant."""
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
-    directory = os.path.join(app_data, "Outils-TAA", "Export")
-    return os.path.join(directory, "carnets.json")
+    directory = os.path.join(app_data, "Outils-TAA", "Export", "Projects")
+
+    project_identity = _get_project_identity(document)
+    project_key = hashlib.sha1(project_identity.encode("utf-8")).hexdigest()
+    return os.path.join(directory, project_key + "_carnets.json")
 
 
 def main():
@@ -43,7 +80,7 @@ def main():
     carnet_service = CarnetService(export_service)
     parameter_service = ParameterService(parameter_utils)
     publication_service = PublicationService(revit.doc)
-    repository = CarnetRepository(_get_storage_path())
+    repository = CarnetRepository(_get_storage_path(revit.doc))
 
     controller = CarnetController(
         export_service,
