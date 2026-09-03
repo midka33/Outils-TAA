@@ -53,35 +53,69 @@
                         <TextBlock x:Name="ManualSelectionInfo" Text="Aucune sélection." TextWrapping="Wrap" Margin="0,8,0,8"/>
                         <CheckBox x:Name="PersistentCheckBox" Content="Enregistrer ce carnet pour les prochaines sessions" IsChecked="True" Margin="4,4,4,4"/>
                     </StackPanel>
-                    <StackPanel Grid.Row="4" Margin="0,12,0,0">
-                        <TextBlock x:Name="CarnetsListTitle" Text="Carnets disponibles" FontWeight="Bold" Margin="0,0,0,6"/>
-                        <TextBlock x:Name="CarnetsSelectionInfo" Text="En mode Paramètre, cochez les carnets à publier." TextWrapping="Wrap" Margin="0,0,0,6"/>
-                        <ListBox x:Name="PersistentCarnetsList" SelectionMode="Extended" DisplayMemberPath="DisplayName" SelectionChanged="PersistentCarnet_SelectionChanged"/>
-                        <Button x:Name="DeleteCarnetButton" Content="Supprimer le carnet sélectionné" Click="DeleteCarnet_Click"/>
-                    </StackPanel>
-                    <GroupBox Grid.Row="5" Header="Publication" Padding="8" Margin="0,12,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Dossier de destination" FontWeight="Bold" Margin="0,0,0,5"/>
-                            <DockPanel>
-                                <Button DockPanel.Dock="Right" Content="Parcourir…" Click="BrowseOutput_Click" Width="90"/>
-                                <TextBox x:Name="OutputDirectoryTextBox" Height="30" Margin="0,0,6,0"/>
-                            </DockPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <CheckBox x:Name="PdfCheckBox" Content="PDF" IsChecked="True" Margin="4,4,18,4"/>
-                                <RadioButton x:Name="PdfCombinedRadio" Content="Combiné" IsChecked="True" GroupName="PdfMode" Margin="4,4,12,4"/>
-                                <RadioButton x:Name="PdfSeparateRadio" Content="Séparé" GroupName="PdfMode" Margin="4,4,4,4"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <CheckBox x:Name="DwgCheckBox" Content="DWG" IsChecked="True" Margin="4,4,18,4"/>
-                                <RadioButton x:Name="DwgCombinedRadio" Content="Combiné" GroupName="DwgMode" Margin="4,4,12,4"/>
-                                <RadioButton x:Name="DwgSeparateRadio" Content="Séparé" IsChecked="True" GroupName="DwgMode" Margin="4,4,4,4"/>
-                            </StackPanel>
-                            <TextBlock Text="Configuration DWG Revit" FontWeight="Bold" Margin="0,8,0,5"/>
-                            <ComboBox x:Name="DwgSetupCombo" Height="30"/>
-                            <CheckBox x:Name="DwgTrueColorCheckBox" Content="Couleur vraie" IsChecked="True" Margin="4,6,4,2"/>
-                            <Button x:Name="PublishButton" Content="Publier les carnets sélectionnés" Click="Publish_Click" MinHeight="38" Margin="4,10,4,2"/>
-                        </StackPanel>
+                    <GroupBox Grid.Row="4" Header="Carnets disponibles à la sélection" Padding="6" Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Cochez les carnets à publier." TextWrapping="Wrap" Margin="2,0,2,6"/>
+                            <DataGrid Grid.Row="1" x:Name="PersistentCarnetsList"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="True"
+                                      HeadersVisibility="Column"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      SelectionMode="Single"
+                                      MinHeight="180">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Publier" Width="55">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Checked="CarnetCheckChanged"
+                                                          Unchecked="CarnetCheckChanged"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Carnet" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Feuilles" Binding="{Binding Count}" Width="65"/>
+                                    <DataGridTextColumn Header="État" Binding="{Binding Status}" Width="105"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
                     </GroupBox>
+                    <StackPanel Grid.Row="5">
+                        <TextBlock x:Name="CarnetsSelectionInfo" Text="En mode Paramètre, sélectionnez les carnets à publier." TextWrapping="Wrap" Margin="4,6,4,2"/>
+                        <Button x:Name="DeleteCarnetButton" Content="Supprimer le carnet sélectionné" Click="DeleteCarnet_Click"/>
+                        <GroupBox Header="Publication" Padding="8" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Dossier de destination" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Parcourir…" Click="BrowseOutput_Click" Width="90"/>
+                                    <TextBox x:Name="OutputDirectoryTextBox" Height="30" Margin="0,0,6,0"/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <CheckBox x:Name="PdfCheckBox" Content="PDF" IsChecked="True" Margin="4,4,18,4"/>
+                                    <RadioButton x:Name="PdfCombinedRadio" Content="Combiné" IsChecked="True" GroupName="PdfMode" Margin="4,4,12,4"/>
+                                    <RadioButton x:Name="PdfSeparateRadio" Content="Séparé" GroupName="PdfMode" Margin="4,4,4,4"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <CheckBox x:Name="DwgCheckBox" Content="DWG" IsChecked="True" Margin="4,4,18,4"/>
+                                    <RadioButton x:Name="DwgCombinedRadio" Content="Combiné" GroupName="DwgMode" Margin="4,4,12,4"/>
+                                    <RadioButton x:Name="DwgSeparateRadio" Content="Séparé" IsChecked="True" GroupName="DwgMode" Margin="4,4,4,4"/>
+                                </StackPanel>
+                                <TextBlock Text="Configuration DWG Revit" FontWeight="Bold" Margin="0,8,0,5"/>
+                                <ComboBox x:Name="DwgSetupCombo" Height="30"/>
+                                <CheckBox x:Name="DwgTrueColorCheckBox" Content="Couleur vraie" IsChecked="True" Margin="4,6,4,2"/>
+                                <Button x:Name="PublishButton" Content="Publier les carnets sélectionnés" Click="Publish_Click" MinHeight="38" Margin="4,10,4,2"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
                 </Grid>
             </Border>
             <Border Grid.Column="1" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12" Margin="8,0,0,0">
