@@ -299,11 +299,11 @@ Le titre doit être :
 Exemples :
 
 ```text
-PublisherAI
+Export
 ```
 
 ```text
-RoomCalculator
+CalculsPieces
 ```
 
 ```text
@@ -740,7 +740,7 @@ Lorsqu'un outil manipule de nombreux éléments Revit, utiliser des listes clair
 
 # 34. Listes avec cases à cocher
 
-Pour PublisherAI et les outils similaires, un système de listes avec cases à cocher est recommandé.
+Pour Export et les outils similaires, un système de listes avec cases à cocher est recommandé.
 
 Exemple :
 
@@ -1506,15 +1506,15 @@ Chemin d'export
 
 ---
 
-# 83. Interface de PublisherAI
+# 83. Interface de Export
 
-PublisherAI est susceptible de devenir l'un des outils les plus complets de la suite.
+Export est susceptible de devenir l'un des outils les plus complets de la suite.
 
 Sa structure recommandée est :
 
 ```text
 ┌───────────────────────────────────────────────┐
-│ PublisherAI                                   │
+│ Export                                   │
 │ Publication de carnets PDF et DWG             │
 ├───────────────────────────────────────────────┤
 │                                               │
@@ -1551,13 +1551,13 @@ La barre de progression peut également utiliser TAA Orange.
 
 ---
 
-# 84. Interface de RoomCalculator
+# 84. Interface de CalculsPieces
 
 Structure recommandée :
 
 ```text
 ┌───────────────────────────────────────────────┐
-│ RoomCalculator                                │
+│ CalculsPieces                                │
 │ Calcul des paramètres de pièces               │
 ├───────────────────────────────────────────────┤
 │                                               │

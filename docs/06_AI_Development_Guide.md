@@ -375,7 +375,7 @@ Une fonctionnalité ne doit jamais être conçue autour d'un fournisseur particu
 Mauvais principe :
 
 ```text
-PublisherAI
+Export
     ↓
 Mistral
 ```
@@ -383,7 +383,7 @@ Mistral
 Meilleur principe :
 
 ```text
-PublisherAI
+Export
     ↓
 AIService
     ↓
@@ -1413,9 +1413,9 @@ Une transaction déjà appliquée doit être gérée selon les mécanismes de re
 
 ---
 
-# 53. IA dans PublisherAI
+# 53. IA dans Export
 
-PublisherAI peut utiliser l'IA pour des fonctions complémentaires, mais la publication elle-même doit rester déterministe.
+Export peut utiliser l'IA pour des fonctions complémentaires, mais la publication elle-même doit rester déterministe.
 
 Exemples d'utilisation pertinente :
 
@@ -1438,9 +1438,9 @@ doivent rester des opérations classiques et déterministes.
 
 ---
 
-# 54. IA dans RoomCalculator
+# 54. IA dans CalculsPieces
 
-RoomCalculator n'a pas besoin d'IA pour effectuer :
+CalculsPieces n'a pas besoin d'IA pour effectuer :
 
 ```text
 Surface totale =
@@ -1458,7 +1458,7 @@ L'IA pourrait cependant être utilisée ultérieurement pour :
 
 ---
 
-# 55. IA dans Quality Control
+# 55. IA dans Controle
 
 Le module de contrôle qualité est probablement l'un des domaines les plus intéressants pour l'IA.
 

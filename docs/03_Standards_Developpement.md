@@ -31,7 +31,7 @@ Le code développé pour Outils TAA doit être :
 
 Outils TAA doit être considéré comme un **logiciel métier modulaire**, et non comme une collection de scripts indépendants.
 
-Ces standards s'appliquent donc aussi bien à un petit utilitaire qu'à un outil complexe comme PublisherAI ou RoomCalculator.
+Ces standards s'appliquent donc aussi bien à un petit utilitaire qu'à un outil complexe comme Export ou CalculsPieces.
 
 ---
 
@@ -137,10 +137,10 @@ Avant de créer une nouvelle fonction utilitaire dans un outil, le développeur 
 ### À éviter
 
 ```text
-PublisherAI/
+Export/
 └── utils.py
 
-RoomCalculator/
+CalculsPieces/
 └── utils.py
 ```
 
@@ -258,7 +258,7 @@ Pour les outils de taille moyenne ou importante, l'utilisation de classes est re
 ## Exemple
 
 ```python
-class RoomCalculator:
+class CalculsPieces:
 
     def __init__(self, rooms):
         self.rooms = rooms
@@ -344,7 +344,7 @@ def calculate_total_area():
 Utiliser `PascalCase`.
 
 ```python
-class RoomCalculator:
+class CalculsPieces:
     pass
 ```
 
@@ -983,7 +983,7 @@ Exemples :
 Dernier dossier utilisé
 Dernière option sélectionnée
 Préférences d'affichage
-Configuration PublisherAI
+Configuration Export
 ```
 
 Ils ne doivent pas être dispersés dans plusieurs fichiers arbitraires.
@@ -1158,7 +1158,7 @@ dans plusieurs modules.
 Préférer :
 
 ```python
-class RoomCalculator:
+class CalculsPieces:
     def __init__(self, document):
         self.document = document
 ```
@@ -1482,7 +1482,7 @@ Les outils complexes doivent également documenter :
 # 61. Exemple de fiche outil
 
 ```markdown
-# RoomCalculator
+# CalculsPieces
 
 ## Objectif
 
@@ -2019,7 +2019,7 @@ Même un petit script doit respecter au minimum :
 
 # 84. Standard pour les outils complexes
 
-Pour un outil comme PublisherAI ou RoomCalculator, les exigences sont supérieures :
+Pour un outil comme Export ou CalculsPieces, les exigences sont supérieures :
 
 ```text
 Architecture modulaire

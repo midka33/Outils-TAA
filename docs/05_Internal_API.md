@@ -18,8 +18,8 @@ Ce document définit l’**API interne Outils TAA**.
 L’API interne constitue l’ensemble des composants communs utilisés par les différents outils de la suite :
 
 ```text
-PublisherAI
-RoomCalculator
+Export
+CalculsPieces
 Contrôle qualité
 Annotation
 Utilitaires
@@ -70,8 +70,8 @@ Structure recommandée :
 OutilsTAA.extension/
 │
 ├── OutilsTAA.tab/
-│   ├── Publication.panel/
-│   ├── Calcul.panel/
+│   ├── Export.panel/
+│   ├── Calculs.panel/
 │   ├── Controle.panel/
 │   ├── Annotation.panel/
 │   └── Utilitaires.panel/
@@ -115,22 +115,22 @@ contient uniquement des composants pouvant être utilisés par plusieurs outils.
 Il ne doit pas contenir de logique spécifique à :
 
 ```text
-PublisherAI
+Export
 ```
 
 ou :
 
 ```text
-RoomCalculator
+CalculsPieces
 ```
 
 Exemple incorrect :
 
 ```text
-lib/common/publisher_export.py
+lib/export/export_service.py
 ```
 
-si ce fichier n’est utilisé que par PublisherAI.
+si ce fichier n’est utilisé que par Export.
 
 Il devrait plutôt être placé dans :
 
@@ -345,7 +345,7 @@ logger.exception(message)
 ```python
 from common.logger import get_logger
 
-logger = get_logger("RoomCalculator")
+logger = get_logger("CalculsPieces")
 
 logger.info("Démarrage du calcul")
 ```
@@ -366,7 +366,7 @@ def get_logger(tool_name):
 Exemple :
 
 ```python
-logger = get_logger("PublisherAI")
+logger = get_logger("Export")
 ```
 
 ---
@@ -378,14 +378,14 @@ Format recommandé :
 ```text
 2026-09-03 09:30:22
 INFO
-PublisherAI
+Export
 Début de publication
 ```
 
 ou sous forme compacte :
 
 ```text
-2026-09-03 09:30:22 | INFO | PublisherAI | Début de publication
+2026-09-03 09:30:22 | INFO | Export | Début de publication
 ```
 
 ---
@@ -509,7 +509,7 @@ ask_confirmation()
 from common.dialogs import show_warning
 
 show_warning(
-    title="RoomCalculator",
+    title="CalculsPieces",
     message="Aucune pièce n'a été sélectionnée."
 )
 ```
@@ -522,7 +522,7 @@ Exemple :
 
 ```python
 confirmed = ask_confirmation(
-    title="PublisherAI",
+    title="Export",
     message="248 feuilles vont être publiées.\nContinuer ?"
 )
 
@@ -577,7 +577,7 @@ save_settings()
 
 ```python
 last_folder = get_setting(
-    tool="PublisherAI",
+    tool="Export",
     key="last_export_folder",
     default=None
 )
@@ -589,7 +589,7 @@ last_folder = get_setting(
 
 ```python
 set_setting(
-    tool="PublisherAI",
+    tool="Export",
     key="last_export_folder",
     value=export_folder
 )
@@ -604,13 +604,13 @@ Chaque outil doit disposer de son propre espace.
 Exemple :
 
 ```text
-PublisherAI.last_export_folder
+Export.last_export_folder
 
-PublisherAI.export_pdf
+Export.export_pdf
 
-RoomCalculator.last_source_parameter
+CalculsPieces.last_source_parameter
 
-RoomCalculator.last_target_parameter
+CalculsPieces.last_target_parameter
 ```
 
 Éviter :
@@ -683,7 +683,7 @@ Les transactions doivent être :
 Exemple conceptuel :
 
 ```python
-with taa_transaction(doc, "RoomCalculator - Mise à jour"):
+with taa_transaction(doc, "CalculsPieces - Mise à jour"):
     update_rooms()
 ```
 
@@ -1375,7 +1375,7 @@ APS - Carnet - Logements
 
 ---
 
-# 77. Ne pas intégrer PublisherAI dans `file_utils`
+# 77. Ne pas intégrer Export dans `file_utils`
 
 Une fonction :
 
@@ -1425,9 +1425,9 @@ lib/publication/
 
 ---
 
-# 80. PublisherAI
+# 80. Export
 
-Le script pyRevit de PublisherAI ne devrait pas contenir directement toute la logique d’export.
+Le script pyRevit de Export ne devrait pas contenir directement toute la logique d’export.
 
 Il doit principalement :
 
@@ -1572,7 +1572,7 @@ Writer Revit
 
 ---
 
-# 86. Exemple RoomCalculator
+# 86. Exemple CalculsPieces
 
 Architecture possible :
 
@@ -1581,11 +1581,11 @@ RoomCollector
       ↓
 RoomData
       ↓
-RoomCalculatorService
+CalculsPiecesService
       ↓
 CalculationResult
       ↓
-RoomParameterWriter
+PieceParameterWriter
 ```
 
 ---
@@ -1608,7 +1608,7 @@ afficher l'interface
 
 ---
 
-# 88. `RoomCalculatorService`
+# 88. `CalculsPiecesService`
 
 Responsabilité :
 
@@ -1622,7 +1622,7 @@ Cela facilite les tests.
 
 ---
 
-# 89. `RoomParameterWriter`
+# 89. `PieceParameterWriter`
 
 Responsabilité :
 
@@ -1891,7 +1891,7 @@ class PublisherService(object):
 
     def __init__(self, logger=None):
         self.logger = logger or get_logger(
-            "PublisherAI"
+            "Export"
         )
 ```
 
@@ -2031,7 +2031,7 @@ DEFAULT_LOG_LEVEL = "INFO"
 
 # 113. Constantes métier
 
-Une constante spécifique à PublisherAI ne doit pas être placée dans `common`.
+Une constante spécifique à Export ne doit pas être placée dans `common`.
 
 Exemple :
 
@@ -2303,11 +2303,11 @@ parameter_utils
 ↓
 lève ParameterReadOnlyError
 
-RoomParameterWriter
+PieceParameterWriter
 ↓
 ajoute le contexte métier
 
-RoomCalculator
+CalculsPieces
 ↓
 log l'erreur
 
@@ -2517,11 +2517,11 @@ get_sheet_booklet()
 
 ---
 
-# 141. Carnets PublisherAI
+# 141. Carnets Export
 
 Le concept de carnet doit être encapsulé.
 
-Éviter que chaque partie de PublisherAI lise directement le paramètre Revit utilisé comme carnet.
+Éviter que chaque partie de Export lise directement le paramètre Revit utilisé comme carnet.
 
 Préférer :
 
@@ -2545,7 +2545,7 @@ mais par un autre paramètre, seule l’implémentation du service doit être mo
 
 # 143. Abstraction des exports
 
-PublisherAI peut définir une interface commune :
+Export peut définir une interface commune :
 
 ```python
 class Exporter(object):
@@ -2771,9 +2771,9 @@ publication
 Éviter également :
 
 ```text
-RoomCalculator
+CalculsPieces
 ↓
-PublisherAI
+Export
 ```
 
 Les deux outils doivent dépendre de services communs lorsque nécessaire.
@@ -2782,24 +2782,24 @@ Les deux outils doivent dépendre de services communs lorsque nécessaire.
 
 # 155. Exemple
 
-Si PublisherAI et RoomCalculator ont besoin d’une fonction de lecture de paramètres :
+Si Export et CalculsPieces ont besoin d’une fonction de lecture de paramètres :
 
 Incorrect :
 
 ```text
-RoomCalculator
+CalculsPieces
 ↓
-PublisherAI.parameter_reader
+Export.parameter_reader
 ```
 
 Correct :
 
 ```text
-PublisherAI ─┐
+Export ─┐
              ↓
        parameter_utils
              ↑
-RoomCalculator ─┘
+CalculsPieces ─┘
 ```
 
 ---
@@ -3563,17 +3563,17 @@ Comment écrire un paramètre Revit ?
 ```
 
 ```text
-RoomCalculator
+CalculsPieces
 =
 Quelle valeur doit être écrite dans ce paramètre ?
 ```
 
 ---
 
-# 202. Exemple d’architecture RoomCalculator
+# 202. Exemple d’architecture CalculsPieces
 
 ```text
-RoomCalculator.pushbutton/
+Calculs.pushbutton/
 │
 ├── script.py
 │
@@ -3602,14 +3602,14 @@ lib/
 
 ---
 
-# 203. Exemple de flux RoomCalculator
+# 203. Exemple de flux CalculsPieces
 
 ```text
 Utilisateur clique sur Calculer
         ↓
 MainWindow
         ↓
-RoomCalculatorController
+CalculsPiecesController
         ↓
 Validation
         ↓
@@ -3617,7 +3617,7 @@ RoomCollector
         ↓
 RoomData[]
         ↓
-RoomCalculatorService
+CalculsPiecesService
         ↓
 CalculationResult
         ↓
@@ -3632,10 +3632,10 @@ Revit API
 
 ---
 
-# 204. Exemple d’architecture PublisherAI
+# 204. Exemple d’architecture Export
 
 ```text
-PublisherAI.pushbutton/
+Export.pushbutton/
 │
 ├── script.py
 │
@@ -3671,7 +3671,7 @@ lib/common/
 
 ---
 
-# 205. Flux PublisherAI
+# 205. Flux Export
 
 ```text
 MainWindow
@@ -3719,7 +3719,7 @@ Exemple :
 
 ```python
 from calculation.room_calculator import (
-    RoomCalculatorService,
+    CalculsPiecesService,
 )
 ```
 
@@ -3740,12 +3740,12 @@ doit rester très léger.
 Exemple idéal :
 
 ```python
-from controller import RoomCalculatorController
+from controller import CalculsPiecesController
 
 
 def main():
 
-    controller = RoomCalculatorController()
+    controller = CalculsPiecesController()
 
     controller.run()
 
@@ -3921,9 +3921,9 @@ L’architecture cible peut être résumée ainsi :
 ┌──────────────────────────────┐
 │        OUTILS PYREVIT        │
 │                              │
-│ PublisherAI                  │
-│ RoomCalculator               │
-│ Quality Control              │
+│ Export                  │
+│ CalculsPieces               │
+│ Controle              │
 │ Annotation                   │
 │ Utilitaires                  │
 └──────────────┬───────────────┘
