@@ -52,17 +52,22 @@ class ExportWindow(forms.WPFWindow):
     def _refresh_persistent_carnets(self):
         rows = []
         for publication_set in self.controller.list_persistent():
+            # Un carnet persistant n'est affiché que s'il contient au moins
+            # une feuille appartenant au document Revit actuellement ouvert.
             if not self._belongs_to_current_project(publication_set):
                 continue
             resolution = self.controller.resolve_persistent(publication_set)
             rows.append(_CarnetListEntry(publication_set, resolution.missing_count))
+
         for publication_set in self.session_carnets:
             if self._belongs_to_current_project(publication_set):
                 rows.append(_CarnetListEntry(publication_set, 0, persistent=False))
+
         self.PersistentCarnetsList.ItemsSource = rows
         self._restore_checked_carnets()
 
     def _belongs_to_current_project(self, publication_set):
+        """Vérifie qu'un carnet contient une feuille du document actif."""
         if publication_set is None:
             return False
         return any(
@@ -83,7 +88,12 @@ class ExportWindow(forms.WPFWindow):
         manager = CarnetManagerWindow(self.controller, owner=self)
         manager.ShowDialog()
         if manager.result:
-            self.session_carnets.extend(manager.result)
+            # Les carnets paramétriques et manuels persistants sont déjà
+            # présents dans le repository : ne pas les ajouter une seconde fois
+            # dans la collection de session.
+            for carnet in manager.result:
+                if not carnet.persistent:
+                    self.session_carnets.append(carnet)
             self._refresh_persistent_carnets()
 
     def CarnetCheckChanged(self, sender, args):
