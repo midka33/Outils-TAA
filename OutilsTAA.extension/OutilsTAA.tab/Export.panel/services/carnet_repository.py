@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Persistance locale des carnets manuels Export."""
 
 import json
