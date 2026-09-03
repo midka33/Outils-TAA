@@ -2,22 +2,20 @@
 
 import uuid
 
+from carnet_resolution import CarnetResolution
+from publication_item import PublicationItem
 from publication_set import PublicationSet
 from publication_source import PublicationSource
 
 
 class CarnetService(object):
-    """Construit les carnets à partir des trois sources V1."""
+    """Construit et résout les carnets à partir des sources V1."""
 
     def __init__(self, export_service):
         self.export_service = export_service
 
     def create_from_parameter(self, parameter_name, name_template=None):
-        """Crée un carnet par valeur distincte d'un paramètre de feuille.
-
-        Les valeurs vides sont ignorées afin d'éviter de créer un carnet
-        inutilisable pour les feuilles qui ne sont pas renseignées.
-        """
+        """Crée un carnet par valeur distincte d'un paramètre de feuille."""
         if not parameter_name:
             raise ValueError("Le nom du paramètre est obligatoire.")
 
@@ -87,6 +85,58 @@ class CarnetService(object):
     def create_manual_temporary(self, name, items):
         """Crée un carnet manuel utilisable uniquement pour la session."""
         return self.create_manual(name, items, persistent=False)
+
+    def resolve_persistent_carnet(self, publication_set, sheets):
+        """Résout un carnet sauvegardé avec les feuilles du document courant.
+
+        Le UniqueId est la référence principale. Les éléments absents ne sont
+        jamais supprimés silencieusement : ils sont retournés dans missing_items.
+        """
+        if publication_set is None:
+            raise ValueError("Le carnet est manquant.")
+
+        current_by_unique_id = {}
+        for sheet in sheets or []:
+            if sheet is None:
+                continue
+            try:
+                unique_id = sheet.UniqueId
+            except Exception:
+                continue
+            if unique_id:
+                current_by_unique_id[unique_id] = sheet
+
+        resolved = []
+        missing = []
+
+        for saved_item in publication_set.items:
+            if saved_item is None or not saved_item.unique_id:
+                missing.append(saved_item)
+                continue
+
+            sheet = current_by_unique_id.get(saved_item.unique_id)
+            if sheet is None:
+                missing.append(saved_item)
+                continue
+
+            try:
+                resolved.append(
+                    PublicationItem(
+                        sheet.UniqueId,
+                        sheet.Id.IntegerValue,
+                        saved_item.item_type or "SHEET",
+                        sheet.SheetNumber,
+                        sheet.Name,
+                        saved_item.parameter_value
+                    )
+                )
+            except Exception:
+                missing.append(saved_item)
+
+        return CarnetResolution(
+            items=self._sort_items(resolved),
+            missing_items=missing
+        )
 
     @staticmethod
     def _new_id():
