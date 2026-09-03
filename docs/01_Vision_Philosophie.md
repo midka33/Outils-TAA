@@ -35,8 +35,8 @@ Le projet est conçu comme un logiciel modulaire destiné à automatiser les tâ
 
 Modules prévus :
 
-- Publication
-- Calcul
+- Export
+- Calculs des pièces
 - Contrôle
 - Annotation
 - BIM
