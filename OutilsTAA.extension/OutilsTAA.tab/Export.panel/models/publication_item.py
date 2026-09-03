@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Modèle représentant un élément à publier."""
 
 
