@@ -158,78 +158,54 @@ class ExportWindow(forms.WPFWindow):
         self.selected_publication_sets = []
         self._show_manual_selection()
 
-    def PersistentCarnet_SelectionChanged(self, sender, args):
-        """Gère la sélection d'un ou plusieurs carnets dans la liste."""
-        entries = list(self.PersistentCarnetsList.SelectedItems)
-        self.selected_publication_sets = [entry.publication_set for entry in entries]
+    def CarnetCheckChanged(self, sender, args):
+        """Met à jour la sélection des carnets à publier après une case cochée."""
+        selected = []
+        for index in range(self.PersistentCarnetsList.Items.Count):
+            entry = self.PersistentCarnetsList.Items[index]
+            if entry.IsSelected:
+                selected.append(entry.publication_set)
 
-        # En mode Paramètre, plusieurs carnets peuvent être sélectionnés pour
-        # publier uniquement le sous-ensemble souhaité du projet.
-        if self.ModeParameter.IsChecked:
-            self.current_persistent = None
-            rows = []
-            missing_total = 0
-            sheet_total = 0
+        self.selected_publication_sets = selected
+        self.current_persistent = None
 
-            for publication_set in self.selected_publication_sets:
-                if publication_set.persistent:
-                    resolution = self.controller.resolve_persistent(publication_set)
-                    items = resolution.items
-                    missing_total += resolution.missing_count
-                else:
-                    items = publication_set.items
-
-                sheet_total += len(items)
-                rows.append(PreviewRow(publication_set.name, len(items)))
-
-            self.PreviewGrid.ItemsSource = rows
-            if self.selected_publication_sets:
-                self.CarnetsSelectionInfo.Text = (
-                    "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s)."
-                    .format(len(self.selected_publication_sets), sheet_total)
-                )
+        rows = []
+        missing_total = 0
+        sheet_total = 0
+        for publication_set in selected:
+            if publication_set.persistent:
+                resolution = self.controller.resolve_persistent(publication_set)
+                items = resolution.items
+                missing_total += resolution.missing_count
             else:
-                self.CarnetsSelectionInfo.Text = (
-                    "En mode Paramètre, sélectionnez un ou plusieurs carnets."
-                )
+                items = publication_set.items
 
-            if missing_total:
-                self.MissingInfo.Visibility = Visibility.Visible
-                self.MissingInfo.Text = (
-                    "ATTENTION : {0} élément(s) sont introuvables dans le document "
-                    "courant. Ils ne seront pas publiés."
-                ).format(missing_total)
-            else:
-                self.MissingInfo.Visibility = Visibility.Collapsed
-            return
+            sheet_total += len(items)
+            rows.append(PreviewRow(publication_set.name, len(items)))
 
-        # En mode manuel, on conserve le fonctionnement mono-carnet existant.
-        entry = entries[0] if entries else None
-        self.current_persistent = entry.publication_set if entry else None
-        if self.current_persistent is None:
-            return
-
-        if self.current_persistent.persistent:
-            resolution = self.controller.resolve_persistent(self.current_persistent)
-            items = resolution.items
-            missing_count = resolution.missing_count
+        self.PreviewGrid.ItemsSource = rows
+        if selected:
+            self.CarnetsSelectionInfo.Text = (
+                "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s)."
+                .format(len(selected), sheet_total)
+            )
         else:
-            items = self.current_persistent.items
-            missing_count = 0
+            self.CarnetsSelectionInfo.Text = (
+                "En mode Paramètre, cochez les carnets à publier."
+            )
 
-        self.PreviewGrid.ItemsSource = [
-            PreviewRow(item.sheet_number, 1, item.sheet_name)
-            for item in items
-        ]
-
-        if missing_count:
+        if missing_total:
             self.MissingInfo.Visibility = Visibility.Visible
             self.MissingInfo.Text = (
-                "ATTENTION : {0} élément(s) du carnet sont introuvables "
-                "dans le document courant. Ils ne seront pas publiés."
-            ).format(missing_count)
+                "ATTENTION : {0} élément(s) sont introuvables dans le document "
+                "courant. Ils ne seront pas publiés."
+            ).format(missing_total)
         else:
             self.MissingInfo.Visibility = Visibility.Collapsed
+
+    def PersistentCarnet_SelectionChanged(self, sender, args):
+        """Conserve la sélection de ligne uniquement pour les actions administratives."""
+        pass
 
     def Create_Click(self, sender, args):
         if self.ModeParameter.IsChecked:
@@ -269,12 +245,12 @@ class ExportWindow(forms.WPFWindow):
             for carnet in carnets
         ]
         self.CarnetsSelectionInfo.Text = (
-            "{0} carnet(s) détecté(s). Sélectionnez ceux à publier dans la liste."
+            "{0} carnet(s) détecté(s). Cochez ceux à publier dans la liste."
             .format(len(carnets))
         )
         forms.alert(
             "{0} carnet(s) préparé(s) à partir de « {1} ».\n"
-            "Sélectionnez maintenant les carnets à publier."
+            "Cochez maintenant les carnets à publier."
             .format(len(carnets), parameter_name),
             title="Export"
         )
@@ -306,7 +282,7 @@ class ExportWindow(forms.WPFWindow):
             publication_sets = list(self.selected_publication_sets)
             if not publication_sets:
                 forms.alert(
-                    "Sélectionnez au moins un carnet dans la liste.",
+                    "Cochez au moins un carnet dans la liste.",
                     title="Publication"
                 )
                 return
@@ -403,7 +379,10 @@ class ExportWindow(forms.WPFWindow):
                 if carnet.id != entry.publication_set.id
             ]
             self.current_persistent = None
-            self.selected_publication_sets = []
+            self.selected_publication_sets = [
+                carnet for carnet in self.selected_publication_sets
+                if carnet.id != entry.publication_set.id
+            ]
             self._refresh_persistent_carnets()
             self.PreviewGrid.ItemsSource = []
             return
@@ -419,7 +398,10 @@ class ExportWindow(forms.WPFWindow):
 
         self.repository.delete(entry.publication_set.id)
         self.current_persistent = None
-        self.selected_publication_sets = []
+        self.selected_publication_sets = [
+            carnet for carnet in self.selected_publication_sets
+            if carnet.id != entry.publication_set.id
+        ]
         self._refresh_persistent_carnets()
         self.PreviewGrid.ItemsSource = []
         self.MissingInfo.Visibility = Visibility.Collapsed
@@ -433,6 +415,15 @@ class _CarnetListEntry(object):
 
     def __init__(self, publication_set, missing_count, persistent=True):
         self.publication_set = publication_set
+        self.IsSelected = False
+        self.Name = publication_set.name
+        self.Count = len(publication_set.items)
+        if missing_count:
+            self.Status = "{0} manquant(s)".format(missing_count)
+        elif not persistent:
+            self.Status = "Session"
+        else:
+            self.Status = "Disponible"
         suffix = (
             "ATTENTION : {0} manquant(s)".format(missing_count)
             if missing_count
