@@ -100,6 +100,34 @@ class PublicationService(object):
             os.makedirs(output_directory)
         return output_directory
 
+    def _snapshot_files(self, output_directory, extension):
+        """Mémorise les fichiers existants avant un export."""
+        try:
+            return set(
+                name for name in os.listdir(output_directory)
+                if name.lower().endswith(extension.lower())
+            )
+        except Exception:
+            return set()
+
+    def _created_files(self, output_directory, before, extension):
+        """Retourne les fichiers créés ou modifiés par l'export."""
+        try:
+            names = [
+                name for name in os.listdir(output_directory)
+                if name.lower().endswith(extension.lower())
+            ]
+        except Exception:
+            return []
+
+        created = [name for name in names if name not in before]
+        if created:
+            return [os.path.join(output_directory, name) for name in sorted(created)]
+
+        # Un export peut remplacer un fichier existant. Dans ce cas, le chemin
+        # attendu reste utile dans le rapport, même si aucun nouveau nom n'est créé.
+        return []
+
     def publish_pdf(self, publication_set, output_directory,
                     combined=True):
         """Publie un carnet en PDF combiné ou en fichiers séparés."""
@@ -110,6 +138,7 @@ class PublicationService(object):
         output_directory = self._prepare_output_directory(output_directory)
         items = self.sort_items(publication_set)
         view_ids = [item.sheet_id for item in items]
+        before = self._snapshot_files(output_directory, ".pdf")
 
         try:
             success = self.pdf_service.export(
@@ -133,6 +162,11 @@ class PublicationService(object):
                     output_directory,
                     publication_set.name + ".pdf"
                 )
+                result["files"] = [result["file"]]
+            else:
+                result["files"] = self._created_files(
+                    output_directory, before, ".pdf"
+                )
             return result
         except Exception as exc:
             return {
@@ -141,7 +175,8 @@ class PublicationService(object):
                 "mode": "combined" if combined else "separate",
                 "directory": output_directory,
                 "count": len(items),
-                "errors": [str(exc)]
+                "errors": [str(exc)],
+                "files": []
             }
 
     def publish_dwg(self, publication_set, output_directory,
@@ -154,6 +189,7 @@ class PublicationService(object):
         output_directory = self._prepare_output_directory(output_directory)
         items = self.sort_items(publication_set)
         view_ids = [item.sheet_id for item in items]
+        before = self._snapshot_files(output_directory, ".dwg")
 
         try:
             success = self.dwg_service.export(
@@ -179,8 +215,11 @@ class PublicationService(object):
                     output_directory,
                     publication_set.name + ".dwg"
                 )
+                result["files"] = [result["file"]]
             else:
-                result["prefix"] = publication_set.name
+                result["files"] = self._created_files(
+                    output_directory, before, ".dwg"
+                )
             return result
         except Exception as exc:
             return {
@@ -189,7 +228,8 @@ class PublicationService(object):
                 "mode": "combined" if combined else "separate",
                 "directory": output_directory,
                 "count": len(items),
-                "errors": [str(exc)]
+                "errors": [str(exc)],
+                "files": []
             }
 
     def publish(self, publication_set, output_directory,
@@ -201,6 +241,7 @@ class PublicationService(object):
             return {
                 "success": False,
                 "carnet": getattr(publication_set, "name", None),
+                "output_directory": output_directory,
                 "results": [],
                 "errors": ["Aucun format de publication n'est sélectionné."]
             }
@@ -228,6 +269,7 @@ class PublicationService(object):
         return {
             "success": all(result.get("success", False) for result in results),
             "carnet": publication_set.name if publication_set else None,
+            "output_directory": output_directory,
             "results": results,
             "errors": [
                 error
