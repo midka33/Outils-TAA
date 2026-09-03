@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Persistance locale des carnets manuels Export."""
+"""Persistance locale des carnets Export."""
 
 import json
 import os
@@ -41,7 +41,10 @@ class CarnetRepository(object):
             raise ValueError("Le carnet doit posséder un identifiant.")
 
         publication_set.persistent = True
-        publication_set.source.mode = PublicationSource.MANUAL
+        # Conserver la source réelle du carnet (PARAMETER ou MANUAL).
+        # Ne pas transformer un carnet issu d'un paramètre en carnet manuel.
+        if publication_set.source is None:
+            publication_set.source = PublicationSource(PublicationSource.MANUAL)
 
         data = self._read()
         serialized = self._to_dict(publication_set)
