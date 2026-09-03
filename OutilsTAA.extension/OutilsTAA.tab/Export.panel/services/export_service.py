@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Service d'accès aux feuilles Revit pour le module Export."""
 
 from publication_item import PublicationItem
