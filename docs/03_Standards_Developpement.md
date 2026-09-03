@@ -81,6 +81,34 @@ Chaque composant possède ainsi une fonction précise.
 
 ---
 
+## 2.2 Capitalisation des bugs et prévention de leur réapparition
+
+Lorsqu'un bug est résolu, sa **cause racine** doit être recherchée et documentée lorsqu'elle révèle une erreur de conception, de codage, de compatibilité ou de processus reproductible.
+
+Si cette cause peut être évitée par une règle générale, une règle correspondante doit être ajoutée ou précisée dans les standards de développement.
+
+Le cycle attendu est :
+
+```text
+Bug
+↓
+Reproduction
+↓
+Cause racine
+↓
+Correction
+↓
+Règle préventive dans les standards
+↓
+Test ou contrôle permettant de vérifier la règle
+```
+
+L'objectif est de transformer les erreurs rencontrées pendant le développement en **connaissance durable du projet**, afin de ne pas reproduire les mêmes erreurs dans les outils suivants.
+
+Si une règle existe déjà, elle doit être complétée ou renforcée plutôt que dupliquée.
+
+Lorsqu'une règle issue d'un bug entraîne une modification du code, des tests ou de l'architecture, la correction et la règle doivent être liées dans le commit ou la documentation correspondante lorsque cela est pertinent.
+
 # 3. Principe DRY
 
 Le principe **DRY – Don't Repeat Yourself** doit être appliqué systématiquement.
@@ -551,6 +579,20 @@ Parameter
 ```
 
 ---
+
+## 16.1 Encodage des fichiers Python
+
+Tous les fichiers Python (`.py`) du projet doivent être enregistrés en **UTF-8**.
+
+Pour garantir la compatibilité avec **IronPython 2 utilisé par pyRevit**, tout fichier Python doit déclarer explicitement son encodage en première ligne :
+
+```python
+# -*- coding: utf-8 -*-
+```
+
+Cette déclaration doit être placée avant toute autre ligne du fichier.
+
+Cette règle doit être appliquée systématiquement, même lorsque le fichier ne contient pas encore de caractères accentués, afin d'éviter les erreurs de parsing liées à l'encodage lors de l'exécution dans pyRevit.
 
 # 17. Gestion des erreurs
 
