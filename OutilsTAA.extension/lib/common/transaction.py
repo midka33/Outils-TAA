@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Gestion centralisée des transactions Revit."""
 
 try:
