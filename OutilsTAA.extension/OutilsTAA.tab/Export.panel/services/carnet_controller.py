@@ -53,6 +53,10 @@ class CarnetController(object):
             output_directory,
             filename_template_id
         )
+        return self.save_persistent(publication_set)
+
+    def save_persistent(self, publication_set):
+        """Enregistre un carnet déjà construit comme carnet persistant."""
         if self.repository is None:
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
         return self.repository.save(publication_set)
