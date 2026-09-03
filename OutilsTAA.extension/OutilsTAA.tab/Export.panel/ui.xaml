@@ -54,8 +54,9 @@
                         <CheckBox x:Name="PersistentCheckBox" Content="Enregistrer ce carnet pour les prochaines sessions" IsChecked="True" Margin="4,4,4,4"/>
                     </StackPanel>
                     <StackPanel Grid.Row="4" Margin="0,12,0,0">
-                        <TextBlock Text="Carnets enregistrés" FontWeight="Bold" Margin="0,0,0,6"/>
-                        <ListBox x:Name="PersistentCarnetsList" DisplayMemberPath="DisplayName" SelectionChanged="PersistentCarnet_SelectionChanged"/>
+                        <TextBlock x:Name="CarnetsListTitle" Text="Carnets disponibles" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <TextBlock x:Name="CarnetsSelectionInfo" Text="En mode Paramètre, cochez les carnets à publier." TextWrapping="Wrap" Margin="0,0,0,6"/>
+                        <ListBox x:Name="PersistentCarnetsList" SelectionMode="Extended" DisplayMemberPath="DisplayName" SelectionChanged="PersistentCarnet_SelectionChanged"/>
                         <Button x:Name="DeleteCarnetButton" Content="Supprimer le carnet sélectionné" Click="DeleteCarnet_Click"/>
                     </StackPanel>
                     <GroupBox Grid.Row="5" Header="Publication" Padding="8" Margin="0,12,0,0">
@@ -78,7 +79,7 @@
                             <TextBlock Text="Configuration DWG Revit" FontWeight="Bold" Margin="0,8,0,5"/>
                             <ComboBox x:Name="DwgSetupCombo" Height="30"/>
                             <CheckBox x:Name="DwgTrueColorCheckBox" Content="Couleur vraie" IsChecked="True" Margin="4,6,4,2"/>
-                            <Button x:Name="PublishButton" Content="Publier le carnet sélectionné" Click="Publish_Click" MinHeight="38" Margin="4,10,4,2"/>
+                            <Button x:Name="PublishButton" Content="Publier les carnets sélectionnés" Click="Publish_Click" MinHeight="38" Margin="4,10,4,2"/>
                         </StackPanel>
                     </GroupBox>
                 </Grid>
