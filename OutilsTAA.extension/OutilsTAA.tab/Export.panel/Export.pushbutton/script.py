@@ -19,6 +19,7 @@ from lib.common import parameter_utils
 from export_service import ExportService
 from carnet_service import CarnetService
 from parameter_service import ParameterService
+from publication_service import PublicationService
 from carnet_controller import CarnetController
 from carnet_repository import CarnetRepository
 from export_window import ExportWindow
@@ -41,13 +42,15 @@ def main():
     export_service = ExportService(revit.doc, parameter_utils)
     carnet_service = CarnetService(export_service)
     parameter_service = ParameterService(parameter_utils)
+    publication_service = PublicationService(revit.doc)
     repository = CarnetRepository(_get_storage_path())
 
     controller = CarnetController(
         export_service,
         carnet_service,
         parameter_service,
-        repository
+        repository,
+        publication_service
     )
 
     window = ExportWindow(controller, repository)
