@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Point d'entrée pyRevit du module Export."""
 
 import os
