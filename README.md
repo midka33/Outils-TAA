@@ -15,13 +15,18 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | 🚧 En développement |
 | **Calculs des pièces** | 🚧 Migration |
-| Quality Control | 📋 Planifié |
-| Annotation | 📋 Planifié |
-| Utilitaires | 📋 Planifié |
+| **Contrôle** | 📋 Planifié |
+| **Annotation** | 📋 Planifié |
+| **Utilitaires** | 📋 Planifié |
 
-> **Export** est le nom officiel du module précédemment désigné sous le nom **PublisherAI**. Le nom PublisherAI n'est plus utilisé comme nom fonctionnel du module.
->
-> **Calculs des pièces** est le nom officiel du module précédemment désigné sous le nom **RoomCalculator**. Le nom RoomCalculator n'est plus utilisé comme nom fonctionnel du module.
+## Historique des noms
+
+Pour conserver la traçabilité du projet :
+
+- **Export** est le nom actuel du module historiquement appelé `PublisherAI`.
+- **Calculs des pièces** est le nom actuel du module historiquement appelé `RoomCalculator`.
+
+Les anciens noms ne doivent plus être utilisés pour désigner les modules dans le code, l'interface ou la documentation courante.
 
 ## Compatibilité
 
@@ -31,7 +36,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 ## Structure
 
 ```text
-OutilsTAA/
+Outils-TAA/
 ├── docs/
 ├── OutilsTAA.extension/
 └── README.md
