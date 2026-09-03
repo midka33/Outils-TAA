@@ -26,6 +26,7 @@ class ExportWindow(forms.WPFWindow):
         self.repository = repository
         self.current_items = []
         self.current_persistent = None
+        self.selected_publication_sets = []
         self.session_carnets = []
 
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
@@ -115,7 +116,7 @@ class ExportWindow(forms.WPFWindow):
         ]
 
     def _get_publication_set(self):
-        """Retourne le carnet actuellement publiable."""
+        """Retourne le carnet actuellement publiable en mode manuel."""
         if self.current_persistent is not None:
             if self.current_persistent.persistent:
                 return self.controller.resolve_persistent(self.current_persistent)
@@ -132,9 +133,12 @@ class ExportWindow(forms.WPFWindow):
 
     def ParameterCombo_SelectionChanged(self, sender, args):
         if self.ModeParameter.IsChecked:
+            self.selected_publication_sets = []
             self._update_parameter_preview()
 
     def Mode_Checked(self, sender, args):
+        self.selected_publication_sets = []
+        self.current_persistent = None
         self._update_mode()
 
     def SelectSheets_Click(self, sender, args):
@@ -151,10 +155,56 @@ class ExportWindow(forms.WPFWindow):
             if selected else []
         )
         self.current_persistent = None
+        self.selected_publication_sets = []
         self._show_manual_selection()
 
     def PersistentCarnet_SelectionChanged(self, sender, args):
-        entry = self.PersistentCarnetsList.SelectedItem
+        """Gère la sélection d'un ou plusieurs carnets dans la liste."""
+        entries = list(self.PersistentCarnetsList.SelectedItems)
+        self.selected_publication_sets = [entry.publication_set for entry in entries]
+
+        # En mode Paramètre, plusieurs carnets peuvent être sélectionnés pour
+        # publier uniquement le sous-ensemble souhaité du projet.
+        if self.ModeParameter.IsChecked:
+            self.current_persistent = None
+            rows = []
+            missing_total = 0
+            sheet_total = 0
+
+            for publication_set in self.selected_publication_sets:
+                if publication_set.persistent:
+                    resolution = self.controller.resolve_persistent(publication_set)
+                    items = resolution.items
+                    missing_total += resolution.missing_count
+                else:
+                    items = publication_set.items
+
+                sheet_total += len(items)
+                rows.append(PreviewRow(publication_set.name, len(items)))
+
+            self.PreviewGrid.ItemsSource = rows
+            if self.selected_publication_sets:
+                self.CarnetsSelectionInfo.Text = (
+                    "{0} carnet(s) sélectionné(s) • {1} feuille(s) publiable(s)."
+                    .format(len(self.selected_publication_sets), sheet_total)
+                )
+            else:
+                self.CarnetsSelectionInfo.Text = (
+                    "En mode Paramètre, sélectionnez un ou plusieurs carnets."
+                )
+
+            if missing_total:
+                self.MissingInfo.Visibility = Visibility.Visible
+                self.MissingInfo.Text = (
+                    "ATTENTION : {0} élément(s) sont introuvables dans le document "
+                    "courant. Ils ne seront pas publiés."
+                ).format(missing_total)
+            else:
+                self.MissingInfo.Visibility = Visibility.Collapsed
+            return
+
+        # En mode manuel, on conserve le fonctionnement mono-carnet existant.
+        entry = entries[0] if entries else None
         self.current_persistent = entry.publication_set if entry else None
         if self.current_persistent is None:
             return
@@ -218,9 +268,13 @@ class ExportWindow(forms.WPFWindow):
             PreviewRow(carnet.name, len(carnet.items))
             for carnet in carnets
         ]
+        self.CarnetsSelectionInfo.Text = (
+            "{0} carnet(s) détecté(s). Sélectionnez ceux à publier dans la liste."
+            .format(len(carnets))
+        )
         forms.alert(
             "{0} carnet(s) préparé(s) à partir de « {1} ».\n"
-            "Ils sont disponibles dans la liste des carnets pour publication."
+            "Sélectionnez maintenant les carnets à publier."
             .format(len(carnets), parameter_name),
             title="Export"
         )
@@ -231,15 +285,40 @@ class ExportWindow(forms.WPFWindow):
         if folder:
             self.OutputDirectoryTextBox.Text = folder
 
+    def _publish_one(self, publication_set, output_directory, export_pdf,
+                     export_dwg, pdf_combined, dwg_combined, setup_name,
+                     true_color):
+        """Publie un carnet et retourne son résultat."""
+        return self.controller.publish(
+            publication_set,
+            output_directory,
+            export_pdf=export_pdf,
+            export_dwg=export_dwg,
+            pdf_combined=pdf_combined,
+            dwg_combined=dwg_combined,
+            dwg_setup_name=setup_name,
+            dwg_true_color=true_color
+        )
+
     def Publish_Click(self, sender, args):
-        """Lance la publication puis affiche le rapport détaillé."""
-        publication_set = self._get_publication_set()
-        if publication_set is None:
-            forms.alert(
-                "Sélectionnez un carnet enregistré ou préparez une sélection manuelle.",
-                title="Publication"
-            )
-            return
+        """Publie un ou plusieurs carnets puis affiche le rapport détaillé."""
+        if self.ModeParameter.IsChecked:
+            publication_sets = list(self.selected_publication_sets)
+            if not publication_sets:
+                forms.alert(
+                    "Sélectionnez au moins un carnet dans la liste.",
+                    title="Publication"
+                )
+                return
+        else:
+            publication_set = self._get_publication_set()
+            if publication_set is None:
+                forms.alert(
+                    "Sélectionnez un carnet enregistré ou préparez une sélection manuelle.",
+                    title="Publication"
+                )
+                return
+            publication_sets = [publication_set]
 
         output_directory = self.OutputDirectoryTextBox.Text
         if not output_directory or not output_directory.strip():
@@ -257,20 +336,60 @@ class ExportWindow(forms.WPFWindow):
             forms.alert("Sélectionnez au moins un format.", title="Publication")
             return
 
-        result = self.controller.publish(
-            publication_set,
-            output_directory.strip(),
-            export_pdf=export_pdf,
-            export_dwg=export_dwg,
-            pdf_combined=pdf_combined,
-            dwg_combined=dwg_combined,
-            dwg_setup_name=setup_name,
-            dwg_true_color=true_color
-        )
+        all_results = []
+        all_errors = []
+        all_warnings = []
+        all_success = True
 
-        result["output_directory"] = output_directory.strip()
+        for publication_set in publication_sets:
+            try:
+                result = self._publish_one(
+                    publication_set,
+                    output_directory.strip(),
+                    export_pdf,
+                    export_dwg,
+                    pdf_combined,
+                    dwg_combined,
+                    setup_name,
+                    true_color
+                )
+            except Exception as exc:
+                result = {
+                    "success": False,
+                    "carnet": publication_set.name,
+                    "results": [],
+                    "errors": [str(exc)],
+                    "warnings": []
+                }
 
-        report_window = PublicationReportWindow(result, owner=self)
+            carnet_name = publication_set.name
+            for item_result in result.get("results", []):
+                item_result = dict(item_result)
+                item_result["carnet"] = carnet_name
+                all_results.append(item_result)
+
+            for error in result.get("errors", []):
+                all_errors.append("{0} : {1}".format(carnet_name, error))
+            for warning in result.get("warnings", []):
+                all_warnings.append("{0} : {1}".format(carnet_name, warning))
+
+            if not result.get("success"):
+                all_success = False
+
+        report = {
+            "success": all_success,
+            "carnet": (
+                "{0} carnet(s)".format(len(publication_sets))
+                if len(publication_sets) > 1
+                else publication_sets[0].name
+            ),
+            "results": all_results,
+            "errors": all_errors,
+            "warnings": all_warnings,
+            "output_directory": output_directory.strip()
+        }
+
+        report_window = PublicationReportWindow(report, owner=self)
         report_window.show_dialog()
 
     def DeleteCarnet_Click(self, sender, args):
@@ -284,6 +403,7 @@ class ExportWindow(forms.WPFWindow):
                 if carnet.id != entry.publication_set.id
             ]
             self.current_persistent = None
+            self.selected_publication_sets = []
             self._refresh_persistent_carnets()
             self.PreviewGrid.ItemsSource = []
             return
@@ -299,6 +419,7 @@ class ExportWindow(forms.WPFWindow):
 
         self.repository.delete(entry.publication_set.id)
         self.current_persistent = None
+        self.selected_publication_sets = []
         self._refresh_persistent_carnets()
         self.PreviewGrid.ItemsSource = []
         self.MissingInfo.Visibility = Visibility.Collapsed
