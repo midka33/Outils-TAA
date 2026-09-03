@@ -1,0 +1,52 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ajouter des carnets" Height="620" Width="900"
+        MinHeight="520" MinWidth="760" WindowStartupLocation="CenterOwner">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Ajouter des carnets" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="1">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <RadioButton x:Name="ModeParameter" Content="Par paramètre" IsChecked="True" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4"/>
+                <RadioButton x:Name="ModeManual" Content="Manuel" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4"/>
+                <RadioButton x:Name="ModeTemporary" Content="Temporaire" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4"/>
+            </StackPanel>
+            <Grid x:Name="ParameterPanel">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" Grid.Row="0">
+                    <TextBlock Text="Paramètre :" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="ParameterCombo" Width="320" Height="30" SelectionChanged="Parameter_SelectionChanged"/>
+                    <Button Content="Actualiser" Click="RefreshParameter_Click" Margin="8,0,0,0"/>
+                </StackPanel>
+                <TextBlock Grid.Row="1" x:Name="ParameterInfo" TextWrapping="Wrap" Margin="0,8,0,8"/>
+            </Grid>
+            <StackPanel x:Name="ManualPanel" Visibility="Collapsed">
+                <TextBlock Text="Nom du carnet" FontWeight="Bold" Margin="0,0,0,5"/>
+                <TextBox x:Name="CarnetNameTextBox" Height="30"/>
+                <Button Content="Sélectionner les feuilles dans Revit" Click="SelectSheets_Click" Margin="0,8,0,0"/>
+                <TextBlock x:Name="ManualSelectionInfo" Text="Aucune feuille sélectionnée." TextWrapping="Wrap" Margin="0,8,0,4"/>
+                <CheckBox x:Name="PersistentCheckBox" Content="Enregistrer le carnet pour les prochaines sessions" IsChecked="True" Margin="4,4,4,4"/>
+            </StackPanel>
+        </StackPanel>
+        <Grid Grid.Row="2" Margin="0,8,0,12">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" x:Name="SelectionInfo" Text="Sélectionnez les carnets à ajouter." FontWeight="Bold" Margin="0,0,0,6"/>
+            <DataGrid Grid.Row="1" x:Name="CarnetsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="False" SelectionMode="Single" VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Ajouter" Binding="{Binding IsSelected, Mode=TwoWay}" Width="65"/>
+                    <DataGridTextColumn Header="Carnet" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Feuilles" Binding="{Binding Count}" Width="80" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Annuler" Click="Cancel_Click" MinWidth="100"/>
+            <Button x:Name="AddButton" Content="Ajouter les carnets sélectionnés" Click="Add_Click" MinWidth="230"/>
+        </StackPanel>
+    </Grid>
+</Window>
