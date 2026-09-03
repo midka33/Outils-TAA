@@ -80,13 +80,15 @@ Exemples :
 
 ### Fichiers et modules
 
-Utiliser `snake_case` :
+Utiliser `snake_case` et un nom reflétant la responsabilité du module :
 
 ```text
-publication_service.py
+export_service.py
 filename_service.py
 parameter_utils.py
 ```
+
+Pour les composants métier de l'outil Export, préférer le vocabulaire `export` dans les noms de modules et de services plutôt qu'un ancien vocabulaire de publication historique.
 
 ### Fonctions et variables
 
