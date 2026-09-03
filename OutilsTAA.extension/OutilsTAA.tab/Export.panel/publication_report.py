@@ -9,13 +9,13 @@ from pyrevit import forms
 class PublicationReportRow(object):
     """Ligne affichée dans le rapport de publication."""
 
-    def __init__(self, carnet, result):
+    def __init__(self, carnet, result, path=None):
         self.Carnet = carnet or "—"
         self.Format = result.get("format", "—")
         self.Mode = "Combiné" if result.get("mode") == "combined" else "Séparé"
         self.Status = "OK" if result.get("success") else "ERREUR"
         self.Count = result.get("count", 0)
-        self.Path = result.get("file") or result.get("directory") or "—"
+        self.Path = path or result.get("file") or result.get("directory") or "—"
 
         details = []
         for warning in result.get("warnings", []):
@@ -44,7 +44,12 @@ class PublicationReportWindow(forms.WPFWindow):
         rows = []
         carnet = self.report.get("carnet")
         for result in self.report.get("results", []):
-            rows.append(PublicationReportRow(carnet, result))
+            files = result.get("files") or []
+            if files:
+                for file_path in files:
+                    rows.append(PublicationReportRow(carnet, result, file_path))
+            else:
+                rows.append(PublicationReportRow(carnet, result))
 
         self.ReportGrid.ItemsSource = rows
 
