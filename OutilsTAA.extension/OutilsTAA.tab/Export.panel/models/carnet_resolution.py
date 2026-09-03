@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Résultat de résolution d'un carnet persistant dans le document courant."""
 
 
