@@ -20,6 +20,8 @@ Le format suit les principes de *Keep a Changelog*.
 - Service PDF natif Revit avec publication combinée ou séparée.
 - Service DWG natif Revit avec publication séparée ou combinée via `MergedViews`.
 - Orchestrateur de publication avec validation des feuilles, contrôle `CanBePrinted` et rapport synthétique.
+- Fenêtre WPF dédiée au rapport de publication avec une ligne par fichier produit.
+- Détection des fichiers PDF/DWG produits pour alimenter le rapport de publication.
 - Tests unitaires de l'orchestrateur de publication.
 
 ### Changed
@@ -28,6 +30,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Normalisation de la structure cible du dépôt pour pyRevit.
 - `PublicationSet` porte désormais son identifiant, son état de persistance et ses options de sortie.
 - Les services d'export isolent maintenant les appels directs à l'API Revit de l'orchestration métier.
+- Le bouton de publication ouvre désormais un rapport détaillé au lieu d'afficher un simple message de fin.
 
 ## [0.1.0] - 2026-07-21
 
