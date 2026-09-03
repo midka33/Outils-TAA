@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Modèles simples destinés à alimenter l'interface WPF du module Export."""
 
 
