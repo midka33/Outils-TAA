@@ -10,8 +10,12 @@ EXTENSION_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if EXTENSION_DIR not in sys.path:
     sys.path.append(EXTENSION_DIR)
 
+SERVICE_DIR = os.path.join(CURRENT_DIR, "services")
+if SERVICE_DIR not in sys.path:
+    sys.path.append(SERVICE_DIR)
+
 from lib.common import parameter_utils
-from OutilsTAA.tab.Export.panel.services.export_service import ExportService
+from export_service import ExportService
 
 
 def main():
