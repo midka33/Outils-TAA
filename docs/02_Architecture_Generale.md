@@ -21,8 +21,8 @@ OutilsTAA.extension/
 │   ├── Controle.panel/
 │   ├── Annotation.panel/
 │   └── Utilitaires.panel/
-├── lib/
-└── resources/
+└── lib/
+    └── common/
 ```
 
 Les noms affichés à l'utilisateur sont :
@@ -35,10 +35,25 @@ Les noms affichés à l'utilisateur sont :
 
 Les noms de dossiers pyRevit restent volontairement sans accents afin de respecter les conventions techniques : `Controle.panel` et `Calculs.panel`.
 
+## Structure des modules
+
+Les modules métier peuvent être organisés par responsabilités :
+
+```text
+<Module>.panel/
+├── models/
+├── services/
+├── ui/
+└── README.md
+```
+
+Les commandes pyRevit (`*.pushbutton`) et leurs scripts d'entrée seront ajoutés sous le module concerné lorsque la fonctionnalité sera implémentée.
+
 ## Bibliothèque commune
 
 ```text
 lib/common/
+├── __init__.py
 ├── logger.py
 ├── settings.py
 ├── dialogs.py
@@ -51,6 +66,8 @@ lib/common/
 └── exceptions.py
 ```
 
+La bibliothèque commune constitue le socle technique partagé. Elle ne doit pas dépendre des modules métier.
+
 ## Principes
 
 - Une responsabilité par classe.
@@ -59,3 +76,6 @@ lib/common/
 - Séparer UI, logique métier et accès Revit.
 - Les noms fonctionnels affichés dans l'interface sont en français.
 - Les identifiants techniques utilisent des noms ASCII, sans espaces ni accents.
+- Les imports doivent utiliser les chemins techniques réellement présents dans le repository.
+- Un module métier ne doit pas importer un composant supprimé, renommé ou appartenant à un ancien chemin.
+- Les composants communs doivent rester indépendants des composants métier.
