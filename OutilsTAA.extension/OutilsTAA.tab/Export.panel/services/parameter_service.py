@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Découverte des paramètres et valeurs disponibles pour Export."""
 
 
