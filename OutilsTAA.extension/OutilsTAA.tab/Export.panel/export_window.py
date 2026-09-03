@@ -17,7 +17,7 @@ class PreviewRow(object):
 
 
 class ExportWindow(forms.WPFWindow):
-    """Interface de création et de gestion des carnets Export."""
+    """Interface de création, gestion et publication des carnets Export."""
 
     def __init__(self, controller, repository):
         self.controller = controller
@@ -34,8 +34,20 @@ class ExportWindow(forms.WPFWindow):
         self.ParameterCombo.ItemsSource = context["parameters"]
         if self.ParameterCombo.Items.Count:
             self.ParameterCombo.SelectedIndex = 0
+        self._load_dwg_setups()
         self._refresh_persistent_carnets()
         self._update_mode()
+
+    def _load_dwg_setups(self):
+        """Charge les configurations DWG natives disponibles dans Revit."""
+        try:
+            setups = self.controller.publication_service.dwg_service.get_predefined_setups()
+        except Exception:
+            setups = []
+
+        values = [""] + list(setups)
+        self.DwgSetupCombo.ItemsSource = values
+        self.DwgSetupCombo.SelectedIndex = 0
 
     def _refresh_persistent_carnets(self):
         rows = []
@@ -95,6 +107,20 @@ class ExportWindow(forms.WPFWindow):
             for item in self.current_items
         ]
 
+    def _get_publication_set(self):
+        """Retourne le carnet actuellement publiable."""
+        if self.current_persistent is not None:
+            return self.controller.resolve_persistent(self.current_persistent)
+
+        if self.current_items:
+            name = self.CarnetNameTextBox.Text
+            if name and name.strip():
+                return self.controller.create_manual_temporary(
+                    name.strip(), self.current_items
+                )
+
+        return None
+
     def ParameterCombo_SelectionChanged(self, sender, args):
         if self.ModeParameter.IsChecked:
             self._update_parameter_preview()
@@ -115,6 +141,7 @@ class ExportWindow(forms.WPFWindow):
             self.controller.export_service.build_publication_items(selected)
             if selected else []
         )
+        self.current_persistent = None
         self._show_manual_selection()
 
     def PersistentCarnet_SelectionChanged(self, sender, args):
@@ -177,6 +204,68 @@ class ExportWindow(forms.WPFWindow):
             ),
             title="Export"
         )
+
+    def BrowseOutput_Click(self, sender, args):
+        """Ouvre le sélecteur de dossier pyRevit."""
+        folder = forms.pick_folder(title="Choisir le dossier de publication")
+        if folder:
+            self.OutputDirectoryTextBox.Text = folder
+
+    def Publish_Click(self, sender, args):
+        """Lance la publication du carnet courant avec les réglages de l'écran."""
+        publication_set = self._get_publication_set()
+        if publication_set is None:
+            forms.alert(
+                "Sélectionnez un carnet enregistré ou préparez une sélection manuelle.",
+                title="Publication"
+            )
+            return
+
+        output_directory = self.OutputDirectoryTextBox.Text
+        if not output_directory or not output_directory.strip():
+            forms.alert("Choisissez un dossier de destination.", title="Publication")
+            return
+
+        export_pdf = bool(self.PdfCheckBox.IsChecked)
+        export_dwg = bool(self.DwgCheckBox.IsChecked)
+        pdf_combined = bool(self.PdfCombinedRadio.IsChecked)
+        dwg_combined = bool(self.DwgCombinedRadio.IsChecked)
+        setup_name = self.DwgSetupCombo.SelectedItem or None
+        true_color = bool(self.DwgTrueColorCheckBox.IsChecked)
+
+        if not export_pdf and not export_dwg:
+            forms.alert("Sélectionnez au moins un format.", title="Publication")
+            return
+
+        result = self.controller.publish(
+            publication_set,
+            output_directory.strip(),
+            export_pdf=export_pdf,
+            export_dwg=export_dwg,
+            pdf_combined=pdf_combined,
+            dwg_combined=dwg_combined,
+            dwg_setup_name=setup_name,
+            dwg_true_color=true_color
+        )
+
+        if result.get("success"):
+            details = []
+            for item in result.get("results", []):
+                details.append(
+                    "{0} {1} : {2} élément(s)".format(
+                        item.get("format"), item.get("mode"), item.get("count", 0)
+                    )
+                )
+            forms.alert(
+                "Publication terminée.\n\n" + "\n".join(details),
+                title="Publication"
+            )
+        else:
+            errors = result.get("errors") or ["Erreur inconnue pendant la publication."]
+            forms.alert(
+                "La publication a échoué :\n\n" + "\n".join(errors),
+                title="Publication"
+            )
 
     def DeleteCarnet_Click(self, sender, args):
         entry = self.PersistentCarnetsList.SelectedItem
