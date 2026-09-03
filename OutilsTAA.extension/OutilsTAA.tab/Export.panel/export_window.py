@@ -6,7 +6,7 @@ import os
 from pyrevit import forms
 from System.Windows import Visibility
 
-from publication_report import PublicationReportWindow
+from export_report_window import PublicationReportWindow
 
 
 class PreviewRow(object):
