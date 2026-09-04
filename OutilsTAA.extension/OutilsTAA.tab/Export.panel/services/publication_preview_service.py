@@ -66,6 +66,7 @@ class PublicationPreviewService(object):
                 warnings.append("Variables inconnues pour {0} : {1}.".format(filename, ", ".join(unknown)))
             status = "⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK")
             rows.append(_PreviewRow(
+                getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
                 item.sheet_name if item is not None else "Publication du carnet",
                 fmt, "Combiné" if mode == "COMBINED" else "Séparé", filename, path, status))
@@ -106,7 +107,8 @@ class PublicationPreviewService(object):
 class _PreviewRow(object):
     """Objet simple compatible avec les bindings WPF du DataGrid."""
 
-    def __init__(self, number, name, fmt, mode, filename, path, status):
+    def __init__(self, carnet, number, name, fmt, mode, filename, path, status):
+        self.Carnet = carnet or "—"
         self.Number = number or "—"
         self.Name = name or "—"
         self.Format = fmt
