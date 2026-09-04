@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Persistance JSON des configurations de carnets dynamiques.
-
-Le store ne persiste jamais les objets Revit ni les feuilles résolues.
-Il conserve uniquement la configuration métier sérialisable du carnet.
-"""
+"""Persistance JSON des configurations de carnets dynamiques."""
 
 import json
 import os
@@ -33,8 +29,7 @@ class DynamicPublicationSetStore(object):
     def get(self, project_key, set_id):
         if not project_key or not set_id:
             return None
-        data = self._read()
-        value = data.get("projects", {}).get(project_key, {}).get(set_id)
+        value = self._read().get("projects", {}).get(project_key, {}).get(set_id)
         if value is None:
             return None
         return DynamicPublicationSetSerializer.deserialize(value)
@@ -49,9 +44,7 @@ class DynamicPublicationSetStore(object):
         publication_set.persistent = True
         serialized = DynamicPublicationSetSerializer.serialize(publication_set)
         data = self._read()
-        projects = data.setdefault("projects", {})
-        project = projects.setdefault(project_key, {})
-        project[publication_set.id] = serialized
+        data.setdefault("projects", {}).setdefault(project_key, {})[publication_set.id] = serialized
         self._write(data)
         return publication_set
 
@@ -91,15 +84,16 @@ class DynamicPublicationSetStore(object):
         self._write(data)
 
     def _read(self):
+        empty = {"schema_version": self.SCHEMA_VERSION, "projects": {}}
         if not os.path.isfile(self.path):
-            return {"schema_version": self.SCHEMA_VERSION, "projects": {}}
+            return empty
         try:
             with open(self.path, "r") as handle:
                 data = json.load(handle)
         except (IOError, OSError, ValueError):
-            return {"schema_version": self.SCHEMA_VERSION, "projects": {}}
+            return empty
         if not isinstance(data, dict):
-            return {"schema_version": self.SCHEMA_VERSION, "projects": {}}
+            return empty
         version = data.get("schema_version", 0)
         if version > self.SCHEMA_VERSION:
             raise ValueError("Schéma de carnets dynamiques non supporté : {0}".format(version))
