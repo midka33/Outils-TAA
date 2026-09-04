@@ -11,7 +11,8 @@ class PublicationPreviewService(object):
         self.publication_service = publication_service
         self.filename_service = filename_service
 
-    def build(self, publication_set, settings):
+    def build(self, publication_set, settings, history_service=None,
+              current_states=None, classified=None, modified_only=False):
         """Retourne les lignes de prévisualisation et les diagnostics."""
         rows = []
         errors = []
@@ -23,24 +24,32 @@ class PublicationPreviewService(object):
         directory = os.path.abspath(settings.output_directory) if settings.output_directory else ""
         items = self.publication_service.sort_items(publication_set)
         if not items:
-            errors.append("Le carnet ne contient aucune mise en page.")
+            errors.append("Aucune mise en page à publier dans le périmètre sélectionné.")
 
         seen_ids = set()
         valid_items = []
+        item_states = current_states or {}
+        item_status = {}
         for item in items:
+            if classified and history_service is not None:
+                key = history_service.item_key(item)
+                for state_name in ("NEW", "MODIFIED", "UNCHANGED", "UNKNOWN"):
+                    if item in classified.get(state_name, []):
+                        item_status[key] = state_name
+                        break
             current_id = self.publication_service._resolve_current_sheet_id(item)
             label = "{0} — {1}".format(item.sheet_number or "", item.sheet_name or "").strip(" —")
             if current_id is None:
                 errors.append("Mise en page introuvable : {0}.".format(label))
                 continue
             try:
-                key = current_id.IntegerValue
+                key_id = current_id.IntegerValue
             except Exception:
-                key = str(current_id)
-            if key in seen_ids:
+                key_id = str(current_id)
+            if key_id in seen_ids:
                 errors.append("Mise en page en double : {0}.".format(label))
                 continue
-            seen_ids.add(key)
+            seen_ids.add(key_id)
             try:
                 element = self.publication_service.document.GetElement(current_id)
                 if element is not None and not element.CanBePrinted:
@@ -65,6 +74,12 @@ class PublicationPreviewService(object):
             if unknown:
                 warnings.append("Variables inconnues pour {0} : {1}.".format(filename, ", ".join(unknown)))
             status = "⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK")
+            if modified_only:
+                if item is None:
+                    status = "MODIFIÉ(S)" if valid_items else "AUCUN CHANGEMENT"
+                else:
+                    key = history_service.item_key(item) if history_service is not None else None
+                    status = item_status.get(key, "UNKNOWN")
             rows.append(_PreviewRow(
                 getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
@@ -100,8 +115,16 @@ class PublicationPreviewService(object):
         if not settings.pdf_enabled and not settings.dwg_enabled:
             errors.append("Aucun format de publication n'est sélectionné.")
 
+        summary = _state_summary(classified) if classified else {}
+        if modified_only:
+            warnings.append(
+                "Mode « Modifiés uniquement » : NEW={0}, MODIFIED={1}, UNCHANGED={2}, UNKNOWN={3}.".format(
+                    summary.get("NEW", 0), summary.get("MODIFIED", 0),
+                    summary.get("UNCHANGED", 0), summary.get("UNKNOWN", 0)))
+
         return {"rows": rows, "errors": errors, "warnings": warnings,
-                "directory": directory, "count": len(rows)}
+                "directory": directory, "count": len(rows),
+                "state_summary": summary, "modified_only": bool(modified_only)}
 
 
 class _PreviewRow(object):
@@ -116,3 +139,8 @@ class _PreviewRow(object):
         self.Filename = filename
         self.Path = path
         self.Status = status
+
+
+def _state_summary(classified):
+    return dict((name, len(classified.get(name, []) or []))
+                for name in ("NEW", "MODIFIED", "UNCHANGED", "UNKNOWN"))
