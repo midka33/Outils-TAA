@@ -48,15 +48,28 @@
 
 ### Étape 08 — Dynamique avancé
 
-- [ ] Règles combinées.
+#### Architecture isolée préparatoire
+
+- [x] Définir le modèle `DynamicRule` / `DynamicRuleGroup` / `DynamicRuleDefinition`.
+- [x] Définir le contrat de résolution `DynamicRuleResolver` → `DynamicResolution`.
+- [x] Préparer les diagnostics et exclusions explicites.
+- [x] Ajouter les tests unitaires hors Revit du moteur de règles.
+- [x] Documenter l'architecture isolée dans `docs/15_Export_Stage08_Dynamique.md`.
+- [x] Maintenir l'architecture isolée hors du workflow de publication Stage 01–07.
+
+#### Fonctionnalités à raccorder après validation Stage 07
+
+- [ ] Règles combinées dans l'interface.
 - [ ] Prévisualisation de résolution.
 - [ ] Détection des nouveaux éléments.
 - [ ] Diagnostic des éléments retirés.
-- [ ] Exclusions explicites.
+- [ ] Exclusions explicites persistantes.
+- [ ] Conversion de la résolution vers le modèle `PublicationItem`.
+- [ ] Intégration au workflow Stage 07 sans second moteur PDF/DWG.
 
 ## Étape suivante après validation Revit
 
-La prochaine étape fonctionnelle est **Étape 08 — Dynamique avancé**. Elle ne doit commencer qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
+La prochaine étape fonctionnelle reste **Étape 08 — Dynamique avancé**. L'architecture préparatoire peut être développée en isolation, mais le raccordement au workflow réel ne doit intervenir qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
 
 ## Étape 09 — Extensibilité
 
