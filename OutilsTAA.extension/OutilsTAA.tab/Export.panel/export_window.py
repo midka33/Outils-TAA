@@ -17,6 +17,7 @@ from publication_set import PublicationSet
 from filename_service import FilenameService
 from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
+from publication_tree_drag_drop import PublicationTreeDragDrop
 
 
 class ExportWindow(forms.WPFWindow):
@@ -43,6 +44,7 @@ class ExportWindow(forms.WPFWindow):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
+        self._drag_drop_manager = PublicationTreeDragDrop(self)
 
     def _load_context(self):
         sheets = self.controller.export_service.get_sheets()
@@ -102,6 +104,7 @@ class ExportWindow(forms.WPFWindow):
 
     def _make_folder_node(self, folder):
         node = TreeViewItem()
+        node.AllowDrop = True
         node.Tag = ("FOLDER", folder)
         header = TextBlock()
         header.Text = folder.name
@@ -111,10 +114,14 @@ class ExportWindow(forms.WPFWindow):
 
     def _make_carnet_node(self, carnet):
         node = TreeViewItem()
+        node.AllowDrop = True
         node.Tag = ("CARNET", carnet)
         node.Header = TextBlock(Text=carnet.name)
-        for item in sorted(carnet.items or [], key=lambda x: ((x.sheet_number or ""), (x.sheet_name or ""))):
+        # L'ordre de la liste est volontaire : il représente l'ordre manuel
+        # défini par l'utilisateur dans l'arborescence de publication.
+        for item in (carnet.items or []):
             child = TreeViewItem()
+            child.AllowDrop = True
             child.Tag = ("SHEET", item, carnet)
             child.Header = TextBlock(Text="{0} — {1}".format(item.sheet_number or "", item.sheet_name or ""))
             node.Items.Add(child)
@@ -309,7 +316,6 @@ class ExportWindow(forms.WPFWindow):
         self._update_filename_preview(self._resolve_settings(self._selected_set))
 
     def _save_selected_settings(self):
-        """Compatibilité pour les appels historiques : ne force pas les valeurs héritées."""
         return
 
     def _save_folder_settings(self, field=None):
@@ -349,253 +355,70 @@ class ExportWindow(forms.WPFWindow):
             self._loading_settings = False
         if self._selected_set.persistent:
             self.controller.save_persistent(self._selected_set)
-        self.ProfileInfoText.Text = "Profil appliqué au carnet. Les autres réglages peuvent rester hérités du dossier."
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
 
-    def ProfileChanged(self, sender, args):
-        if self._loading_profile or self._selected_set is None:
+    def Profile_SelectionChanged(self, sender, args):
+        if self._loading_profile:
             return
-        name = self.ProfileCombo.SelectedItem
-        if not name:
+        profile = self.ProfileCombo.SelectedItem
+        if not profile or self._selected_set is None:
             return
-        values = self.profile_service.get(name)
-        if not values:
-            return
-        self._loading_profile = True
-        try:
-            self._apply_profile_values(values)
-        finally:
-            self._loading_profile = False
+        values = self.profile_service.get_profile(profile)
+        self._apply_profile_values(values)
 
     def SaveProfile_Click(self, sender, args):
-        if self._selected_set is None:
-            forms.alert("Sélectionnez d'abord un carnet ou une mise en page.", title="Profil")
+        name = self.ProfileNameTextBox.Text.strip()
+        if not name or self._selected_set is None:
             return
-        name = forms.ask_for_string(default="Mon profil", prompt="Nom du profil à enregistrer", title="Profil de publication")
-        if not name or not name.strip():
-            return
-        try:
-            self._save_selected_settings()
-            saved_name = self.profile_service.save(name.strip(), self._selected_set.publication_settings)
-        except Exception as exc:
-            forms.alert("Impossible d'enregistrer le profil : {0}".format(exc), title="Profil")
-            return
+        self.profile_service.save_profile(name, self._settings_to_dict(self._resolve_settings(self._selected_set)))
         self._load_profiles()
-        self._loading_profile = True
-        try:
-            self.ProfileCombo.SelectedItem = saved_name
-        finally:
-            self._loading_profile = False
-        self.ProfileInfoText.Text = "Profil personnalisé enregistré : {0}.".format(saved_name)
 
     def DeleteProfile_Click(self, sender, args):
-        name = self.ProfileCombo.SelectedItem
-        if not name:
-            forms.alert("Sélectionnez un profil personnalisé à supprimer.", title="Profil")
+        profile = self.ProfileCombo.SelectedItem
+        if not profile:
             return
-        if name in self.profile_service.DEFAULT_PROFILES:
-            forms.alert("Les profils intégrés ne peuvent pas être supprimés.", title="Profil")
-            return
-        if not forms.alert("Supprimer le profil « {0} » ?".format(name), title="Profil", yes=True, no=True):
-            return
-        if self.profile_service.delete(name):
-            self._load_profiles()
-            self.ProfileInfoText.Text = "Profil supprimé. Les réglages actuels du carnet restent inchangés."
+        self.profile_service.delete_profile(profile)
+        self._load_profiles()
 
-    def _update_filename_preview(self, settings=None):
-        if self._selected_set is None:
-            self.FilenamePreviewText.Text = "—"
-            return
-        if settings is None:
-            settings = self._resolve_settings(self._selected_set)
-        template = getattr(settings, "filename_template", None) or "{carnet}"
+    def _settings_to_dict(self, settings):
+        return {field: getattr(settings, field) for field in PublicationSettings.FIELDS}
+
+    def _update_filename_preview(self, settings):
         try:
-            pdf_name, unknown = self.filename_service.filename(template, self._selected_set, item=self._selected_item, extension=".pdf")
-            self.FilenamePreviewText.Text = "{}  ⚠ variables inconnues : {}".format(pdf_name, ", ".join(unknown)) if unknown else pdf_name
-        except Exception as exc:
-            self.FilenamePreviewText.Text = "Erreur de nommage : {}".format(exc)
+            if self._selected_set is None:
+                self.FilenamePreviewText.Text = "—"
+                return
+            preview = self.filename_service.preview(self._selected_set, settings)
+            self.FilenamePreviewText.Text = preview or "—"
+        except Exception:
+            self.FilenamePreviewText.Text = "—"
 
-    def FilenameTokenChanged(self, sender, args):
-        return
-
-    def InsertFilenameToken_Click(self, sender, args):
+    def FilenameToken_InsertClick(self, sender, args):
         token = self.FilenameTokenCombo.SelectedItem
         if not token:
             return
         text = self.FilenameTemplateTextBox.Text or ""
-        start = self.FilenameTemplateTextBox.SelectionStart
-        length = self.FilenameTemplateTextBox.SelectionLength
-        self.FilenameTemplateTextBox.Text = text[:start] + token + text[start + length:]
-        self.FilenameTemplateTextBox.SelectionStart = start + len(token)
-        self.FilenameTemplateTextBox.Focus()
+        self.FilenameTemplateTextBox.Text = text + token
+        self._save_selected_field("filename_template")
 
     def SettingsChanged(self, sender, args):
         if self._loading_settings:
             return
-        name = getattr(sender, "Name", None)
         mapping = {
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
             "DwgCheckBox": "dwg_enabled", "DwgCombinedRadio": "dwg_mode", "DwgSeparateRadio": "dwg_mode",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
             "OutputDirectoryTextBox": "output_directory", "FilenameTemplateTextBox": "filename_template"
         }
-        field = mapping.get(name)
-        if field is None:
-            return
+        field = mapping.get(getattr(sender, "Name", ""))
         if self._selected_kind == "FOLDER":
             self._save_folder_settings(field)
         else:
             self._save_selected_field(field)
 
-    def FolderChanged(self, sender, args):
-        if self._loading_settings or self._selected_set is None or self.FolderCombo.SelectedItem is None:
-            return
-        self._selected_set.folder_id = self.FolderCombo.SelectedItem.id
-        if self._selected_set.persistent:
-            self.controller.save_persistent(self._selected_set)
-            self._refresh_tree()
-
-    def OpenCarnetManager_Click(self, sender, args):
-        manager = CarnetManagerWindow(self.controller, owner=self)
-        manager.ShowDialog()
-        if manager.result:
-            for carnet in manager.result:
-                if not carnet.persistent:
-                    self.session_carnets.append(carnet)
-            self._refresh_tree()
-
-    def NewFolder_Click(self, sender, args):
-        name = forms.ask_for_string(default="Nouveau dossier", prompt="Nom du dossier", title="Export")
-        if not name or not name.strip():
-            return
-        folder = PublicationFolder(name.strip(), str(Guid.NewGuid()), None, True)
-        self.controller.save_folder(folder)
-        self._refresh_tree()
-
-    def _update_selection_info(self):
-        if self._selected_kind == "CARNET" and self._selected_set is not None:
-            count = len(self._selected_set.items or [])
-            self.SelectionInfo.Text = "Carnet sélectionné : {0} • {1} mise(s) en page.".format(self._selected_set.name, count)
-            self.PublishButton.Content = "Publier le carnet « {0} »".format(self._selected_set.name)
-            self.PublishButton.IsEnabled = count > 0
-            return
-        if self._selected_kind == "SHEET" and self._selected_item is not None:
-            self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(self._selected_item.sheet_number or "", self._selected_item.sheet_name or "")
-            self.PublishButton.Content = "Publier la mise en page"
-            self.PublishButton.IsEnabled = True
-            return
-        if self._selected_kind == "FOLDER":
-            self.SelectionInfo.Text = "Dossier sélectionné : les réglages ci-dessus seront hérités par ses carnets."
-            self.PublishButton.Content = "Publier…"
-            self.PublishButton.IsEnabled = False
-            return
-        self._set_no_selection()
-
-    def BrowseOutput_Click(self, sender, args):
-        folder = forms.pick_folder(title="Choisir le dossier de publication")
-        if folder:
-            self.OutputDirectoryTextBox.Text = folder
-            if self._selected_kind == "FOLDER":
-                self._save_folder_settings("output_directory")
-            elif self._selected_set is not None:
-                self._save_selected_field("output_directory")
-
-    def DeleteNode_Click(self, sender, args):
-        node = self.PublicationTree.SelectedItem
-        if node is None or not getattr(node, "Tag", None):
-            return
-        tag = node.Tag
-        kind, value = tag[0], tag[1]
-        if kind == "CARNET":
-            if not forms.alert("Supprimer le carnet « {0} » ?".format(value.name), title="Export", yes=True, no=True):
-                return
-            if value.persistent:
-                self.repository.delete(value.id)
-            else:
-                self.session_carnets = [c for c in self.session_carnets if c.id != value.id]
-        elif kind == "FOLDER":
-            if value.id == "default":
-                forms.alert("Le dossier Général ne peut pas être supprimé.", title="Export")
-                return
-            if not forms.alert("Supprimer le dossier « {0} » ? Il doit être vide.".format(value.name), title="Export", yes=True, no=True):
-                return
-            if not self.controller.delete_folder(value.id):
-                forms.alert("Le dossier n'est pas vide ou ne peut pas être supprimé.", title="Export")
-                return
-        else:
-            return
-        self._selected_set = None
-        self._selected_item = None
-        self._selected_kind = None
-        self._selected_folder = None
-        self._refresh_tree()
-        self._update_selection_info()
-
-    def _make_sheet_target(self):
-        parent = self._selected_set
-        settings = self._resolve_settings(parent)
-        target = PublicationSet(name=parent.name, items=[self._selected_item], source=parent.source,
-                                output_directory=settings.output_directory, filename_template_id=parent.filename_template_id,
-                                set_id=str(Guid.NewGuid()), persistent=False, folder_id=parent.folder_id,
-                                publication_settings=settings)
-        target.folder_name = self._folder_name(parent)
-        return target
-
-    def _folder_name(self, publication_set):
-        folder = self._folders_by_id.get(getattr(publication_set, "folder_id", None))
-        return folder.name if folder is not None else ""
-
-    def Publish_Click(self, sender, args):
-        if self._selected_kind == "SHEET" and self._selected_item is not None:
-            targets = [self._make_sheet_target()]
-        elif self._selected_kind == "CARNET" and self._selected_set is not None:
-            self._selected_set.folder_name = self._folder_name(self._selected_set)
-            targets = [self._selected_set]
-        else:
-            forms.alert("Sélectionnez un carnet ou une mise en page dans l'arborescence.", title="Publication")
-            return
-        all_results, all_errors, all_warnings = [], [], []
-        all_success = True
-        report_output_directory = None
-        for publication_set in targets:
-            settings = self._resolve_settings(publication_set)
-            errors = settings.validate()
-            if errors:
-                all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
-                all_success = False
-                continue
-            report_output_directory = settings.output_directory
-            try:
-                result = self.controller.publish(publication_set, settings.output_directory,
-                                                  export_pdf=settings.pdf_enabled, export_dwg=settings.dwg_enabled,
-                                                  pdf_combined=settings.pdf_mode == "COMBINED",
-                                                  dwg_combined=settings.dwg_mode == "COMBINED",
-                                                  dwg_setup_name=settings.dwg_setup_name,
-                                                  dwg_true_color=settings.dwg_true_color)
-            except Exception as exc:
-                result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
-            for item_result in result.get("results", []):
-                row = dict(item_result)
-                row["carnet"] = publication_set.name
-                all_results.append(row)
-            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
-            all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
-            all_success = all_success and bool(result.get("success"))
-        selection_label = "mise en page" if self._selected_kind == "SHEET" else "carnet"
-        report = {"success": all_success, "carnet": "Publication : {0}".format(selection_label),
-                  "results": all_results, "errors": all_errors, "warnings": all_warnings,
-                  "output_directory": report_output_directory or ""}
-        PublicationReportWindow(report, owner=self).ShowDialog()
-
-    def Close_Click(self, sender, args):
-        self.Close()
-
 
 class _ResolvedCarnetView(object):
-    """Vue légère utilisée par la fenêtre de consultation d'un carnet."""
-
     def __init__(self, name, items):
         self.name = name
         self.items = items
-        self.persistent = False
