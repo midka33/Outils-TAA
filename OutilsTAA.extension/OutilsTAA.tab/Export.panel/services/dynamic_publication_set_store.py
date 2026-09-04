@@ -1,35 +1,27 @@
 # -*- coding: utf-8 -*-
 """Persistance JSON des configurations de carnets dynamiques."""
-
 import json
 import os
-
 from models.dynamic_publication_set import DynamicPublicationSet
 from models.dynamic_publication_set import DynamicPublicationSetSerializer
 
-
 class DynamicPublicationSetStore(object):
     """Store déterministe, versionné et isolé par projet."""
-
     SCHEMA_VERSION = 1
-
     def __init__(self, path):
         if not path:
             raise ValueError("Le chemin de stockage est obligatoire.")
         self.path = path
-
     def list(self, project_key):
         data = self._read()
         entries = data.get("projects", {}).get(project_key, {})
-        values = [DynamicPublicationSetSerializer.deserialize(value) for value in entries.values()]
+        values = [DynamicPublicationSetSerializer.deserialize(v) for v in entries.values()]
         return sorted(values, key=lambda item: (item.folder_id or "", item.name.lower(), item.id or ""))
-
     def get(self, project_key, set_id):
         if not project_key or not set_id:
             return None
         value = self._read().get("projects", {}).get(project_key, {}).get(set_id)
         return None if value is None else DynamicPublicationSetSerializer.deserialize(value)
-
     def save(self, project_key, publication_set):
         if not project_key:
             raise ValueError("La clé projet est obligatoire.")
@@ -42,10 +34,7 @@ class DynamicPublicationSetStore(object):
         data.setdefault("projects", {}).setdefault(project_key, {})[publication_set.id] = DynamicPublicationSetSerializer.serialize(publication_set)
         self._write(data)
         return publication_set
-
     def delete(self, project_key, set_id):
-        if not project_key or not set_id:
-            return False
         data = self._read()
         project = data.get("projects", {}).get(project_key)
         if not project or set_id not in project:
@@ -55,7 +44,6 @@ class DynamicPublicationSetStore(object):
             del data["projects"][project_key]
         self._write(data)
         return True
-
     def replace_project(self, project_key, publication_sets):
         if not project_key:
             raise ValueError("La clé projet est obligatoire.")
@@ -74,7 +62,6 @@ class DynamicPublicationSetStore(object):
         elif project_key in projects:
             del projects[project_key]
         self._write(data)
-
     def _read(self):
         empty = {"schema_version": self.SCHEMA_VERSION, "projects": {}}
         if not os.path.isfile(self.path):
@@ -94,7 +81,6 @@ class DynamicPublicationSetStore(object):
             data["projects"] = {}
         data["schema_version"] = self.SCHEMA_VERSION
         return data
-
     def _write(self, data):
         directory = os.path.dirname(self.path)
         if directory and not os.path.isdir(directory):
