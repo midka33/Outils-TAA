@@ -271,6 +271,47 @@ Avant intégration, vérifier les nouveaux fichiers Python contenant des accents
 
 ---
 
+## BUG-EXPORT-009 — Publication d'une mise en page seule avec un ElementId persistant obsolète
+
+**Symptôme**
+
+Lorsqu'une mise en page seule était sélectionnée depuis l'arborescence puis publiée, Export affichait :
+
+```text
+ERREUR: la feuille '204' est introuvable dans le document revit
+```
+
+alors que la feuille `204` était bien présente dans le projet Revit courant.
+
+**Cause racine**
+
+Le `PublicationItem` persisté pouvait conserver un `sheet_id` qui n'était plus l'identifiant valide à utiliser dans le document courant. La référence persistante fiable est le `UniqueId` de l'élément Revit. La logique de publication utilisait directement l'ancien `sheet_id` au lieu de résoudre d'abord la feuille courante.
+
+**Correction**
+
+La publication résout désormais chaque `PublicationItem` dans le document Revit courant :
+
+1. recherche par `unique_id` ;
+2. récupération de l'`ElementId` courant ;
+3. utilisation de cet `ElementId` pour l'export PDF/DWG.
+
+La validation et l'export utilisent la même résolution afin d'éviter qu'une feuille validée soit ensuite envoyée avec un identifiant obsolète.
+
+**Règle préventive**
+
+Pour toute référence Revit persistante, ne jamais considérer un `ElementId` sérialisé comme une référence durable. Utiliser le `UniqueId` pour retrouver l'élément dans le document courant, puis récupérer son `ElementId` courant avant toute opération API nécessitant un `ElementId`.
+
+**Contrôle anti-régression**
+
+1. Créer ou enregistrer un carnet contenant une feuille.
+2. Fermer et rouvrir le projet ou recharger le carnet.
+3. Sélectionner uniquement cette mise en page dans l'arborescence.
+4. Publier en PDF.
+5. Vérifier que seule la feuille sélectionnée est publiée et qu'aucune erreur « feuille introuvable » n'apparaît.
+6. Refaire le test avec un carnet complet afin de vérifier que la résolution individuelle de chaque feuille reste correcte.
+
+---
+
 # 4. Identifiants des bugs
 
 Les identifiants permettent de distinguer les problèmes spécifiques d'un outil des problèmes transversaux :
@@ -353,10 +394,11 @@ Les bugs ci-dessus conduisent aux règles générales suivantes :
 5. **Imports :** éviter les noms de modules ambigus ou dupliqués lorsque plusieurs dossiers sont ajoutés au `sys.path`.
 6. **Persistance :** sauvegarder et restaurer toutes les informations nécessaires à la reconstruction fidèle de l'objet métier.
 7. **Document actif :** filtrer les références persistantes Revit par rapport au document courant.
-8. **UTF-8 :** tous les scripts Python pyRevit doivent déclarer explicitement leur encodage.
-9. **Régression :** toute correction d'un bug reproductible doit être accompagnée d'un contrôle ou d'un test permettant de vérifier qu'il ne revient pas.
-10. **Pré-commit :** le registre global des bugs doit être consulté avant toute modification de code et impérativement avant chaque commit ; le code doit être vérifié contre les erreurs déjà capitalisées.
-11. **Transversalité :** lorsqu'une erreur peut concerner plusieurs outils, sa règle préventive doit être formulée de manière générique afin que tous les outils puissent en bénéficier.
+8. **Références Revit persistantes :** privilégier `UniqueId` pour retrouver un élément dans le document courant et ne pas utiliser directement un `ElementId` sérialisé comme identifiant durable.
+9. **UTF-8 :** tous les scripts Python pyRevit doivent déclarer explicitement leur encodage.
+10. **Régression :** toute correction d'un bug reproductible doit être accompagnée d'un contrôle ou d'un test permettant de vérifier qu'il ne revient pas.
+11. **Pré-commit :** le registre global des bugs doit être consulté avant toute modification de code et impérativement avant chaque commit ; le code doit être vérifié contre les erreurs déjà capitalisées.
+12. **Transversalité :** lorsqu'une erreur peut concerner plusieurs outils, sa règle préventive doit être formulée de manière générique afin que tous les outils puissent en bénéficier.
 
 ---
 
@@ -402,22 +444,4 @@ Si la règle est transversale, elle doit être formulée pour être réutilisabl
 
 ### Étape 6 — Mettre à jour les standards si nécessaire
 
-Si la leçon est généralisable, ajouter ou renforcer la règle dans `03_Standards_Developpement.md` et/ou `08_Testing.md`.
-
-### Étape 7 — Ajouter ou renforcer le test anti-régression
-
-Le contrôle doit reproduire le scénario initial lorsque cela est possible.
-
-### Étape 8 — Repasser par la checklist pré-commit
-
-Avant le commit de la correction, relire le registre et vérifier que la correction elle-même ne reproduit pas un autre bug déjà capitalisé.
-
----
-
-# 8. Règle de projet
-
-> **Une erreur rencontrée une fois doit devenir une information qui protège tout le projet contre sa réapparition.**
-
-> **Avant chaque commit de code, le registre global des bugs doit être consulté et le code doit être vérifié contre les erreurs déjà capitalisées.**
-
-Le registre doit donc évoluer avec **l'ensemble des outils Outils TAA**. Il ne doit pas être considéré comme un historique figé ni comme une documentation spécifique à un seul outil.
+Si le bug révèle une lacune dans les standards de développement ou de test, mettre également à jour le document concerné.
