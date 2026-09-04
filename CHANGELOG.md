@@ -41,7 +41,11 @@ Le format suit les principes de *Keep a Changelog*.
 - Socle `PublicationHistoryService` pour persister le dernier état publié d'un carnet.
 - Classification hors Revit `NEW` / `MODIFIED` / `UNCHANGED` / `UNKNOWN` pour préparer `MODIFIED_ONLY`.
 - Persistance du réglage `modified_only` dans les paramètres de publication.
-- Tests unitaires hors Revit du suivi d'historique et de la sélection conservative des mises en page modifiées.
+- Contrôle WPF `MODIFIED_ONLY` dans l'interface Export.
+- Filtrage du périmètre avant prévisualisation et avant publication, en réutilisant le moteur PDF/DWG existant.
+- Enregistrement de l'historique après publication réussie, y compris lors d'une publication multiple partiellement réussie.
+- Affichage des états de publication dans la prévisualisation et résumé des états dans les avertissements du rapport.
+- Tests unitaires hors Revit de conservation de l'historique lors d'une publication partielle.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -62,7 +66,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Lors de la création de carnets depuis un dossier sélectionné, le `folder_id` du dossier courant est désormais appliqué avant persistance.
 - Les carnets persistants peuvent être déplacés dans un autre dossier et réordonnés sans modifier leurs réglages de publication.
 - Le drag-and-drop utilise désormais un `DataObject` WPF explicite et une opération repository dédiée au déplacement de plusieurs carnets en conservant leur ordre.
-- Le réglage `modified_only` est désormais inclus dans la résolution et la persistance des réglages ; son intégration à l'interface et au moteur de publication reste à finaliser avant activation utilisateur.
+- Le réglage `modified_only` est désormais totalement intégré à l'interface, à la prévisualisation, à la publication simple et multiple et à l'historique ; la validation réelle dans Revit 2025.4 reste obligatoire.
 
 ## [0.1.0] - 2026-07-21
 
