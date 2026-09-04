@@ -11,46 +11,11 @@ class PublicationProfileService(object):
     SCHEMA_VERSION = 1
 
     DEFAULT_PROFILES = {
-        "PDF + DWG": {
-            "pdf_enabled": True,
-            "pdf_mode": "COMBINED",
-            "dwg_enabled": True,
-            "dwg_mode": "SEPARATE",
-            "dwg_setup_name": None,
-            "dwg_true_color": True
-        },
-        "PDF seul": {
-            "pdf_enabled": True,
-            "pdf_mode": "COMBINED",
-            "dwg_enabled": False,
-            "dwg_mode": "SEPARATE",
-            "dwg_setup_name": None,
-            "dwg_true_color": True
-        },
-        "PDF séparés": {
-            "pdf_enabled": True,
-            "pdf_mode": "SEPARATE",
-            "dwg_enabled": False,
-            "dwg_mode": "SEPARATE",
-            "dwg_setup_name": None,
-            "dwg_true_color": True
-        },
-        "DWG seul": {
-            "pdf_enabled": False,
-            "pdf_mode": "COMBINED",
-            "dwg_enabled": True,
-            "dwg_mode": "SEPARATE",
-            "dwg_setup_name": None,
-            "dwg_true_color": True
-        },
-        "PDF + DWG combinés": {
-            "pdf_enabled": True,
-            "pdf_mode": "COMBINED",
-            "dwg_enabled": True,
-            "dwg_mode": "COMBINED",
-            "dwg_setup_name": None,
-            "dwg_true_color": True
-        }
+        "PDF + DWG": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
+        "PDF seul": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": False, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
+        "PDF séparés": {"pdf_enabled": True, "pdf_mode": "SEPARATE", "dwg_enabled": False, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
+        "DWG seul": {"pdf_enabled": False, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
+        "PDF + DWG combinés": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "COMBINED", "dwg_setup_name": None, "dwg_true_color": True}
     }
 
     def __init__(self, storage_path=None):
@@ -63,7 +28,6 @@ class PublicationProfileService(object):
         return os.path.join(directory, "publication_profiles.json")
 
     def list_profiles(self):
-        """Retourne les profils intégrés puis les profils personnalisés."""
         data = self._read()
         custom = data.get("profiles", {})
         names = list(self.DEFAULT_PROFILES.keys())
@@ -73,7 +37,6 @@ class PublicationProfileService(object):
         return names
 
     def get(self, name):
-        """Retourne une copie des réglages d'un profil."""
         if not name:
             return None
         if name in self.DEFAULT_PROFILES:
@@ -81,20 +44,17 @@ class PublicationProfileService(object):
         return dict((self._read().get("profiles", {}) or {}).get(name, {})) or None
 
     def save(self, name, settings):
-        """Enregistre un profil personnalisé à partir des réglages courants."""
         name = (name or "").strip()
         if not name:
             raise ValueError("Le nom du profil est obligatoire.")
         if name in self.DEFAULT_PROFILES:
             raise ValueError("Ce nom est réservé à un profil intégré.")
-
         data = self._read()
         data.setdefault("profiles", {})[name] = self._settings_to_dict(settings)
         self._write(data)
         return name
 
     def delete(self, name):
-        """Supprime uniquement un profil personnalisé."""
         if not name or name in self.DEFAULT_PROFILES:
             return False
         data = self._read()
@@ -107,13 +67,14 @@ class PublicationProfileService(object):
 
     @staticmethod
     def _settings_to_dict(settings):
+        """Un profil stocke des valeurs concrètes, jamais None pour les booléens/modes."""
         return {
-            "pdf_enabled": bool(settings.pdf_enabled),
-            "pdf_mode": settings.pdf_mode,
-            "dwg_enabled": bool(settings.dwg_enabled),
-            "dwg_mode": settings.dwg_mode,
+            "pdf_enabled": True if settings.pdf_enabled is None else bool(settings.pdf_enabled),
+            "pdf_mode": settings.pdf_mode or "COMBINED",
+            "dwg_enabled": True if settings.dwg_enabled is None else bool(settings.dwg_enabled),
+            "dwg_mode": settings.dwg_mode or "SEPARATE",
             "dwg_setup_name": settings.dwg_setup_name,
-            "dwg_true_color": bool(settings.dwg_true_color)
+            "dwg_true_color": True if settings.dwg_true_color is None else bool(settings.dwg_true_color)
         }
 
     def _read(self):
@@ -123,7 +84,6 @@ class PublicationProfileService(object):
             with open(self.storage_path, "r") as handle:
                 data = json.load(handle)
         except Exception:
-            # Un fichier de profils corrompu ne doit pas empêcher Export de démarrer.
             return {"schema_version": self.SCHEMA_VERSION, "profiles": {}}
         if not isinstance(data, dict):
             return {"schema_version": self.SCHEMA_VERSION, "profiles": {}}
