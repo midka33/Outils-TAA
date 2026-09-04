@@ -5,7 +5,6 @@ import os
 
 from pyrevit import forms
 from System import Guid
-from System.Windows import Thickness
 from System.Windows import FontWeights
 from System.Windows.Controls import TreeViewItem, TextBlock
 
@@ -15,6 +14,7 @@ from carnet_manager_window import CarnetManagerWindow
 from publication_folder import PublicationFolder
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
+from filename_service import FilenameService
 
 
 class ExportWindow(forms.WPFWindow):
@@ -31,6 +31,7 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
+        self.filename_service = FilenameService(controller.document)
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
@@ -41,6 +42,11 @@ class ExportWindow(forms.WPFWindow):
             sheet.UniqueId for sheet in sheets
             if sheet is not None and getattr(sheet, "UniqueId", None))
         self._load_dwg_setups()
+        self.FilenameTokenCombo.ItemsSource = [
+            "{carnet}", "{numero}", "{nom}", "{nom_complet}",
+            "{projet}", "{date}", "{indice}", "{dossier}",
+            "{parametre:Nom}"
+        ]
         self._refresh_tree()
         self._update_selection_info()
 
@@ -105,7 +111,6 @@ class ExportWindow(forms.WPFWindow):
         node = TreeViewItem()
         node.Tag = ("CARNET", carnet)
         node.Header = TextBlock(Text=carnet.name)
-
         for item in sorted(carnet.items or [],
                            key=lambda x: ((x.sheet_number or ""),
                                           (x.sheet_name or ""))):
@@ -126,11 +131,9 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
-
         if node is None or not getattr(node, "Tag", None):
             self._set_no_selection()
             return
-
         tag = node.Tag
         kind = tag[0]
         if kind == "CARNET":
@@ -139,7 +142,6 @@ class ExportWindow(forms.WPFWindow):
             self._load_selected_settings()
             self._update_selection_info()
             return
-
         if kind == "SHEET":
             self._selected_kind = "SHEET"
             self._selected_item = tag[1]
@@ -147,7 +149,6 @@ class ExportWindow(forms.WPFWindow):
             self._load_selected_settings()
             self._update_selection_info()
             return
-
         self._selected_kind = "FOLDER"
         self.SelectedNodeText.Text = "Dossier : {0}".format(tag[1].name)
         self._update_selection_info()
@@ -157,6 +158,7 @@ class ExportWindow(forms.WPFWindow):
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
         self.PublishButton.IsEnabled = False
+        self.FilenamePreviewText.Text = "—"
 
     def Tree_MouseDoubleClick(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -188,7 +190,6 @@ class ExportWindow(forms.WPFWindow):
             else:
                 self.SelectedNodeText.Text = "{0} • {1} mise(s) en page\nPublication : carnet entier.".format(
                     self._selected_set.name, len(self._selected_set.items or []))
-
             self.FolderCombo.ItemsSource = self._folders
             for index, folder in enumerate(self._folders):
                 if folder.id == self._selected_set.folder_id:
@@ -206,6 +207,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
         finally:
             self._loading_settings = False
+        self._update_filename_preview()
 
     def _save_selected_settings(self):
         if self._selected_set is None or self._loading_settings:
@@ -223,6 +225,42 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.output_directory = settings.output_directory
         if self._selected_set.persistent:
             self.controller.save_persistent(self._selected_set)
+        self._update_filename_preview()
+
+    def _update_filename_preview(self):
+        if self._selected_set is None:
+            self.FilenamePreviewText.Text = "—"
+            return
+        settings = self._selected_set.publication_settings
+        template = getattr(settings, "filename_template", None) or "{carnet}"
+        item = self._selected_item
+        try:
+            pdf_name, unknown = self.filename_service.filename(
+                template, self._selected_set, item=item,
+                extension=".pdf")
+            if unknown:
+                self.FilenamePreviewText.Text = "{}  ⚠ variables inconnues : {}".format(
+                    pdf_name, ", ".join(unknown))
+            else:
+                self.FilenamePreviewText.Text = pdf_name
+        except Exception as exc:
+            self.FilenamePreviewText.Text = "Erreur de nommage : {}".format(exc)
+
+    def FilenameTokenChanged(self, sender, args):
+        # La sélection d'une variable ne modifie pas encore le modèle.
+        return
+
+    def InsertFilenameToken_Click(self, sender, args):
+        token = self.FilenameTokenCombo.SelectedItem
+        if not token:
+            return
+        text = self.FilenameTemplateTextBox.Text or ""
+        start = self.FilenameTemplateTextBox.SelectionStart
+        length = self.FilenameTemplateTextBox.SelectionLength
+        self.FilenameTemplateTextBox.Text = text[:start] + token + text[start + length:]
+        self.FilenameTemplateTextBox.SelectionStart = start + len(token)
+        self.FilenameTemplateTextBox.Focus()
+        self._save_selected_settings()
 
     def SettingsChanged(self, sender, args):
         self._save_selected_settings()
@@ -260,20 +298,17 @@ class ExportWindow(forms.WPFWindow):
             self.PublishButton.Content = "Publier le carnet « {0} »".format(self._selected_set.name)
             self.PublishButton.IsEnabled = count > 0
             return
-
         if self._selected_kind == "SHEET" and self._selected_item is not None:
             self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(
                 self._selected_item.sheet_number or "", self._selected_item.sheet_name or "")
             self.PublishButton.Content = "Publier la mise en page"
             self.PublishButton.IsEnabled = True
             return
-
         if self._selected_kind == "FOLDER":
             self.SelectionInfo.Text = "Dossier sélectionné. La publication par dossier sera ajoutée dans une étape ultérieure."
             self.PublishButton.Content = "Publier…"
             self.PublishButton.IsEnabled = False
             return
-
         self._set_no_selection()
 
     def BrowseOutput_Click(self, sender, args):
@@ -319,7 +354,7 @@ class ExportWindow(forms.WPFWindow):
         parent = self._selected_set
         settings = parent.publication_settings or PublicationSettings(
             output_directory=parent.output_directory)
-        return PublicationSet(
+        target = PublicationSet(
             name=parent.name,
             items=[self._selected_item],
             source=parent.source,
@@ -329,11 +364,18 @@ class ExportWindow(forms.WPFWindow):
             persistent=False,
             folder_id=parent.folder_id,
             publication_settings=settings)
+        target.folder_name = self._folder_name(parent)
+        return target
+
+    def _folder_name(self, publication_set):
+        folder = self._folders_by_id.get(getattr(publication_set, "folder_id", None))
+        return folder.name if folder is not None else ""
 
     def Publish_Click(self, sender, args):
         if self._selected_kind == "SHEET" and self._selected_item is not None:
             targets = [self._make_sheet_target()]
         elif self._selected_kind == "CARNET" and self._selected_set is not None:
+            self._selected_set.folder_name = self._folder_name(self._selected_set)
             targets = [self._selected_set]
         else:
             forms.alert("Sélectionnez un carnet ou une mise en page dans l'arborescence.", title="Publication")
