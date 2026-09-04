@@ -91,41 +91,69 @@ class CarnetRepository(object):
 
     def move_set(self, set_id, folder_id, before_set_id=None):
         """Déplace un carnet vers un dossier et/ou change sa position."""
+        return self.move_sets([set_id], folder_id, before_set_id)
+
+    def move_sets(self, set_ids, folder_id, before_set_id=None):
+        """Déplace plusieurs carnets vers un dossier en conservant leur ordre."""
+        set_ids = list(set_ids or [])
+        if not set_ids or not folder_id:
+            return False
+
         data = self._ensure_structure(self._read())
         sets = data.get("sets", [])
-        moving = None
-        for value in sets:
-            if value.get("id") == set_id:
-                moving = value
-                break
-        if moving is None:
+        folders = data.get("folders", [])
+
+        if not any(folder.get("id") == folder_id for folder in folders):
             return False
-        if not any(folder.get("id") == folder_id for folder in data.get("folders", [])):
+
+        moving_ids = set(set_ids)
+        moving = [value for value in sets if value.get("id") in moving_ids]
+        if not moving:
             return False
-        moving["folder_id"] = folder_id
-        same = [value for value in sets if value.get("id") != set_id and
-                value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder_id]
+
+        # Respecte l'ordre actuel des carnets dans l'arborescence, même si
+        # l'appelant fournit les identifiants dans un ordre différent.
+        moving.sort(key=lambda value: (
+            value.get("folder_id", self.DEFAULT_FOLDER_ID),
+            value.get("sort_order", 0)
+        ))
+
+        # Le carnet cible ne doit pas faire partie du groupe déplacé.
+        if before_set_id and before_set_id in moving_ids:
+            return False
+
+        remaining = [value for value in sets if value.get("id") not in moving_ids]
+        destination = [value for value in remaining
+                       if value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder_id]
+
+        for value in moving:
+            value["folder_id"] = folder_id
+
+        insert_at = len(destination)
         if before_set_id:
-            insert_at = len(same)
-            for index, value in enumerate(same):
+            for index, value in enumerate(destination):
                 if value.get("id") == before_set_id:
                     insert_at = index
                     break
-            same.insert(insert_at, moving)
-        else:
-            same.append(moving)
-        order = 0
-        for value in same:
-            value["sort_order"] = order
-            order += 1
-        # Réindexer les autres dossiers sans changer leur ordre.
-        for folder in data.get("folders", []):
-            if folder.get("id") == folder_id:
+
+        destination[insert_at:insert_at] = moving
+
+        # Réindexe le dossier destination.
+        for index, value in enumerate(destination):
+            value["sort_order"] = index
+
+        # Réindexe tous les autres dossiers après le retrait des carnets.
+        for folder in folders:
+            current_folder_id = folder.get("id")
+            if current_folder_id == folder_id:
                 continue
-            siblings = [value for value in sets if value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder.get("id")]
+            siblings = [value for value in remaining
+                        if value.get("folder_id", self.DEFAULT_FOLDER_ID) == current_folder_id]
             siblings.sort(key=lambda value: value.get("sort_order", 0))
             for index, value in enumerate(siblings):
                 value["sort_order"] = index
+
+        data["sets"] = remaining + [value for value in destination if value not in remaining]
         self._write(data)
         return True
 
