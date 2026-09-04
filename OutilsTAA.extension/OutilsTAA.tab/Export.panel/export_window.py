@@ -16,10 +16,13 @@ from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from filename_service import FilenameService
 from publication_profile_service import PublicationProfileService
+from settings_resolver import SettingsResolver
 
 
 class ExportWindow(forms.WPFWindow):
     """Interface principale de publication, organisée comme un Publisher."""
+
+    INHERITABLE_FIELDS = PublicationSettings.FIELDS
 
     def __init__(self, controller, repository):
         self.controller = controller
@@ -28,13 +31,16 @@ class ExportWindow(forms.WPFWindow):
         self.current_project_unique_ids = set()
         self._loading_settings = False
         self._loading_profile = False
+        self._loading_inheritance = False
         self._folders = []
         self._carnets = []
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
+        self._selected_folder = None
         self.filename_service = FilenameService(controller.document)
         self.profile_service = PublicationProfileService()
+        self.settings_resolver = SettingsResolver(self.profile_service)
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
@@ -55,7 +61,6 @@ class ExportWindow(forms.WPFWindow):
         self._update_selection_info()
 
     def _load_profiles(self):
-        """Charge les profils disponibles dans la liste WPF."""
         self.ProfileCombo.ItemsSource = self.profile_service.list_profiles()
         self.ProfileCombo.SelectedIndex = -1
 
@@ -74,7 +79,6 @@ class ExportWindow(forms.WPFWindow):
         for c in self.session_carnets:
             if self._belongs_to_current_project(c):
                 self._carnets.append(c)
-
         self.PublicationTree.Items.Clear()
         folder_items = {}
         for folder in self._folders:
@@ -83,7 +87,6 @@ class ExportWindow(forms.WPFWindow):
             node = self._make_folder_node(folder)
             self.PublicationTree.Items.Add(node)
             folder_items[folder.id] = node
-
         changed = True
         while changed:
             changed = False
@@ -96,14 +99,12 @@ class ExportWindow(forms.WPFWindow):
                     parent.Items.Add(node)
                     folder_items[folder.id] = node
                     changed = True
-
         for carnet in self._carnets:
             parent = folder_items.get(carnet.folder_id)
             if parent is None and folder_items:
                 parent = next(iter(folder_items.values()))
             if parent is not None:
                 parent.Items.Add(self._make_carnet_node(carnet))
-
         self._folders_by_id = dict((f.id, f) for f in self._folders)
         self._load_selected_settings()
 
@@ -121,8 +122,7 @@ class ExportWindow(forms.WPFWindow):
         node.Tag = ("CARNET", carnet)
         node.Header = TextBlock(Text=carnet.name)
         for item in sorted(carnet.items or [],
-                           key=lambda x: ((x.sheet_number or ""),
-                                          (x.sheet_name or ""))):
+                           key=lambda x: ((x.sheet_number or ""), (x.sheet_name or ""))):
             child = TreeViewItem()
             child.Tag = ("SHEET", item, carnet)
             child.Header = TextBlock(Text="{0} — {1}".format(
@@ -135,23 +135,34 @@ class ExportWindow(forms.WPFWindow):
             item is not None and item.unique_id in self.current_project_unique_ids
             for item in (publication_set.items or []))
 
+    def _folder_for_set(self, publication_set):
+        return self._folders_by_id.get(getattr(publication_set, "folder_id", None))
+
+    def _resolve_settings(self, publication_set):
+        folder = self._folder_for_set(publication_set)
+        return self.settings_resolver.resolve(publication_set, folder=folder)
+
+    def _setting_source(self, publication_set, field):
+        folder = self._folder_for_set(publication_set)
+        return self.settings_resolver.source_for(publication_set, field, folder=folder)
+
     def Tree_SelectedItemChanged(self, sender, args):
         node = self.PublicationTree.SelectedItem
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
+        self._selected_folder = None
         if node is None or not getattr(node, "Tag", None):
             self._set_no_selection()
             return
         tag = node.Tag
-        kind = tag[0]
-        if kind == "CARNET":
+        if tag[0] == "CARNET":
             self._selected_kind = "CARNET"
             self._selected_set = tag[1]
             self._load_selected_settings()
             self._update_selection_info()
             return
-        if kind == "SHEET":
+        if tag[0] == "SHEET":
             self._selected_kind = "SHEET"
             self._selected_item = tag[1]
             self._selected_set = tag[2]
@@ -159,21 +170,22 @@ class ExportWindow(forms.WPFWindow):
             self._update_selection_info()
             return
         self._selected_kind = "FOLDER"
-        self.SelectedNodeText.Text = "Dossier : {0}".format(tag[1].name)
+        self._selected_folder = tag[1]
+        self._load_folder_settings()
         self._update_selection_info()
 
     def _set_no_selection(self):
-        self.SelectedNodeText.Text = "Sélectionnez un carnet ou une mise en page dans l'arborescence."
+        self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
         self.PublishButton.IsEnabled = False
         self.FilenamePreviewText.Text = "—"
-        if hasattr(self, "ProfileCombo"):
-            self._loading_profile = True
-            try:
-                self.ProfileCombo.SelectedIndex = -1
-            finally:
-                self._loading_profile = False
+        self._set_inheritance_ui(False, {})
+        self._loading_profile = True
+        try:
+            self.ProfileCombo.SelectedIndex = -1
+        finally:
+            self._loading_profile = False
 
     def Tree_MouseDoubleClick(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -190,27 +202,53 @@ class ExportWindow(forms.WPFWindow):
     def _load_selected_settings(self):
         if self._selected_set is None:
             return
-        settings = self._selected_set.publication_settings
-        if settings is None:
-            settings = PublicationSettings(output_directory=self._selected_set.output_directory)
-            self._selected_set.publication_settings = settings
+        folder = self._folder_for_set(self._selected_set)
+        effective = self._resolve_settings(self._selected_set)
         self._loading_settings = True
         self._loading_profile = True
         try:
             if self._selected_kind == "SHEET":
                 item = self._selected_item
                 self.SelectedNodeText.Text = (
-                    "Mise en page : {0} — {1}\n"
-                    "Publication : cette mise en page uniquement."
+                    "Mise en page : {0} — {1}\nPublication : cette mise en page uniquement."
                 ).format(item.sheet_number or "", item.sheet_name or "")
             else:
                 self.SelectedNodeText.Text = "{0} • {1} mise(s) en page\nPublication : carnet entier.".format(
                     self._selected_set.name, len(self._selected_set.items or []))
             self.FolderCombo.ItemsSource = self._folders
-            for index, folder in enumerate(self._folders):
-                if folder.id == self._selected_set.folder_id:
+            self.FolderCombo.SelectedIndex = -1
+            for index, value in enumerate(self._folders):
+                if value.id == self._selected_set.folder_id:
                     self.FolderCombo.SelectedIndex = index
                     break
+            self.PdfCheckBox.IsChecked = effective.pdf_enabled
+            self.PdfCombinedRadio.IsChecked = effective.pdf_mode == "COMBINED"
+            self.PdfSeparateRadio.IsChecked = effective.pdf_mode == "SEPARATE"
+            self.DwgCheckBox.IsChecked = effective.dwg_enabled
+            self.DwgCombinedRadio.IsChecked = effective.dwg_mode == "COMBINED"
+            self.DwgSeparateRadio.IsChecked = effective.dwg_mode == "SEPARATE"
+            self.DwgTrueColorCheckBox.IsChecked = effective.dwg_true_color
+            self.OutputDirectoryTextBox.Text = effective.output_directory or ""
+            self.FilenameTemplateTextBox.Text = effective.filename_template or "{carnet}"
+            self.DwgSetupCombo.SelectedItem = effective.dwg_setup_name or ""
+            self.ProfileCombo.SelectedIndex = -1
+            self._update_inheritance_info(self._selected_set)
+        finally:
+            self._loading_profile = False
+            self._loading_settings = False
+        self._update_filename_preview(effective)
+
+    def _load_folder_settings(self):
+        folder = self._selected_folder
+        if folder is None:
+            return
+        settings = folder.publication_settings or PublicationSettings()
+        self._loading_settings = True
+        self._loading_profile = True
+        try:
+            self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les carnets du dossier.".format(folder.name)
+            self.FolderCombo.ItemsSource = self._folders
+            self.FolderCombo.SelectedIndex = -1
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = settings.pdf_mode == "SEPARATE"
@@ -222,11 +260,52 @@ class ExportWindow(forms.WPFWindow):
             self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
             self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
             self.ProfileCombo.SelectedIndex = -1
-            self.ProfileInfoText.Text = "Les profils mémorisent les réglages PDF/DWG. La destination et le nommage restent propres au carnet."
+            self._set_inheritance_ui(False, {})
+            self.ProfileInfoText.Text = "Réglages du dossier : les carnets peuvent les hériter ou les remplacer."
         finally:
             self._loading_profile = False
             self._loading_settings = False
-        self._update_filename_preview()
+        self._update_filename_preview(settings)
+
+    def _update_inheritance_info(self, publication_set):
+        sources = dict((field, self._setting_source(publication_set, field))
+                       for field in self.INHERITABLE_FIELDS)
+        self._set_inheritance_ui(True, sources)
+        inherited = [field for field in self.INHERITABLE_FIELDS if sources[field] == "Dossier"]
+        if inherited:
+            self.InheritanceInfoText.Text = "🔗 Hérité du dossier : {0}".format(
+                ", ".join(self._field_label(field) for field in inherited))
+        else:
+            self.InheritanceInfoText.Text = "✏️ Réglages définis au niveau du carnet."
+
+    def _set_inheritance_ui(self, enabled, sources):
+        self.InheritanceInfoText.Text = ""
+        self.RevertInheritanceButton.IsEnabled = enabled and bool(
+            self._selected_set is not None and
+            any(sources.get(field) == "Carnet" for field in self.INHERITABLE_FIELDS))
+
+    @staticmethod
+    def _field_label(field):
+        labels = {
+            "pdf_enabled": "PDF", "pdf_mode": "mode PDF",
+            "dwg_enabled": "DWG", "dwg_mode": "mode DWG",
+            "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color",
+            "output_directory": "destination", "filename_template": "nommage"
+        }
+        return labels.get(field, field)
+
+    def RevertInheritance_Click(self, sender, args):
+        if self._selected_set is None:
+            return
+        settings = self._selected_set.publication_settings
+        if settings is None:
+            return
+        for field in self.INHERITABLE_FIELDS:
+            setattr(settings, field, None)
+        self._selected_set.publication_settings = settings
+        if self._selected_set.persistent:
+            self.controller.save_persistent(self._selected_set)
+        self._load_selected_settings()
 
     def _save_selected_settings(self):
         if self._selected_set is None or self._loading_settings:
@@ -244,7 +323,25 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.output_directory = settings.output_directory
         if self._selected_set.persistent:
             self.controller.save_persistent(self._selected_set)
-        self._update_filename_preview()
+        self._update_inheritance_info(self._selected_set)
+        self._update_filename_preview(settings)
+
+    def _save_folder_settings(self):
+        folder = self._selected_folder
+        if folder is None or self._loading_settings:
+            return
+        settings = folder.publication_settings or PublicationSettings()
+        settings.pdf_enabled = bool(self.PdfCheckBox.IsChecked)
+        settings.pdf_mode = "COMBINED" if self.PdfCombinedRadio.IsChecked else "SEPARATE"
+        settings.dwg_enabled = bool(self.DwgCheckBox.IsChecked)
+        settings.dwg_mode = "COMBINED" if self.DwgCombinedRadio.IsChecked else "SEPARATE"
+        settings.dwg_true_color = bool(self.DwgTrueColorCheckBox.IsChecked)
+        settings.output_directory = (self.OutputDirectoryTextBox.Text or "").strip() or None
+        settings.filename_template = self.FilenameTemplateTextBox.Text or "{carnet}"
+        settings.dwg_setup_name = self.DwgSetupCombo.SelectedItem or None
+        folder.publication_settings = settings
+        self.controller.save_folder(folder)
+        self._update_filename_preview(settings)
 
     def _apply_profile_values(self, values):
         if not values or self._selected_set is None:
@@ -271,8 +368,9 @@ class ExportWindow(forms.WPFWindow):
             self._loading_settings = False
         if self._selected_set.persistent:
             self.controller.save_persistent(self._selected_set)
-        self.ProfileInfoText.Text = "Profil appliqué au carnet. La destination et le nommage n'ont pas été modifiés."
-        self._update_filename_preview()
+        self.ProfileInfoText.Text = "Profil appliqué au carnet. La destination et le nommage peuvent toujours être hérités du dossier."
+        self._update_inheritance_info(self._selected_set)
+        self._update_filename_preview(settings)
 
     def ProfileChanged(self, sender, args):
         if self._loading_profile or self._selected_set is None:
@@ -293,16 +391,12 @@ class ExportWindow(forms.WPFWindow):
         if self._selected_set is None:
             forms.alert("Sélectionnez d'abord un carnet ou une mise en page.", title="Profil")
             return
-        name = forms.ask_for_string(
-            default="Mon profil",
-            prompt="Nom du profil à enregistrer",
-            title="Profil de publication")
+        name = forms.ask_for_string(default="Mon profil", prompt="Nom du profil à enregistrer", title="Profil de publication")
         if not name or not name.strip():
             return
         try:
             self._save_selected_settings()
-            saved_name = self.profile_service.save(
-                name.strip(), self._selected_set.publication_settings)
+            saved_name = self.profile_service.save(name.strip(), self._selected_set.publication_settings)
         except Exception as exc:
             forms.alert("Impossible d'enregistrer le profil : {0}".format(exc), title="Profil")
             return
@@ -322,29 +416,30 @@ class ExportWindow(forms.WPFWindow):
         if name in self.profile_service.DEFAULT_PROFILES:
             forms.alert("Les profils intégrés ne peuvent pas être supprimés.", title="Profil")
             return
-        if not forms.alert("Supprimer le profil « {0} » ?".format(name),
-                           title="Profil", yes=True, no=True):
+        if not forms.alert("Supprimer le profil « {0} » ?".format(name), title="Profil", yes=True, no=True):
             return
         if self.profile_service.delete(name):
             self._load_profiles()
             self.ProfileInfoText.Text = "Profil supprimé. Les réglages actuels du carnet restent inchangés."
 
-    def _update_filename_preview(self):
-        if self._selected_set is None:
+    def _update_filename_preview(self, settings=None):
+        if self._selected_set is None and settings is None:
             self.FilenamePreviewText.Text = "—"
             return
-        settings = self._selected_set.publication_settings
+        if settings is None:
+            settings = self._resolve_settings(self._selected_set)
         template = getattr(settings, "filename_template", None) or "{carnet}"
         item = self._selected_item
         try:
-            pdf_name, unknown = self.filename_service.filename(
-                template, self._selected_set, item=item,
-                extension=".pdf")
-            if unknown:
-                self.FilenamePreviewText.Text = "{}  ⚠ variables inconnues : {}".format(
-                    pdf_name, ", ".join(unknown))
-            else:
-                self.FilenamePreviewText.Text = pdf_name
+            publication_set = self._selected_set
+            if publication_set is None:
+                self.FilenamePreviewText.Text = "—"
+                return
+            pdf_name, unknown = self.filename_service.filename(template, publication_set,
+                                                                 item=item, extension=".pdf")
+            self.FilenamePreviewText.Text = (
+                "{}  ⚠ variables inconnues : {}".format(pdf_name, ", ".join(unknown))
+                if unknown else pdf_name)
         except Exception as exc:
             self.FilenamePreviewText.Text = "Erreur de nommage : {}".format(exc)
 
@@ -361,10 +456,16 @@ class ExportWindow(forms.WPFWindow):
         self.FilenameTemplateTextBox.Text = text[:start] + token + text[start + length:]
         self.FilenameTemplateTextBox.SelectionStart = start + len(token)
         self.FilenameTemplateTextBox.Focus()
-        self._save_selected_settings()
+        if self._selected_kind == "FOLDER":
+            self._save_folder_settings()
+        else:
+            self._save_selected_settings()
 
     def SettingsChanged(self, sender, args):
-        self._save_selected_settings()
+        if self._selected_kind == "FOLDER":
+            self._save_folder_settings()
+        else:
+            self._save_selected_settings()
 
     def FolderChanged(self, sender, args):
         if self._loading_settings or self._selected_set is None or self.FolderCombo.SelectedItem is None:
@@ -394,19 +495,17 @@ class ExportWindow(forms.WPFWindow):
     def _update_selection_info(self):
         if self._selected_kind == "CARNET" and self._selected_set is not None:
             count = len(self._selected_set.items or [])
-            self.SelectionInfo.Text = "Carnet sélectionné : {0} • {1} mise(s) en page.".format(
-                self._selected_set.name, count)
+            self.SelectionInfo.Text = "Carnet sélectionné : {0} • {1} mise(s) en page.".format(self._selected_set.name, count)
             self.PublishButton.Content = "Publier le carnet « {0} »".format(self._selected_set.name)
             self.PublishButton.IsEnabled = count > 0
             return
         if self._selected_kind == "SHEET" and self._selected_item is not None:
-            self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(
-                self._selected_item.sheet_number or "", self._selected_item.sheet_name or "")
+            self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(self._selected_item.sheet_number or "", self._selected_item.sheet_name or "")
             self.PublishButton.Content = "Publier la mise en page"
             self.PublishButton.IsEnabled = True
             return
         if self._selected_kind == "FOLDER":
-            self.SelectionInfo.Text = "Dossier sélectionné. La publication par dossier sera ajoutée dans une étape ultérieure."
+            self.SelectionInfo.Text = "Dossier sélectionné : les réglages ci-dessus seront hérités par ses carnets."
             self.PublishButton.Content = "Publier…"
             self.PublishButton.IsEnabled = False
             return
@@ -414,9 +513,12 @@ class ExportWindow(forms.WPFWindow):
 
     def BrowseOutput_Click(self, sender, args):
         folder = forms.pick_folder(title="Choisir le dossier de publication")
-        if folder and self._selected_set is not None:
+        if folder:
             self.OutputDirectoryTextBox.Text = folder
-            self._save_selected_settings()
+            if self._selected_kind == "FOLDER":
+                self._save_folder_settings()
+            elif self._selected_set is not None:
+                self._save_selected_settings()
 
     def DeleteNode_Click(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -425,8 +527,7 @@ class ExportWindow(forms.WPFWindow):
         tag = node.Tag
         kind, value = tag[0], tag[1]
         if kind == "CARNET":
-            if not forms.alert("Supprimer le carnet « {0} » ?".format(value.name),
-                               title="Export", yes=True, no=True):
+            if not forms.alert("Supprimer le carnet « {0} » ?".format(value.name), title="Export", yes=True, no=True):
                 return
             if value.persistent:
                 self.repository.delete(value.id)
@@ -436,8 +537,7 @@ class ExportWindow(forms.WPFWindow):
             if value.id == "default":
                 forms.alert("Le dossier Général ne peut pas être supprimé.", title="Export")
                 return
-            if not forms.alert("Supprimer le dossier « {0} » ? Il doit être vide.".format(value.name),
-                               title="Export", yes=True, no=True):
+            if not forms.alert("Supprimer le dossier « {0} » ? Il doit être vide.".format(value.name), title="Export", yes=True, no=True):
                 return
             if not self.controller.delete_folder(value.id):
                 forms.alert("Le dossier n'est pas vide ou ne peut pas être supprimé.", title="Export")
@@ -447,24 +547,19 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
+        self._selected_folder = None
         self._refresh_tree()
         self._update_selection_info()
 
     def _make_sheet_target(self):
-        """Crée un jeu de publication temporaire contenant une seule mise en page."""
         parent = self._selected_set
-        settings = parent.publication_settings or PublicationSettings(
-            output_directory=parent.output_directory)
+        settings = self._resolve_settings(parent)
         target = PublicationSet(
-            name=parent.name,
-            items=[self._selected_item],
-            source=parent.source,
+            name=parent.name, items=[self._selected_item], source=parent.source,
             output_directory=settings.output_directory,
             filename_template_id=parent.filename_template_id,
-            set_id=str(Guid.NewGuid()),
-            persistent=False,
-            folder_id=parent.folder_id,
-            publication_settings=settings)
+            set_id=str(Guid.NewGuid()), persistent=False,
+            folder_id=parent.folder_id, publication_settings=settings)
         target.folder_name = self._folder_name(parent)
         return target
 
@@ -481,13 +576,11 @@ class ExportWindow(forms.WPFWindow):
         else:
             forms.alert("Sélectionnez un carnet ou une mise en page dans l'arborescence.", title="Publication")
             return
-
         all_results, all_errors, all_warnings = [], [], []
         all_success = True
         report_output_directory = None
         for publication_set in targets:
-            settings = publication_set.publication_settings or PublicationSettings(
-                output_directory=publication_set.output_directory)
+            settings = self._resolve_settings(publication_set)
             errors = settings.validate()
             if errors:
                 all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
@@ -508,21 +601,13 @@ class ExportWindow(forms.WPFWindow):
                 row = dict(item_result)
                 row["carnet"] = publication_set.name
                 all_results.append(row)
-            all_errors.extend(["{0} : {1}".format(publication_set.name, e)
-                               for e in result.get("errors", [])])
-            all_warnings.extend(["{0} : {1}".format(publication_set.name, w)
-                                 for w in result.get("warnings", [])])
+            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
+            all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
             all_success = all_success and bool(result.get("success"))
-
-        selection_label = ("mise en page" if self._selected_kind == "SHEET" else "carnet")
-        report = {
-            "success": all_success,
-            "carnet": "Publication : {0}".format(selection_label),
-            "results": all_results,
-            "errors": all_errors,
-            "warnings": all_warnings,
-            "output_directory": report_output_directory or ""
-        }
+        selection_label = "mise en page" if self._selected_kind == "SHEET" else "carnet"
+        report = {"success": all_success, "carnet": "Publication : {0}".format(selection_label),
+                  "results": all_results, "errors": all_errors, "warnings": all_warnings,
+                  "output_directory": report_output_directory or ""}
         PublicationReportWindow(report, owner=self).ShowDialog()
 
     def Close_Click(self, sender, args):
