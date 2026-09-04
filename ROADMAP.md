@@ -48,7 +48,7 @@
 
 ### Étape 08 — Dynamique avancé
 
-#### Architecture isolée préparatoire
+#### Architecture et modèle métier isolés
 
 - [x] Définir le modèle `DynamicRule` / `DynamicRuleGroup` / `DynamicRuleDefinition`.
 - [x] Définir le contrat de résolution `DynamicRuleResolver` → `DynamicResolution`.
@@ -58,21 +58,27 @@
 - [x] Maintenir l'architecture isolée hors du workflow de publication Stage 01–07.
 - [x] Ajouter la persistance des snapshots de résolution dynamique.
 - [x] Ajouter le pont `DynamicResolution` → `PublicationItem` existants.
+- [x] Ajouter le modèle complet `DynamicPublicationSet`.
+- [x] Ajouter sérialisation, versionnement, validation et migration.
+- [x] Ajouter le gestionnaire CRUD hors Revit.
+- [x] Ajouter la persistance JSON complète par projet.
+- [x] Ajouter le cycle de vie création / lecture / mise à jour / duplication / suppression.
+- [x] Ajouter les tests hors Revit du store et du cycle de vie.
 
 #### Fonctionnalités à raccorder après validation Stage 07
 
 - [ ] Règles combinées dans l'interface.
-- [ ] Prévisualisation de résolution.
+- [ ] Prévisualisation de résolution dans WPF.
 - [ ] Détection des nouveaux éléments.
 - [ ] Diagnostic des éléments retirés.
-- [ ] Exclusions explicites persistantes dans le carnet dynamique.
+- [ ] Exclusions explicites persistantes dans le carnet dynamique via l'interface.
 - [ ] Lecture des paramètres Revit et construction des entrées normalisées.
 - [ ] Intégration au workflow Stage 07 sans second moteur PDF/DWG.
 - [ ] Intégration au bouton `Publier`.
 
 ## Étape suivante après validation Revit
 
-La prochaine étape fonctionnelle reste **Étape 08 — Dynamique avancé**. Le socle hors Revit et le pont vers `PublicationItem` peuvent être développés en isolation, mais le raccordement au workflow réel ne doit intervenir qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
+La prochaine étape fonctionnelle reste **Étape 08 — Dynamique avancé**. Le socle métier, la prévisualisation, le modèle, la sérialisation et la persistance hors Revit sont préparés. Les `pytest` correspondants doivent être exécutés réellement lors du raccordement avant toute validation de Stage. Le raccordement au workflow réel ne doit intervenir qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
 
 ## Étape 09 — Extensibilité
 
