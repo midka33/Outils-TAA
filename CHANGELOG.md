@@ -36,6 +36,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Publication d'un dossier avec prise en compte récursive des sous-dossiers.
 - Prévisualisation globale avant publication d'un dossier, avec agrégation des livrables et collisions inter-carnets.
 - Tests unitaires de l'orchestrateur de publication multiple.
+- Réorganisation des carnets par glisser-déposer dans l'arborescence Export.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -46,13 +47,15 @@ Le format suit les principes de *Keep a Changelog*.
 - Le bouton de publication ouvre désormais un rapport détaillé au lieu d'afficher un simple message de fin.
 - Les profils agissent uniquement sur les réglages techniques PDF/DWG ; la destination et le nommage restent propres au carnet afin de ne pas écraser les réglages persistants du carnet.
 - Les réglages de publication acceptent désormais `None` comme état « hériter », tout en conservant la lecture des carnets existants.
-- Le schéma de persistance des carnets/dossiers passe à la version 3 pour conserver les réglages de dossier.
+- Le schéma de persistance des carnets/dossiers passe à la version 4 afin de conserver l'ordre manuel des carnets.
 - Les modifications d'un réglage de carnet ne transforment plus les autres réglages hérités en surcharges locales.
 - La publication et la prévisualisation utilisent désormais les réglages effectivement résolus par `SettingsResolver`.
 - Le bouton `Publier` passe désormais obligatoirement par un aperçu et une confirmation avant de lancer l'export réel.
 - La sélection d'un dossier active désormais l'action `Publier le dossier` lorsque le dossier contient au moins un carnet publiable.
 - Une publication de dossier produit un rapport unique couvrant tous les carnets exécutés.
 - L'aperçu fusionne désormais les destinations multiples au lieu d'en masquer une derrière une destination unique.
+- Lors de la création de carnets depuis un dossier sélectionné, le `folder_id` du dossier courant est désormais appliqué avant persistance.
+- Les carnets persistants peuvent être déplacés dans un autre dossier et réordonnés sans modifier leurs réglages de publication.
 
 ## [0.1.0] - 2026-07-21
 
