@@ -53,6 +53,10 @@ class DynamicPreview(object):
     def unchanged(self):
         return [row for row in self.rows if row.status == "UNCHANGED"]
 
+    @property
+    def not_matched(self):
+        return [row for row in self.rows if row.status == "NOT_MATCHED"]
+
 
 class DynamicPreviewBuilder(object):
     """Construit une prévisualisation déterministe d'une résolution dynamique."""
@@ -103,4 +107,4 @@ class DynamicPreviewBuilder(object):
             return "EXCLUDED"
         if candidate.included:
             return "ADDED"
-        return "EXCLUDED"
+        return "NOT_MATCHED"
