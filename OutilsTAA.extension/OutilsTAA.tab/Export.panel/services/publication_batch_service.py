@@ -8,7 +8,7 @@ class PublicationBatchService(object):
     def __init__(self, publication_service):
         self.publication_service = publication_service
 
-    def publish(self, targets, settings_resolver, folder_resolver):
+    def publish(self, targets, settings_resolver, folder_resolver=None):
         """Publie une liste de carnets et agrège le rapport final."""
         results = []
         errors = []
@@ -17,8 +17,9 @@ class PublicationBatchService(object):
         output_directories = []
 
         for target in targets or []:
-            folder = folder_resolver(target)
-            settings = settings_resolver(target, folder=folder)
+            # Le resolver fourni par l'UI connaît déjà le dossier parent et
+            # centralise toute la logique d'héritage.
+            settings = settings_resolver(target)
             validation_errors = settings.validate()
             if validation_errors:
                 errors.extend([
