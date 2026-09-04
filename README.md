@@ -39,12 +39,19 @@ Les anciens noms ne doivent plus être utilisés pour désigner les modules dans
 Outils-TAA/
 ├── docs/
 ├── OutilsTAA.extension/
+├── AI_INSTRUCTIONS.md
 └── README.md
 ```
 
 ## Documentation
 
 La documentation complète est disponible dans le dossier `docs/`.
+
+### Instructions pour les IA et agents de développement
+
+Toute IA, tout agent de code ou assistant intervenant sur le repository doit commencer par consulter **`AI_INSTRUCTIONS.md`**.
+
+Ce fichier définit notamment le workflow obligatoire avant modification et avant commit, ainsi que la procédure de capitalisation des bugs dans `docs/11_BUGS_Prevention_Registry.md`.
 
 La spécification de référence du module **Export** est disponible dans `docs/09_Export.md`.
 
