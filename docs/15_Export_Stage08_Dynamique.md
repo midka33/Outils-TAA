@@ -16,11 +16,9 @@ Cette première implémentation est volontairement isolée :
 - elle ne remplace pas le mécanisme Stage 07 ;
 - elle est testable hors Revit.
 
-La branche `stage08-dynamic-architecture` constitue donc un espace de préparation avant raccordement au workflow réel, après validation de Stage 07 dans Revit 2025.4.
-
 ## 2. Principe architectural
 
-La résolution dynamique doit rester distincte de la publication.
+La résolution dynamique reste distincte de la publication.
 
 ```text
 Définition du carnet dynamique
@@ -32,6 +30,12 @@ DynamicResolution
         ├── exclusions
         └── diagnostics
         ↓
+Comparaison avec la résolution précédente
+        ├── ADDED
+        ├── REMOVED
+        ├── REINCLUDED
+        └── UNCHANGED / EXCLUDED
+        ↓
 Future étape : conversion en PublicationItem
         ↓
 Stage 07 : historique / MODIFIED_ONLY
@@ -39,7 +43,7 @@ Stage 07 : historique / MODIFIED_ONLY
 Publication PDF / DWG existante
 ```
 
-Le résolveur ne connaît pas Revit. La couche Revit future aura pour responsabilité de transformer les éléments Revit en propriétés normalisées et de résoudre les `UniqueId`.
+Le résolveur ne connaît pas Revit. La couche Revit future transformera les éléments Revit en propriétés normalisées et résoudra les `UniqueId`.
 
 ## 3. Modèle de règle
 
@@ -140,7 +144,38 @@ Résultat → exclu
 
 Une exclusion qui ne correspond plus à aucun élément courant produit un diagnostic `EXCLUSION_NOT_FOUND`.
 
-## 6. Diagnostics
+## 6. Comparaison des résolutions
+
+`DynamicResolution.compare(previous)` compare le **périmètre résultant** de deux résolutions.
+
+La comparaison ne considère pas les éléments qui restent hors périmètre dans les deux résolutions. Elle se concentre sur les évolutions utiles à la publication dynamique.
+
+### États préparés
+
+| État | Signification |
+|---|---|
+| `ADDED` | élément absent du périmètre précédent et maintenant inclus |
+| `REMOVED` | élément inclus précédemment et qui n'est plus inclus |
+| `REINCLUDED` | élément précédemment exclu et maintenant inclus |
+| `UNCHANGED` | élément inclus dans les deux résolutions |
+| `EXCLUDED` | élément explicitement exclu dans la résolution courante |
+
+Exemple :
+
+```text
+Précédent : A-101, A-102
+Courant   : A-101, A-103
+
+A-101 → UNCHANGED
+A-102 → REMOVED
+A-103 → ADDED
+```
+
+Un `REMOVED` est une évolution du **périmètre dynamique**, pas une demande d'export. Il ne doit jamais être transmis au moteur PDF/DWG comme élément à publier.
+
+Un `REINCLUDED` signifie qu'un élément qui était explicitement exclu revient dans le périmètre. Lors de son raccordement à Stage 07, il devra être traité comme un candidat à classifier par l'historique, sans inventer un état de publication.
+
+## 7. Diagnostics
 
 Les diagnostics sont séparés du résultat métier.
 
@@ -164,9 +199,10 @@ Cette séparation permettra à la future prévisualisation de distinguer :
 
 - ce qui sera publié ;
 - ce qui est explicitement exclu ;
+- ce qui a quitté le périmètre ;
 - ce qui nécessite l'attention de l'utilisateur.
 
-## 7. Interaction future avec Stage 07
+## 8. Interaction future avec Stage 07
 
 Stage 08 ne remplace pas Stage 07.
 
@@ -177,7 +213,9 @@ Source dynamique
       ↓
 Résolution du contenu actuel
       ↓
-Liste de PublicationItem
+Comparaison avec la résolution précédente
+      ↓
+Liste actuelle de PublicationItem
       ↓
 Classification historique
       ↓
@@ -190,28 +228,13 @@ Publication existante
 
 Ainsi, un carnet dynamique reste soumis aux mêmes règles de sécurité que les carnets manuels : `NEW`, `MODIFIED`, `UNCHANGED`, `UNKNOWN` et historique par `UniqueId`.
 
-## 8. Éléments ajoutés et retirés
+## 9. Ordre et déterminisme
 
-La détection des éléments ajoutés et retirés sera réalisée au niveau de comparaison entre deux résolutions, et non dans le moteur atomique des règles.
+Le résolveur conserve l'ordre de la collection d'entrée. En revanche, la comparaison retourne les changements dans un ordre déterministe basé sur la clé stable afin que les tests, diagnostics et futures prévisualisations soient reproductibles.
 
-À terme :
+L'ordre final de publication d'un carnet dynamique devra être décidé explicitement lors du raccordement : il ne faut pas laisser le moteur de règles imposer accidentellement un ordre différent de l'ordre métier TAA.
 
-```text
-Résolution précédente       Résolution courante
-A-101                       A-101       → inchangé dans le périmètre
-A-102                       A-103       → A-102 retiré, A-103 ajouté
-A-104                       A-104       → inchangé dans le périmètre
-```
-
-Un élément `REMOVED` est un diagnostic d'évolution du carnet dynamique. Il ne doit pas être envoyé au moteur PDF/DWG comme élément à publier.
-
-Cette distinction évite de confondre :
-
-- élément modifié dans Revit ;
-- élément nouvellement entré dans le carnet ;
-- élément sorti du carnet par évolution de la règle.
-
-## 9. Prévisualisation future
+## 10. Prévisualisation future
 
 La future prévisualisation Stage 08 devra pouvoir présenter :
 
@@ -221,6 +244,7 @@ La future prévisualisation Stage 08 devra pouvoir présenter :
 ⊘ Exclusion explicite
 + Nouveau dans le carnet dynamique
 − Retiré du carnet dynamique
+↻ Réintégré
 ⚠ Diagnostic
 ```
 
@@ -228,7 +252,7 @@ Elle devra également afficher les règles ayant conduit à la sélection lorsqu
 
 Aucune interface n'est ajoutée dans cette étape isolée.
 
-## 10. Persistance future
+## 11. Persistance future
 
 `DynamicRuleDefinition.to_dict()` fournit déjà une représentation versionnée.
 
@@ -239,7 +263,9 @@ Le raccordement à `PublicationSource.rule_definition` devra respecter les règl
 - conserver la définition complète ;
 - prévoir une migration explicite si le schéma évolue.
 
-## 11. Tests hors Revit
+La résolution précédente ne doit pas être confondue avec la définition de la règle. Elle constitue un **snapshot d'exécution** utile à la détection des évolutions du périmètre.
+
+## 12. Tests hors Revit
 
 `tests/test_dynamic_rule_resolver.py` vérifie notamment :
 
@@ -249,11 +275,14 @@ Le raccordement à `PublicationSource.rule_definition` devra respecter les règl
 4. exclusion explicite prioritaire ;
 5. exclusion devenue orpheline ;
 6. propriété absente ;
-7. recherche `contains` insensible à la casse.
+7. recherche `contains` insensible à la casse ;
+8. détection d'un élément ajouté ;
+9. détection d'un élément retiré ;
+10. détection d'un élément réintégré après exclusion.
 
-Ces tests sont volontairement indépendants de Revit et ne constituent pas une validation de l'API Revit.
+Ces tests sont indépendants de Revit et ne constituent pas une validation de l'API Revit.
 
-## 12. Limites de cette étape
+## 13. Limites de cette étape
 
 Cette étape **ne fournit pas encore** :
 
@@ -261,14 +290,14 @@ Cette étape **ne fournit pas encore** :
 - lecture de paramètres Revit ;
 - persistance d'un carnet dynamique dans le repository existant ;
 - conversion automatique vers `PublicationItem` ;
-- détection réelle des ajouts/retraits entre deux publications ;
+- persistance des snapshots de résolution ;
 - intégration à la prévisualisation ;
 - intégration à PDF/DWG ;
 - intégration au bouton Publier.
 
 Ces éléments seront traités après validation Stage 07 et validation de cette architecture.
 
-## 13. Critère de sortie de l'architecture isolée
+## 14. Critère de sortie de l'architecture isolée
 
 L'architecture sera considérée prête à être raccordée lorsque :
 
@@ -276,5 +305,6 @@ L'architecture sera considérée prête à être raccordée lorsque :
 - les tests hors Revit passent ;
 - la résolution reste sans dépendance Revit/WPF ;
 - les exclusions sont déterministes ;
+- la comparaison des snapshots est déterministe ;
 - les diagnostics sont exploitables par une future UI ;
-- le raccordement futur à Stage 07 ne nécessite pas de second moteur de publication.
+- le raccordement futur à Stage 07 ne nécessite pas de second moteur PDF/DWG.
