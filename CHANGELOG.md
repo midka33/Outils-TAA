@@ -57,6 +57,9 @@ Le format suit les principes de *Keep a Changelog*.
 - Sérialisation, désérialisation, versionnement et migration du modèle de carnet dynamique.
 - `DynamicPublicationSetManager` pour créer, mettre à jour, dupliquer, supprimer, charger et sérialiser les carnets dynamiques.
 - Tests unitaires hors Revit du modèle et du gestionnaire de carnets dynamiques.
+- `DynamicPublicationSetStore` pour persister les configurations dynamiques par projet dans un JSON versionné, sans objets Revit.
+- `DynamicPublicationSetLifecycle` pour encadrer création, chargement, mise à jour, duplication et suppression avec validation métier.
+- Tests unitaires hors Revit de la persistance et du cycle de vie dynamique.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
