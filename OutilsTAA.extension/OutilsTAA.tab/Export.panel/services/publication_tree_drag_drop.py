@@ -3,7 +3,7 @@
 
 from System.Windows import DragDrop, DragDropEffects, DataObject
 from System.Windows.Controls import TreeViewItem
-from System.Windows.Input import MouseButtonState, Keyboard
+from System.Windows.Input import MouseButtonState, Keyboard, Key
 from System.Windows.Media import VisualTreeHelper, SolidColorBrush, Color
 
 
@@ -65,13 +65,6 @@ class PublicationTreeDragDrop(object):
                 nodes.append(node)
         return nodes
 
-    def _find_node_by_id(self, set_id):
-        for node in self._persistent_carnet_nodes():
-            tag = getattr(node, "Tag", None)
-            if tag and tag[1].id == set_id:
-                return node
-        return None
-
     def _refresh_visual_selection(self):
         selected = set(self.selected_ids)
         for node in self._persistent_carnet_nodes():
@@ -103,7 +96,6 @@ class PublicationTreeDragDrop(object):
 
         tag = getattr(node, "Tag", None)
         if not tag or len(tag) < 2 or tag[0] != "CARNET":
-            # Une sélection multiple ne concerne que les carnets persistants.
             return
 
         publication_set = tag[1]
@@ -111,10 +103,8 @@ class PublicationTreeDragDrop(object):
             return
 
         set_id = publication_set.id
-        ctrl = Keyboard.IsKeyDown(System.Windows.Input.Key.LeftCtrl) if False else False
-        # IronPython peut accéder directement aux touches WPF via Keyboard.
-        ctrl = Keyboard.IsKeyDown(System.Windows.Input.Key.LeftCtrl) or Keyboard.IsKeyDown(System.Windows.Input.Key.RightCtrl)
-        shift = Keyboard.IsKeyDown(System.Windows.Input.Key.LeftShift) or Keyboard.IsKeyDown(System.Windows.Input.Key.RightShift)
+        ctrl = Keyboard.IsKeyDown(Key.LeftCtrl) or Keyboard.IsKeyDown(Key.RightCtrl)
+        shift = Keyboard.IsKeyDown(Key.LeftShift) or Keyboard.IsKeyDown(Key.RightShift)
 
         if shift and self.selected_ids:
             nodes = self._persistent_carnet_nodes()
@@ -143,8 +133,6 @@ class PublicationTreeDragDrop(object):
             args.Handled = True
         else:
             self._set_selection([set_id])
-            # Laisser WPF sélectionner normalement le carnet pour conserver
-            # le comportement existant de l'interface.
 
     def _mouse_move(self, sender, args):
         if self.drag_node is None or self.drag_started:
