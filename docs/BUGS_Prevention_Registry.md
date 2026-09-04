@@ -276,7 +276,59 @@ Avant intégration, vérifier les nouveaux fichiers Python contenant des accents
 
 ---
 
-# 3. Règles générales déduites
+# 3. Règle obligatoire avant toute modification et tout commit
+
+Cette règle est **obligatoire pour tout développement Outils TAA**.
+
+Avant de créer ou modifier du code, et impérativement avant chaque commit contenant une modification ou une création de code, le développeur doit consulter `BUGS_Prevention_Registry.md`.
+
+L'objectif n'est pas seulement de relire l'historique : il faut vérifier activement que le code créé ou modifié **ne reproduit aucune erreur déjà identifiée** et qu'il respecte les règles préventives associées.
+
+## Procédure obligatoire
+
+```text
+1. Consulter BUGS_Prevention_Registry.md
+             ↓
+2. Identifier les bugs/règles susceptibles de concerner la modification
+             ↓
+3. Relire le code créé ou modifié à la lumière de ces règles
+             ↓
+4. Vérifier les contrôles anti-régression applicables
+             ↓
+5. Corriger toute régression détectée
+             ↓
+6. Tester
+             ↓
+7. Commit
+```
+
+### Checklist avant commit
+
+- [ ] `BUGS_Prevention_Registry.md` a été consulté.
+- [ ] Les bugs pertinents pour la modification ont été identifiés.
+- [ ] Le code modifié/créé ne reproduit pas une erreur déjà documentée.
+- [ ] Les règles préventives associées sont respectées.
+- [ ] Les contrôles anti-régression applicables ont été réalisés.
+- [ ] Le scénario ayant provoqué les bugs concernés a été vérifié lorsque nécessaire.
+- [ ] Si un nouveau bug a été découvert, il a été ajouté au registre avant le commit.
+
+> **Aucun commit de code ne doit être considéré comme terminé tant que cette checklist n'a pas été vérifiée.**
+
+Cette règle s'applique particulièrement aux modifications de :
+
+- Python / IronPython ;
+- XAML / WPF ;
+- imports et `sys.path` ;
+- modèles et bindings ;
+- persistance ;
+- accès aux éléments Revit ;
+- logique de publication ;
+- tests ;
+- scripts pyRevit.
+
+---
+
+# 4. Règles générales déduites
 
 Les bugs ci-dessus conduisent aux règles générales suivantes :
 
@@ -289,10 +341,11 @@ Les bugs ci-dessus conduisent aux règles générales suivantes :
 7. **Document actif :** filtrer les références persistantes Revit par rapport au document courant.
 8. **UTF-8 :** tous les scripts Python pyRevit doivent déclarer explicitement leur encodage.
 9. **Régression :** toute correction d'un bug reproductible doit être accompagnée d'un contrôle ou d'un test permettant de vérifier qu'il ne revient pas.
+10. **Pré-commit :** le registre des bugs doit être consulté avant toute modification de code et impérativement avant chaque commit ; le code doit être vérifié contre les erreurs déjà capitalisées.
 
 ---
 
-# 4. Procédure obligatoire lors d'un nouveau bug
+# 5. Procédure obligatoire lors d'un nouveau bug
 
 Lorsqu'un nouveau traceback ou comportement incorrect est rencontré :
 
@@ -326,10 +379,16 @@ Si la leçon est généralisable à d'autres outils, ajouter ou renforcer la rè
 
 Le scénario qui provoquait le bug doit être rejoué avant de considérer la correction comme terminée.
 
+### Étape 7 — Repasser par la checklist pré-commit
+
+Avant le commit de la correction, relire le registre et vérifier que la correction elle-même ne reproduit pas un autre bug déjà capitalisé.
+
 ---
 
-# 5. Règle de projet
+# 6. Règle de projet
 
 > **Une erreur rencontrée une fois doit devenir une information qui protège tout le projet contre sa réapparition.**
+
+> **Avant chaque commit de code, le registre des bugs doit être consulté et le code doit être vérifié contre les erreurs déjà capitalisées.**
 
 Le registre doit donc évoluer avec Outils TAA. Il ne doit pas être considéré comme un historique figé.
