@@ -25,10 +25,10 @@ class DynamicPublicationSetStore(object):
     def list(self, project_key):
         data = self._read()
         entries = data.get("projects", {}).get(project_key, {})
-        values = []
-        for value in entries.values():
-            values.append(DynamicPublicationSetSerializer.deserialize(value))
-        return sorted(values, key=lambda item: (item.folder_id or "", item.name.lower(), item.id or ""))
+        values = [DynamicPublicationSetSerializer.deserialize(value)
+                  for value in entries.values()]
+        return sorted(values, key=lambda item: (
+            item.folder_id or "", item.name.lower(), item.id or ""))
 
     def get(self, project_key, set_id):
         if not project_key or not set_id:
@@ -69,7 +69,7 @@ class DynamicPublicationSetStore(object):
         return True
 
     def replace_project(self, project_key, publication_sets):
-        """Remplace atomiquement l'ensemble des carnets d'un projet."""
+        """Remplace l'ensemble des carnets d'un projet en une seule écriture."""
         if not project_key:
             raise ValueError("La clé projet est obligatoire.")
         entries = {}
