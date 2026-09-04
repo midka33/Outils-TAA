@@ -24,6 +24,12 @@ from publication_service import PublicationService
 from carnet_controller import CarnetController
 from carnet_repository import CarnetRepository
 from export_window import ExportWindow
+from publication_preview_integration import install_preview_on_export_window
+
+
+# L'aperçu est installé avant la création de la fenêtre afin que le bouton
+# de publication passe systématiquement par la phase de confirmation.
+install_preview_on_export_window(ExportWindow)
 
 
 def _get_project_identity(document):
@@ -31,9 +37,6 @@ def _get_project_identity(document):
     if document is None:
         return "unknown-project"
 
-    # Pour un modèle collaboratif, utiliser le chemin du modèle central.
-    # Cela garantit que tous les utilisateurs d'un même projet partagent
-    # les mêmes carnets, tout en séparant les projets différents.
     try:
         from Autodesk.Revit.DB import ModelPathUtils
         central_path = document.GetWorksharingCentralModelPath()
@@ -42,14 +45,12 @@ def _get_project_identity(document):
     except Exception:
         pass
 
-    # Modèle non collaboratif : le chemin du fichier est suffisamment stable.
     try:
         if document.PathName:
             return document.PathName
     except Exception:
         pass
 
-    # Dernier recours pour un document non enregistré.
     try:
         if document.Title:
             return "UNSAVED:" + document.Title
