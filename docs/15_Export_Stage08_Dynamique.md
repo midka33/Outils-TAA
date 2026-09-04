@@ -1,11 +1,11 @@
 # Export — Étape 08 : Dynamique avancé
 
-**Statut :** Architecture isolée + prévisualisation + pont vers `PublicationItem` — non connectée au workflow de publication  
+**Statut :** Architecture isolée + prévisualisation + modèle complet + persistance — non connectée au workflow de publication  
 **Cible :** Revit 2025.4 / pyRevit 5.x
 
 ## Objectif
 
-L'Étape 08 prépare des carnets dont le contenu est résolu dynamiquement à partir de règles. Le résolveur reste indépendant de Revit, WPF et des moteurs PDF/DWG.
+L'Étape 08 prépare des carnets dont le contenu est résolu dynamiquement à partir de règles. Le résolveur, le modèle métier et la persistance restent indépendants de Revit, WPF et des moteurs PDF/DWG.
 
 Le développement hors Revit comprend maintenant :
 
@@ -13,32 +13,111 @@ Le développement hors Revit comprend maintenant :
 - la comparaison de résolutions ;
 - la persistance des snapshots ;
 - le pont vers `PublicationItem` ;
-- un moteur de prévisualisation structuré destiné à une future UI.
+- le moteur de prévisualisation ;
+- le modèle complet `DynamicPublicationSet` ;
+- la sérialisation, migration et validation du modèle ;
+- le store persistant par projet ;
+- le cycle de vie création / lecture / modification / duplication / suppression.
 
 Aucun de ces composants ne déclenche encore de publication réelle.
 
 ## Architecture
 
 ```text
+DynamicPublicationSet
+        ↓
+DynamicPublicationSetLifecycle
+        ↓
+DynamicPublicationSetStore
+        ↓
+JSON versionné / isolé par projet
+
 DynamicRuleDefinition
         ↓
 DynamicRuleResolver
         ↓
 DynamicResolution
         ├──→ DynamicPreviewBuilder
-        │          ↓
-        │    DynamicPreview
-        │
         └──→ DynamicPublicationAdapter
                    ↓
              PublicationItem existants
                    ↓
              Future intégration Stage 07
-                   ↓
-             Publication PDF / DWG existante
 ```
 
 Aucun second moteur de publication n'est créé.
+
+## Modèle complet du carnet dynamique
+
+`DynamicPublicationSet` porte la configuration persistante d'un carnet. Il distingue `manual` et `dynamic` et conserve notamment :
+
+- identifiant stable ;
+- nom ;
+- dossier ;
+- source ;
+- destination ;
+- modèle de nommage ;
+- paramètres de publication ;
+- définition des règles ;
+- exclusions ;
+- clé du snapshot.
+
+Le modèle ne contient aucune instance Revit résolue. Les feuilles sont reconstruites depuis le document courant lors de la future résolution.
+
+`DynamicPublicationSetSerializer` assure la sérialisation, désérialisation, validation et migration de schéma. Un schéma futur non supporté est refusé explicitement.
+
+## Persistance complète
+
+`DynamicPublicationSetStore` persiste les configurations dans un JSON versionné :
+
+```text
+{
+  "schema_version": 1,
+  "projects": {
+    "project-key": {
+      "carnet-id": { ... }
+    }
+  }
+}
+```
+
+La clé projet isole les carnets entre projets. La persistance ne contient ni `Document`, ni `Element`, ni `PublicationItem` Revit.
+
+Le store fournit :
+
+- `list(project_key)` ;
+- `get(project_key, set_id)` ;
+- `save(project_key, set)` ;
+- `delete(project_key, set_id)` ;
+- `replace_project(project_key, sets)`.
+
+Les écritures utilisent un fichier temporaire avant remplacement du fichier cible. Les fichiers absents ou JSON illisibles sont traités comme un store vide ; un schéma futur est refusé.
+
+## Cycle de vie
+
+`DynamicPublicationSetLifecycle` constitue la façade métier destinée à la future UI :
+
+```text
+Création
+   ↓
+Validation
+   ↓
+Persistance
+   ↓
+Chargement
+   ↓
+Modification
+   ↓
+Nouvelle validation + persistance
+   ↓
+Duplication éventuelle
+   ↓
+Suppression éventuelle
+```
+
+Les opérations disponibles sont `create`, `get`, `list`, `update`, `duplicate` et `delete`.
+
+La création refuse un identifiant déjà utilisé. La modification refuse un carnet inexistant. La duplication passe par sérialisation/désérialisation afin d'obtenir une configuration indépendante, notamment pour les règles imbriquées et les exclusions.
 
 ## Règles dynamiques
 
@@ -65,68 +144,35 @@ Les entrées utilisent le contrat abstrait :
 
 Une exclusion explicite est prioritaire sur une règle correspondante. Les exclusions orphelines produisent `EXCLUSION_NOT_FOUND`.
 
-`DynamicResolution.compare(previous)` produit notamment `ADDED`, `REMOVED`, `REINCLUDED`, `UNCHANGED` et `EXCLUDED`. Un `REMOVED` est une évolution de périmètre et ne doit pas être publié.
+## Prévisualisation et pont publication
 
-## Prévisualisation dynamique
+`DynamicPreviewBuilder` expose les changements `ADDED`, `REMOVED`, `EXCLUDED`, `REINCLUDED`, `UNCHANGED` et `NOT_MATCHED` sans effet de bord.
 
-`DynamicPreviewBuilder` transforme une `DynamicResolution` courante et, lorsqu'il existe, une résolution précédente en un objet `DynamicPreview` sans effet de bord.
-
-Chaque `DynamicPreviewRow` contient notamment :
-
-- la clé stable ;
-- l'état de changement ;
-- le statut inclus/exclus ;
-- les raisons de résolution.
-
-La prévisualisation expose des collections dédiées pour `ADDED`, `REMOVED`, `EXCLUDED`, `REINCLUDED`, `UNCHANGED` et `NOT_MATCHED` ainsi que `publishable_rows`.
-
-Les éléments `REMOVED` sont conservés dans l'aperçu même lorsqu'ils ne sont plus présents dans la résolution courante. Cela permet à une future interface d'expliquer clairement la disparition d'un élément du carnet dynamique.
-
-Le moteur de prévisualisation ne publie rien, ne modifie pas la résolution et ne dépend ni de Revit ni de WPF.
-
-## Pont vers `PublicationItem`
-
-`DynamicPublicationAdapter.build_selection(resolution, publication_items)` rapproche chaque clé dynamique de `PublicationItem.unique_id`.
-
-Le pont respecte les règles suivantes :
-
-1. seuls les candidats inclus et non exclus sont transmis ;
-2. l'ordre de la résolution est conservé ;
-3. les instances `PublicationItem` existantes sont réutilisées, sans clonage ;
-4. aucune collection ou instance source n'est modifiée ;
-5. une clé absente produit `PUBLICATION_ITEM_NOT_FOUND` ;
-6. une clé `unique_id` dupliquée produit `DUPLICATE_PUBLICATION_ITEM_KEY`.
-
-Le résultat `DynamicPublicationSelection` contient `items`, `diagnostics` et `valid`. Il est destiné à être consommé ultérieurement par les services existants via leur paramètre `items`.
+`DynamicPublicationAdapter` rapproche les clés dynamiques des `PublicationItem.unique_id`, réutilise les instances existantes, conserve l'ordre et signale les clés absentes ou dupliquées. Il prépare l'utilisation du moteur de publication existant via son paramètre `items`.
 
 ## Snapshots
 
 `DynamicResolutionSnapshot` / `DynamicResolutionSnapshotStore` conservent séparément le dernier périmètre résolu par projet et carnet.
 
-Le snapshot dynamique représente le **périmètre** ; l'historique Stage 07 représente l'**état de publication/version**. Les deux ne doivent pas être confondus.
+Le snapshot dynamique représente le **périmètre** ; l'historique Stage 07 représente l'**état de publication/version**. Les deux ne doivent pas être confondus avec la configuration persistante du carnet.
 
 ## Tests hors Revit
 
-`tests/test_dynamic_rule_resolver.py` couvre le moteur de règles et la comparaison des résolutions.
+Les tests existants couvrent les règles, le pont, la prévisualisation, le modèle et le manager. `tests/test_dynamic_publication_set_store.py` couvre maintenant la persistance et le cycle de vie : roundtrip sur disque, isolation projet, création, mise à jour, duplication indépendante, suppression, fichier corrompu, schéma futur et remplacement d'un projet.
 
-`tests/test_dynamic_publication_adapter.py` couvre la correspondance vers les `PublicationItem`, l'ordre, la réutilisation des instances, les exclusions, les éléments absents, les doublons et la résolution vide.
-
-`tests/test_dynamic_preview.py` couvre les changements de périmètre, les exclusions, la réintégration, les suppressions, l'ordre, les diagnostics et l'absence de mutation.
-
-Ces tests ne remplacent pas une validation Revit 2025.4.
+**Ces tests ont été créés mais n'ont pas encore été exécutés dans cet environnement.** Conformément à `AI_INSTRUCTIONS.md` et `docs/08_Testing.md`, ils devront être réellement exécutés au raccordement avant de considérer cette partie validée.
 
 ## Limites actuelles
 
 Ne sont pas encore intégrés :
 
-- modèle complet de carnet dynamique ;
-- interface de création de règles ;
 - lecture des paramètres Revit ;
-- gestionnaire de carnets ;
-- persistance complète d'un carnet dynamique ;
+- création de candidats depuis le document Revit ;
+- intégration du store dans `CarnetRepository` / workflow existant ;
+- interface de création et d'édition des règles ;
 - intégration de la prévisualisation dans WPF ;
-- Stage 07 ;
-- bouton `Publier` ;
+- raccordement au Stage 07 ;
+- bouton `Publier` dynamique ;
 - export PDF/DWG depuis une résolution dynamique.
 
-Le prochain développement hors Revit porte sur le **modèle complet de carnet dynamique** : distinction manuel/dynamique, règles, exclusions, paramètres, persistance, versionnement, validation et migration. La validation Revit 2025.4 de Stage 07 reste un préalable au raccordement réel.
+La prochaine étape reste le raccordement progressif, en conservant la stratégie de test : pytest d'abord, puis validation Revit 2025.4 des comportements réellement dépendants de Revit.
