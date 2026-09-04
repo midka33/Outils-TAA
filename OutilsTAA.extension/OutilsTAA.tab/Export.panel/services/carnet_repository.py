@@ -14,7 +14,7 @@ from publication_settings import PublicationSettings
 class CarnetRepository(object):
     """Enregistre l'arborescence Export dans un fichier JSON."""
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
     DEFAULT_FOLDER_ID = "default"
     DEFAULT_FOLDER_NAME = "Général"
 
@@ -28,17 +28,24 @@ class CarnetRepository(object):
             data["folders"] = [{"id": self.DEFAULT_FOLDER_ID,
                                 "name": self.DEFAULT_FOLDER_NAME,
                                 "parent_id": None, "persistent": True}]
-            for value in data.get("sets", []):
+            for index, value in enumerate(data.get("sets", [])):
                 value.setdefault("folder_id", self.DEFAULT_FOLDER_ID)
+                value.setdefault("sort_order", index)
         elif not data["folders"]:
             data["folders"].append({"id": self.DEFAULT_FOLDER_ID,
                                     "name": self.DEFAULT_FOLDER_NAME,
                                     "parent_id": None, "persistent": True})
+        for index, value in enumerate(data.get("sets", [])):
+            value.setdefault("folder_id", self.DEFAULT_FOLDER_ID)
+            value.setdefault("sort_order", index)
         data["schema_version"] = self.SCHEMA_VERSION
         return data
 
     def list_all(self):
-        return [self._from_dict(value) for value in self._read().get("sets", [])]
+        values = self._read().get("sets", [])
+        values = sorted(values, key=lambda v: (v.get("folder_id", self.DEFAULT_FOLDER_ID),
+                                               v.get("sort_order", 0)))
+        return [self._from_dict(value) for value in values]
 
     def list_folders(self):
         return [self._folder_from_dict(value) for value in self._read().get("folders", [])]
@@ -60,20 +67,67 @@ class CarnetRepository(object):
         if not publication_set.folder_id:
             publication_set.folder_id = self.DEFAULT_FOLDER_ID
         if publication_set.publication_settings is None:
-            publication_set.publication_settings = PublicationSettings(
-                output_directory=publication_set.output_directory)
+            publication_set.publication_settings = PublicationSettings(output_directory=publication_set.output_directory)
         data = self._ensure_structure(self._read())
-        serialized = self._to_dict(publication_set)
         sets = data.get("sets", [])
+        existing_index = None
         for index, value in enumerate(sets):
             if value.get("id") == publication_set.id:
-                sets[index] = serialized
+                existing_index = index
                 break
+        if getattr(publication_set, "sort_order", None) is None:
+            siblings = [v.get("sort_order", 0) for v in sets
+                        if v.get("folder_id", self.DEFAULT_FOLDER_ID) == publication_set.folder_id
+                        and v.get("id") != publication_set.id]
+            publication_set.sort_order = (max(siblings) + 1) if siblings else 0
+        serialized = self._to_dict(publication_set)
+        if existing_index is not None:
+            sets[existing_index] = serialized
         else:
             sets.append(serialized)
         data["sets"] = sets
         self._write(data)
         return publication_set
+
+    def move_set(self, set_id, folder_id, before_set_id=None):
+        """Déplace un carnet vers un dossier et/ou change sa position."""
+        data = self._ensure_structure(self._read())
+        sets = data.get("sets", [])
+        moving = None
+        for value in sets:
+            if value.get("id") == set_id:
+                moving = value
+                break
+        if moving is None:
+            return False
+        if not any(folder.get("id") == folder_id for folder in data.get("folders", [])):
+            return False
+        moving["folder_id"] = folder_id
+        same = [value for value in sets if value.get("id") != set_id and
+                value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder_id]
+        if before_set_id:
+            insert_at = len(same)
+            for index, value in enumerate(same):
+                if value.get("id") == before_set_id:
+                    insert_at = index
+                    break
+            same.insert(insert_at, moving)
+        else:
+            same.append(moving)
+        order = 0
+        for value in same:
+            value["sort_order"] = order
+            order += 1
+        # Réindexer les autres dossiers sans changer leur ordre.
+        for folder in data.get("folders", []):
+            if folder.get("id") == folder_id:
+                continue
+            siblings = [value for value in sets if value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder.get("id")]
+            siblings.sort(key=lambda value: value.get("sort_order", 0))
+            for index, value in enumerate(siblings):
+                value["sort_order"] = index
+        self._write(data)
+        return True
 
     def save_folder(self, folder):
         if folder is None or not folder.id:
@@ -99,6 +153,7 @@ class CarnetRepository(object):
         if len(filtered) == len(sets):
             return False
         data["sets"] = filtered
+        self._ensure_structure(data)
         self._write(data)
         return True
 
@@ -147,9 +202,7 @@ class CarnetRepository(object):
     def _folder_to_dict(folder):
         return {"id": folder.id, "name": folder.name,
                 "parent_id": folder.parent_id, "persistent": True,
-                "publication_settings": (
-                    folder.publication_settings.to_dict()
-                    if folder.publication_settings else None)}
+                "publication_settings": (folder.publication_settings.to_dict() if folder.publication_settings else None)}
 
     @staticmethod
     def _to_dict(publication_set):
@@ -157,6 +210,7 @@ class CarnetRepository(object):
         return {
             "id": publication_set.id, "name": publication_set.name,
             "persistent": True, "folder_id": publication_set.folder_id,
+            "sort_order": getattr(publication_set, "sort_order", 0),
             "output_directory": publication_set.output_directory,
             "filename_template_id": publication_set.filename_template_id,
             "publication_settings": settings.to_dict() if settings else None,
@@ -164,10 +218,8 @@ class CarnetRepository(object):
                        "parameter_name": publication_set.source.parameter_name,
                        "parameter_value": publication_set.source.parameter_value},
             "items": [{"unique_id": item.unique_id, "sheet_id": item.sheet_id,
-                       "item_type": item.item_type,
-                       "sheet_number": item.sheet_number,
-                       "sheet_name": item.sheet_name,
-                       "parameter_value": item.parameter_value}
+                       "item_type": item.item_type, "sheet_number": item.sheet_number,
+                       "sheet_name": item.sheet_name, "parameter_value": item.parameter_value}
                       for item in publication_set.items]
         }
 
@@ -175,25 +227,24 @@ class CarnetRepository(object):
     def _from_dict(value):
         source_data = value.get("source") or {}
         source = PublicationSource(source_data.get("mode", PublicationSource.MANUAL),
-                                   source_data.get("parameter_name"),
-                                   source_data.get("parameter_value"))
+                                   source_data.get("parameter_name"), source_data.get("parameter_value"))
         items = [PublicationItem(item_data.get("unique_id"), item_data.get("sheet_id"),
-                                 item_data.get("item_type", "SHEET"),
-                                 item_data.get("sheet_number"), item_data.get("sheet_name"),
-                                 item_data.get("parameter_value"))
+                                 item_data.get("item_type", "SHEET"), item_data.get("sheet_number"),
+                                 item_data.get("sheet_name"), item_data.get("parameter_value"))
                  for item_data in value.get("items", [])]
         settings = PublicationSettings.from_dict(value.get("publication_settings"))
         if value.get("publication_settings") is None:
             settings.output_directory = value.get("output_directory")
-        return PublicationSet(name=value.get("name", ""), items=items, source=source,
-                              output_directory=value.get("output_directory"),
-                              filename_template_id=value.get("filename_template_id"),
-                              set_id=value.get("id"), persistent=True,
-                              folder_id=value.get("folder_id", CarnetRepository.DEFAULT_FOLDER_ID),
-                              publication_settings=settings)
+        publication_set = PublicationSet(name=value.get("name", ""), items=items, source=source,
+                                         output_directory=value.get("output_directory"),
+                                         filename_template_id=value.get("filename_template_id"),
+                                         set_id=value.get("id"), persistent=True,
+                                         folder_id=value.get("folder_id", CarnetRepository.DEFAULT_FOLDER_ID),
+                                         publication_settings=settings)
+        publication_set.sort_order = value.get("sort_order", 0)
+        return publication_set
 
     @staticmethod
     def _folder_from_dict(value):
-        return PublicationFolder(value.get("name", ""), value.get("id"),
-                                 value.get("parent_id"), True,
+        return PublicationFolder(value.get("name", ""), value.get("id"), value.get("parent_id"), True,
                                  PublicationSettings.from_dict(value.get("publication_settings")))
