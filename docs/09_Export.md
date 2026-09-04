@@ -1,745 +1,421 @@
 # Outils TAA – Outil Export
 
-**Version :** 2.1  
-**Statut :** Spécification fonctionnelle de référence  
+**Version :** 3.0  
+**Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
 
 ---
 
-## 1. Objectif
+## 1. Vision
 
-**Export** est l'outil de publication des documents Revit des **Outils TAA**.
+**Export** est le gestionnaire de publications des **Outils TAA**.
 
-Son objectif est de proposer dans Revit un fonctionnement proche du **Publisher d'Archicad** : préparer une publication, organiser des carnets, sélectionner les carnets à produire, lancer l'export et obtenir une arborescence de fichiers cohérente, reproductible et réutilisable.
+L'objectif est de proposer dans Revit une expérience proche du **Publisher d'Archicad**, sans chercher à reproduire son interface à l'identique : même logique de dossiers, carnets, mises en page, réglages persistants, sélection du périmètre, nommage et publication reproductible.
 
 > **Export n'est pas seulement un exporteur PDF/DWG : c'est un gestionnaire de publications.**
 
-La V2 renforce cette philosophie avec :
-
-- des carnets persistants et évolutifs ;
-- des liens dynamiques entre carnets et documents Revit ;
-- une hiérarchie interne dans les carnets ;
-- des profils de publication réutilisables ;
-- des réglages hérités avec possibilité de surcharge ;
-- plusieurs périmètres de publication ;
-- une gestion complète de l'exécution ;
-- un rapport détaillé et traçable de chaque publication ;
-- une architecture extensible à d'autres formats futurs ;
-- la réutilisation explicite des configurations natives d'export Revit.
-
----
-
-## 2. Philosophie Publisher
-
-L'expérience recherchée s'inspire des principes du Publisher d'Archicad :
-
-- publications organisées en carnets ;
-- carnets persistants et réutilisables ;
-- liens entre organisation du projet et publication ;
-- hiérarchie de dossiers ;
-- réglages reproductibles ;
-- sélection des carnets ou sous-ensembles à publier ;
-- formats et destinations configurables ;
-- nommage automatisé ;
-- publication relançable rapidement ;
-- suivi de progression ;
-- résultat clairement identifiable ;
-- erreurs explicitement signalées.
-
-L'objectif n'est **pas** de reproduire l'interface d'Archicad à l'identique. Export reprend les principes de workflow et les adapte au fonctionnement de Revit.
-
-### 2.1 Principe fondamental de la V2
-
-Un carnet ne doit plus être considéré uniquement comme une liste figée de feuilles.
-
-Il peut représenter une **règle de publication** :
+La cible fonctionnelle est une utilisation aussi naturelle que possible :
 
 ```text
-Projet Revit
-    ↓
-Source du carnet
-    ↓
-Résolution dynamique
-    ↓
-Arborescence du carnet
-    ↓
-Périmètre de publication
-    ↓
-Profil de publication
-    ↓
-Livrables PDF / DWG / futurs formats
+Dossier
+└── Carnet
+    ├── Mise en page 01
+    ├── Mise en page 02
+    └── Mise en page 03
 ```
 
-Cela permet par exemple qu'une nouvelle feuille `A104` correspondant aux règles du carnet DCE soit automatiquement intégrée au prochain export, sans devoir modifier manuellement le carnet.
+L'utilisateur doit pouvoir :
+
+- parcourir ses publications dans une arborescence ;
+- sélectionner un carnet pour publier tout son contenu ;
+- sélectionner une mise en page pour ne publier que celle-ci ;
+- conserver les réglages de publication avec le carnet ;
+- choisir les règles de nommage des fichiers ;
+- prévisualiser les livrables avant de les créer ;
+- publier rapidement un même carnet plusieurs fois au cours du projet ;
+- retrouver une organisation stable même lorsque le projet Revit évolue.
 
 ---
 
-## 3. Modèle métier V2
+## 2. Principes directeurs
 
-L'architecture V2 distingue explicitement les objets suivants :
+### 2.1 Séparer « quoi publier » et « comment publier »
+
+Le modèle fonctionnel repose sur deux questions distinctes :
+
+**QUOI ?**
+
+- dossier ;
+- carnet ;
+- mise en page ;
+- sélection de mises en page ;
+- source fixe ou dynamique.
+
+**COMMENT ?**
+
+- PDF / DWG ;
+- combiné / séparé ;
+- configuration native Revit ;
+- destination ;
+- organisation des dossiers ;
+- nommage ;
+- stratégie de collision.
+
+Cette séparation est fondamentale pour rester proche du fonctionnement Publisher.
+
+### 2.2 Les réglages sont persistants
+
+Les réglages associés à un carnet doivent être enregistrés avec lui. Une fermeture de Revit ou une nouvelle session ne doit pas obliger l'utilisateur à reconfigurer sa publication.
+
+### 2.3 La sélection doit être contextuelle
+
+La sélection dans l'arborescence définit directement le périmètre de publication :
+
+```text
+Sélection d'une mise en page → publier cette mise en page
+Sélection d'un carnet       → publier tout le carnet
+Sélection d'un dossier      → publier les carnets du dossier
+```
+
+Les fonctions de sélection multiple pourront compléter ce comportement, mais ne doivent pas rendre obligatoire une logique de cases à cocher pour l'usage courant.
+
+### 2.4 L'arborescence est le point central de l'interface
+
+L'écran principal doit fonctionner comme un explorateur de publications :
+
+```text
+Arborescence                     Réglages / aperçu
+────────────────────             ─────────────────────
+📁 DCE                           Carnet : DCE
+  📦 Plans                       PDF : ☑ Combiné
+    📄 A101 – RDC                DWG : ☑ Séparé
+    📄 A102 – R+1                Nom : ...
+  📦 Coupes                      Destination : ...
+    📄 A201 – Coupe AA
+```
+
+---
+
+## 3. Modèle métier cible
 
 ```text
 PublicationProfile
-        │
-        ├── PublicationSet[]
-        │       │
-        │       ├── PublicationSource
-        │       ├── PublicationNode[]
-        │       └── PublicationSettings
-        │
-        ├── OutputSettings
-        ├── NamingSettings
-        └── ExecutionSettings
+├── PublicationFolder[]
+│   └── PublicationSet[]
+│       └── PublicationNode[]
+│           └── PublicationItem
+├── NamingSettings
+├── OutputSettings
+└── ExecutionSettings
 ```
 
-### 3.1 PublicationProfile
+### 3.1 PublicationFolder
 
-Le **profil de publication** représente une configuration complète et réutilisable.
+Un dossier organise les carnets dans l'interface et peut, selon les réglages, organiser également la sortie physique.
 
-Il peut contenir :
+Un dossier possède au minimum :
 
-- un ou plusieurs carnets ;
-- les formats à produire ;
-- les modes combiné/séparé ;
-- la destination ;
-- l'organisation des dossiers ;
-- les modèles de nommage ;
-- les configurations DWG Revit ;
-- les configurations PDF/Impression accessibles par l'API ;
-- les règles de résolution des carnets ;
-- le périmètre de publication ;
-- les comportements d'écrasement/collision ;
-- les paramètres d'exécution.
-
-Le profil est la **configuration**. La publication est l'**exécution** de cette configuration.
+```text
+id
+name
+parent_id
+persistent
+```
 
 ### 3.2 PublicationSet
 
 Un `PublicationSet` représente un carnet logique.
 
-Il contient notamment :
-
 ```text
 id
 name
 source
-nodes
-settings
+items / nodes
+folder_id
+publication_settings
 persistent
 ```
 
+Le carnet est l'objet principal de configuration d'une publication.
+
 ### 3.3 PublicationNode
 
-Un `PublicationNode` représente un élément de l'arborescence interne du carnet.
-
-Un nœud peut être :
-
-- un dossier ;
-- une feuille ;
-- une vue lorsque le périmètre de publication l'autorise.
-
-Il permet de reproduire une organisation telle que :
+Un nœud représente un niveau de l'arborescence :
 
 ```text
-DCE
-├── Plans
-│   ├── A101
-│   ├── A102
-│   └── A103
-├── Coupes
-│   ├── A201
-│   └── A202
-└── Façades
-    ├── A301
-    └── A302
+FOLDER
+SHEET
+VIEW
 ```
+
+La cible prioritaire est :
+
+```text
+Dossier → Carnet → Mise en page
+```
+
+Les niveaux supplémentaires ne doivent être ajoutés que lorsqu'ils apportent une réelle valeur fonctionnelle.
 
 ### 3.4 PublicationItem
 
-Le document résolu doit rester indépendant de sa source :
+Un élément résolu reste indépendant de sa source :
 
 ```text
-PublicationItem
-├── unique_id
-├── sheet_id
-├── item_type
-├── sheet_number
-├── sheet_name
-├── parameter_value
-└── source_path
+unique_id
+sheet_id
+item_type
+sheet_number
+sheet_name
+parameter_value
+source_path
 ```
 
-Le moteur de publication travaille sur des `PublicationItem[]` résolus et non directement sur les règles de sélection.
+Le moteur de publication travaille sur les éléments résolus, jamais directement sur les règles de sélection.
 
 ---
 
-## 4. Sources de carnets
+## 4. Sources des carnets
 
-Export V2 conserve les trois modes de création existants et ajoute les liens dynamiques.
+Export conserve les modes existants :
 
-### 4.1 Automatique par paramètre
+### 4.1 Par paramètre
 
-L'utilisateur choisit le paramètre Revit servant au regroupement.
+L'utilisateur choisit le paramètre Revit servant à générer les carnets.
 
 `Sous-titre` peut être proposé par défaut selon les conventions TAA, mais ne doit jamais être imposé par le code.
 
-### 4.2 Sélection manuelle persistante
+### 4.2 Manuel persistant
 
-L'utilisateur crée un carnet, sélectionne les documents, puis enregistre le carnet.
+L'utilisateur crée un carnet et sélectionne ses mises en page.
 
-### 4.3 Sélection manuelle temporaire
+### 4.3 Manuel temporaire
 
 Une sélection ponctuelle peut être publiée sans être enregistrée.
 
-### 4.4 Source dynamique
+### 4.4 Dynamique
 
-Une source dynamique définit une règle permettant de recalculer le contenu du carnet à chaque publication.
+Une règle peut recalculer le contenu d'un carnet à chaque publication.
 
-La source doit pouvoir reposer sur des critères tels que :
+Les critères pourront notamment utiliser :
 
-- paramètre Revit ;
+- paramètre ;
 - valeur de paramètre ;
-- catégorie ;
-- numéro de feuille ;
+- numéro de mise en page ;
 - phase ;
-- ensemble de paramètres ;
-- règle combinée ;
-- structure ou groupe de documents lorsque l'information est disponible dans Revit.
+- catégorie ;
+- combinaison de critères ;
+- autres informations disponibles de manière fiable dans Revit.
 
-L'outil ne doit pas limiter l'architecture à `Sous-titre`.
+### 4.5 Persistance de la source
 
-### 4.5 Source fixe ou dynamique
+La sauvegarde doit conserver le mode d'origine et toutes les informations nécessaires à la reconstruction de la source.
 
 ```text
 PublicationSource
 ├── mode
-│   ├── PARAMETER
-│   ├── MANUAL
-│   ├── TEMPORARY
-│   └── DYNAMIC
-│
 ├── parameter_name
 ├── parameter_value
 └── rule_definition
 ```
 
-### 4.6 Résolution dynamique
+---
 
-Avant chaque publication :
+## 5. Arborescence Publisher TAA
+
+### 5.1 Structure cible
+
+La structure principale retenue est volontairement simple :
 
 ```text
-Règle dynamique
-      ↓
-Recherche dans le modèle Revit
-      ↓
-Résultats
-      ↓
-Application de la hiérarchie du carnet
-      ↓
-PublicationItem[]
+Dossier
+└── Carnet
+    ├── Mise en page
+    ├── Mise en page
+    └── Mise en page
 ```
 
-Une nouvelle feuille correspondant à la règle doit être intégrée automatiquement.
+Des sous-dossiers internes aux carnets pourront être ajoutés ensuite lorsque le besoin de publication par sous-ensemble sera stabilisé.
 
-Une feuille qui ne correspond plus à la règle doit être retirée de la résolution, sans modifier l'historique du carnet.
+### 5.2 Dossier
 
-### 4.7 Éléments manquants
+Le dossier sert à :
 
-Pour un carnet fixe, un élément introuvable doit être signalé.
+- organiser les carnets ;
+- faciliter la navigation ;
+- permettre une publication par groupe de carnets ;
+- éventuellement définir des réglages hérités ;
+- éventuellement définir une partie de l'organisation de sortie.
 
-Pour un carnet dynamique, Export distingue :
+### 5.3 Carnet
 
-- élément attendu mais introuvable ;
-- élément nouvellement détecté ;
-- élément ne correspondant plus à la règle ;
-- élément ignoré volontairement par une surcharge utilisateur.
+Le carnet est sélectionnable comme une unité de publication.
+
+Un clic sur un carnet doit afficher ses réglages persistants et son contenu.
+
+### 5.4 Mise en page
+
+Une mise en page est sélectionnable individuellement.
+
+Un clic sur une mise en page doit permettre :
+
+- de l'identifier ;
+- de voir le carnet parent ;
+- de connaître les formats activés ;
+- de publier uniquement cette mise en page.
+
+### 5.5 Sélection et action contextuelle
+
+Le bouton principal doit refléter la sélection :
+
+```text
+Aucune sélection
+→ Publier… désactivé ou message d'information
+
+Carnet sélectionné
+→ Publier le carnet « DCE »
+
+Mise en page sélectionnée
+→ Publier la mise en page « A101 »
+
+Dossier sélectionné
+→ Publier le dossier « DCE »
+```
+
+L'interface doit éviter de demander à l'utilisateur de comprendre un état interne de `PublicationScope` pour effectuer une action simple.
+
+### 5.6 Sélection multiple
+
+Une évolution permettra :
+
+- `Ctrl + clic` pour plusieurs éléments ;
+- `Shift + clic` pour une plage lorsque le contrôle WPF le permet proprement ;
+- publication de plusieurs carnets ;
+- publication de plusieurs mises en page.
+
+La sélection multiple ne doit pas casser la logique de sélection simple.
 
 ---
 
-## 5. Hiérarchie interne des carnets
+## 6. Réglages persistants du carnet
 
-### 5.1 Objectif
+Chaque carnet doit pouvoir mémoriser ses réglages de publication.
 
-Un carnet peut contenir sa propre arborescence logique indépendamment de l'organisation physique des fichiers.
-
-Exemple :
+### 6.1 Formats
 
 ```text
-DCE
-├── 01_Plans
-│   ├── Plans RDC
-│   ├── Plans R+1
-│   └── Plans R+2
-├── 02_Coupes
-├── 03_Façades
-└── 04_Détails
+PDF : activé / désactivé
+PDF : combiné / séparé
+DWG : activé / désactivé
+DWG : combiné / séparé
 ```
 
-### 5.2 Avantages
+### 6.2 Configuration DWG
 
-La hiérarchie permet :
+Le carnet peut mémoriser le nom d'une configuration DWG native Revit.
 
-- de rendre les carnets lisibles ;
-- de publier un sous-ensemble ;
-- d'appliquer des réglages à un niveau précis ;
-- de préparer des arborescences de sortie ;
-- de conserver une organisation stable malgré l'évolution du projet.
+Le réglage **Couleur vraie / True Color** reste une préférence TAA lorsque l'option est réellement disponible dans la configuration utilisée.
 
-### 5.3 Séparation hiérarchie logique / sortie physique
+### 6.3 Destination
 
-La hiérarchie du carnet ne doit pas être obligatoirement identique à l'arborescence de fichiers.
+Le carnet peut mémoriser son dossier de publication.
 
-L'utilisateur peut choisir si les dossiers internes du carnet sont :
+Une destination de profil ou de dossier pourra ensuite être héritée et remplacée au niveau du carnet.
 
-- uniquement organisationnels ;
-- reproduits dans les dossiers de sortie ;
-- utilisés seulement pour appliquer des réglages.
+### 6.4 Organisation de sortie
 
-### 5.4 Types de nœuds
+Le carnet pourra choisir ou hériter d'une structure :
 
 ```text
-PublicationNodeType
-├── FOLDER
-├── SHEET
-└── VIEW
+Type de fichier → Carnet
+Carnet → Type de fichier
+Carnet → sous-dossiers internes
 ```
 
-Les vues ne sont utilisables que lorsque leur export et le format choisi sont compatibles.
+### 6.5 Persistance
+
+Une modification des réglages d'un carnet persistant doit être sauvegardée automatiquement ou explicitement selon le comportement final de l'interface, mais ne doit jamais être perdue silencieusement.
 
 ---
 
-## 6. Profils de publication
+## 7. Nommage des fichiers — objectif Publisher
 
-### 6.1 Objectif
+Le nommage ne doit plus être un simple champ texte sans aide.
 
-Un **PublicationProfile** doit permettre de mémoriser une procédure complète de publication.
+L'utilisateur doit pouvoir construire une règle de nommage à partir de variables.
+
+### 7.1 Variables minimales
+
+```text
+{carnet}
+{numero}
+{nom}
+{nom_complet}
+{projet}
+{date}
+{indice}
+{dossier}
+```
+
+### 7.2 Paramètres Revit
+
+Le moteur doit permettre à terme :
+
+```text
+{parametre:NomDuParametre}
+```
 
 Exemples :
 
 ```text
-PRO
-DCE
-PC
-DP
-EXE
-DOE
+{parametre:Sous-titre}
+{parametre:Phase}
 ```
 
-Un profil peut contenir plusieurs carnets.
-
-### 6.2 Contenu
-
-Un profil peut mémoriser :
+### 7.3 Exemple
 
 ```text
-PublicationProfile
-├── Carnets
-├── Formats
-├── Modes d'export
-├── Destination
-├── Organisation des dossiers
-├── Nommage
-├── Configuration DWG
-├── Configuration PDF / impression lorsque disponible
-├── Périmètre
-├── Règles de collision
-└── Paramètres d'exécution
+{projet}_{carnet}_{numero}_{nom}
 ```
 
-### 6.3 Réutilisation
-
-Le profil doit pouvoir être relancé plusieurs fois dans le même projet.
-
-Les profils doivent être persistants et indépendants de la session Revit.
-
-### 6.4 Versionnement
-
-Un profil doit posséder une version de schéma :
+pourrait produire :
 
 ```text
-schema_version
+TAA_DCE_A101_Plan RDC.pdf
 ```
 
-Une évolution du format de stockage ne doit pas rendre silencieusement les anciens profils invalides.
+### 7.4 Éditeur de nommage
 
-Une migration explicite doit être prévue lorsque nécessaire.
+L'interface cible doit proposer :
 
----
+- un champ de modèle ;
+- une liste de variables disponibles ;
+- l'insertion d'une variable par clic ou double-clic ;
+- une prévisualisation en temps réel ;
+- l'affichage des variables indisponibles ;
+- la sécurisation des caractères interdits par Windows ;
+- la détection des noms identiques.
 
-## 7. Héritage et surcharge des réglages
+### 7.5 Différence selon le mode
 
-### 7.1 Principe
+Le nom final doit être calculé selon le livrable réel.
 
-Les réglages doivent pouvoir être définis à plusieurs niveaux :
+Par exemple :
 
 ```text
-Profil
-  ↓
-Carnet
-  ↓
-Dossier interne
-  ↓
-Document
+PDF combiné
+→ {carnet}.pdf
+
+PDF séparé
+→ {numero}_{nom}.pdf
+
+DWG séparé
+→ {numero}_{nom}.dwg
 ```
 
-Chaque niveau peut :
+La règle de nommage doit donc pouvoir distinguer le contexte `carnet` et `mise en page`.
 
-- hériter du niveau supérieur ;
-- conserver la valeur héritée ;
-- remplacer explicitement cette valeur.
-
-### 7.2 Exemple
-
-```text
-Profil DCE
-PDF = activé
-DWG = activé
-DWG config = TAA_TrueColor
-
-Carnet Plans
-    hérite de PDF/DWG
-
-Dossier Détails
-    PDF = activé
-    DWG = désactivé
-```
-
-### 7.3 Règle d'architecture
-
-Les services d'export ne doivent pas implémenter eux-mêmes la logique d'héritage.
-
-Un service dédié doit produire les réglages finaux :
-
-```text
-SettingsResolver
-      ↓
-PublicationSettings finales
-      ↓
-PdfExportService / DwgExportService
-```
-
-### 7.4 Surcharge explicite
-
-Une valeur héritée et une valeur surchargée doivent être distinguables dans le modèle et dans l'interface.
-
-L'utilisateur doit pouvoir revenir à `Hériter` sans supprimer la valeur du niveau supérieur.
-
----
-
-## 8. Périmètre de publication
-
-La V2 introduit un périmètre explicite.
-
-### 8.1 Publication complète
-
-```text
-ENTIRE_SET
-```
-
-Tous les documents résolus du carnet sont publiés.
-
-### 8.2 Sélection
-
-```text
-SELECTED_ITEMS
-```
-
-L'utilisateur choisit les éléments à publier parmi ceux du carnet.
-
-### 8.3 Sélection d'un sous-dossier
-
-```text
-SELECTED_NODES
-```
-
-L'utilisateur peut publier uniquement un dossier interne du carnet et ses descendants.
-
-### 8.4 Jeu de publication
-
-Export peut mémoriser une sélection temporaire ou persistante appelée **jeu de publication**.
-
-Ce concept est volontairement propre à Export et ne prétend pas être un équivalent natif du Transmittal Set d'Archicad.
-
-```text
-PublicationScope
-├── ENTIRE_SET
-├── SELECTED_ITEMS
-└── SELECTED_NODES
-```
-
-### 8.5 Publication modifiée depuis la dernière exécution
-
-La V2 prépare également le concept :
-
-```text
-MODIFIED_ONLY
-```
-
-Il ne doit pas être implémenté en assimilant simplement une modification Revit à une modification de livrable.
-
-Pour être fiable, Export devra conserver un état de publication permettant de comparer :
-
-- les éléments publiés ;
-- leur état au moment de la publication ;
-- les paramètres utilisés ;
-- le profil ;
-- le contenu du carnet ;
-- les fichiers produits.
-
-Cette fonctionnalité peut donc nécessiter un mécanisme de snapshot ou de hash métier.
-
----
-
-## 9. Workflow V2
-
-### 9.1 Création d'un carnet dynamique
-
-```text
-Ouverture d'Export
-        ↓
-Nouveau carnet
-        ↓
-Nom du carnet
-        ↓
-Choix de la source
-        ↓
-Définition de la règle
-        ↓
-Prévisualisation des résultats
-        ↓
-Organisation interne
-        ↓
-Enregistrement
-```
-
-### 9.2 Création d'un profil
-
-```text
-Nouveau profil
-        ↓
-Sélection des carnets
-        ↓
-Formats
-        ↓
-Modes combiné / séparé
-        ↓
-Organisation des dossiers
-        ↓
-Nommage
-        ↓
-Configurations Revit
-        ↓
-Périmètre
-        ↓
-Règles d'exécution
-        ↓
-Enregistrement
-```
-
-### 9.3 Publication
-
-```text
-Profil
-  ↓
-Résolution des carnets
-  ↓
-Résolution des règles dynamiques
-  ↓
-Construction de l'arborescence
-  ↓
-Résolution des réglages hérités
-  ↓
-Résolution du périmètre
-  ↓
-Validation
-  ↓
-Prévisualisation des livrables
-  ↓
-Publication
-  ↓
-Rapport
-```
-
----
-
-## 10. Périmètre fonctionnel V1 conservé
-
-La V2 conserve les fonctions V1 :
-
-1. détection des feuilles ;
-2. choix du paramètre de regroupement ;
-3. création automatique de carnets par valeur ;
-4. création manuelle de carnets ;
-5. enregistrement et réutilisation ;
-6. détection des éléments manquants ;
-7. sélection des carnets ;
-8. choix du dossier de destination ;
-9. PDF combiné ;
-10. PDF séparé ;
-11. DWG combiné ;
-12. DWG séparé ;
-13. création automatique des dossiers ;
-14. organisation `Type de fichier → Carnet` ;
-15. organisation `Carnet → Type de fichier` ;
-16. modèles de nommage ;
-17. nettoyage des noms ;
-18. progression ;
-19. gestion des erreurs ;
-20. rapport final.
-
----
-
-## 11. Export PDF
-
-La V2 conserve deux modes :
-
-- **PDF combiné** : un seul PDF pour plusieurs documents ;
-- **PDF séparés** : un PDF par document.
-
-Le moteur PDF utilise en priorité le **moteur PDF natif de Revit**.
-
-### 11.1 PDF combiné
-
-```text
-DCE.pdf
-```
-
-Le contenu est ordonné selon l'ordre déterministe du carnet.
-
-### 11.2 PDF séparés
-
-```text
-DCE/
-├── A101.pdf
-├── A102.pdf
-└── A103.pdf
-```
-
-### 11.3 Hiérarchie interne
-
-Lorsque l'option est activée, les dossiers internes du carnet peuvent être reproduits :
-
-```text
-DCE/
-├── Plans/
-│   ├── A101.pdf
-│   └── A102.pdf
-└── Coupes/
-    └── A201.pdf
-```
-
-### 11.4 Carnet vide
-
-Un carnet vide doit être signalé et ne doit pas générer silencieusement un PDF vide.
-
----
-
-## 12. Export DWG
-
-La V2 conserve :
-
-- **DWG combiné** ;
-- **DWG séparé**.
-
-### 12.1 API Revit 2025.4
-
-L'API Revit expose :
-
-```csharp
-Document.Export(
-    string folder,
-    string name,
-    ICollection<ElementId> views,
-    DWGExportOptions options)
-```
-
-`DWGExportOptions` expose également :
-
-```csharp
-bool MergedViews { get; set; }
-```
-
-La fusion via `MergedViews` peut notamment utiliser des XRefs.
-
-### 12.2 Limite fonctionnelle importante
-
-Export ne doit pas promettre une reproduction exacte d'un fichier AutoCAD multi-layout tant que le comportement réel n'a pas été validé sur les feuilles du projet.
-
-Le DWG combiné est donc défini comme un livrable unique issu de plusieurs feuilles/vues Revit, avec le comportement de fusion déterminé par les options Revit sélectionnées.
-
-### 12.3 Configurations DWG Revit
-
-Revit 2025 expose `ExportDWGSettings` pour les configurations DWG/DXF enregistrées dans le document.
-
-Export doit privilégier leur réutilisation plutôt que de dupliquer les paramètres dans l'outil.
-
-La préférence fonctionnelle TAA reste **DWG True Color**, sous réserve de la configuration Revit sélectionnée.
-
-### 12.4 Validation
-
-Avant publication :
-
-- vérifier que les documents sont exportables ;
-- vérifier que la configuration DWG existe ;
-- vérifier que la destination est accessible ;
-- vérifier les collisions ;
-- vérifier les noms.
-
----
-
-## 13. Système de modèles de nommage
-
-### 13.1 Variables Projet
-
-```text
-{Projet:NomProjet}
-{Projet:NuméroProjet}
-{Projet:Adresse}
-```
-
-### 13.2 Variables Feuille
-
-```text
-{Feuille:Numéro}
-{Feuille:Nom}
-{Feuille:Phase}
-{Feuille:Indice}
-```
-
-### 13.3 Variables Carnet
-
-```text
-{Carnet}
-{Carnet:Nom}
-{Carnet:Source}
-```
-
-### 13.4 Variables de profil
-
-```text
-{Profil}
-{Profil:Nom}
-```
-
-### 13.5 Paramètre de regroupement
-
-```text
-{ParamètreCarnet}
-```
-
-### 13.6 Conflits
-
-Un livrable combiné ne doit jamais prendre silencieusement la première valeur rencontrée.
-
-Si une variable n'a pas une valeur homogène, Export doit :
-
-1. détecter le conflit ;
-2. l'afficher ;
-3. empêcher la publication automatique si le conflit rend le nom ambigu ;
-4. proposer une résolution explicite.
-
-### 13.7 Architecture
+### 7.6 Architecture
 
 ```text
 FilenameTemplateService
@@ -755,11 +431,200 @@ Nom sécurisé
 
 ---
 
-## 14. Organisation des dossiers d'export
+## 8. Héritage des réglages
 
-La destination constitue la racine de publication.
+La cible à moyen terme est :
 
-### 14.1 Type de fichier → Carnet
+```text
+Profil
+  ↓
+Dossier
+  ↓
+Carnet
+  ↓
+Sous-dossier / mise en page
+```
+
+Chaque niveau peut :
+
+- hériter ;
+- surcharger ;
+- revenir à l'héritage.
+
+Une valeur héritée doit être distinguable visuellement d'une valeur explicitement définie.
+
+La logique d'héritage doit être centralisée dans un `SettingsResolver` et ne doit pas être reproduite dans les exporteurs PDF/DWG.
+
+---
+
+## 9. Profils de publication
+
+Un profil représente une procédure réutilisable.
+
+Exemples :
+
+```text
+PC
+DP
+PRO
+DCE
+EXE
+DOE
+CONSULTATION
+ARCHIVES
+```
+
+Un profil peut contenir plusieurs carnets et des réglages communs.
+
+Le profil ne doit pas remplacer les carnets : il orchestre leur utilisation.
+
+```text
+Profil DCE
+├── Carnet Plans
+├── Carnet Coupes
+└── Carnet Façades
+```
+
+Les profils sont une étape ultérieure au socle Publisher, mais le modèle doit être conçu pour les accueillir sans refonte.
+
+---
+
+## 10. Prévisualisation avant publication
+
+Avant de produire un fichier, Export doit pouvoir présenter un aperçu de ce qui va être fait.
+
+### 10.1 Informations minimales
+
+```text
+Sélection
+Carnet
+Mise(s) en page
+Format
+Mode
+Nom final
+Destination
+```
+
+### 10.2 Contrôles
+
+La prévisualisation doit signaler :
+
+- élément manquant ;
+- configuration absente ;
+- nom invalide ;
+- collision ;
+- destination inaccessible ;
+- conflit de variables ;
+- carnet vide.
+
+### 10.3 Principe
+
+La prévisualisation et la publication réelle doivent utiliser les mêmes services de résolution.
+
+```text
+Résolution
+   ├──→ Prévisualisation
+   └──→ Publication
+```
+
+Il ne doit pas exister un calcul simplifié du nom ou du contenu uniquement pour l'aperçu.
+
+---
+
+## 11. Sources dynamiques et évolution du projet
+
+Une publication dynamique doit pouvoir suivre l'évolution du modèle.
+
+```text
+Règle
+ ↓
+Résolution Revit
+ ↓
+Nouvelles mises en page détectées
+ ↓
+Contenu du carnet mis à jour
+ ↓
+Publication
+```
+
+Export doit distinguer :
+
+- nouvel élément détecté ;
+- élément attendu mais introuvable ;
+- élément retiré de la règle ;
+- élément exclu volontairement.
+
+Pour un carnet fixe, un élément supprimé doit rester identifiable comme manquant et ne doit jamais être remplacé silencieusement par un autre élément portant le même numéro.
+
+---
+
+## 12. Périmètres de publication
+
+Le modèle cible conserve :
+
+```text
+ENTIRE_SET
+SELECTED_ITEMS
+SELECTED_NODES
+```
+
+et prépare :
+
+```text
+MODIFIED_ONLY
+```
+
+### 12.1 Règle utilisateur
+
+Le périmètre technique doit être traduit par une action simple dans l'interface :
+
+```text
+Carnet sélectionné → ENTIRE_SET
+Mise en page sélectionnée → SELECTED_ITEMS
+Dossier sélectionné → descendants du dossier
+```
+
+### 12.2 Publication des éléments modifiés
+
+`MODIFIED_ONLY` ne doit être activé qu'après mise en place d'un état de publication fiable permettant de comparer les exécutions.
+
+---
+
+## 13. PDF
+
+Le PDF utilise en priorité le moteur PDF natif de Revit 2025.4.
+
+Deux modes sont conservés :
+
+- combiné ;
+- séparé.
+
+Export ne doit pas recréer artificiellement un « profil PDF Revit » si Revit ne fournit pas cet objet dans son API.
+
+Les réglages effectivement exposés par l'API Revit doivent être vérifiés sur la version cible avant implémentation.
+
+---
+
+## 14. DWG
+
+Les deux modes sont conservés :
+
+- combiné ;
+- séparé.
+
+Export réutilise autant que possible les configurations `ExportDWGSettings` natives de Revit.
+
+La préférence TAA est **Couleur vraie / True Color**, sous réserve de la configuration et de l'API réellement disponibles.
+
+Une configuration native devenue indisponible ne doit jamais être remplacée silencieusement.
+
+---
+
+## 15. Organisation des dossiers de sortie
+
+La destination est la racine de publication.
+
+Les structures prévues sont :
 
 ```text
 Exports/
@@ -771,7 +636,7 @@ Exports/
     └── PRO/
 ```
 
-### 14.2 Carnet → Type de fichier
+ou :
 
 ```text
 Exports/
@@ -783,279 +648,101 @@ Exports/
     └── DWG/
 ```
 
-### 14.3 Hiérarchie interne optionnelle
+Une structure interne au carnet peut également être reproduite si l'utilisateur l'active.
 
-```text
-Exports/
-└── DCE/
-    ├── PDF/
-    │   ├── Plans/
-    │   └── Coupes/
-    └── DWG/
-        ├── Plans/
-        └── Coupes/
-```
-
-### 14.4 Paramètre d'architecture
-
-```text
-OutputStructure
-├── BY_FILE_TYPE
-└── BY_PUBLICATION_SET
-```
-
-Un service unique `OutputPathService` est responsable de la construction des chemins.
-
-Les services PDF et DWG ne doivent pas créer leur propre arborescence.
-
-### 14.5 Sécurité
-
-Export doit :
-
-- créer les dossiers manquants ;
-- sécuriser les noms ;
-- détecter les collisions ;
-- ne pas écraser silencieusement un livrable ;
-- signaler toute impossibilité d'écriture.
+Un service unique `OutputPathService` doit construire les chemins. Les exporteurs PDF/DWG ne doivent pas construire leur propre arborescence.
 
 ---
 
-## 15. Gestion des collisions et stratégie d'écrasement
+## 16. Collisions et écrasement
 
-La stratégie doit être explicite dans le profil.
+La stratégie doit être explicite :
 
 ```text
-CollisionPolicy
-├── ASK
-├── SKIP
-├── OVERWRITE
-└── RENAME
+ASK
+SKIP
+OVERWRITE
+RENAME
 ```
 
 `OVERWRITE` ne doit jamais être implicite.
 
-Pour chaque collision, le rapport doit indiquer :
-
-- fichier existant ;
-- action choisie ;
-- nouveau nom éventuel ;
-- résultat.
+Chaque collision doit être visible dans la prévisualisation et dans le rapport.
 
 ---
 
-## 16. Gestion de l'exécution
+## 17. Workflow cible complet
 
-La V2 formalise l'exécution comme un objet métier :
+### 17.1 Usage quotidien
 
 ```text
-PublicationExecution
-├── id
-├── profile_id
-├── started_at
-├── completed_at
-├── status
-├── progress
-├── items
-└── report
+Ouvrir Export
+   ↓
+Parcourir l'arborescence
+   ↓
+Sélectionner un carnet ou une mise en page
+   ↓
+Vérifier / modifier les réglages persistants
+   ↓
+Prévisualiser
+   ↓
+Publier
+   ↓
+Consulter le rapport
 ```
 
-### 16.1 États
+### 17.2 Gestion des carnets
+
+Une fenêtre dédiée conserve la création et la gestion des carnets :
 
 ```text
-ExecutionStatus
-├── PREPARING
-├── VALIDATING
-├── RUNNING
-├── PAUSING
-├── PAUSED
-├── CANCELLING
-├── CANCELLED
-├── COMPLETED
-└── FAILED
+Par paramètre
+Manuel
+Temporaire
+Dynamique
 ```
 
-### 16.2 Progression
+Cette fenêtre ne doit pas surcharger l'écran principal de publication.
 
-L'interface doit afficher au minimum :
-
-- progression globale ;
-- carnet courant ;
-- document courant ;
-- format courant ;
-- nombre de livrables réussis ;
-- nombre d'erreurs ;
-- nombre d'éléments ignorés.
-
-### 16.3 Annulation
-
-L'utilisateur doit pouvoir demander l'arrêt d'une publication.
-
-L'annulation doit être coopérative et respecter les limites de l'API Revit.
-
-Un livrable déjà finalisé doit rester identifiable comme produit avant l'annulation.
-
-### 16.4 Pause
-
-La V2 réserve un état `PAUSED`.
-
-La possibilité réelle de suspendre une opération dépend des points de contrôle disponibles dans l'API Revit et dans les services d'export.
-
-Il ne faut pas simuler une pause si l'opération Revit en cours ne peut pas être interrompue proprement.
-
----
-
-## 17. Rapport de publication
-
-Chaque exécution doit produire un rapport structuré.
-
-### 17.1 Informations générales
+### 17.3 Publication d'un carnet
 
 ```text
-Profil
-Date / heure
-Projet
-Utilisateur
-Destination
-```
-
-### 17.2 Résultats
-
-Pour chaque livrable :
-
-```text
-Carnet
-Document(s)
-Format
-Mode
-Chemin
-Nom
-Statut
-Durée
-Message
-```
-
-### 17.3 Statuts
-
-```text
-SUCCESS
-WARNING
-SKIPPED
-FAILED
-CANCELLED
-```
-
-### 17.4 Résolution dynamique
-
-Le rapport doit également permettre de comprendre les changements de contenu :
-
-- documents nouvellement détectés ;
-- documents retirés de la règle ;
-- documents introuvables ;
-- documents exclus par surcharge.
-
-### 17.5 Traçabilité
-
-Le rapport doit être suffisamment précis pour permettre de comprendre pourquoi un document a été ou n'a pas été publié.
-
----
-
-## 18. Historique des publications
-
-La V2 prévoit un historique associé aux profils.
-
-Il doit permettre de retrouver :
-
-- quand une publication a été lancée ;
-- quel profil a été utilisé ;
-- quelle version du profil était active ;
-- quels carnets ont été résolus ;
-- quels fichiers ont été produits ;
-- quelles erreurs sont survenues.
-
-L'historique ne remplace pas le rapport de publication : il en conserve les informations essentielles pour les comparaisons futures.
-
----
-
-## 19. Détection des modifications depuis la dernière publication
-
-Cette fonction est préparée en V2 mais doit être conçue comme un mécanisme de **suivi d'état de publication**.
-
-### 19.1 État mémorisé
-
-Pour chaque document publié, Export peut mémoriser :
-
-```text
-unique_id
-sheet_number
-sheet_name
-relevant_parameters
-profile_id
-profile_version
-publication_time
-output_name
-```
-
-### 19.2 Comparaison
-
-Lors d'une nouvelle publication :
-
-```text
-État précédent
+Sélection carnet
       ↓
-Nouvelle résolution
+Résolution du carnet
       ↓
-Comparaison
+Réglages persistants
       ↓
-Nouveau / Modifié / Inchangé / Supprimé
-```
-
-### 19.3 Prudence
-
-Une simple date de modification d'élément ne suffit pas à déterminer si un livrable PDF/DWG est réellement différent.
-
-Une implémentation fiable pourra nécessiter un snapshot des informations pertinentes ou un hash métier.
-
----
-
-## 20. Validation avant publication
-
-Avant toute exécution, Export doit effectuer une phase de validation indépendante de l'export réel.
-
-### 20.1 Contrôles
-
-- profil valide ;
-- carnet valide ;
-- documents résolus ;
-- éléments manquants ;
-- documents non exportables ;
-- configuration PDF/DWG ;
-- destination accessible ;
-- dossiers créables ;
-- noms valides ;
-- conflits de nommage ;
-- collisions ;
-- cohérence des réglages hérités ;
-- cohérence du périmètre.
-
-### 20.2 Principe
-
-```text
-Résolution
-    ↓
+Périmètre ENTIRE_SET
+      ↓
 Validation
-    ↓
-Blocage si erreur critique
-    ↓
+      ↓
+Prévisualisation
+      ↓
 Publication
 ```
 
-L'outil ne doit pas commencer une publication importante avant d'avoir détecté les erreurs structurelles prévisibles.
+### 17.4 Publication d'une mise en page
+
+```text
+Sélection mise en page
+      ↓
+Carnet parent
+      ↓
+Héritage des réglages du carnet
+      ↓
+Périmètre SELECTED_ITEMS
+      ↓
+Validation
+      ↓
+Prévisualisation
+      ↓
+Publication
+```
 
 ---
 
-## 21. Architecture logicielle
-
-L'architecture V2 doit rester conforme aux standards Outils TAA.
+## 18. Architecture logicielle cible
 
 ```text
 UI WPF
@@ -1064,13 +751,13 @@ Application / ViewModels
   ↓
 Publication Services
   ├── PublicationProfileService
+  ├── PublicationFolderService
   ├── PublicationSetService
   ├── PublicationResolver
   ├── PublicationTreeService
   ├── SettingsResolver
-  ├── ExportConfigurationService
-  ├── ValidationService
   ├── FilenameTemplateService
+  ├── ValidationService
   ├── OutputPathService
   ├── PdfExportService
   ├── DwgExportService
@@ -1080,556 +767,285 @@ Publication Services
 Revit API / Common TAA
 ```
 
-### 21.1 Principes
+Principes :
 
 - une responsabilité par classe ;
-- aucune logique métier dans les fenêtres WPF ;
-- aucun accès Revit direct depuis les modèles de stockage ;
-- aucun chemin construit directement dans les exporteurs ;
-- aucun paramètre DWG dupliqué inutilement ;
-- réutilisation de `lib/common` ;
-- opérations Revit centralisées dans des services dédiés ;
-- gestion explicite des exceptions ;
+- aucune logique métier complexe dans les fenêtres WPF ;
+- aucun chemin de sortie construit dans les exporteurs ;
+- aucun réglage DWG dupliqué inutilement ;
+- persistance indépendante de la session ;
+- accès Revit centralisé ;
+- exceptions explicites ;
 - journalisation structurée.
 
 ---
 
-## 22. Persistance
+## 19. Persistance
 
-Les carnets et profils persistants doivent être stockés dans un format versionnable et migrable.
+Les carnets, dossiers et profils persistants doivent être stockés dans un format versionnable et migrable.
 
-### 22.1 Identifiants Revit
+Les données doivent permettre de reconstruire fidèlement :
 
-Les éléments ne doivent pas dépendre uniquement d'un `ElementId` persistant entre sessions.
+- l'identité ;
+- le nom ;
+- le dossier parent ;
+- la source ;
+- les éléments ;
+- les réglages ;
+- le modèle de nommage ;
+- la version du schéma.
 
-La résolution doit privilégier des identifiants et métadonnées adaptés, notamment :
-
-```text
-unique_id
-sheet_id
-item_type
-sheet_number
-sheet_name
-```
-
-### 22.2 Élément supprimé
-
-Un élément supprimé doit apparaître comme manquant et ne doit pas être remplacé silencieusement par un autre élément portant le même numéro.
-
-### 22.3 Évolution du modèle
-
-Les changements de nom ou de numéro doivent être visibles dans le diagnostic de résolution lorsque la correspondance n'est plus certaine.
+Les `UniqueId` Revit doivent être privilégiés pour les références intersessions. Un élément supprimé ne doit pas être remplacé silencieusement.
 
 ---
 
-## 23. Extensibilité des formats
+## 20. Exécution et rapport
 
-La V2 doit conserver une architecture permettant d'ajouter ultérieurement d'autres formats :
+Chaque publication est une exécution structurée.
 
 ```text
-PublicationFormat
-├── PDF
-├── DWG
-├── IFC
-├── BIMX / autres
-└── FUTURS
+PREPARING
+VALIDATING
+RUNNING
+COMPLETED
+FAILED
+CANCELLED
 ```
 
-Le fait de préparer l'architecture ne signifie pas que tous ces formats doivent être implémentés en V2.
+Le rapport doit indiquer au minimum :
 
-Chaque format doit disposer d'un service spécialisé derrière une abstraction commune de publication.
+- profil ou contexte ;
+- carnet ;
+- mise en page ;
+- format ;
+- mode ;
+- chemin ;
+- nom final ;
+- statut ;
+- durée ;
+- message.
+
+Les échecs partiels doivent rester traçables.
 
 ---
 
-## 24. Compatibilité Revit / pyRevit
+## 21. Validation
 
-### Cible
+Avant toute publication :
+
+- résolution des éléments ;
+- éléments manquants ;
+- exportabilité ;
+- configuration PDF/DWG ;
+- destination ;
+- création des dossiers ;
+- nommage ;
+- collisions ;
+- cohérence des réglages ;
+- périmètre.
+
+```text
+Résolution
+   ↓
+Validation
+   ↓
+Prévisualisation
+   ↓
+Publication
+```
+
+Une erreur critique doit bloquer la publication concernée.
+
+---
+
+## 22. Tests et non-régression
+
+Les tests suivent `docs/08_Testing.md` et le registre global `docs/11_BUGS_Prevention_Registry.md`.
+
+Toute modification du module Export doit notamment vérifier :
+
+- chargement WPF/XAML dans Revit 2025.4 ;
+- navigation de l'arborescence ;
+- sélection carnet ;
+- sélection mise en page ;
+- publication du bon périmètre ;
+- persistance des réglages ;
+- résolution des carnets ;
+- nommage ;
+- PDF ;
+- DWG ;
+- collisions ;
+- rapport.
+
+Avant chaque commit de code, le registre global des bugs doit être consulté conformément à `08_Testing.md`.
+
+---
+
+## 23. Compatibilité
+
+Cible officielle :
 
 - Revit **2025.4** ;
-- pyRevit **5.x**.
+- pyRevit **5.x** ;
+- IronPython compatible avec l'environnement pyRevit utilisé.
 
-Toute API utilisée doit être vérifiée sur la version cible.
-
-Les comportements non garantis par l'API doivent être marqués comme tels dans la documentation et validés par des tests d'intégration.
+Toute API non garantie doit être validée dans l'environnement réel.
 
 ---
 
-## 25. Tests V2
+## 24. Roadmap de développement
 
-### 25.1 Carnets
+L'évolution est volontairement découpée pour permettre une validation progressive dans Revit.
 
-Tester :
+### Étape 01 — Sélection contextuelle Publisher
 
-- carnet automatique ;
-- carnet manuel ;
-- carnet temporaire ;
-- carnet dynamique ;
-- règle sans résultat ;
-- ajout automatique d'une feuille ;
-- retrait d'une feuille ne correspondant plus à la règle ;
-- élément supprimé ;
-- changement de numéro ;
-- caractères spéciaux.
+**Objectif :** supprimer la dépendance à la sélection par cases à cocher pour l'usage courant.
 
-### 25.2 Hiérarchie
+À réaliser :
 
-Tester :
+1. sélectionner un carnet dans l'arborescence ;
+2. sélectionner une mise en page dans l'arborescence ;
+3. identifier le périmètre courant ;
+4. publier le carnet entier lorsqu'un carnet est sélectionné ;
+5. publier uniquement la mise en page lorsqu'une mise en page est sélectionnée ;
+6. adapter dynamiquement le bouton de publication et les informations affichées ;
+7. conserver la possibilité de publier plusieurs carnets via une sélection dédiée ultérieurement.
 
-- dossiers imbriqués ;
-- déplacement d'un document ;
-- publication d'un dossier uniquement ;
-- reproduction de l'arborescence dans les fichiers ;
-- hiérarchie uniquement logique.
+**Critère de validation :** un clic sur un carnet ou une mise en page suffit à déterminer ce qui sera publié, sans ambiguïté.
 
-### 25.3 Profils
+### Étape 02 — Éditeur de nommage Publisher
 
-Tester :
+À réaliser :
 
-- création ;
-- sauvegarde ;
-- rechargement ;
-- version ;
-- migration ;
-- profil incomplet ;
-- plusieurs carnets dans un profil.
+- variables ;
+- insertion assistée ;
+- aperçu ;
+- règles différentes combiné/séparé ;
+- paramètres Revit ;
+- validation des noms ;
+- persistance du modèle.
 
-### 25.4 Héritage
+### Étape 03 — Prévisualisation de publication
 
-Tester :
+À réaliser :
 
-- héritage simple ;
-- surcharge ;
-- retour à héritage ;
-- conflit entre niveaux ;
-- suppression d'un réglage parent.
-
-### 25.5 Périmètres
-
-Tester :
-
-- totalité ;
-- sélection ;
-- sous-dossier ;
-- jeu de publication ;
-- modification depuis dernière publication lorsque la fonctionnalité est activée.
-
-### 25.6 PDF / DWG
-
-Tester :
-
-- combiné ;
-- séparé ;
-- carnet vide ;
-- document non exportable ;
-- configuration DWG absente ;
-- True Color ;
-- `MergedViews=false` ;
-- `MergedViews=true` ;
+- liste exacte des livrables ;
+- noms finaux ;
+- destinations ;
 - collisions ;
-- destination inexistante ;
-- destination non accessible.
+- erreurs et avertissements ;
+- validation avant exécution.
 
-### 25.7 Exécution
+### Étape 04 — Sélection multiple et publication par dossier
 
-Tester :
+À réaliser :
 
-- progression ;
-- annulation ;
-- échec partiel ;
-- erreur critique ;
-- rapport final ;
-- reprise d'une publication après erreur.
+- Ctrl ;
+- Shift ;
+- sélection de plusieurs carnets ;
+- publication d'un dossier ;
+- publication d'un ensemble de mises en page.
 
-### 25.8 Validation externe
+### Étape 05 — Héritage et profils
 
-Les livrables doivent être contrôlés dans les logiciels cibles ou compatibles lorsque cela est pertinent, notamment pour les DWG.
+À réaliser :
 
----
+- réglages au niveau dossier ;
+- profils ;
+- surcharge ;
+- retour à l'héritage ;
+- versionnement.
 
-## 26. Interface utilisateur V2
+### Étape 06 — Dynamique avancé
 
-L'interface doit rester conforme aux guidelines TAA :
+À réaliser :
 
-- WPF ;
-- simple ;
-- lisible ;
-- rapide ;
-- prévisible ;
-- couleur agence orange `RGB(250,100,31)` / `#FA641F`.
+- règles combinées ;
+- prévisualisation de résolution ;
+- détection des nouveaux éléments ;
+- diagnostic des éléments retirés ;
+- exclusions explicites.
 
-### 26.1 Écran principal proposé
+### Étape 07 — Historique et « modifiés uniquement »
 
-```text
-┌─────────────────────────────────────────────┐
-│ EXPORT                                      │
-├─────────────────────────────────────────────┤
-│ Profil : [ DCE ▼ ]      [Nouveau] [Modifier]│
-├─────────────────────────────────────────────┤
-│ Carnets                                     │
-│ ☑ DCE                                       │
-│ ☑ Plans                                     │
-│ ☐ Coupes                                    │
-├─────────────────────────────────────────────┤
-│ Résolution                                  │
-│ 42 documents   2 nouveaux   1 manquant      │
-├─────────────────────────────────────────────┤
-│ Formats                                     │
-│ ☑ PDF   ☑ DWG                               │
-├─────────────────────────────────────────────┤
-│ Destination : [................] [Parcourir]│
-├─────────────────────────────────────────────┤
-│ [ Prévisualiser ]             [ Publier ]   │
-└─────────────────────────────────────────────┘
-```
+À réaliser après stabilisation des étapes précédentes :
 
-### 26.2 Prévisualisation
+- historique ;
+- état de publication ;
+- comparaison ;
+- snapshots ou hash métier ;
+- `MODIFIED_ONLY`.
 
-Avant publication, l'utilisateur doit pouvoir voir :
+### Étape 08 — Extensibilité
 
-- les carnets ;
-- les documents ;
-- la hiérarchie ;
-- les fichiers qui seront créés ;
-- les noms finaux ;
-- les erreurs et avertissements.
+Préparer sans priorité immédiate :
+
+- vues publiables ;
+- IFC ;
+- autres formats ;
+- automatisations complémentaires.
 
 ---
 
-## 27. Journalisation et diagnostic
+## 25. Critères de réussite de la cible Publisher TAA
 
-Export doit utiliser le logger commun des Outils TAA.
+Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourra :
 
-Les événements importants doivent être journalisés :
+1. ouvrir une arborescence de publications claire ;
+2. sélectionner un carnet et publier tout son contenu ;
+3. sélectionner une mise en page et publier uniquement celle-ci ;
+4. conserver les réglages du carnet entre les sessions ;
+5. définir une règle de nommage assistée ;
+6. prévisualiser les fichiers avant publication ;
+7. publier PDF et DWG selon les configurations Revit appropriées ;
+8. gérer les collisions explicitement ;
+9. organiser les carnets par dossiers ;
+10. utiliser des carnets fixes ou dynamiques ;
+11. réutiliser des profils de publication ;
+12. suivre les résultats dans un rapport ;
+13. préparer ultérieurement la publication des seuls éléments modifiés.
 
-- ouverture d'un profil ;
-- résolution d'un carnet ;
-- ajout/retrait dynamique ;
-- validation ;
-- début de publication ;
-- création d'un fichier ;
-- erreur ;
-- annulation ;
-- fin de publication.
-
-Les logs ne doivent pas contenir inutilement de données sensibles ou de chemins confidentiels lorsque ceux-ci ne sont pas nécessaires au diagnostic.
-
----
-
-## 28. Règles fonctionnelles essentielles V2
-
-Les règles suivantes sont non négociables :
-
-1. **Le moteur de publication ne connaît pas la source du carnet.**
-2. **Une règle dynamique ne doit jamais être confondue avec une sélection fixe.**
-3. **Un profil est une configuration, une exécution est une instance de cette configuration.**
-4. **Les réglages hérités sont résolus avant l'appel aux exporteurs.**
-5. **Un exporteur ne construit jamais lui-même l'arborescence de sortie.**
-6. **Une collision ne doit jamais être résolue silencieusement.**
-7. **Un document manquant ne doit jamais être remplacé silencieusement par un autre.**
-8. **La prévisualisation doit utiliser les mêmes services de résolution que la publication réelle.**
-9. **La validation doit être indépendante de l'interface.**
-10. **La publication doit pouvoir produire un rapport exploitable même en cas d'échec partiel.**
-11. **Les comportements Revit non garantis doivent être explicitement documentés et testés.**
-12. **Les formats futurs ne doivent pas imposer de refonte du modèle métier.**
-13. **Export ne doit pas recopier inutilement les configurations natives d'export de Revit.**
-14. **Revit reste la source de vérité pour les réglages natifs au moment de la publication.**
-15. **Une configuration native devenue indisponible ne doit jamais être remplacée silencieusement.**
+> **La réussite d'Export se mesure à la qualité du workflow de publication, pas uniquement à la capacité de produire un PDF ou un DWG.**
 
 ---
 
-## 29. Roadmap V2
+## 26. Règles fonctionnelles non négociables
 
-### V2.0 – Socle Publisher
-
-- profils de publication ;
-- carnets dynamiques ;
-- hiérarchie interne ;
-- périmètres de publication ;
-- héritage et surcharge ;
-- exécution structurée ;
-- rapport détaillé ;
-- PDF/DWG existants intégrés au nouveau modèle.
-
-### V2.1 – Productivité
-
-- historique enrichi ;
-- comparaison avec publication précédente ;
-- détection des documents modifiés ;
-- amélioration de la prévisualisation ;
-- raccourcis de publication ;
-- duplication de profils/carnets ;
-- intégration propre des configurations natives Revit dans le profil de publication.
-
-### V2.2 – Extensibilité
-
-- vues publiables lorsque pertinent ;
-- nouveaux formats ;
-- intégration éventuelle de workflows IFC ;
-- règles de publication plus avancées.
+1. Le moteur de publication ne dépend pas directement du mode de création du carnet.
+2. Une sélection fixe ne doit pas être confondue avec une règle dynamique.
+3. Le carnet est l'unité persistante principale de configuration.
+4. La sélection d'une mise en page doit pouvoir réduire le périmètre à cette seule mise en page.
+5. Les réglages persistants ne doivent jamais être perdus silencieusement.
+6. Les réglages hérités sont résolus avant l'appel aux exporteurs.
+7. Les exporteurs ne construisent jamais l'arborescence de sortie.
+8. Une collision ne doit jamais être résolue silencieusement.
+9. Un élément manquant ne doit jamais être remplacé silencieusement par un autre.
+10. Prévisualisation et publication utilisent les mêmes services de résolution.
+11. La validation est indépendante de l'interface.
+12. Les configurations natives Revit sont réutilisées lorsqu'elles sont réellement disponibles via l'API cible.
+13. Les comportements Revit non garantis sont documentés et testés.
+14. Les erreurs reproductibles sont capitalisées dans `11_BUGS_Prevention_Registry.md`.
+15. Avant toute modification de code et avant chaque commit, le registre global des bugs est consulté.
 
 ---
 
-## 30. Critère de réussite V2
-
-Export V2 sera considéré comme ayant atteint son objectif lorsque l'utilisateur pourra :
-
-1. créer un profil de publication ;
-2. créer un carnet dynamique ;
-3. organiser ce carnet en sous-dossiers ;
-4. définir les formats PDF/DWG ;
-5. réutiliser les configurations Revit ;
-6. définir une destination et une convention de nommage ;
-7. publier tout le carnet ou seulement une partie ;
-8. relancer le même profil après évolution du projet ;
-9. voir automatiquement les nouveaux documents correspondant aux règles ;
-10. identifier les documents manquants ou modifiés ;
-11. suivre l'exécution ;
-12. annuler proprement une publication ;
-13. obtenir un rapport précis et reproductible.
-
-> **La réussite de la V2 ne se mesure donc plus uniquement à la capacité de produire un PDF ou un DWG. Elle se mesure à la capacité d'Export à devenir un véritable gestionnaire de publications pour Revit, inspiré du workflow Publisher d'Archicad.**
-
----
-
-## 31. Configurations d'export natives Revit
-
-Cette section regroupe les règles précédemment documentées séparément pour les configurations d'export Revit. Elle constitue désormais la référence unique pour ce sujet.
-
-### 31.1 Principe directeur
-
-Export doit réutiliser autant que possible les **configurations natives d'export et d'impression de Revit**, plutôt que de recréer dans son interface les réglages déjà disponibles dans Revit.
-
-La logique est :
-
-```text
-Carnet
-  ↓
-Documents à publier
-  ↓
-Format choisi
-  ↓
-Configuration d'export Revit
-  ↓
-Publication
-```
-
-Le carnet définit **quoi publier** ; la configuration d'export définit **comment le document est produit**.
-
-Export ne doit donc pas dupliquer inutilement les réglages de qualité, de format, de représentation ou de sortie déjà gérés par Revit.
-
-### 31.2 PDF — moteur natif Revit
-
-La publication PDF doit utiliser en priorité le **moteur PDF natif de Revit**.
-
-Lorsque Revit 2025.4 expose un réglage pertinent via son API, Export doit pouvoir le réutiliser ou le transmettre à l'export plutôt que de maintenir une copie indépendante.
-
-Les réglages potentiellement concernés peuvent notamment inclure, selon ce qui est effectivement exposé par l'API cible :
-
-- format papier ;
-- orientation ;
-- couleur / noir et blanc ;
-- vectoriel / raster lorsque disponible ;
-- qualité ou résolution lorsque disponible ;
-- paramètres d'impression associés aux feuilles.
-
-**Règle importante :** Export ne doit jamais supposer qu'une option visible dans l'interface Revit dispose automatiquement d'un équivalent dans l'API. Chaque réglage doit être vérifié contre l'API Revit 2025.4 avant implémentation.
-
-### 31.3 Pas de faux « profil PDF Revit »
-
-Contrairement aux configurations DWG, Export ne doit pas présenter comme native une notion de **« profil PDF Revit »** si Revit ne fournit pas réellement cet objet sous cette forme.
-
-Si Export mémorise une configuration logique PDF, celle-ci doit être clairement identifiée comme une configuration **Export**, et non comme une configuration native Revit.
-
-### 31.4 DWG — configurations natives Revit
-
-Pour le DWG, Export doit privilégier les **configurations d'export DWG enregistrées dans Revit** plutôt que de recréer tous les réglages dans l'application.
-
-Selon les capacités de l'API Revit 2025.4, la configuration sélectionnée peut notamment contrôler :
-
-- version AutoCAD ;
-- unités ;
-- correspondance des calques ;
-- couleurs ;
-- épaisseurs de lignes ;
-- polices ;
-- motifs ;
-- références externes ;
-- autres options natives d'export DWG.
-
-La préférence fonctionnelle du projet reste **DWG True Color**, sous réserve de la configuration Revit sélectionnée.
-
-Revit 2025 expose `ExportDWGSettings` pour les configurations DWG/DXF enregistrées dans le document. Export doit réutiliser ces configurations plutôt que d'en stocker une copie complète.
-
-### 31.5 Référence à une configuration
-
-Un carnet ou un profil de publication ne doit pas recopier intégralement une configuration DWG native.
-
-Il conserve une **référence à la configuration Revit sélectionnée**, puis vérifie qu'elle existe encore au moment de la publication.
-
-```text
-Publication
-    ↓
-Référence configuration DWG
-    ↓
-Configuration toujours disponible ?
-   ├── Oui → export
-   └── Non → erreur explicite
-```
-
-Une configuration supprimée ou devenue indisponible ne doit jamais être remplacée silencieusement par une autre configuration.
-
-### 31.6 Source de vérité
-
-Une configuration Revit peut être modifiée après avoir été sélectionnée dans Export.
-
-Export doit donc considérer la configuration native comme la **source de vérité au moment de la publication** :
-
-```text
-Référence enregistrée dans Export
-          ↓
-Résolution dans Revit au lancement
-          ↓
-Configuration actuelle
-          ↓
-Publication avec les réglages actuels
-```
-
-L'application ne doit pas utiliser une copie obsolète des réglages.
-
-Si une configuration n'est plus disponible, l'utilisateur doit être averti avant le lancement de l'export.
-
-### 31.7 Service dédié
-
-La recherche, la présentation, la résolution et la validation des configurations ne doivent pas être placées dans les exporteurs PDF/DWG.
-
-Le service recommandé est :
-
-```text
-ExportConfigurationService
-```
-
-Responsabilités :
-
-- détecter les configurations disponibles ;
-- exposer les configurations utilisables par Export ;
-- résoudre la configuration choisie ;
-- vérifier sa disponibilité avant publication ;
-- fournir les options à `PdfExportService` et `DwgExportService` ;
-- signaler les incompatibilités ou limites de l'API.
-
-Architecture cible :
-
-```text
-PublicationProfile
-      ↓
-ExportConfigurationService
-      ↓
-┌───────────────────────────────┐
-│ PDF : réglages accessibles    │
-│ DWG : configuration Revit     │
-└───────────────────────────────┘
-      ↓
-PdfExportService / DwgExportService
-```
-
-### 31.8 Interface utilisateur
-
-L'interface doit rester simple et masquer les réglages avancés lorsque ceux-ci sont déjà gérés par Revit.
-
-Exemple cible :
-
-```text
-FORMATS
-
-☑ PDF
-   Configuration : [ Réglages accessibles ▼ ]
-
-☑ DWG
-   Configuration : [ TAA - DWG True Color ▼ ]
-```
-
-Pour le PDF, le libellé exact et les possibilités de sélection doivent être adaptés aux réglages réellement accessibles dans l'API Revit 2025.4.
-
-Pour le DWG, la liste doit proposer les configurations natives disponibles dans le projet.
-
-Un accès **« Ouvrir les réglages Revit »** ou équivalent peut être prévu lorsque l'utilisateur doit modifier une configuration native plutôt que la dupliquer dans Export.
-
-### 31.9 Persistance
-
-Les préférences propres à Export et les configurations natives de Revit doivent rester distinctes.
-
-#### Préférences Export
-
-Export peut mémoriser :
-
-- dernier format utilisé ;
-- dernière configuration sélectionnée ;
-- dernier dossier de destination ;
-- modèle de nommage ;
-- autres préférences d'interface.
-
-#### Configurations natives Revit
-
-Export ne doit pas recopier inutilement :
-
-- les configurations DWG natives ;
-- les réglages d'impression natifs ;
-- les paramètres que Revit sait déjà conserver.
-
-Il doit conserver une **référence** et vérifier sa validité au moment de l'utilisation.
-
-### 31.10 Relation avec le nommage
-
-Le système de modèles de nommage reste indépendant des réglages d'export.
-
-```text
-Carnet
-  ├── Documents
-  ├── Modèle de nommage
-  └── Configuration d'export
-          ↓
-       Publication
-          ↓
-    Fichier final
-```
-
-Le modèle de nommage détermine **le nom du fichier**.
-
-La configuration d'export détermine **la manière dont le fichier est produit**.
-
-Ces deux responsabilités ne doivent pas être mélangées.
-
-### 31.11 Tests spécifiques aux configurations Revit
-
-#### PDF
-
-Tester :
-
-- détection des réglages accessibles via l'API ;
-- utilisation correcte des paramètres sélectionnés ;
-- comportement lorsqu'un réglage n'est pas exposé par l'API ;
-- cohérence avec le moteur PDF natif de Revit ;
-- absence de duplication inutile des paramètres Revit.
-
-#### DWG
-
-Tester :
-
-- détection des configurations DWG enregistrées ;
-- sélection d'une configuration précise ;
-- export avec cette configuration ;
-- configuration supprimée ;
-- configuration modifiée dans Revit ;
-- conservation du choix utilisateur entre deux publications lorsque la configuration existe toujours.
-
-#### Régression
-
-Les changements de configuration ne doivent pas modifier :
-
-- la constitution des carnets ;
-- l'ordre des feuilles ;
-- les modèles de nommage ;
-- la destination des fichiers ;
-- le rapport de publication.
-
-> **Principe directeur : Export orchestre les configurations ; Revit reste la source de vérité pour les réglages natifs d'export.**
+## 27. État d'implémentation
+
+La base actuelle contient déjà :
+
+- arborescence Dossier → Carnet → Mise en page ;
+- dossiers persistants ;
+- carnets persistants ;
+- fenêtre dédiée de gestion des carnets ;
+- consultation des mises en page ;
+- réglages PDF/DWG persistants au niveau carnet ;
+- configuration DWG native ;
+- True Color ;
+- destination persistante ;
+- modèle de nommage initial ;
+- publication PDF/DWG combinée ou séparée ;
+- filtrage des carnets liés au projet Revit courant ;
+- rapport de publication ;
+- registre global des bugs et procédure de non-régression.
+
+Les éléments décrits dans la roadmap mais non encore implémentés doivent être considérés comme **cible**, et non comme comportement déjà garanti.
