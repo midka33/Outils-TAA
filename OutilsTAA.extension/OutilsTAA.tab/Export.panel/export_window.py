@@ -341,6 +341,7 @@ class ExportWindow(forms.WPFWindow):
 
         all_results, all_errors, all_warnings = [], [], []
         all_success = True
+        report_output_directory = None
         for publication_set in targets:
             settings = publication_set.publication_settings or PublicationSettings(
                 output_directory=publication_set.output_directory)
@@ -349,6 +350,7 @@ class ExportWindow(forms.WPFWindow):
                 all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
                 all_success = False
                 continue
+            report_output_directory = settings.output_directory
             try:
                 result = self.controller.publish(
                     publication_set, settings.output_directory,
@@ -376,7 +378,7 @@ class ExportWindow(forms.WPFWindow):
             "results": all_results,
             "errors": all_errors,
             "warnings": all_warnings,
-            "output_directory": "Réglages propres au carnet"
+            "output_directory": report_output_directory or ""
         }
         PublicationReportWindow(report, owner=self).ShowDialog()
 
