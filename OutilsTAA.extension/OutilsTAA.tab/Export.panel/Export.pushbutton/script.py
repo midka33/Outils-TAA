@@ -25,6 +25,7 @@ from carnet_controller import CarnetController
 from carnet_repository import CarnetRepository
 from export_window import ExportWindow
 from publication_preview_integration import install_preview_on_export_window
+from publication_tree_drag_drop import PublicationTreeDragDrop
 
 
 # L'aperçu est installé avant la création de la fenêtre afin que le bouton
@@ -92,6 +93,12 @@ def main():
     )
 
     window = ExportWindow(controller, repository)
+
+    # Important : le gestionnaire de glisser-déposer doit être conservé en
+    # vie pendant toute la durée de la fenêtre. Sans cette instance, les
+    # événements WPF ne sont jamais abonnés à PublicationTree.
+    window._publication_tree_drag_drop = PublicationTreeDragDrop(window)
+
     window.ShowDialog()
 
 
