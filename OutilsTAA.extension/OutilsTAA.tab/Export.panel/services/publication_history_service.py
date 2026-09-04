@@ -49,13 +49,7 @@ class PublicationHistoryService(object):
 
     @staticmethod
     def fingerprint(item, version_guid=None):
-        """Construit l'état d'une mise en page au moment du contrôle.
-
-        `version_guid` doit provenir de `Element.VersionGuid` dans Revit.
-        Les informations de secours servent à diagnostiquer les anciennes
-        intégrations, mais ne sont pas présentées comme une détection fiable
-        de modification Revit.
-        """
+        """Construit l'état d'une mise en page au moment du contrôle."""
         if version_guid is not None:
             version_guid = str(version_guid)
         return {
@@ -70,14 +64,7 @@ class PublicationHistoryService(object):
         return self._read().get("sets", {}).get(str(set_id))
 
     def classify_items(self, publication_set, current_states):
-        """Classe les éléments en NEW, MODIFIED, UNCHANGED ou UNKNOWN.
-
-        `current_states` est un dictionnaire clé `item_key` -> fingerprint.
-        Une entrée absente de l'historique est NEW. Une différence de
-        `version_guid` est MODIFIED. Une absence de VersionGuid courant ou
-        historique donne UNKNOWN plutôt que de déclarer à tort la feuille
-        inchangée.
-        """
+        """Classe les éléments en NEW, MODIFIED, UNCHANGED ou UNKNOWN."""
         set_id = getattr(publication_set, "id", None)
         history = self.get_set_history(set_id) or {}
         previous = history.get("items", {})
@@ -105,31 +92,37 @@ class PublicationHistoryService(object):
         classified = self.classify_items(publication_set, current_states)
         if not modified_only:
             return list(getattr(publication_set, "items", []) or []), classified
-        # Une feuille jamais publiée doit toujours être produite. Une feuille
-        # dont Revit ne permet pas de confirmer l'état est conservativement
-        # republiée plutôt que silencieusement ignorée.
         selected = (classified["NEW"] + classified["MODIFIED"] +
                     classified["UNKNOWN"])
         return selected, classified
 
     def record_publication(self, publication_set, item_states, successful=True,
                            output_paths=None):
-        """Enregistre l'état courant après une publication réussie."""
+        """Enregistre l'état courant après une publication réussie.
+
+        Lorsqu'un mode « modifiés uniquement » est utilisé, les éléments non
+        publiés doivent conserver leur état historique. La mise à jour est
+        donc fusionnée avec l'entrée précédente au lieu de la remplacer.
+        """
         if not successful or publication_set is None or not getattr(publication_set, "id", None):
             return False
         data = self._read()
         set_id = str(publication_set.id)
-        items = {}
+        previous = data["sets"].get(set_id, {})
+        items = dict(previous.get("items", {}))
         for item in getattr(publication_set, "items", []) or []:
             key = self.item_key(item)
             state = item_states.get(key)
             if state is not None:
                 items[key] = dict(state)
+        previous_outputs = list(previous.get("output_paths", []))
+        if output_paths:
+            previous_outputs = list(output_paths)
         data["sets"][set_id] = {
             "set_name": getattr(publication_set, "name", ""),
             "published_at": datetime.now().isoformat(),
             "items": items,
-            "output_paths": list(output_paths or [])
+            "output_paths": previous_outputs
         }
         self._write(data)
         return True
