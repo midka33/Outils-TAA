@@ -11,7 +11,6 @@ class FilenameService(object):
 
     TOKEN_PATTERN = re.compile(r"\{([^{}]+)\}")
     INVALID_CHARS = re.compile(r'[<>:"/\\|?*]')
-
     BUILTIN_TOKENS = (
         "carnet", "numero", "nom", "nom_complet", "projet",
         "date", "indice", "dossier"
@@ -24,6 +23,23 @@ class FilenameService(object):
     def available_tokens(self):
         """Retourne les variables intégrées affichables dans l'interface."""
         return list(self.BUILTIN_TOKENS)
+
+    def validate_template(self, template):
+        """Retourne les erreurs de syntaxe d'un modèle de nommage."""
+        template = (template or "").strip()
+        errors = []
+        if not template:
+            return ["Le modèle de nommage est vide."]
+        if template.count("{") != template.count("}"):
+            errors.append("Le modèle de nommage contient des accolades déséquilibrées.")
+        for match in self.TOKEN_PATTERN.finditer(template):
+            token = match.group(1).strip()
+            if token in self.BUILTIN_TOKENS:
+                continue
+            if token.startswith("parametre:") and token[len("parametre:"):].strip():
+                continue
+            errors.append("Variable inconnue : {{{}}}.".format(token))
+        return errors
 
     def _project_name(self):
         try:
@@ -59,12 +75,13 @@ class FilenameService(object):
 
     def build_context(self, publication_set, item=None, folder_name=None):
         """Construit le contexte de résolution d'un nom."""
-        item = item or ((publication_set.items or [None])[0]
-                        if publication_set is not None else None)
+        if item is None and publication_set is not None:
+            items = publication_set.items or []
+            item = items[0] if items else None
         carnet = getattr(publication_set, "name", "") or "Carnet"
         numero = getattr(item, "sheet_number", "") or ""
         nom = getattr(item, "sheet_name", "") or ""
-        context = {
+        return {
             "carnet": carnet,
             "numero": numero,
             "nom": nom,
@@ -74,7 +91,6 @@ class FilenameService(object):
             "indice": "",
             "dossier": folder_name or ""
         }
-        return context
 
     def resolve(self, template, publication_set, item=None, folder_name=None):
         """Résout les variables intégrées et les paramètres Revit."""
