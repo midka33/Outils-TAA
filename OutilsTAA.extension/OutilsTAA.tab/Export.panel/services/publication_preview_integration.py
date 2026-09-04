@@ -249,10 +249,13 @@ def _current_states(window, publication_set):
 def _effective_publication_target(window, target):
     """Retourne le carnet réellement publié selon MODIFIED_ONLY."""
     settings = window._resolve_settings(target)
-    if not settings.modified_only:
-        return target, settings, None
     current_states = _current_states(window, target)
-    selected, classified = window._publication_history_service.candidates(
+    classified = window._publication_history_service.classify_items(target, current_states)
+    history_info = {"states": current_states, "classified": classified}
+    if not settings.modified_only:
+        return target, settings, history_info
+
+    selected, _ = window._publication_history_service.candidates(
         target, current_states, modified_only=True)
     filtered = PublicationSet(
         name=target.name,
@@ -265,7 +268,7 @@ def _effective_publication_target(window, target):
         folder_id=target.folder_id,
         publication_settings=settings)
     filtered.folder_name = getattr(target, "folder_name", None)
-    return filtered, settings, {"states": current_states, "classified": classified}
+    return filtered, settings, history_info
 
 
 def _build_preview(window, targets):
@@ -280,8 +283,8 @@ def _build_preview(window, targets):
         preview = preview_service.build(
             effective_target, settings,
             history_service=window._publication_history_service,
-            current_states=(history_info or {}).get("states"),
-            classified=(history_info or {}).get("classified"),
+            current_states=history_info.get("states"),
+            classified=history_info.get("classified"),
             modified_only=bool(settings.modified_only))
         previews.append(preview)
     return _merge_previews(previews)
@@ -371,15 +374,8 @@ def _preview_then_publish_folder(window, targets):
     report_data = batch_service.publish(
         effective_targets,
         lambda target: getattr(target, "_resolved_settings", window._resolve_settings(target)),
-        window._folder_for_set)
-
-    for effective_target in effective_targets:
-        history_info = getattr(effective_target, "_history_info", None)
-        if history_info and report_data.get("success"):
-            window._publication_history_service.record_publication(
-                effective_target,
-                history_info.get("states", {}),
-                successful=True)
+        window._folder_for_set,
+        history_service=window._publication_history_service)
 
     report = {
         "success": report_data.get("success", False),
