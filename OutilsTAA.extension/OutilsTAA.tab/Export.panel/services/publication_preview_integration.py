@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """Intégration des flux avancés de publication dans Export."""
 
+import os
+
 from pyrevit import forms
 from System import Guid
 
 from publication_preview_service import PublicationPreviewService
 from publication_preview_window import PublicationPreviewWindow
 from publication_batch_service import PublicationBatchService
+from publication_history_service import PublicationHistoryService
 from export_report_window import PublicationReportWindow
 from carnet_manager_window import CarnetManagerWindow
 from publication_tree_drag_drop import PublicationTreeDragDrop
@@ -24,6 +27,7 @@ def install_preview_on_export_window(export_window_class):
         original_init(self, controller, repository)
         if not hasattr(self, "_publication_tree_drag_drop"):
             self._publication_tree_drag_drop = PublicationTreeDragDrop(self)
+        self._publication_history_service = _history_service()
 
     def selection_changed_with_folder_action(self, sender, args):
         if original_selection_changed is not None:
@@ -80,8 +84,6 @@ def install_preview_on_export_window(export_window_class):
             self.PublishButton.Content = "Publier le dossier « {0} »".format(self._selected_folder.name)
             self.PublishButton.IsEnabled = count > 0
             return
-        # ExportWindow possède déjà _set_no_selection(). Ne pas appeler un
-        # nom de compatibilité qui n'est jamais exposé sur l'instance.
         self._set_no_selection()
 
     def set_no_selection_compat(self, sender=None, args=None):
@@ -179,6 +181,14 @@ def install_preview_on_export_window(export_window_class):
     def insert_filename_token_click(self, sender, args):
         return self.FilenameToken_InsertClick(sender, args)
 
+    def modified_only_changed(self, sender, args):
+        if self._loading_settings:
+            return
+        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
+            self._save_folder_settings("modified_only")
+        elif self._selected_set is not None:
+            self._save_selected_field("modified_only")
+
     if not hasattr(export_window_class, "_update_selection_info"):
         export_window_class._update_selection_info = update_selection_info
     if not hasattr(export_window_class, "_set_no_selection"):
@@ -205,6 +215,8 @@ def install_preview_on_export_window(export_window_class):
         export_window_class.FilenameTokenChanged = filename_token_changed
     if not hasattr(export_window_class, "InsertFilenameToken_Click"):
         export_window_class.InsertFilenameToken_Click = insert_filename_token_click
+    if not hasattr(export_window_class, "ModifiedOnlyChanged"):
+        export_window_class.ModifiedOnlyChanged = modified_only_changed
 
     export_window_class.__init__ = init_with_tree_features
     export_window_class.Tree_SelectedItemChanged = selection_changed_with_folder_action
@@ -212,47 +224,66 @@ def install_preview_on_export_window(export_window_class):
     export_window_class.Publish_Click = publish_click_with_preview
 
 
-def _folder_targets(window, folder):
-    if folder is None:
-        return []
-    descendant_ids = set([folder.id])
-    changed = True
-    while changed:
-        changed = False
-        for candidate in window._folders:
-            if candidate.id in descendant_ids:
-                continue
-            if candidate.parent_id in descendant_ids:
-                descendant_ids.add(candidate.id)
-                changed = True
+def _history_service():
+    root = os.environ.get("APPDATA") or os.path.expanduser("~")
+    path = os.path.join(root, "OutilsTAA", "Export", "publication_history.json")
+    return PublicationHistoryService(path)
 
-    targets = []
-    seen = set()
-    for carnet in window._carnets:
-        if carnet.folder_id not in descendant_ids:
-            continue
-        key = carnet.id or id(carnet)
-        if key in seen:
-            continue
+
+def _current_states(window, publication_set):
+    states = {}
+    service = window.controller.publication_service
+    for item in getattr(publication_set, "items", []) or []:
+        key = window._publication_history_service.item_key(item)
+        version_guid = None
         try:
-            carnet.folder_name = window._folder_name(carnet)
+            element_id = service._resolve_current_sheet_id(item)
+            element = service.document.GetElement(element_id) if element_id is not None else None
+            version_guid = getattr(element, "VersionGuid", None) if element is not None else None
         except Exception:
-            carnet.folder_name = folder.name
-        targets.append(carnet)
-        seen.add(key)
-    return targets
+            version_guid = None
+        states[key] = window._publication_history_service.fingerprint(item, version_guid)
+    return states
+
+
+def _effective_publication_target(window, target):
+    """Retourne le carnet réellement publié selon MODIFIED_ONLY."""
+    settings = window._resolve_settings(target)
+    if not settings.modified_only:
+        return target, settings, None
+    current_states = _current_states(window, target)
+    selected, classified = window._publication_history_service.candidates(
+        target, current_states, modified_only=True)
+    filtered = PublicationSet(
+        name=target.name,
+        items=selected,
+        source=target.source,
+        output_directory=settings.output_directory,
+        filename_template_id=target.filename_template_id,
+        set_id=target.id,
+        persistent=target.persistent,
+        folder_id=target.folder_id,
+        publication_settings=settings)
+    filtered.folder_name = getattr(target, "folder_name", None)
+    return filtered, settings, {"states": current_states, "classified": classified}
 
 
 def _build_preview(window, targets):
     preview_service = PublicationPreviewService(window.controller.publication_service, window.filename_service)
     previews = []
     for target in targets:
-        settings = window._resolve_settings(target)
+        effective_target, settings, history_info = _effective_publication_target(window, target)
         try:
-            target.folder_name = window._folder_name(target)
+            effective_target.folder_name = window._folder_name(target)
         except Exception:
             pass
-        previews.append(preview_service.build(target, settings))
+        preview = preview_service.build(
+            effective_target, settings,
+            history_service=window._publication_history_service,
+            current_states=(history_info or {}).get("states"),
+            classified=(history_info or {}).get("classified"),
+            modified_only=bool(settings.modified_only))
+        previews.append(preview)
     return _merge_previews(previews)
 
 
@@ -271,7 +302,7 @@ def _publish_targets(window, targets):
     output_directory = None
 
     for publication_set in targets:
-        settings = window._resolve_settings(publication_set)
+        effective_target, settings, history_info = _effective_publication_target(window, publication_set)
         errors = settings.validate()
         if errors:
             all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
@@ -280,7 +311,7 @@ def _publish_targets(window, targets):
         output_directory = settings.output_directory
         try:
             result = window.controller.publish(
-                publication_set,
+                effective_target,
                 settings.output_directory,
                 export_pdf=settings.pdf_enabled,
                 export_dwg=settings.dwg_enabled,
@@ -297,7 +328,15 @@ def _publish_targets(window, targets):
             all_results.append(row)
         all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
         all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
-        all_success = all_success and bool(result.get("success"))
+        success = bool(result.get("success"))
+        all_success = all_success and success
+
+        if success and history_info:
+            window._publication_history_service.record_publication(
+                publication_set,
+                history_info.get("states", {}),
+                successful=True,
+                output_paths=[r.get("path") for r in result.get("results", []) if r.get("path")])
 
     report = {
         "success": all_success,
@@ -321,8 +360,27 @@ def _preview_then_publish_folder(window, targets):
     if not dialog.confirmed:
         return
 
+    effective_targets = []
+    for target in targets:
+        effective_target, settings, history_info = _effective_publication_target(window, target)
+        effective_target._history_info = history_info
+        effective_target._resolved_settings = settings
+        effective_targets.append(effective_target)
+
     batch_service = PublicationBatchService(window.controller.publication_service)
-    report_data = batch_service.publish(targets, window._resolve_settings, window._folder_for_set)
+    report_data = batch_service.publish(
+        effective_targets,
+        lambda target: getattr(target, "_resolved_settings", window._resolve_settings(target)),
+        window._folder_for_set)
+
+    for effective_target in effective_targets:
+        history_info = getattr(effective_target, "_history_info", None)
+        if history_info and report_data.get("success"):
+            window._publication_history_service.record_publication(
+                effective_target,
+                history_info.get("states", {}),
+                successful=True)
+
     report = {
         "success": report_data.get("success", False),
         "carnet": "Publication : dossier « {0} »".format(window._selected_folder.name),
