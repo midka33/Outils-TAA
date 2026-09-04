@@ -97,6 +97,18 @@ def _install_modified_only_selection_sync(window):
     window._modified_only_selection_sync = on_selection_changed
 
 
+def _install_modified_only_value_support(window):
+    """Ajoute le champ Stage 07 au mécanisme générique de sauvegarde UI."""
+    original_control_value = window._control_value
+
+    def control_value(field):
+        if field == "modified_only":
+            return bool(window.ModifiedOnlyCheckBox.IsChecked)
+        return original_control_value(field)
+
+    window._control_value = control_value
+
+
 def main():
     """Launch the Export WPF window."""
     try:
@@ -120,6 +132,7 @@ def main():
 
     window = ExportWindow(controller, repository)
     _install_modified_only_selection_sync(window)
+    _install_modified_only_value_support(window)
 
     # Important : le gestionnaire de glisser-déposer doit être conservé en
     # vie pendant toute la durée de la fenêtre. Sans cette instance, les
