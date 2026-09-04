@@ -30,7 +30,53 @@ Avant de créer, modifier, supprimer ou déplacer du code :
 
 ---
 
-## 3. TRAITEMENT OBLIGATOIRE D'UN BUG
+## 3. TOUT CHANGEMENT DE COMPORTEMENT DOIT ÊTRE DOCUMENTÉ — OBLIGATOIRE
+
+Lorsqu'une modification change, ajoute, supprime ou précise le comportement d'un outil, la documentation de cet outil doit être mise à jour dans le même travail.
+
+Sont notamment concernés :
+
+- ajout d'une fonctionnalité ;
+- suppression d'une fonctionnalité ;
+- modification d'un comportement existant ;
+- modification d'une règle métier ;
+- modification du parcours utilisateur ;
+- modification des paramètres ou options disponibles ;
+- modification des formats d'entrée ou de sortie ;
+- modification des règles de publication/export ;
+- modification de l'organisation ou du fonctionnement interne lorsqu'elle a un impact pour l'utilisateur ou pour les autres développeurs.
+
+### Procédure obligatoire
+
+```text
+Modification de comportement
+↓
+Identifier la documentation de référence de l'outil
+↓
+Modifier le code
+↓
+Mettre à jour la documentation correspondante
+↓
+Mettre à jour les tests si nécessaire
+↓
+Vérifier la cohérence code ↔ documentation
+↓
+Commit
+```
+
+Pour les outils disposant d'une documentation dédiée, celle-ci constitue la référence fonctionnelle à maintenir à jour. Par exemple :
+
+- **Export** → `docs/09_Export.md` ;
+- **Calculs des pièces** → `docs/10_RoomCalculator.md` ;
+- règles transversales → documentation générale `docs/`.
+
+**Il est interdit de considérer une modification fonctionnelle comme terminée si le comportement documenté n'a pas été mis à jour.**
+
+Une modification purement interne sans impact fonctionnel ou comportemental ne nécessite pas systématiquement une modification de la documentation utilisateur, mais doit être documentée dans la documentation technique lorsque son architecture, son contrat ou sa maintenance sont concernés.
+
+---
+
+## 4. TRAITEMENT OBLIGATOIRE D'UN BUG
 
 Lorsqu'un bug, une exception, une erreur de comportement ou une régression est rencontré :
 
@@ -49,12 +95,14 @@ Test anti-régression
 ↓
 Mise à jour du registre
 ↓
+Mise à jour de la documentation de l'outil si le comportement change
+↓
 Vérification finale
 ↓
 Commit
 ```
 
-### 3.1 Bug déjà connu
+### 4.1 Bug déjà connu
 
 Si le problème correspond à un bug déjà présent dans `docs/11_BUGS_Prevention_Registry.md` :
 
@@ -63,7 +111,7 @@ Si le problème correspond à un bug déjà présent dans `docs/11_BUGS_Preventi
 - exécuter le test anti-régression associé ;
 - compléter le registre si le nouveau cas apporte une information utile.
 
-### 3.2 Nouveau bug significatif
+### 4.2 Nouveau bug significatif
 
 Tout nouveau bug significatif doit être ajouté **avant de considérer la correction terminée**.
 
@@ -89,7 +137,7 @@ Les identifiants suivent les conventions du registre :
 
 ---
 
-## 4. AVANT CHAQUE COMMIT — OBLIGATOIRE
+## 5. AVANT CHAQUE COMMIT — OBLIGATOIRE
 
 Avant tout commit contenant une modification ou création de code :
 
@@ -97,14 +145,15 @@ Avant tout commit contenant une modification ou création de code :
 2. Vérifier les règles préventives applicables.
 3. Vérifier les tests anti-régression concernés.
 4. Vérifier que tout nouveau bug significatif rencontré pendant le travail est capitalisé.
-5. Vérifier que la documentation impactée a été mise à jour.
-6. Vérifier que les changements restent compatibles avec Revit 2025.4 / pyRevit 5.x.
+5. Vérifier que toute modification de comportement a entraîné la mise à jour de la documentation de l'outil concerné.
+6. Vérifier que la documentation technique impactée a été mise à jour si nécessaire.
+7. Vérifier que les changements restent compatibles avec Revit 2025.4 / pyRevit 5.x.
 
 **Un commit ne doit pas être considéré comme prêt si cette checklist n'est pas satisfaite.**
 
 ---
 
-## 5. RÈGLE DE PROPRIÉTÉ DES HANDLERS ET SERVICES
+## 6. RÈGLE DE PROPRIÉTÉ DES HANDLERS ET SERVICES
 
 Chaque comportement doit avoir un propriétaire canonique.
 
@@ -119,7 +168,7 @@ Lorsqu'une refactorisation déplace une méthode, rechercher toutes ses référe
 
 ---
 
-## 6. RÈGLES TECHNIQUES CRITIQUES
+## 7. RÈGLES TECHNIQUES CRITIQUES
 
 Avant toute modification, vérifier notamment :
 
@@ -137,7 +186,7 @@ Les règles détaillées et les cas historiques se trouvent dans le registre des
 
 ---
 
-## 7. TESTS ET LIMITES DE L'ENVIRONNEMENT
+## 8. TESTS ET LIMITES DE L'ENVIRONNEMENT
 
 Une validation statique ou un test Python hors Revit ne remplace pas un test dans l'environnement cible lorsqu'une fonctionnalité dépend de :
 
@@ -152,7 +201,7 @@ Si l'environnement Revit 2025.4 réel n'est pas disponible, l'IA doit le signale
 
 ---
 
-## 8. RÉFÉRENCES À CONSULTER
+## 9. RÉFÉRENCES À CONSULTER
 
 | Besoin | Référence |
 |---|---|
@@ -171,7 +220,7 @@ Si l'environnement Revit 2025.4 réel n'est pas disponible, l'IA doit le signale
 
 ---
 
-## 9. PRIORITÉ DES RÈGLES
+## 10. PRIORITÉ DES RÈGLES
 
 En cas de conflit apparent :
 
@@ -185,7 +234,7 @@ Une IA ne doit pas contourner une règle documentée simplement parce qu'une aut
 
 ---
 
-## 10. CHECKLIST RAPIDE POUR UNE IA
+## 11. CHECKLIST RAPIDE POUR UNE IA
 
 Avant de répondre « terminé » :
 
@@ -195,7 +244,9 @@ Avant de répondre « terminé » :
 - [ ] Correction réalisée.
 - [ ] Test anti-régression réalisé ou défini.
 - [ ] Nouveau bug capitalisé si nécessaire.
-- [ ] Documentation mise à jour si nécessaire.
+- [ ] Documentation de l'outil mise à jour si le comportement a changé.
+- [ ] Documentation technique mise à jour si nécessaire.
+- [ ] Code et documentation cohérents.
 - [ ] Compatibilité Revit 2025.4 / pyRevit 5.x vérifiée.
 - [ ] Aucun handler ou service existant supprimé sans vérifier ses références.
 - [ ] Commit seulement après validation de cette checklist.
