@@ -8,6 +8,7 @@ from System import Guid
 from System.Windows import Visibility
 from System.Windows.Controls import TreeViewItem, CheckBox, TextBlock
 from System.Windows import Thickness
+from System.Windows import FontWeights
 
 from export_report_window import PublicationReportWindow
 from carnet_sheets_window import CarnetSheetsWindow
@@ -95,7 +96,7 @@ class ExportWindow(forms.WPFWindow):
         node.Tag = ("FOLDER", folder)
         header = TextBlock()
         header.Text = folder.name
-        header.FontWeight = "Bold"
+        header.FontWeight = FontWeights.Bold
         node.Header = header
         return node
 
