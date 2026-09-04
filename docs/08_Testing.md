@@ -2,7 +2,7 @@
 
 # Chapter 08 — Testing
 
-**Version :** 1.0  
+**Version :** 1.1  
 **Statut :** Référence  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Langue :** Français  
@@ -201,14 +201,14 @@ Exemple :
 ```text
 TestModels/
 ├── MinimalProject.rvt
-├── PublisherAI_Test.rvt
+├── Export_Test.rvt
 ├── RoomCalculator_Test.rvt
 └── QualityControl_Test.rvt
 ```
 
 Les modèles doivent rester petits et contenir uniquement les éléments nécessaires au scénario.
 
-## 14. Tests PublisherAI
+## 14. Tests Export
 
 Le workflow principal est :
 
@@ -240,21 +240,6 @@ Sous-titre avec espaces
 Sous-titre avec caractères spéciaux
 ```
 
-Exemple :
-
-```text
-A101 → PRO
-A102 → PRO
-A103 → DCE
-```
-
-Résultat attendu :
-
-```text
-PRO → A101, A102
-DCE → A103
-```
-
 ### PDF
 
 Tester :
@@ -266,9 +251,10 @@ Tester :
 - plusieurs feuilles ;
 - nom nécessitant un nettoyage ;
 - dossier inexistant ;
-- export interrompu.
-
-Le fichier PDF réel doit être vérifié lorsque le test porte sur l'export.
+- export interrompu ;
+- PDF combiné ;
+- PDF séparé ;
+- conservation des réglages persistants du carnet.
 
 ### DWG
 
@@ -281,20 +267,27 @@ Tester :
 - nommage ;
 - caractères spéciaux ;
 - fichier existant ;
-- échec d'export.
+- échec d'export ;
+- DWG combiné ;
+- DWG séparé ;
+- configuration DWG sélectionnée ;
+- Couleur vraie lorsque demandée.
 
-### Résultat
+### Arborescence et persistance
 
-Le `PublicationResult` doit permettre de vérifier au minimum :
+Tester :
 
-```text
-success
-exported_pdf_count
-exported_dwg_count
-skipped_count
-errors
-output_directory
-```
+- dossier contenant plusieurs carnets ;
+- carnet contenant plusieurs mises en page ;
+- sélection d'un carnet dans l'arborescence ;
+- réglages PDF persistants ;
+- réglages DWG persistants ;
+- destination persistante ;
+- modèle de nommage persistant ;
+- réouverture de Revit et restauration des réglages ;
+- suppression d'un carnet ;
+- carnet contenant une feuille du document actif ;
+- carnet ne contenant aucune feuille du document actif.
 
 ## 15. Tests RoomCalculator
 
@@ -339,7 +332,11 @@ Tester notamment :
 - progression ;
 - annulation ;
 - messages d'erreur ;
-- conservation des paramètres utilisateur.
+- conservation des paramètres utilisateur ;
+- chargement XAML sans erreur ;
+- bindings correspondant exactement aux propriétés du modèle ;
+- absence de collision entre modules UI et services ;
+- appels aux méthodes .NET/WPF avec leur nom réel.
 
 La logique métier ne doit pas être testée uniquement via l'interface.
 
@@ -411,7 +408,72 @@ pyRevit 5.x
 
 Une fonctionnalité non compatible avec cette cible n'est pas considérée comme validée.
 
-## 21. Tests de non-régression
+## 21. Registre global des bugs et non-régression
+
+Le registre **`11_BUGS_Prevention_Registry.md`** est une ressource transversale du projet Outils TAA. Il n'est pas spécifique à un outil.
+
+Il capitalise les erreurs réellement rencontrées afin qu'elles deviennent des règles préventives et des contrôles de non-régression pour l'ensemble du projet.
+
+La relation entre les tests et le registre est :
+
+```text
+Bug rencontré
+      ↓
+Reproduction
+      ↓
+Cause racine
+      ↓
+Correction
+      ↓
+Règle préventive
+      ↓
+Test / contrôle anti-régression
+      ↓
+Capitalisation dans 11_BUGS_Prevention_Registry.md
+```
+
+### Règle obligatoire avant toute modification de code
+
+Avant de créer ou modifier du code, le développeur doit consulter le registre et identifier les règles susceptibles de concerner la modification.
+
+Cela s'applique notamment à :
+
+- Python / IronPython ;
+- XAML / WPF ;
+- imports et `sys.path` ;
+- modèles et bindings ;
+- persistance ;
+- accès aux éléments Revit ;
+- logique de publication ;
+- tests ;
+- scripts pyRevit.
+
+### Règle obligatoire avant chaque commit de code
+
+Avant chaque commit contenant une modification ou une création de code :
+
+```text
+1. Consulter 11_BUGS_Prevention_Registry.md
+2. Identifier les bugs/règles pertinents
+3. Relire le code modifié ou créé
+4. Vérifier les contrôles anti-régression applicables
+5. Corriger les éventuelles régressions
+6. Tester
+7. Commit
+```
+
+Checklist minimale :
+
+- [ ] Registre global consulté.
+- [ ] Bugs pertinents identifiés.
+- [ ] Code vérifié contre les erreurs déjà capitalisées.
+- [ ] Règles préventives respectées.
+- [ ] Contrôles anti-régression réalisés.
+- [ ] Nouveau bug ajouté au registre s'il a été découvert.
+
+> **Un commit de code n'est pas considéré comme terminé tant que cette vérification n'a pas été effectuée.**
+
+## 22. Tests de non-régression
 
 Chaque bug important doit idéalement devenir un test :
 
@@ -423,11 +485,15 @@ Test reproduisant le bug
 Correction
     ↓
 Test réussi
+    ↓
+Règle ajoutée au registre global
 ```
 
-Ne jamais supprimer un test uniquement parce qu'il échoue après une modification.
+Les tests correspondant à un bug corrigé ne doivent pas être supprimés sans justification documentée.
 
-## 22. Tests déterministes
+Lorsqu'un bug concerne un composant commun, les outils qui en dépendent doivent également être vérifiés.
+
+## 23. Tests déterministes
 
 Éviter les dépendances inutiles :
 
@@ -440,7 +506,7 @@ Ne jamais supprimer un test uniquement parce qu'il échoue après une modificati
 
 Un test intermittent doit être traité comme un problème à corriger.
 
-## 23. Tests automatisés
+## 24. Tests automatisés
 
 Les tests sans dépendance directe à Revit doivent être automatisés lorsque possible.
 
@@ -454,7 +520,7 @@ Validation
 
 Les tests nécessitant Revit peuvent conserver un processus dédié si leur automatisation complète n'est pas réaliste.
 
-## 24. CI future
+## 25. CI future
 
 À terme, une CI pourra contrôler automatiquement :
 
@@ -470,11 +536,13 @@ Secrets
 Structure du dépôt
 ↓
 Documentation
+↓
+Contrôles issus du registre des bugs
 ```
 
 Les tests Revit pourront être exécutés dans un environnement contrôlé dédié si l'infrastructure le permet.
 
-## 25. Couverture
+## 26. Couverture
 
 La couverture de code est un indicateur et non un objectif absolu.
 
@@ -491,7 +559,7 @@ Gestion des erreurs
 
 100 % de couverture ne garantit pas l'absence de défaut.
 
-## 26. Validation manuelle
+## 27. Validation manuelle
 
 Certains comportements doivent rester validés manuellement :
 
@@ -503,7 +571,7 @@ Certains comportements doivent rester validés manuellement :
 
 Les tests automatisés complètent la validation humaine mais ne la remplacent pas complètement.
 
-## 27. Tests avant Pull Request
+## 28. Tests avant Pull Request
 
 ```text
 ☐ Tests unitaires
@@ -513,28 +581,32 @@ Les tests automatisés complètent la validation humaine mais ne la remplacent p
 ☐ Cas limites vérifiés
 ☐ Aucun secret
 ☐ Documentation mise à jour
+☐ 11_BUGS_Prevention_Registry.md consulté
+☐ Contrôles anti-régression applicables réalisés
+☐ Nouveaux bugs capitalisés
 ```
 
-## 28. Tests avant Release
+## 29. Tests avant Release
 
 ```text
 ☐ Tests unitaires complets
 ☐ Tests des modules modifiés
 ☐ Tests Revit
-☐ PublisherAI testé si concerné
+☐ Export testé si concerné
 ☐ RoomCalculator testé si concerné
 ☐ Exports vérifiés
 ☐ Installation vérifiée
 ☐ Documentation vérifiée
 ☐ CHANGELOG vérifié
+☐ Registre global des bugs à jour
 ```
 
-## 29. Rapport de test
+## 30. Rapport de test
 
 Pour une fonctionnalité importante, conserver une trace simple :
 
 ```text
-Fonctionnalité : PublisherAI – Export DWG
+Fonctionnalité : Export – Publication DWG
 Version : 1.2.0
 Revit : 2025.4
 
@@ -550,7 +622,7 @@ Tests :
 Résultat : VALIDÉ
 ```
 
-## 30. Modification de `lib/common`
+## 31. Modification de `lib/common`
 
 Après toute modification d'une API commune, il faut vérifier les modules qui en dépendent.
 
@@ -559,24 +631,30 @@ Exemple :
 ```text
 parameter_utils.py modifié
         ↓
-PublisherAI
+Export
 RoomCalculator
 Quality
 Annotation
         ↓
 Tests concernés
+        ↓
+Contrôle des bugs communs
 ```
 
 Une modification commune ne doit pas être considérée comme validée par le seul test du fichier modifié.
 
-## 31. Test fonctionnel PublisherAI complet
+## 32. Test fonctionnel Export complet
 
 ```text
 Ouvrir modèle de test
         ↓
-Lancer PublisherAI
+Lancer Export
         ↓
 Sélectionner plusieurs carnets
+        ↓
+Vérifier l'arborescence
+        ↓
+Vérifier les réglages persistants
         ↓
 Publier PDF + DWG
         ↓
@@ -589,7 +667,7 @@ Vérifier les DWG
 Vérifier le rapport
 ```
 
-## 32. Test fonctionnel RoomCalculator complet
+## 33. Test fonctionnel RoomCalculator complet
 
 ```text
 Ouvrir modèle de test
@@ -607,7 +685,7 @@ Vérifier le résultat
 Vérifier le paramètre Revit
 ```
 
-## 33. Processus lorsqu'un test échoue
+## 34. Processus lorsqu'un test échoue
 
 ```text
 Test échoué
@@ -623,9 +701,13 @@ Corriger
 Relancer le test
 ↓
 Relancer les tests liés
+↓
+Capitaliser le bug si nécessaire
 ```
 
-## 34. Checklist développeur
+Si la cause correspond à une nouvelle erreur reproductible, elle doit être ajoutée à `11_BUGS_Prevention_Registry.md` avant la clôture de la correction.
+
+## 35. Checklist développeur
 
 ### Code
 
@@ -633,6 +715,7 @@ Relancer les tests liés
 - [ ] Cas limites testés.
 - [ ] Exceptions importantes testées.
 - [ ] Dépendances contrôlées.
+- [ ] Registre global des bugs consulté.
 
 ### Revit
 
@@ -647,6 +730,8 @@ Relancer les tests liés
 - [ ] Validation des entrées testée.
 - [ ] Erreurs testées.
 - [ ] Annulation testée si pertinente.
+- [ ] XAML chargé dans l'environnement cible.
+- [ ] Bindings vérifiés.
 
 ### IA
 
@@ -661,41 +746,15 @@ Relancer les tests liés
 - [ ] DWG vérifié.
 - [ ] Nommage vérifié.
 - [ ] Dossiers vérifiés.
+- [ ] Réglages persistants vérifiés si concernés.
 
-## 35. Règles fondamentales
+## 36. Règles fondamentales
 
 1. **Tout comportement critique doit être testable.**
 2. **Les calculs doivent être testés indépendamment de Revit lorsque possible.**
 3. **Les API communes doivent être particulièrement bien testées.**
 4. **Les cas limites sont aussi importants que les cas nominaux.**
-5. **Chaque bug important doit idéalement devenir un test de non-régression.**
-6. **Les tests Revit doivent utiliser des modèles contrôlés.**
-7. **Les tests ne doivent pas dépendre inutilement du poste du développeur.**
-8. **Les fonctionnalités IA doivent être testables sans dépendre systématiquement d'une API réelle.**
-9. **Les tests automatisés ne remplacent pas les validations fonctionnelles humaines.**
-10. **Une modification de `lib/common` nécessite une vérification des modules dépendants.**
-11. **Un test qui échoue ne doit pas être supprimé pour masquer le problème.**
-12. **La couverture est un indicateur, pas une finalité.**
-13. **Les tests doivent rester simples, lisibles et maintenables.**
-14. **Une release doit être testée sur la version cible de Revit.**
-15. **La fiabilité du logiciel passe avant la rapidité de livraison.**
-
-## 36. Philosophie finale
-
-La stratégie de test Outils TAA doit permettre de faire évoluer le projet sans introduire progressivement de régressions invisibles.
-
-```text
-Développer
-    ↓
-Tester
-    ↓
-Revoir
-    ↓
-Intégrer
-    ↓
-Tester à nouveau
-    ↓
-Publier
-```
-
-> **Le meilleur test est celui qui permet à un développeur de modifier le code avec confiance.**
+5. **Tout bug significatif doit produire une protection contre sa réapparition.**
+6. **Le registre `11_BUGS_Prevention_Registry.md` est transversal à tous les outils.**
+7. **La consultation du registre est obligatoire avant toute modification de code et avant tout commit de code.**
+8. **Une correction n'est terminée qu'après validation du scénario qui provoquait le bug.**
