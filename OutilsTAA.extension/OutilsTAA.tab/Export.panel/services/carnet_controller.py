@@ -64,6 +64,11 @@ class CarnetController(object):
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
         return self.repository.move_set(set_id, folder_id, before_set_id)
 
+    def move_persistent_many(self, set_ids, folder_id, before_set_id=None):
+        if self.repository is None:
+            raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
+        return self.repository.move_sets(set_ids, folder_id, before_set_id)
+
     def resolve_persistent(self, publication_set):
         if self.repository is None:
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
