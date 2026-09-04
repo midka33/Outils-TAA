@@ -44,6 +44,8 @@ class DynamicPublicationSetStore(object):
         return publication_set
 
     def delete(self, project_key, set_id):
+        if not project_key or not set_id:
+            return False
         data = self._read()
         project = data.get("projects", {}).get(project_key)
         if not project or set_id not in project:
