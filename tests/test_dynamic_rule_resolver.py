@@ -89,3 +89,34 @@ def test_contains_is_case_insensitive():
     )
     result = DynamicRuleResolver().resolve(definition, _items())
     assert _keys(result) == ["A-201"]
+
+
+def test_compare_detects_added_item():
+    resolver = DynamicRuleResolver()
+    rule = DynamicRuleGroup("all", [DynamicRule("discipline", "equals", "Architecture")])
+    previous = resolver.resolve(DynamicRuleDefinition(rule), _items()[:1])
+    current = resolver.resolve(DynamicRuleDefinition(rule), _items()[:2])
+    changes = current.compare(previous)
+    assert [(change.key, change.state) for change in changes] == [("A-101", "UNCHANGED"), ("A-201", "ADDED")]
+
+
+def test_compare_detects_removed_item():
+    resolver = DynamicRuleResolver()
+    rule = DynamicRuleGroup("all", [DynamicRule("discipline", "equals", "Architecture")])
+    previous = resolver.resolve(DynamicRuleDefinition(rule), _items()[:2])
+    current = resolver.resolve(DynamicRuleDefinition(rule), _items()[:1])
+    changes = current.compare(previous)
+    assert [(change.key, change.state) for change in changes] == [("A-101", "UNCHANGED"), ("A-201", "REMOVED")]
+
+
+def test_compare_detects_reincluded_item():
+    resolver = DynamicRuleResolver()
+    include_rule = DynamicRuleGroup("all", [DynamicRule("discipline", "equals", "Architecture")])
+    previous = resolver.resolve(
+        DynamicRuleDefinition(include_rule, exclusions=["A-201"]), _items()[:2]
+    )
+    current = resolver.resolve(
+        DynamicRuleDefinition(include_rule), _items()[:2]
+    )
+    changes = current.compare(previous)
+    assert [(change.key, change.state) for change in changes] == [("A-101", "UNCHANGED"), ("A-201", "REINCLUDED")]
