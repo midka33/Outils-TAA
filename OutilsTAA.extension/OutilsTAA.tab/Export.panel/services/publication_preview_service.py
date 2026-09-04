@@ -28,7 +28,6 @@ class PublicationPreviewService(object):
 
         seen_ids = set()
         valid_items = []
-        item_states = current_states or {}
         item_status = {}
         for item in items:
             if classified and history_service is not None:
@@ -59,6 +58,9 @@ class PublicationPreviewService(object):
                 pass
             valid_items.append(item)
 
+        if modified_only and not valid_items:
+            errors.append("Aucune mise en page nouvelle, modifiée ou à état inconnu ne doit être publiée.")
+
         generated_paths = {}
 
         def add_row(fmt, mode, item, filename, unknown):
@@ -76,7 +78,7 @@ class PublicationPreviewService(object):
             status = "⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK")
             if modified_only:
                 if item is None:
-                    status = "MODIFIÉ(S)" if valid_items else "AUCUN CHANGEMENT"
+                    status = "À PUBLIER"
                 else:
                     key = history_service.item_key(item) if history_service is not None else None
                     status = item_status.get(key, "UNKNOWN")
@@ -86,7 +88,10 @@ class PublicationPreviewService(object):
                 item.sheet_name if item is not None else "Publication du carnet",
                 fmt, "Combiné" if mode == "COMBINED" else "Séparé", filename, path, status))
 
-        if settings.pdf_enabled:
+        # En mode modifiés uniquement, un carnet sans candidat ne doit jamais
+        # déclencher la création d'un PDF/DWG vide.
+        has_candidates = (not modified_only) or bool(valid_items)
+        if settings.pdf_enabled and has_candidates:
             if settings.pdf_mode == "COMBINED":
                 filename, unknown = self.filename_service.filename(
                     settings.filename_template or "{carnet}", publication_set,
@@ -99,7 +104,7 @@ class PublicationPreviewService(object):
                         item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
                     add_row("PDF", "SEPARATE", item, filename, unknown)
 
-        if settings.dwg_enabled:
+        if settings.dwg_enabled and has_candidates:
             if settings.dwg_mode == "COMBINED":
                 filename, unknown = self.filename_service.filename(
                     settings.filename_template or "{carnet}", publication_set,
