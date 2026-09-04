@@ -15,6 +15,36 @@ class PublicationService(object):
         self.pdf_service = PdfExportService(document)
         self.dwg_service = DwgExportService(document)
 
+    def _resolve_current_sheet_id(self, item):
+        """Résout l'ElementId de la feuille dans le document Revit courant.
+
+        Un PublicationItem persistant peut contenir un ElementId devenu
+        obsolète. Le UniqueId est la référence persistante : on recherche
+        donc d'abord la feuille courante par UniqueId, puis on utilise son Id.
+        """
+        if item is None:
+            return None
+
+        unique_id = getattr(item, "unique_id", None)
+        if unique_id:
+            try:
+                element = self.document.GetElement(unique_id)
+                if element is not None:
+                    return element.Id
+            except Exception:
+                pass
+
+        sheet_id = getattr(item, "sheet_id", None)
+        if sheet_id is not None:
+            try:
+                element = self.document.GetElement(sheet_id)
+                if element is not None:
+                    return element.Id
+            except Exception:
+                pass
+
+        return None
+
     def validate_publication_set(self, publication_set):
         """Retourne les erreurs fonctionnelles bloquant la publication."""
         errors = []
@@ -31,17 +61,19 @@ class PublicationService(object):
 
         seen_ids = set()
         for item in publication_set.items:
-            sheet_id = getattr(item, "sheet_id", None)
-            if sheet_id is None:
+            current_id = self._resolve_current_sheet_id(item)
+            if current_id is None:
                 errors.append(
-                    "Une feuille du carnet ne possède pas d'identifiant Revit valide."
+                    "La feuille '{}' est introuvable dans le document Revit."
+                    .format(getattr(item, "sheet_number", None) or
+                            getattr(item, "sheet_name", ""))
                 )
                 continue
 
             try:
-                key = sheet_id.IntegerValue
+                key = current_id.IntegerValue
             except Exception:
-                key = str(sheet_id)
+                key = str(current_id)
 
             if key in seen_ids:
                 errors.append(
@@ -49,30 +81,16 @@ class PublicationService(object):
                 )
             seen_ids.add(key)
 
-            view = None
             try:
-                view = self.document.GetElement(sheet_id)
+                view = self.document.GetElement(current_id)
+                if view is not None and not view.CanBePrinted:
+                    errors.append(
+                        "La feuille '{}' n'est pas exportable/imprimable."
+                        .format(getattr(item, "sheet_number", None) or
+                                getattr(item, "sheet_name", ""))
+                    )
             except Exception:
                 pass
-
-            if view is None:
-                errors.append(
-                    "La feuille '{}' est introuvable dans le document Revit."
-                    .format(getattr(item, "sheet_number", None) or
-                            getattr(item, "sheet_name", ""))
-                )
-            else:
-                try:
-                    if not view.CanBePrinted:
-                        errors.append(
-                            "La feuille '{}' n'est pas exportable/imprimable."
-                            .format(getattr(item, "sheet_number", None) or
-                                    getattr(item, "sheet_name", ""))
-                        )
-                except Exception:
-                    # Si la propriété n'est pas disponible sur un objet inattendu,
-                    # l'API d'export donnera le détail de l'erreur.
-                    pass
 
         return errors
 
@@ -89,6 +107,15 @@ class PublicationService(object):
                 item.unique_id or ""
             )
         )
+
+    def _current_view_ids(self, publication_set):
+        """Retourne les ElementId des feuilles du document courant."""
+        view_ids = []
+        for item in self.sort_items(publication_set):
+            current_id = self._resolve_current_sheet_id(item)
+            if current_id is not None:
+                view_ids.append(current_id)
+        return view_ids
 
     def _prepare_output_directory(self, output_directory):
         """Crée le dossier de sortie si nécessaire."""
@@ -124,8 +151,6 @@ class PublicationService(object):
         if created:
             return [os.path.join(output_directory, name) for name in sorted(created)]
 
-        # Un export peut remplacer un fichier existant. Dans ce cas, le chemin
-        # attendu reste utile dans le rapport, même si aucun nouveau nom n'est créé.
         return []
 
     def publish_pdf(self, publication_set, output_directory,
@@ -137,7 +162,7 @@ class PublicationService(object):
 
         output_directory = self._prepare_output_directory(output_directory)
         items = self.sort_items(publication_set)
-        view_ids = [item.sheet_id for item in items]
+        view_ids = self._current_view_ids(publication_set)
         before = self._snapshot_files(output_directory, ".pdf")
 
         try:
@@ -188,7 +213,7 @@ class PublicationService(object):
 
         output_directory = self._prepare_output_directory(output_directory)
         items = self.sort_items(publication_set)
-        view_ids = [item.sheet_id for item in items]
+        view_ids = self._current_view_ids(publication_set)
         before = self._snapshot_files(output_directory, ".dwg")
 
         try:
