@@ -27,6 +27,8 @@ Le format suit les principes de *Keep a Changelog*.
 - Interface Export permettant d'appliquer, enregistrer et supprimer des profils de publication.
 - Première infrastructure d'héritage des réglages `Profil → Dossier → Carnet` avec `SettingsResolver`.
 - Persistance des réglages de publication au niveau des dossiers.
+- Interface d'héritage affichant les réglages hérités du dossier et les réglages définis au niveau du carnet.
+- Action `Revenir à l'héritage du dossier` pour supprimer les surcharges du carnet.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -38,6 +40,8 @@ Le format suit les principes de *Keep a Changelog*.
 - Les profils agissent uniquement sur les réglages techniques PDF/DWG ; la destination et le nommage restent propres au carnet afin de ne pas écraser les réglages persistants du carnet.
 - Les réglages de publication acceptent désormais `None` comme état « hériter », tout en conservant la lecture des carnets existants.
 - Le schéma de persistance des carnets/dossiers passe à la version 3 pour conserver les réglages de dossier.
+- Les modifications d'un réglage de carnet ne transforment plus les autres réglages hérités en surcharges locales.
+- La publication et la prévisualisation utilisent désormais les réglages effectivement résolus par `SettingsResolver`.
 
 ## [0.1.0] - 2026-07-21
 
