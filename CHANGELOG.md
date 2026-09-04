@@ -32,6 +32,10 @@ Le format suit les principes de *Keep a Changelog*.
 - Service de prévisualisation de publication sans export Revit.
 - Fenêtre de confirmation listant les fichiers attendus, noms finaux, chemins, formats et modes.
 - Détection préalable des feuilles introuvables, feuilles non imprimables, doublons, variables inconnues et collisions avec des fichiers existants.
+- Service de publication multiple `PublicationBatchService` pour agréger l'exécution de plusieurs carnets.
+- Publication d'un dossier avec prise en compte récursive des sous-dossiers.
+- Prévisualisation globale avant publication d'un dossier, avec agrégation des livrables et collisions inter-carnets.
+- Tests unitaires de l'orchestrateur de publication multiple.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -46,6 +50,9 @@ Le format suit les principes de *Keep a Changelog*.
 - Les modifications d'un réglage de carnet ne transforment plus les autres réglages hérités en surcharges locales.
 - La publication et la prévisualisation utilisent désormais les réglages effectivement résolus par `SettingsResolver`.
 - Le bouton `Publier` passe désormais obligatoirement par un aperçu et une confirmation avant de lancer l'export réel.
+- La sélection d'un dossier active désormais l'action `Publier le dossier` lorsque le dossier contient au moins un carnet publiable.
+- Une publication de dossier produit un rapport unique couvrant tous les carnets exécutés.
+- L'aperçu fusionne désormais les destinations multiples au lieu d'en masquer une derrière une destination unique.
 
 ## [0.1.0] - 2026-07-21
 
