@@ -129,39 +129,19 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 
 ### BUG-EXPORT-011 — `CarnetController.document` absent lors de l'initialisation de la fenêtre
 
-**Symptôme** : au lancement de Export après l'intégration de l'éditeur de nommage :
+**Symptôme** : `AttributeError: 'CarnetController' object has no attribute 'document'` au lancement de Export.  
+**Cause** : le contexte Revit n'était pas exposé explicitement par la façade métier.  
+**Correction** : `CarnetController` expose le document utilisé par `ExportService`.  
+**Règle** : vérifier explicitement le contrat des dépendances injectées par l'UI.  
+**Anti-régression** : lancer Export et tester la prévisualisation de nommage.
 
-```text
-AttributeError: 'CarnetController' object has no attribute 'document'
-```
+### BUG-EXPORT-012 — Une modification de carnet transformait tous les réglages hérités en surcharges locales
 
-La trace pointe vers l'initialisation de `ExportWindow`, lors de la création de `FilenameService(controller.document)`.
-
-**Cause racine**
-
-`ExportWindow` a besoin du document Revit pour résoudre les variables de nommage liées au projet et aux paramètres Revit. `CarnetController` possédait déjà les services utilisant le document, mais ne l'exposait pas explicitement à l'interface.
-
-**Correction**
-
-`CarnetController` expose désormais :
-
-```python
-self.document = getattr(export_service, "document", None)
-```
-
-La même instance du document utilisée par `ExportService` est ainsi disponible pour les services UI concernés.
-
-**Règle préventive**
-
-Lorsqu'une nouvelle fonctionnalité UI nécessite le contexte Revit, ne pas supposer qu'une façade métier expose automatiquement ce contexte. Vérifier explicitement le contrat de l'objet injecté et, si nécessaire, exposer le document à un emplacement unique et cohérent.
-
-**Contrôle anti-régression**
-
-1. Lancer le bouton Export dans Revit 2025.4.
-2. Vérifier que la fenêtre se charge sans `AttributeError`.
-3. Vérifier que l'éditeur de nommage s'initialise.
-4. Tester la prévisualisation d'un nom utilisant `{projet}`.
-5. Tester un token `{parametre:Nom}` sur une feuille disposant du paramètre.
+**Symptôme** : un carnet affichant des réglages hérités du dossier cessait d'hériter après modification d'un seul champ.  
+**Cause** : la sauvegarde réécrivait simultanément toutes les valeurs affichées par l'UI, y compris celles provenant du dossier.  
+**Correction** : une modification UI ne sauvegarde désormais que le champ effectivement modifié. Les autres champs restent à `None` lorsqu'ils sont hérités.  
+**Règle** : ne jamais persister une valeur effective comme une surcharge locale sans action explicite de l'utilisateur.  
+**Anti-régression** : définir un réglage au niveau dossier, vérifier son héritage dans un carnet, modifier uniquement un autre réglage du carnet et vérifier que le premier reste hérité.
 
 ## 4. Identifiants des bugs
 
@@ -177,6 +157,7 @@ BUG-EXPORT-008
 BUG-EXPORT-009
 BUG-EXPORT-010
 BUG-EXPORT-011
+BUG-EXPORT-012
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
