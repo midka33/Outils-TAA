@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Intégration de l'aperçu dans le flux de publication Export."""
+"""Intégration des flux avancés de publication dans Export."""
 
 from pyrevit import forms
 
@@ -7,12 +7,21 @@ from publication_preview_service import PublicationPreviewService
 from publication_preview_window import PublicationPreviewWindow
 from publication_batch_service import PublicationBatchService
 from export_report_window import PublicationReportWindow
+from carnet_manager_window import CarnetManagerWindow
+from publication_tree_drag_drop import PublicationTreeDragDrop
 
 
 def install_preview_on_export_window(export_window_class):
-    """Intercepte Publier pour afficher l'aperçu avant tout export Revit."""
+    """Installe aperçu, publication de dossier et réorganisation par glisser-déposer."""
     original_publish_click = export_window_class.Publish_Click
     original_selection_changed = export_window_class.Tree_SelectedItemChanged
+    original_manager_click = export_window_class.OpenCarnetManager_Click
+    original_init = export_window_class.__init__
+
+    def init_with_tree_features(self, controller, repository):
+        original_init(self, controller, repository)
+        if not hasattr(self, "_publication_tree_drag_drop"):
+            self._publication_tree_drag_drop = PublicationTreeDragDrop(self)
 
     def selection_changed_with_folder_action(self, sender, args):
         original_selection_changed(self, sender, args)
@@ -21,19 +30,33 @@ def install_preview_on_export_window(export_window_class):
             self.PublishButton.Content = "Publier le dossier « {0} »".format(self._selected_folder.name)
             self.PublishButton.IsEnabled = count > 0
 
+    def manager_click_with_folder(self, sender, args):
+        # Le dossier actuellement sélectionné devient le dossier cible des nouveaux carnets.
+        target_folder_id = "default"
+        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
+            target_folder_id = self._selected_folder.id
+        elif self._selected_set is not None:
+            target_folder_id = getattr(self._selected_set, "folder_id", None) or "default"
+
+        manager = CarnetManagerWindow(
+            self.controller, owner=self, target_folder_id=target_folder_id
+        )
+        manager.ShowDialog()
+        if manager.result:
+            for carnet in manager.result:
+                if not carnet.persistent:
+                    self.session_carnets.append(carnet)
+            self._refresh_tree()
+
     def publish_click_with_preview(self, sender, args):
         if self._selected_kind == "SHEET" and self._selected_item is not None:
             targets = [self._make_sheet_target()]
-            return _preview_then_publish_single(
-                self, targets, original_publish_click
-            )
+            return _preview_then_publish_single(self, targets, original_publish_click)
 
         if self._selected_kind == "CARNET" and self._selected_set is not None:
             self._selected_set.folder_name = self._folder_name(self._selected_set)
             targets = [self._selected_set]
-            return _preview_then_publish_single(
-                self, targets, original_publish_click
-            )
+            return _preview_then_publish_single(self, targets, original_publish_click)
 
         if self._selected_kind == "FOLDER" and self._selected_folder is not None:
             targets = _folder_targets(self, self._selected_folder)
@@ -41,7 +64,9 @@ def install_preview_on_export_window(export_window_class):
 
         return original_publish_click(self, sender, args)
 
+    export_window_class.__init__ = init_with_tree_features
     export_window_class.Tree_SelectedItemChanged = selection_changed_with_folder_action
+    export_window_class.OpenCarnetManager_Click = manager_click_with_folder
     export_window_class.Publish_Click = publish_click_with_preview
 
 
@@ -49,7 +74,6 @@ def _folder_targets(window, folder):
     """Retourne les carnets du dossier et de ses sous-dossiers, sans doublons."""
     if folder is None:
         return []
-
     descendant_ids = set([folder.id])
     changed = True
     while changed:
@@ -72,7 +96,6 @@ def _folder_targets(window, folder):
         carnet.folder_name = window._folder_name(carnet)
         targets.append(carnet)
         seen.add(key)
-
     return targets
 
 
@@ -100,8 +123,9 @@ def _preview_then_publish_folder(window, targets):
     preview = _build_preview(window, targets)
     if not targets:
         preview["errors"].append(
-            "Le dossier « {0} » ne contient aucun carnet publiable."
-            .format(window._selected_folder.name)
+            "Le dossier « {0} » ne contient aucun carnet publiable.".format(
+                window._selected_folder.name
+            )
         )
 
     dialog = PublicationPreviewWindow(preview, owner=window)
@@ -111,9 +135,7 @@ def _preview_then_publish_folder(window, targets):
 
     batch_service = PublicationBatchService(window.controller.publication_service)
     report_data = batch_service.publish(
-        targets,
-        window._resolve_settings,
-        window._folder_for_set
+        targets, window._resolve_settings, window._folder_for_set
     )
     report = {
         "success": report_data.get("success", False),
@@ -146,10 +168,5 @@ def _merge_previews(previews):
     else:
         directory = ""
 
-    return {
-        "rows": rows,
-        "errors": errors,
-        "warnings": warnings,
-        "directory": directory,
-        "count": len(rows)
-    }
+    return {"rows": rows, "errors": errors, "warnings": warnings,
+            "directory": directory, "count": len(rows)}
