@@ -49,6 +49,9 @@ Le format suit les principes de *Keep a Changelog*.
 - Architecture isolée Stage 08 pour les règles dynamiques : `DynamicRule`, `DynamicRuleGroup`, `DynamicRuleDefinition`, `DynamicRuleResolver`, `DynamicResolution` et diagnostics.
 - Tests unitaires hors Revit du moteur de résolution des règles dynamiques.
 - Documentation `docs/15_Export_Stage08_Dynamique.md` décrivant le contrat et les limites de l'architecture préparatoire.
+- Persistance hors Revit des snapshots de résolution dynamique par projet et carnet.
+- Pont `DynamicPublicationAdapter` transformant une résolution en sélection des `PublicationItem` existants, sans second moteur de publication.
+- Tests unitaires hors Revit du pont dynamique vers `PublicationItem`.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
