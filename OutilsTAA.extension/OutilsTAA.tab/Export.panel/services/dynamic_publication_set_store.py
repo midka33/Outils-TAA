@@ -28,9 +28,7 @@ class DynamicPublicationSetStore(object):
         if not project_key or not set_id:
             return None
         value = self._read().get("projects", {}).get(project_key, {}).get(set_id)
-        if value is None:
-            return None
-        return DynamicPublicationSetSerializer.deserialize(value)
+        return None if value is None else DynamicPublicationSetSerializer.deserialize(value)
 
     def save(self, project_key, publication_set):
         if not project_key:
@@ -40,15 +38,12 @@ class DynamicPublicationSetStore(object):
         if not publication_set.id:
             raise ValueError("Le carnet doit posséder un identifiant.")
         publication_set.persistent = True
-        serialized = DynamicPublicationSetSerializer.serialize(publication_set)
         data = self._read()
-        data.setdefault("projects", {}).setdefault(project_key, {})[publication_set.id] = serialized
+        data.setdefault("projects", {}).setdefault(project_key, {})[publication_set.id] = DynamicPublicationSetSerializer.serialize(publication_set)
         self._write(data)
         return publication_set
 
     def delete(self, project_key, set_id):
-        if not project_key or not set_id:
-            return False
         data = self._read()
         project = data.get("projects", {}).get(project_key)
         if not project or set_id not in project:
@@ -60,18 +55,15 @@ class DynamicPublicationSetStore(object):
         return True
 
     def replace_project(self, project_key, publication_sets):
-        """Remplace l'ensemble des carnets d'un projet en une seule écriture."""
         if not project_key:
             raise ValueError("La clé projet est obligatoire.")
         entries = {}
         for publication_set in publication_sets or []:
-            if not isinstance(publication_set, DynamicPublicationSet):
-                raise TypeError("Tous les carnets doivent être des DynamicPublicationSet.")
-            if not publication_set.id:
-                raise ValueError("Tous les carnets doivent posséder un identifiant.")
-            publication_set.persistent = True
+            if not isinstance(publication_set, DynamicPublicationSet) or not publication_set.id:
+                raise ValueError("Chaque carnet doit être valide et posséder un identifiant.")
             if publication_set.id in entries:
                 raise ValueError("Identifiant de carnet dupliqué : {0}".format(publication_set.id))
+            publication_set.persistent = True
             entries[publication_set.id] = DynamicPublicationSetSerializer.serialize(publication_set)
         data = self._read()
         projects = data.setdefault("projects", {})
