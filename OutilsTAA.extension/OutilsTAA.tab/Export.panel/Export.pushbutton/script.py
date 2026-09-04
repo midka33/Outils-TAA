@@ -71,6 +71,32 @@ def _get_storage_path(document):
     return os.path.join(directory, project_key + "_carnets.json")
 
 
+def _install_modified_only_selection_sync(window):
+    """Synchronise la case Modifiés uniquement avec la sélection courante."""
+    def on_selection_changed(sender, args):
+        try:
+            if window._selected_kind == "FOLDER" and window._selected_folder is not None:
+                settings = window._selected_folder.publication_settings
+                value = bool(getattr(settings, "modified_only", False)) if settings is not None else False
+            elif window._selected_set is not None:
+                settings = window._resolve_settings(window._selected_set)
+                value = bool(getattr(settings, "modified_only", False))
+            else:
+                value = False
+            window._loading_settings = True
+            try:
+                window.ModifiedOnlyCheckBox.IsChecked = value
+            finally:
+                window._loading_settings = False
+        except Exception:
+            # La synchronisation visuelle ne doit jamais empêcher l'outil de
+            # poursuivre son flux normal de sélection.
+            pass
+
+    window.PublicationTree.SelectedItemChanged += on_selection_changed
+    window._modified_only_selection_sync = on_selection_changed
+
+
 def main():
     """Launch the Export WPF window."""
     try:
@@ -93,6 +119,7 @@ def main():
     )
 
     window = ExportWindow(controller, repository)
+    _install_modified_only_selection_sync(window)
 
     # Important : le gestionnaire de glisser-déposer doit être conservé en
     # vie pendant toute la durée de la fenêtre. Sans cette instance, les
