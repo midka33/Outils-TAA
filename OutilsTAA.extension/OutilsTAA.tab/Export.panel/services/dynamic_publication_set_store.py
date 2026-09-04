@@ -21,10 +21,8 @@ class DynamicPublicationSetStore(object):
     def list(self, project_key):
         data = self._read()
         entries = data.get("projects", {}).get(project_key, {})
-        values = [DynamicPublicationSetSerializer.deserialize(value)
-                  for value in entries.values()]
-        return sorted(values, key=lambda item: (
-            item.folder_id or "", item.name.lower(), item.id or ""))
+        values = [DynamicPublicationSetSerializer.deserialize(value) for value in entries.values()]
+        return sorted(values, key=lambda item: (item.folder_id or "", item.name.lower(), item.id or ""))
 
     def get(self, project_key, set_id):
         if not project_key or not set_id:
