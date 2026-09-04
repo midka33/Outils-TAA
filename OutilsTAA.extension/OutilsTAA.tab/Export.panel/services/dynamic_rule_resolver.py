@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Résolution hors Revit des règles dynamiques de publication.
+"""Résolution et comparaison hors Revit des règles dynamiques de publication.
 
-Le résolveur reçoit des dictionnaires de propriétés normalisées. Il ne connaît
-ni Document Revit, ni WPF, ni le moteur PDF/DWG. Cette séparation permet de
-tester la logique métier sans perturber les étapes de publication existantes.
+Ce module reste indépendant de Revit, WPF et du moteur PDF/DWG.
 """
 
 from models.dynamic_rule import DynamicRule, DynamicRuleGroup, DynamicRuleDefinition
@@ -29,6 +27,18 @@ class DynamicDiagnostic(object):
         self.key = key
 
 
+class DynamicChange(object):
+    """Évolution d'un élément entre deux résolutions."""
+
+    STATES = ("ADDED", "REMOVED", "UNCHANGED", "EXCLUDED", "REINCLUDED")
+
+    def __init__(self, key, state, previous=None, current=None):
+        self.key = key
+        self.state = state
+        self.previous = previous
+        self.current = current
+
+
 class DynamicResolution(object):
     """Résultat complet, consommable plus tard par la prévisualisation."""
 
@@ -38,11 +48,61 @@ class DynamicResolution(object):
 
     @property
     def included(self):
-        return [item for item in self.candidates if item.included]
+        return [item for item in self.candidates if item.included and not item.excluded]
 
     @property
     def excluded(self):
         return [item for item in self.candidates if item.excluded]
+
+    @property
+    def included_keys(self):
+        return set(item.key for item in self.included)
+
+    @property
+    def excluded_keys(self):
+        return set(item.key for item in self.excluded)
+
+    def compare(self, previous):
+        """Compare cette résolution à une résolution précédente.
+
+        La comparaison porte sur le périmètre résultant, pas sur les éléments
+        non sélectionnés par les règles. Un élément qui quitte le périmètre est
+        donc ``REMOVED`` ; une exclusion qui disparaît devient ``REINCLUDED``.
+        """
+        if not isinstance(previous, DynamicResolution):
+            raise TypeError("La résolution précédente doit être une DynamicResolution.")
+
+        changes = []
+        previous_map = dict((item.key, item) for item in previous.candidates)
+        current_map = dict((item.key, item) for item in self.candidates)
+        all_keys = set(previous_map.keys()) | set(current_map.keys())
+
+        for key in sorted(all_keys):
+            old = previous_map.get(key)
+            new = current_map.get(key)
+            old_included = bool(old and old.included and not old.excluded)
+            new_included = bool(new and new.included and not new.excluded)
+            old_excluded = bool(old and old.excluded)
+            new_excluded = bool(new and new.excluded)
+
+            if old is None and new_included:
+                state = "ADDED"
+            elif new is None and old_included:
+                state = "REMOVED"
+            elif old_included and not new_included:
+                state = "REMOVED"
+            elif not old_included and new_included and old_excluded:
+                state = "REINCLUDED"
+            elif new_excluded:
+                state = "EXCLUDED"
+            elif old_included and new_included:
+                state = "UNCHANGED"
+            else:
+                continue
+
+            changes.append(DynamicChange(key, state, old, new))
+
+        return changes
 
 
 class DynamicRuleResolver(object):
