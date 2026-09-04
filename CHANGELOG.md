@@ -25,6 +25,8 @@ Le format suit les principes de *Keep a Changelog*.
 - Tests unitaires de l'orchestrateur de publication.
 - Service de profils de publication persistants avec profils intégrés et profils personnalisés.
 - Interface Export permettant d'appliquer, enregistrer et supprimer des profils de publication.
+- Première infrastructure d'héritage des réglages `Profil → Dossier → Carnet` avec `SettingsResolver`.
+- Persistance des réglages de publication au niveau des dossiers.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -34,6 +36,8 @@ Le format suit les principes de *Keep a Changelog*.
 - Les services d'export isolent maintenant les appels directs à l'API Revit de l'orchestration métier.
 - Le bouton de publication ouvre désormais un rapport détaillé au lieu d'afficher un simple message de fin.
 - Les profils agissent uniquement sur les réglages techniques PDF/DWG ; la destination et le nommage restent propres au carnet afin de ne pas écraser les réglages persistants du carnet.
+- Les réglages de publication acceptent désormais `None` comme état « hériter », tout en conservant la lecture des carnets existants.
+- Le schéma de persistance des carnets/dossiers passe à la version 3 pour conserver les réglages de dossier.
 
 ## [0.1.0] - 2026-07-21
 
