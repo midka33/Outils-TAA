@@ -13,10 +13,7 @@ class PublicationPreviewService(object):
 
     def build(self, publication_set, settings, history_service=None,
               current_states=None, classified=None, modified_only=False):
-        """Retourne les lignes de prévisualisation et les diagnostics."""
-        rows = []
-        errors = []
-        warnings = []
+        rows, errors, warnings = [], [], []
         if publication_set is None:
             return {"rows": [], "errors": ["Aucun carnet de publication sélectionné."], "warnings": []}
         if not settings.output_directory:
@@ -58,8 +55,15 @@ class PublicationPreviewService(object):
                 pass
             valid_items.append(item)
 
-        if modified_only and not valid_items:
-            errors.append("Aucune mise en page nouvelle, modifiée ou à état inconnu ne doit être publiée.")
+        candidates = list(valid_items)
+        if modified_only:
+            candidates = []
+            for state_name in ("NEW", "MODIFIED", "UNKNOWN"):
+                for item in (classified or {}).get(state_name, []) or []:
+                    if item in valid_items and item not in candidates:
+                        candidates.append(item)
+            if not candidates:
+                errors.append("Aucune mise en page nouvelle, modifiée ou à état inconnu ne doit être publiée.")
 
         generated_paths = {}
 
@@ -75,22 +79,16 @@ class PublicationPreviewService(object):
                 warnings.append("Le fichier existe déjà et pourra être remplacé : {0}.".format(path))
             if unknown:
                 warnings.append("Variables inconnues pour {0} : {1}.".format(filename, ", ".join(unknown)))
-            status = "⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK")
-            if modified_only:
-                if item is None:
-                    status = "À PUBLIER"
-                else:
-                    key = history_service.item_key(item) if history_service is not None else None
-                    status = item_status.get(key, "UNKNOWN")
+            key = history_service.item_key(item) if item is not None and history_service is not None else None
+            state = item_status.get(key, "UNKNOWN") if item is not None else "À PUBLIER"
+            status = state if modified_only else ("⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK"))
             rows.append(_PreviewRow(
                 getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
                 item.sheet_name if item is not None else "Publication du carnet",
                 fmt, "Combiné" if mode == "COMBINED" else "Séparé", filename, path, status))
 
-        # En mode modifiés uniquement, un carnet sans candidat ne doit jamais
-        # déclencher la création d'un PDF/DWG vide.
-        has_candidates = (not modified_only) or bool(valid_items)
+        has_candidates = bool(candidates)
         if settings.pdf_enabled and has_candidates:
             if settings.pdf_mode == "COMBINED":
                 filename, unknown = self.filename_service.filename(
@@ -98,7 +96,7 @@ class PublicationPreviewService(object):
                     item=None, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
                 add_row("PDF", "COMBINED", None, filename, unknown)
             else:
-                for item in valid_items:
+                for item in candidates:
                     filename, unknown = self.filename_service.filename(
                         settings.filename_template or "{carnet}", publication_set,
                         item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
@@ -111,7 +109,7 @@ class PublicationPreviewService(object):
                     item=None, folder_name=getattr(publication_set, "folder_name", None), extension=".dwg")
                 add_row("DWG", "COMBINED", None, filename, unknown)
             else:
-                for item in valid_items:
+                for item in candidates:
                     filename, unknown = self.filename_service.filename(
                         settings.filename_template or "{carnet}", publication_set,
                         item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".dwg")
