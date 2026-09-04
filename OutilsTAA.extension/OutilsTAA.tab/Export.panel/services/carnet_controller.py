@@ -12,10 +12,6 @@ class CarnetController(object):
         self.parameter_service = parameter_service
         self.repository = repository
         self.publication_service = publication_service
-
-        # Le document Revit est exposé explicitement par la façade afin que
-        # les services UI qui doivent lire le contexte du projet puissent
-        # utiliser la même instance que les services métier.
         self.document = getattr(export_service, "document", None)
 
     def get_context(self):
@@ -62,6 +58,11 @@ class CarnetController(object):
         if self.repository is None:
             return False
         return self.repository.delete_folder(folder_id)
+
+    def move_persistent(self, set_id, folder_id, before_set_id=None):
+        if self.repository is None:
+            raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
+        return self.repository.move_set(set_id, folder_id, before_set_id)
 
     def resolve_persistent(self, publication_set):
         if self.repository is None:
