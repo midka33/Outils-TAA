@@ -96,6 +96,19 @@ class PublicationHistoryServiceTests(unittest.TestCase):
         self.assertEqual("v1", history["items"]["sheet-a"]["version_guid"])
         self.assertEqual(["D:/exports/DCE.pdf"], history["output_paths"])
 
+    def test_partial_publication_preserves_other_items(self):
+        self.service.record_publication(self.publication_set, {
+            "sheet-a": {"version_guid": "v1"},
+            "sheet-b": {"version_guid": "v2"},
+        })
+        partial = FakeSet("set-1", [self.b])
+        self.service.record_publication(partial, {
+            "sheet-b": {"version_guid": "v3"},
+        })
+        history = self.service.get_set_history("set-1")
+        self.assertEqual("v1", history["items"]["sheet-a"]["version_guid"])
+        self.assertEqual("v3", history["items"]["sheet-b"]["version_guid"])
+
 
 if __name__ == "__main__":
     unittest.main()
