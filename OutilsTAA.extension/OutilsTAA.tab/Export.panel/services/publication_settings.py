@@ -13,13 +13,13 @@ class PublicationSettings(object):
     FIELDS = (
         "pdf_enabled", "pdf_mode", "dwg_enabled", "dwg_mode",
         "dwg_setup_name", "dwg_true_color", "output_directory",
-        "filename_template"
+        "filename_template", "modified_only"
     )
 
     def __init__(self, output_directory=None, pdf_enabled=None,
                  pdf_mode=None, dwg_enabled=None, dwg_mode=None,
                  dwg_setup_name=None, dwg_true_color=None,
-                 filename_template=None):
+                 filename_template=None, modified_only=None):
         self.output_directory = output_directory
         self.pdf_enabled = pdf_enabled
         self.pdf_mode = pdf_mode
@@ -28,13 +28,15 @@ class PublicationSettings(object):
         self.dwg_setup_name = dwg_setup_name
         self.dwg_true_color = dwg_true_color
         self.filename_template = filename_template
+        self.modified_only = modified_only
 
     @classmethod
     def defaults(cls):
         return cls(output_directory=None, pdf_enabled=True,
                    pdf_mode="COMBINED", dwg_enabled=True,
                    dwg_mode="SEPARATE", dwg_setup_name=None,
-                   dwg_true_color=True, filename_template="{carnet}")
+                   dwg_true_color=True, filename_template="{carnet}",
+                   modified_only=False)
 
     def copy(self):
         return self.__class__(**dict((field, getattr(self, field))
@@ -50,6 +52,8 @@ class PublicationSettings(object):
             errors.append("Le mode DWG est invalide.")
         if self.pdf_enabled is None or self.dwg_enabled is None:
             errors.append("Les réglages PDF/DWG n'ont pas été résolus.")
+        if self.modified_only is None:
+            errors.append("Le réglage des mises en page modifiées n'a pas été résolu.")
         return errors
 
     def to_dict(self):
@@ -68,5 +72,6 @@ class PublicationSettings(object):
             dwg_mode=value.get("dwg_mode", None),
             dwg_setup_name=value.get("dwg_setup_name", None),
             dwg_true_color=value.get("dwg_true_color", None),
-            filename_template=value.get("filename_template", None)
+            filename_template=value.get("filename_template", None),
+            modified_only=value.get("modified_only", None)
         )
