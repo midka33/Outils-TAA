@@ -199,6 +199,49 @@ Une validation statique ou un test Python hors Revit ne remplace pas un test dan
 
 Si l'environnement Revit 2025.4 réel n'est pas disponible, l'IA doit le signaler explicitement et ne doit pas présenter une validation théorique comme un test Revit réel.
 
+### 8.1 EXÉCUTION OBLIGATOIRE DES TESTS PYTEST AU RACCORDEMENT
+
+Lorsqu'une fonctionnalité ou un Stage a été développé isolément et que des tests `pytest` ont été créés, leur simple présence dans `tests/` ne constitue **jamais** une validation.
+
+Au moment du raccordement au reste du système, tous les tests `pytest` créés ou impactés doivent être **réellement exécutés** avant de considérer le raccordement comme terminé.
+
+Le cycle obligatoire est :
+
+```text
+Développement isolé
+        ↓
+Tests pytest créés
+        ↓
+Raccordement au système existant
+        ↓
+Exécution réelle des pytest concernés
+        ↓
+Correction des échecs éventuels
+        ↓
+Nouvelle exécution
+        ↓
+Tests pytest validés
+        ↓
+Tests Revit / pyRevit concernés
+        ↓
+Validation du Stage
+```
+
+Checklist obligatoire lors de chaque raccordement :
+
+- [ ] Identifier tous les tests `pytest` créés ou impactés.
+- [ ] Exécuter réellement ces tests dans l'environnement Python disponible.
+- [ ] Vérifier le résultat complet des tests.
+- [ ] Corriger tous les échecs avant de poursuivre.
+- [ ] Relancer les tests après correction.
+- [ ] Après raccordement à Revit/pyRevit, exécuter les tests Revit concernés.
+- [ ] Pour PDF/DWG/WPF/Revit API, compléter par les tests fonctionnels dans Revit 2025.4.
+- [ ] Ne jamais présenter un test non exécuté comme « réussi ».
+
+> **Un test pytest créé mais jamais exécuté est un test préparé, pas un test validé.**
+
+Cette règle s'applique notamment aux tests préparés pendant les développements Stage 01 à Stage 08 et aux futurs raccordements de l'outil Export.
+
 ---
 
 ## 9. RÉFÉRENCES À CONSULTER
@@ -249,6 +292,7 @@ Avant de répondre « terminé » :
 - [ ] Code et documentation cohérents.
 - [ ] Compatibilité Revit 2025.4 / pyRevit 5.x vérifiée.
 - [ ] Aucun handler ou service existant supprimé sans vérifier ses références.
+- [ ] Pour tout raccordement : tous les `pytest` concernés ont été exécutés réellement et leur résultat vérifié.
 - [ ] Commit seulement après validation de cette checklist.
 
 **Cette checklist est obligatoire pour tout agent IA intervenant sur Outils-TAA.**
