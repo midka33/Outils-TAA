@@ -37,6 +37,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Prévisualisation globale avant publication d'un dossier, avec agrégation des livrables et collisions inter-carnets.
 - Tests unitaires de l'orchestrateur de publication multiple.
 - Réorganisation des carnets par glisser-déposer dans l'arborescence Export.
+- Sélection multiple `Ctrl` / `Maj` des carnets persistants pour les déplacements groupés.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -56,6 +57,7 @@ Le format suit les principes de *Keep a Changelog*.
 - L'aperçu fusionne désormais les destinations multiples au lieu d'en masquer une derrière une destination unique.
 - Lors de la création de carnets depuis un dossier sélectionné, le `folder_id` du dossier courant est désormais appliqué avant persistance.
 - Les carnets persistants peuvent être déplacés dans un autre dossier et réordonnés sans modifier leurs réglages de publication.
+- Le drag-and-drop utilise désormais un `DataObject` WPF explicite et une opération repository dédiée au déplacement de plusieurs carnets en conservant leur ordre.
 
 ## [0.1.0] - 2026-07-21
 
