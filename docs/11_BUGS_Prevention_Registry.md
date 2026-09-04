@@ -167,6 +167,18 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle** : les handlers d'événements WPF doivent avoir un propriétaire canonique, idéalement `ExportWindow`. Une couche d'intégration doit décorer ou envelopper ces handlers, pas multiplier les alias incompatibles. Toute refactorisation de l'UI doit vérifier les contrats attendus par les intégrations.  
 **Anti-régression** : charger `ExportWindow` dans IronPython/Revit et déclencher successivement : sélection d'un dossier, sélection d'un carnet, sélection d'une feuille, retour à aucune sélection, ouverture du gestionnaire de carnets, création/sélection d'un dossier, modification des paramètres, prévisualisation puis publication d'un carnet et d'une feuille. Vérifier qu'aucun `AttributeError` lié à un handler attendu par l'intégration n'apparaît.
 
+### BUG-EXPORT-016 — Historique non enregistré lorsque `MODIFIED_ONLY` était désactivé
+
+**Symptôme** : le socle Stage 07 pouvait filtrer correctement les publications en `MODIFIED_ONLY`, mais le chemin de publication classique ne préparait pas d'information d'historique et pouvait donc laisser le carnet sans nouvel état après une publication réussie.
+
+**Cause** : l'intégration associait initialement les informations de classification uniquement au chemin `modified_only=True`. L'enregistrement de l'historique était donc conditionné à l'activation de cette option, alors que l'historique doit servir de référence pour les publications suivantes quel que soit le mode utilisé.
+
+**Correction** : calculer systématiquement les états courants et la classification avant publication ; l'enregistrement post-publication est maintenant déclenché après toute publication réussie. Le filtrage `MODIFIED_ONLY` ne fait que réduire le périmètre transmis au moteur.
+
+**Règle** : l'historique de publication est indépendant du mode de sélection. Toute publication réussie d'un carnet doit mettre à jour sa référence historique.
+
+**Anti-régression** : publier un carnet avec `MODIFIED_ONLY` désactivé, activer ensuite `MODIFIED_ONLY` sans modifier aucune feuille et vérifier que les feuilles sont reconnues comme `UNCHANGED` et ne sont pas republiées.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -185,6 +197,7 @@ BUG-EXPORT-012
 BUG-EXPORT-013
 BUG-EXPORT-014
 BUG-EXPORT-015
+BUG-EXPORT-016
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
