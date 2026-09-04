@@ -1,6 +1,6 @@
 # Outils TAA — Registre global de capitalisation des bugs
 
-**Statut :** Référence de développement et de non-régression   
+**Statut :** Référence de développement et de non-régression  
 **Périmètre :** Tous les outils Outils TAA  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Objectif :** Transformer les erreurs rencontrées pendant le développement en règles et contrôles anti-régression réutilisables par l'ensemble du projet.
@@ -159,6 +159,14 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle** : pour un `TreeView` WPF nécessitant une sélection multiple, implémenter explicitement l'état de sélection et utiliser un format de données WPF explicite pour le drag-and-drop.  
 **Anti-régression** : sélectionner plusieurs carnets avec `Ctrl` ou une plage avec `Maj`, les glisser vers un dossier, puis les glisser sur un carnet cible pour vérifier leur insertion avant celui-ci et la persistance de l'ordre après fermeture/réouverture.
 
+### BUG-EXPORT-015 — Handler `ExportWindow` manquant après refactorisation et couche de compatibilité incorrecte
+
+**Symptôme** : au lancement de l'outil, IronPython levait d'abord `AttributeError: 'type' object has no attribute 'Publish_Click'` dans `publication_preview_integration.py`. Après ajout de la couche de compatibilité, une seconde erreur apparaissait : `AttributeError: 'ExportWindow' object has no attribute '_set_no_selection_compat'` lors de la mise à jour de la sélection.  
+**Cause** : `publication_preview_integration.py` supposait que plusieurs handlers historiques (`Publish_Click`, `OpenCarnetManager_Click`, etc.) existaient encore dans `ExportWindow`, alors qu'une refactorisation les avait retirés ou déplacés. La couche de compatibilité introduite pour les réinjecter contenait elle-même un appel vers `_set_no_selection_compat`, nom qui n'était pas exposé sur l'instance alors que le vrai `_set_no_selection()` existait déjà.  
+**Correction** : injection des handlers manquants avant création de la fenêtre et correction de `update_selection_info()` pour appeler le handler canonique `_set_no_selection()`. Le correctif immédiat a été commit dans `d795989882098e75f3dcdc759954f11c00217605`.  
+**Règle** : les handlers d'événements WPF doivent avoir un propriétaire canonique, idéalement `ExportWindow`. Une couche d'intégration doit décorer ou envelopper ces handlers, pas multiplier les alias incompatibles. Toute refactorisation de l'UI doit vérifier les contrats attendus par les intégrations.  
+**Anti-régression** : charger `ExportWindow` dans IronPython/Revit et déclencher successivement : sélection d'un dossier, sélection d'un carnet, sélection d'une feuille, retour à aucune sélection, ouverture du gestionnaire de carnets, création/sélection d'un dossier, modification des paramètres, prévisualisation puis publication d'un carnet et d'une feuille. Vérifier qu'aucun `AttributeError` lié à un handler attendu par l'intégration n'apparaît.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -176,6 +184,7 @@ BUG-EXPORT-011
 BUG-EXPORT-012
 BUG-EXPORT-013
 BUG-EXPORT-014
+BUG-EXPORT-015
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
