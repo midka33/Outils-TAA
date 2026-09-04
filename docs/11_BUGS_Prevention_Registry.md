@@ -1,6 +1,6 @@
 # Outils TAA — Registre global de capitalisation des bugs
 
-**Statut :** Référence de développement et de non-régression  
+**Statut :** Référence de développement et de non-régression   
 **Périmètre :** Tous les outils Outils TAA  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Objectif :** Transformer les erreurs rencontrées pendant le développement en règles et contrôles anti-régression réutilisables par l'ensemble du projet.
@@ -151,6 +151,14 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle** : une agrégation multi-carnets ne doit jamais masquer une différence de configuration entre les unités publiées.  
 **Anti-régression** : créer deux carnets d'un même dossier avec deux destinations différentes, lancer `Publier le dossier` et vérifier que les deux destinations sont visibles avant confirmation.
 
+### BUG-EXPORT-014 — Glisser-déposer des carnets non opérationnel et absence de sélection multiple
+
+**Symptôme** : les carnets ne pouvaient pas être déplacés à la souris pour changer de dossier ou d'ordre, et plusieurs carnets ne pouvaient pas être sélectionnés pour un déplacement groupé.  
+**Cause** : le premier mécanisme de drag-and-drop transmettait directement un objet Python WPF et ne disposait d'aucun état de sélection multiple. Le `TreeView` WPF ne fournit pas nativement de sélection multiple.  
+**Correction** : ajout d'un `DataObject` WPF avec format de données explicite, sélection `Ctrl` / `Maj`, surbrillance des carnets sélectionnés et nouvelle opération repository `move_sets` permettant le déplacement groupé avec conservation de l'ordre.  
+**Règle** : pour un `TreeView` WPF nécessitant une sélection multiple, implémenter explicitement l'état de sélection et utiliser un format de données WPF explicite pour le drag-and-drop.  
+**Anti-régression** : sélectionner plusieurs carnets avec `Ctrl` ou une plage avec `Maj`, les glisser vers un dossier, puis les glisser sur un carnet cible pour vérifier leur insertion avant celui-ci et la persistance de l'ordre après fermeture/réouverture.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -167,6 +175,7 @@ BUG-EXPORT-010
 BUG-EXPORT-011
 BUG-EXPORT-012
 BUG-EXPORT-013
+BUG-EXPORT-014
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
