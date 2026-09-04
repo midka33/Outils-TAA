@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Aperçu de publication" Width="1100" Height="700"
-        MinWidth="850" MinHeight="520" WindowStartupLocation="CenterOwner">
+        Title="Aperçu de publication" Width="1150" Height="700"
+        MinWidth="900" MinHeight="520" WindowStartupLocation="CenterOwner">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -26,6 +26,7 @@
                   GridLinesVisibility="Horizontal" ScrollViewer.VerticalScrollBarVisibility="Auto"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,0,0,12">
             <DataGrid.Columns>
+                <DataGridTextColumn Header="Carnet" Binding="{Binding Carnet}" Width="150" />
                 <DataGridTextColumn Header="N°" Binding="{Binding Number}" Width="75" />
                 <DataGridTextColumn Header="Mise en page" Binding="{Binding Name}" Width="2*" />
                 <DataGridTextColumn Header="Format" Binding="{Binding Format}" Width="70" />
