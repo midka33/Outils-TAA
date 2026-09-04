@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 """Tests unitaires hors Revit pour l'architecture Stage 08."""
 
+import os
+import sys
+
+EXPORT_DIR = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), "..",
+    "OutilsTAA.extension", "OutilsTAA.tab", "Export.panel"
+))
+if EXPORT_DIR not in sys.path:
+    sys.path.insert(0, EXPORT_DIR)
+
 from models.dynamic_rule import DynamicRule, DynamicRuleGroup, DynamicRuleDefinition
 from services.dynamic_rule_resolver import DynamicRuleResolver
 
