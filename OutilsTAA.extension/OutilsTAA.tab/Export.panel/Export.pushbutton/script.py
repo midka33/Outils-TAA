@@ -5,13 +5,11 @@ import hashlib
 import os
 import sys
 
-
 CURRENT_DIR = os.path.dirname(__file__)
 EXTENSION_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "..", ".."))
 PANEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 MODEL_DIR = os.path.join(PANEL_DIR, "models")
 SERVICE_DIR = os.path.join(PANEL_DIR, "services")
-
 for path in (EXTENSION_DIR, MODEL_DIR, SERVICE_DIR, PANEL_DIR):
     if path not in sys.path:
         sys.path.append(path)
@@ -29,9 +27,6 @@ from publication_preview_integration import install_preview_on_export_window
 from publication_tree_drag_drop import PublicationTreeDragDrop
 from publication_history_service import PublicationHistoryService
 
-
-# L'aperçu est installé avant la création de la fenêtre afin que le bouton
-# de publication passe systématiquement par la phase de confirmation.
 install_preview_on_export_window(ExportWindow)
 
 
@@ -60,53 +55,17 @@ def _get_project_identity(document):
 
 
 def _get_storage_path(document):
-    """Retourne le fichier de carnets propre au projet Revit courant."""
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
     directory = os.path.join(app_data, "Outils-TAA", "Export", "Projects")
-    project_identity = _get_project_identity(document)
-    project_key = hashlib.sha1(project_identity.encode("utf-8")).hexdigest()
+    project_key = hashlib.sha1(_get_project_identity(document).encode("utf-8")).hexdigest()
     return os.path.join(directory, project_key + "_carnets.json")
 
 
 def _get_history_path(document):
-    """Retourne un historique indépendant pour chaque projet Revit."""
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
     directory = os.path.join(app_data, "Outils-TAA", "Export", "History")
-    project_identity = _get_project_identity(document)
-    project_key = hashlib.sha1(project_identity.encode("utf-8")).hexdigest()
+    project_key = hashlib.sha1(_get_project_identity(document).encode("utf-8")).hexdigest()
     return os.path.join(directory, project_key + "_history.json")
-
-
-def _install_modified_only_value_support(window):
-    """Ajoute le champ Stage 07 au mécanisme générique de sauvegarde UI."""
-    original_control_value = window._control_value
-    def control_value(field):
-        if field == "modified_only":
-            return bool(window.ModifiedOnlyCheckBox.IsChecked)
-        return original_control_value(field)
-    window._control_value = control_value
-
-
-def _install_modified_only_selection_sync(window):
-    """Synchronise la case avec le carnet/dossier sélectionné."""
-    def on_selection_changed(sender, args):
-        try:
-            if window._selected_kind == "FOLDER" and window._selected_folder is not None:
-                settings = window._selected_folder.publication_settings
-                value = bool(getattr(settings, "modified_only", False)) if settings is not None else False
-            elif window._selected_set is not None:
-                value = bool(getattr(window._resolve_settings(window._selected_set), "modified_only", False))
-            else:
-                value = False
-            window._loading_settings = True
-            try:
-                window.ModifiedOnlyCheckBox.IsChecked = value
-            finally:
-                window._loading_settings = False
-        except Exception:
-            pass
-    window.PublicationTree.SelectedItemChanged += on_selection_changed
-    window._modified_only_selection_sync = on_selection_changed
 
 
 def _history_service(window):
@@ -123,12 +82,43 @@ def _current_states(window, publication_set):
         version_guid = None
         if current_id is not None:
             try:
-                element = service.document.GetElement(current_id)
-                version_guid = getattr(element, "VersionGuid", None)
+                version_guid = getattr(service.document.GetElement(current_id), "VersionGuid", None)
             except Exception:
                 pass
         states[key] = history.fingerprint(item, version_guid)
     return states
+
+
+def _install_modified_only_value_support(window):
+    """Ajoute le champ Stage 07 au mécanisme générique de sauvegarde UI."""
+    original = window._control_value
+    def control_value(field):
+        if field == "modified_only":
+            return bool(window.ModifiedOnlyCheckBox.IsChecked)
+        return original(field)
+    window._control_value = control_value
+
+
+def _install_modified_only_selection_sync(window):
+    def on_selection_changed(sender, args):
+        try:
+            if window._selected_kind == "FOLDER" and window._selected_folder is not None:
+                settings = window._selected_folder.publication_settings
+                value = bool(getattr(settings, "modified_only", False)) if settings is not None else False
+            elif window._selected_set is not None:
+                value = bool(getattr(window._resolve_settings(window._selected_set), "modified_only", False))
+            else:
+                value = False
+            window._loading_settings = True
+            window.ModifiedOnlyCheckBox.IsChecked = value
+            window._loading_settings = False
+        except Exception:
+            try:
+                window._loading_settings = False
+            except Exception:
+                pass
+    window.PublicationTree.SelectedItemChanged += on_selection_changed
+    window._modified_only_selection_sync = on_selection_changed
 
 
 def _build_preview_stage07(window, targets):
@@ -195,7 +185,14 @@ def _publish_targets_stage07(window, targets):
     publication_preview_integration.PublicationReportWindow(report, owner=window).ShowDialog()
 
 
-def _publish_folder_stage07(window, targets):
+def _preview_then_publish_folder_stage07(window, targets):
+    preview = _build_preview_stage07(window, targets)
+    if not targets:
+        preview["errors"].append("Le dossier « {0} » ne contient aucun carnet publiable.".format(window._selected_folder.name))
+    dialog = publication_preview_integration.PublicationPreviewWindow(preview, owner=window)
+    dialog.ShowDialog()
+    if not dialog.confirmed:
+        return
     history = _history_service(window)
     batch = publication_preview_integration.PublicationBatchService(window.controller.publication_service)
     for target in targets:
@@ -215,7 +212,7 @@ def _publish_folder_stage07(window, targets):
 
 
 def _install_stage07_hooks():
-    """Branche Stage 07 sur la couche d'intégration existante sans dupliquer le moteur Revit."""
+    """Branche Stage 07 sur les handlers déjà installés par l'intégration."""
     def modified_only_changed(self, sender, args):
         if getattr(self, "_loading_settings", False):
             return
@@ -226,18 +223,17 @@ def _install_stage07_hooks():
     ExportWindow.ModifiedOnlyChanged = modified_only_changed
     publication_preview_integration._build_preview = _build_preview_stage07
     publication_preview_integration._publish_targets = _publish_targets_stage07
+    publication_preview_integration._preview_then_publish_folder = _preview_then_publish_folder_stage07
 
 
 _install_stage07_hooks()
 
 
 def main():
-    """Launch the Export WPF window."""
     try:
         from pyrevit import revit
     except ImportError:
         raise RuntimeError("pyRevit is not available.")
-
     export_service = ExportService(revit.doc, parameter_utils)
     carnet_service = CarnetService(export_service)
     parameter_service = ParameterService(parameter_utils)
@@ -245,7 +241,6 @@ def main():
     repository = CarnetRepository(_get_storage_path(revit.doc))
     controller = CarnetController(export_service, carnet_service, parameter_service,
                                    repository, publication_service)
-
     window = ExportWindow(controller, repository)
     _install_modified_only_selection_sync(window)
     _install_modified_only_value_support(window)
