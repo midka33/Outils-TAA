@@ -52,6 +52,11 @@ Le format suit les principes de *Keep a Changelog*.
 - Persistance hors Revit des snapshots de résolution dynamique par projet et carnet.
 - Pont `DynamicPublicationAdapter` transformant une résolution en sélection des `PublicationItem` existants, sans second moteur de publication.
 - Tests unitaires hors Revit du pont dynamique vers `PublicationItem`.
+- Moteur de prévisualisation dynamique hors Revit avec états de changement, éléments retirés, éléments publiables et diagnostics.
+- Modèle complet hors Revit de `DynamicPublicationSet`, couvrant les types manuel/dynamique, règles, exclusions, paramètres, validation et snapshot.
+- Sérialisation, désérialisation, versionnement et migration du modèle de carnet dynamique.
+- `DynamicPublicationSetManager` pour créer, mettre à jour, dupliquer, supprimer, charger et sérialiser les carnets dynamiques.
+- Tests unitaires hors Revit du modèle et du gestionnaire de carnets dynamiques.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -79,4 +84,3 @@ Le format suit les principes de *Keep a Changelog*.
 
 ### Added
 - Initialisation du repository.
-- Création des documents fondateurs.
