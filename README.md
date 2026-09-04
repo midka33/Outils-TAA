@@ -55,6 +55,65 @@ Ce fichier définit notamment le workflow obligatoire avant modification et avan
 
 La spécification de référence du module **Export** est disponible dans `docs/09_Export.md`.
 
+## Règle obligatoire de synchronisation du projet
+
+Toute modification du code ou du comportement du projet doit être accompagnée d'une vérification de la documentation et de la roadmap.
+
+### Documentation
+
+Lorsqu'une modification :
+
+- ajoute une fonctionnalité ;
+- supprime une fonctionnalité ;
+- modifie un comportement ;
+- modifie une règle métier ;
+- modifie le parcours utilisateur ;
+- modifie les paramètres, options, formats d'entrée ou de sortie ;
+- modifie les règles de publication/export ;
+- ou modifie une architecture ou un contrat technique important ;
+
+l'IA ou le développeur doit mettre à jour la documentation de référence correspondante dans `docs/` dans le même travail.
+
+### Roadmap
+
+Après chaque modification significative, vérifier **`ROADMAP.md`** et la roadmap spécifique de l'outil concerné.
+
+La roadmap doit être mise à jour lorsque la modification :
+
+- réalise une fonctionnalité prévue ;
+- transforme une fonctionnalité prévue en fonctionnalité réalisée ;
+- change le périmètre d'une étape ;
+- ajoute une nouvelle intention ou un besoin fonctionnel ;
+- rend une étape obsolète ;
+- fait apparaître une nouvelle étape ou une dépendance ;
+- ou modifie significativement l'ordre ou la priorité des développements.
+
+Il ne faut pas attendre la fin d'une phase complète : **l'état de la roadmap doit rester représentatif de l'état réel du repository**.
+
+### Règle de synchronisation
+
+```text
+Modification
+    ↓
+Code
+    ↓
+Tests
+    ↓
+Documentation concernée
+    ↓
+Roadmap concernée
+    ↓
+Vérification de cohérence
+    ↓
+Commit
+```
+
+Une modification fonctionnelle n'est pas considérée comme terminée si le code, la documentation et la roadmap ne sont plus cohérents.
+
+Pour les modifications purement internes sans impact fonctionnel, la documentation et la roadmap doivent néanmoins être vérifiées ; elles ne sont mises à jour que si l'architecture, le contrat, la maintenance ou l'état d'avancement du projet sont concernés.
+
+Cette règle complète les consignes obligatoires de **`AI_INSTRUCTIONS.md`**.
+
 ## Licence
 
 Le repository contient le fichier `LICENSE` qui définit les conditions d'utilisation du projet.
