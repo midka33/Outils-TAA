@@ -143,6 +143,14 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle** : ne jamais persister une valeur effective comme une surcharge locale sans action explicite de l'utilisateur.  
 **Anti-régression** : définir un réglage au niveau dossier, vérifier son héritage dans un carnet, modifier uniquement un autre réglage du carnet et vérifier que le premier reste hérité.
 
+### BUG-EXPORT-013 — Publication de dossier utilisant une seule destination pour plusieurs carnets
+
+**Symptôme** : lors d'une publication multiple, la prévisualisation pouvait afficher une destination unique alors que les carnets utilisaient des destinations différentes.  
+**Cause** : l'agrégation de prévisualisation conservait la dernière destination rencontrée.  
+**Correction** : l'aperçu signale désormais explicitement plusieurs destinations et conserve le chemin complet sur chaque ligne de livrable.  
+**Règle** : une agrégation multi-carnets ne doit jamais masquer une différence de configuration entre les unités publiées.  
+**Anti-régression** : créer deux carnets d'un même dossier avec deux destinations différentes, lancer `Publier le dossier` et vérifier que les deux destinations sont visibles avant confirmation.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -158,6 +166,7 @@ BUG-EXPORT-009
 BUG-EXPORT-010
 BUG-EXPORT-011
 BUG-EXPORT-012
+BUG-EXPORT-013
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
