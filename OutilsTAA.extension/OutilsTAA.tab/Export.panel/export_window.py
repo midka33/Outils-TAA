@@ -15,6 +15,7 @@ from publication_folder import PublicationFolder
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from filename_service import FilenameService
+from publication_profile_service import PublicationProfileService
 
 
 class ExportWindow(forms.WPFWindow):
@@ -26,12 +27,14 @@ class ExportWindow(forms.WPFWindow):
         self.session_carnets = []
         self.current_project_unique_ids = set()
         self._loading_settings = False
+        self._loading_profile = False
         self._folders = []
         self._carnets = []
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
         self.filename_service = FilenameService(controller.document)
+        self.profile_service = PublicationProfileService()
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
@@ -42,6 +45,7 @@ class ExportWindow(forms.WPFWindow):
             sheet.UniqueId for sheet in sheets
             if sheet is not None and getattr(sheet, "UniqueId", None))
         self._load_dwg_setups()
+        self._load_profiles()
         self.FilenameTokenCombo.ItemsSource = [
             "{carnet}", "{numero}", "{nom}", "{nom_complet}",
             "{projet}", "{date}", "{indice}", "{dossier}",
@@ -49,6 +53,11 @@ class ExportWindow(forms.WPFWindow):
         ]
         self._refresh_tree()
         self._update_selection_info()
+
+    def _load_profiles(self):
+        """Charge les profils disponibles dans la liste WPF."""
+        self.ProfileCombo.ItemsSource = self.profile_service.list_profiles()
+        self.ProfileCombo.SelectedIndex = -1
 
     def _load_dwg_setups(self):
         try:
@@ -159,6 +168,12 @@ class ExportWindow(forms.WPFWindow):
         self.PublishButton.Content = "Publier…"
         self.PublishButton.IsEnabled = False
         self.FilenamePreviewText.Text = "—"
+        if hasattr(self, "ProfileCombo"):
+            self._loading_profile = True
+            try:
+                self.ProfileCombo.SelectedIndex = -1
+            finally:
+                self._loading_profile = False
 
     def Tree_MouseDoubleClick(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -180,6 +195,7 @@ class ExportWindow(forms.WPFWindow):
             settings = PublicationSettings(output_directory=self._selected_set.output_directory)
             self._selected_set.publication_settings = settings
         self._loading_settings = True
+        self._loading_profile = True
         try:
             if self._selected_kind == "SHEET":
                 item = self._selected_item
@@ -205,7 +221,10 @@ class ExportWindow(forms.WPFWindow):
             self.OutputDirectoryTextBox.Text = settings.output_directory or ""
             self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
             self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
+            self.ProfileCombo.SelectedIndex = -1
+            self.ProfileInfoText.Text = "Les profils mémorisent les réglages PDF/DWG. La destination et le nommage restent propres au carnet."
         finally:
+            self._loading_profile = False
             self._loading_settings = False
         self._update_filename_preview()
 
@@ -227,6 +246,89 @@ class ExportWindow(forms.WPFWindow):
             self.controller.save_persistent(self._selected_set)
         self._update_filename_preview()
 
+    def _apply_profile_values(self, values):
+        if not values or self._selected_set is None:
+            return
+        settings = self._selected_set.publication_settings or PublicationSettings()
+        settings.pdf_enabled = bool(values.get("pdf_enabled", True))
+        settings.pdf_mode = values.get("pdf_mode", "COMBINED")
+        settings.dwg_enabled = bool(values.get("dwg_enabled", True))
+        settings.dwg_mode = values.get("dwg_mode", "SEPARATE")
+        settings.dwg_setup_name = values.get("dwg_setup_name")
+        settings.dwg_true_color = bool(values.get("dwg_true_color", True))
+        self._selected_set.publication_settings = settings
+        self._loading_settings = True
+        try:
+            self.PdfCheckBox.IsChecked = settings.pdf_enabled
+            self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
+            self.PdfSeparateRadio.IsChecked = settings.pdf_mode == "SEPARATE"
+            self.DwgCheckBox.IsChecked = settings.dwg_enabled
+            self.DwgCombinedRadio.IsChecked = settings.dwg_mode == "COMBINED"
+            self.DwgSeparateRadio.IsChecked = settings.dwg_mode == "SEPARATE"
+            self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
+            self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
+        finally:
+            self._loading_settings = False
+        if self._selected_set.persistent:
+            self.controller.save_persistent(self._selected_set)
+        self.ProfileInfoText.Text = "Profil appliqué au carnet. La destination et le nommage n'ont pas été modifiés."
+        self._update_filename_preview()
+
+    def ProfileChanged(self, sender, args):
+        if self._loading_profile or self._selected_set is None:
+            return
+        name = self.ProfileCombo.SelectedItem
+        if not name:
+            return
+        values = self.profile_service.get(name)
+        if not values:
+            return
+        self._loading_profile = True
+        try:
+            self._apply_profile_values(values)
+        finally:
+            self._loading_profile = False
+
+    def SaveProfile_Click(self, sender, args):
+        if self._selected_set is None:
+            forms.alert("Sélectionnez d'abord un carnet ou une mise en page.", title="Profil")
+            return
+        name = forms.ask_for_string(
+            default="Mon profil",
+            prompt="Nom du profil à enregistrer",
+            title="Profil de publication")
+        if not name or not name.strip():
+            return
+        try:
+            self._save_selected_settings()
+            saved_name = self.profile_service.save(
+                name.strip(), self._selected_set.publication_settings)
+        except Exception as exc:
+            forms.alert("Impossible d'enregistrer le profil : {0}".format(exc), title="Profil")
+            return
+        self._load_profiles()
+        self._loading_profile = True
+        try:
+            self.ProfileCombo.SelectedItem = saved_name
+        finally:
+            self._loading_profile = False
+        self.ProfileInfoText.Text = "Profil personnalisé enregistré : {0}.".format(saved_name)
+
+    def DeleteProfile_Click(self, sender, args):
+        name = self.ProfileCombo.SelectedItem
+        if not name:
+            forms.alert("Sélectionnez un profil personnalisé à supprimer.", title="Profil")
+            return
+        if name in self.profile_service.DEFAULT_PROFILES:
+            forms.alert("Les profils intégrés ne peuvent pas être supprimés.", title="Profil")
+            return
+        if not forms.alert("Supprimer le profil « {0} » ?".format(name),
+                           title="Profil", yes=True, no=True):
+            return
+        if self.profile_service.delete(name):
+            self._load_profiles()
+            self.ProfileInfoText.Text = "Profil supprimé. Les réglages actuels du carnet restent inchangés."
+
     def _update_filename_preview(self):
         if self._selected_set is None:
             self.FilenamePreviewText.Text = "—"
@@ -247,7 +349,6 @@ class ExportWindow(forms.WPFWindow):
             self.FilenamePreviewText.Text = "Erreur de nommage : {}".format(exc)
 
     def FilenameTokenChanged(self, sender, args):
-        # La sélection d'une variable ne modifie pas encore le modèle.
         return
 
     def InsertFilenameToken_Click(self, sender, args):
@@ -429,6 +530,9 @@ class ExportWindow(forms.WPFWindow):
 
 
 class _ResolvedCarnetView(object):
+    """Vue légère utilisée par la fenêtre de consultation d'un carnet."""
+
     def __init__(self, name, items):
         self.name = name
-        self.items = list(items or [])
+        self.items = items
+        self.persistent = False
