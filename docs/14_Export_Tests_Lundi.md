@@ -226,7 +226,7 @@ Créer un carnet jamais publié, activer `MODIFIED_ONLY` et publier.
 ## TEST-35 — Deuxième publication sans modification
 Ne rien modifier et relancer `MODIFIED_ONLY`.
 
-**Attendu cible :** les feuilles sont `UNCHANGED` et aucune feuille inutile n'est proposée.
+**Attendu :** les feuilles sont `UNCHANGED`, aucune feuille n'est proposée et la confirmation est bloquée.
 
 ## TEST-36 — Une seule feuille modifiée
 Modifier une seule mise en page puis relancer Export.
@@ -261,12 +261,12 @@ DWG séparé ; modifier une seule feuille ; publier en `MODIFIED_ONLY`.
 ## TEST-42 — PDF combiné + MODIFIED_ONLY
 PDF combiné ; modifier une seule feuille ; publier en `MODIFIED_ONLY`.
 
-**Attendu :** observer précisément le comportement et vérifier que le livrable combiné reste cohérent. Noter le résultat pour validation de la règle métier.
+**Attendu :** le PDF combiné est produit à partir du périmètre filtré. Vérifier précisément son contenu et son nom.
 
 ## TEST-43 — Publication multiple + MODIFIED_ONLY
 Créer A, B et C. Modifier une seule feuille dans B puis publier le dossier en `MODIFIED_ONLY`.
 
-**Attendu :** A = aucune feuille ; B = seule la feuille modifiée ; C = aucune feuille.
+**Attendu :** A = aucune publication ; B = seule la feuille modifiée ; C = aucune publication.
 
 ---
 
@@ -283,7 +283,7 @@ Ce test vise notamment les régressions liées aux handlers `Publish_Click`, `_s
 
 # 11. Nouveaux tests — intégration complète Stage 07
 
-Ces tests complètent la première campagne afin de couvrir les éléments Stage 07 restant à intégrer : interface, persistance du réglage, prévisualisation, publication simple/multiple, historique et rapport.
+Ces tests complètent la première campagne afin de couvrir l'interface, la persistance du réglage, la prévisualisation, la publication simple/multiple, l'historique et le rapport.
 
 ## TEST-45 — Contrôle MODIFIED_ONLY dans l'interface
 
@@ -301,7 +301,7 @@ Activer `MODIFIED_ONLY`, fermer Export puis le rouvrir.
 
 Publier un carnet déjà historisé après avoir modifié une seule feuille, avec `MODIFIED_ONLY` actif.
 
-**Attendu :** la prévisualisation ne présente comme publiables que les feuilles `NEW`, `MODIFIED` ou `UNKNOWN` selon la règle de sécurité ; les feuilles `UNCHANGED` sont clairement identifiées ou exclues de la publication.
+**Attendu :** la prévisualisation ne présente comme publiables que les feuilles `NEW`, `MODIFIED` ou `UNKNOWN` ; les feuilles `UNCHANGED` sont exclues.
 
 ## TEST-48 — Publication simple filtrée
 
@@ -326,6 +326,18 @@ Effectuer une publication réussie puis fermer/réouvrir Export et relancer l'an
 Utiliser un carnet contenant des feuilles `NEW`, `MODIFIED` et `UNCHANGED`, puis consulter la prévisualisation et le rapport.
 
 **Attendu :** les états sont compréhensibles et cohérents entre l'interface, la prévisualisation et le rapport.
+
+## TEST-52 — Conservation de l'historique lors d'une publication partielle
+
+Créer un carnet de trois feuilles, publier les trois, puis modifier et republier uniquement une feuille avec `MODIFIED_ONLY`.
+
+**Attendu :** l'historique conserve les trois feuilles ; la feuille republiée reçoit son nouvel état et les deux autres conservent leur état précédent `UNCHANGED`.
+
+## TEST-53 — Aucun livrable vide lorsque tout est inchangé
+
+Après une publication réussie, activer `MODIFIED_ONLY` sans modifier aucune feuille et tester un mode PDF combiné puis un mode DWG combiné.
+
+**Attendu :** aucun PDF/DWG vide n'est créé ; la prévisualisation indique qu'aucune mise en page n'est à publier et la confirmation est bloquée.
 
 ---
 
@@ -383,6 +395,8 @@ TEST-48 :
 TEST-49 :
 TEST-50 :
 TEST-51 :
+TEST-52 :
+TEST-53 :
 ```
 
 # Notes / erreurs
