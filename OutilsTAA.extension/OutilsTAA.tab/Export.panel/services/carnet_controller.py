@@ -13,6 +13,11 @@ class CarnetController(object):
         self.repository = repository
         self.publication_service = publication_service
 
+        # Le document Revit est exposé explicitement par la façade afin que
+        # les services UI qui doivent lire le contexte du projet puissent
+        # utiliser la même instance que les services métier.
+        self.document = getattr(export_service, "document", None)
+
     def get_context(self):
         sheets = self.export_service.get_sheets()
         return {"sheets": sheets, "sheet_count": len(sheets),
