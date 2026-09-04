@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 """Glisser-déposer des carnets dans l'arborescence Export."""
 
-from System.Windows import DragDropEffects, VisualTreeHelper
+from System.Windows import DragDrop, DragDropEffects
 from System.Windows.Controls import TreeViewItem
 from System.Windows.Input import MouseButtonState
+from System.Windows.Media import VisualTreeHelper
 
 
 class PublicationTreeDragDrop(object):
     """Ajoute le déplacement des carnets entre dossiers et leur réordonnancement."""
-
-    DATA_FORMAT = "OutilsTAA.Export.PublicationSet"
 
     def __init__(self, window):
         self.window = window
@@ -45,23 +44,27 @@ class PublicationTreeDragDrop(object):
         if not tag or tag[0] != "CARNET":
             return
         self.drag_started = True
+        data = tag[1]
         try:
-            data = self.drag_node.DataContext
+            DragDrop.DoDragDrop(self.drag_node, data, DragDropEffects.Move)
+        finally:
+            self.drag_node = None
+            self.drag_started = False
+
+    def _get_dragged_set(self, args):
+        try:
+            formats = args.Data.GetFormats()
+            for fmt in formats:
+                value = args.Data.GetData(fmt)
+                if getattr(value, "id", None) and hasattr(value, "folder_id"):
+                    return value
         except Exception:
-            data = None
-        if data is None:
-            data = tag[1]
-        sender.DoDragDrop(data, DragDropEffects.Move)
-        self.drag_node = None
-        self.drag_started = False
+            pass
+        return None
 
     def _drag_over(self, sender, args):
         target = self._tree_item_from_source(args.OriginalSource)
-        source = None
-        try:
-            source = args.Data.GetData(args.Data.GetFormats()[0])
-        except Exception:
-            pass
+        source = self._get_dragged_set(args)
         if target is not None and self._is_valid_drop(source, target):
             args.Effects = DragDropEffects.Move
         else:
@@ -70,16 +73,8 @@ class PublicationTreeDragDrop(object):
 
     def _drop(self, sender, args):
         target_node = self._tree_item_from_source(args.OriginalSource)
-        if target_node is None:
-            return
-        source = None
-        try:
-            formats = args.Data.GetFormats()
-            if formats and args.Data.GetDataPresent(formats[0]):
-                source = args.Data.GetData(formats[0])
-        except Exception:
-            pass
-        if source is None:
+        source = self._get_dragged_set(args)
+        if target_node is None or source is None:
             return
         tag = getattr(target_node, "Tag", None)
         if not tag or tag[0] not in ("FOLDER", "CARNET"):
@@ -98,7 +93,10 @@ class PublicationTreeDragDrop(object):
                 return
 
         try:
-            if self.window.controller.move_persistent(source.id, folder_id, before_set_id):
+            moved = self.window.controller.move_persistent(
+                source.id, folder_id, before_set_id
+            )
+            if moved:
                 self.window._selected_set = None
                 self.window._selected_item = None
                 self.window._selected_kind = None
