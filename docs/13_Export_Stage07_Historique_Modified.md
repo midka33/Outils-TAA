@@ -1,6 +1,6 @@
 # Export — Étape 07 : Historique et « modifiés uniquement »
 
-**Statut :** Socle technique implémenté — intégration Revit/UI en cours  
+**Statut :** Intégration technique réalisée — validation Revit 2025.4 restante  
 **Cible :** Revit 2025.4 / pyRevit 5.x
 
 ## 1. Objectif
@@ -37,7 +37,7 @@ NEW + MODIFIED + UNKNOWN
 
 Lorsque l'environnement Revit le permet, Export utilise `Element.VersionGuid` comme indicateur de version de la mise en page.
 
-L'outil doit récupérer ce GUID sur l'élément Revit courant à partir du `UniqueId` persistant du `PublicationItem`.
+L'outil récupère ce GUID sur l'élément Revit courant à partir du `UniqueId` persistant du `PublicationItem`.
 
 Un identifiant de feuille, un numéro de feuille ou son nom ne constitue pas à lui seul une preuve fiable de modification du contenu Revit.
 
@@ -66,11 +66,13 @@ sheet_name
 
 L'historique n'est mis à jour qu'après une publication considérée comme réussie.
 
+En mode `MODIFIED_ONLY`, l'enregistrement fusionne les états publiés avec l'historique existant afin de ne pas perdre les états des mises en page volontairement non publiées parce qu'elles sont inchangées.
+
 ## 5. Première publication
 
 Si aucun historique n'existe pour un carnet, toutes ses mises en page sont considérées comme `NEW`.
 
-Ainsi, activer `MODIFIED_ONLY` sur un carnet jamais publié ne doit pas produire une publication vide.
+Ainsi, activer `MODIFIED_ONLY` sur un carnet jamais publié ne produit pas une publication vide.
 
 ## 6. État inconnu
 
@@ -95,20 +97,29 @@ Il est :
 - `False` par défaut ;
 - résolu par `SettingsResolver`.
 
-La valeur par défaut garantit qu'aucun comportement existant n'est modifié tant que l'option n'est pas exposée et activée dans l'interface.
+L'interface Export expose une case :
 
-## 8. Intégration prévue
+**« Publier uniquement les mises en page nouvelles ou modifiées »**
 
-Le socle technique doit ensuite être branché dans le workflow existant :
+Lorsque la case est active :
+
+- `NEW` est publié ;
+- `MODIFIED` est publié ;
+- `UNKNOWN` est publié par sécurité ;
+- `UNCHANGED` est exclu.
+
+Le réglage est mémorisé au niveau dossier ou carnet selon le niveau sélectionné, conformément au mécanisme d'héritage existant.
+
+## 8. Intégration du workflow
+
+Le flux complet est maintenant raccordé au workflow existant :
 
 ```text
-Carnet
+Carnet / Dossier
   ↓
 Résolution des réglages
   ↓
-Résolution des feuilles Revit
-  ↓
-Lecture de VersionGuid
+Lecture de VersionGuid Revit
   ↓
 Comparaison avec historique
   ↓
@@ -118,14 +129,45 @@ Prévisualisation
   ↓
 Confirmation
   ↓
-Publication
+Publication avec le moteur PDF/DWG existant
   ↓
-Enregistrement de l'état publié
+Enregistrement de l'état après réussite
+  ↓
+Rapport
 ```
 
-Pour une publication de dossier, la comparaison doit être réalisée indépendamment pour chaque carnet.
+Pour une publication de dossier, la comparaison et le filtrage sont réalisés indépendamment pour chaque carnet.
 
-## 9. Règles de sécurité
+La publication n'utilise pas de second moteur PDF/DWG : le périmètre est filtré avant de transmettre le carnet au moteur existant.
+
+## 9. Prévisualisation
+
+La prévisualisation reçoit les informations de classification et affiche l'état sur chaque ligne lorsque le mode `MODIFIED_ONLY` est actif.
+
+Le résumé rappelle les quantités :
+
+```text
+NEW
+MODIFIED
+UNCHANGED
+UNKNOWN
+```
+
+Si aucun candidat n'est disponible, la prévisualisation bloque la confirmation et aucun PDF/DWG vide n'est proposé.
+
+Les contrôles existants restent actifs : destination, mise en page introuvable, doublons, imprimabilité, collisions de noms et variables inconnues.
+
+## 10. Publication et historique
+
+L'historique est enregistré uniquement après une publication réussie.
+
+Pour une publication multiple, chaque carnet est traité indépendamment : la réussite d'un carnet peut donc être capitalisée même si un autre carnet échoue.
+
+Une publication échouée ne doit jamais être considérée comme une nouvelle référence historique.
+
+Lorsqu'une publication ne concerne qu'une mise en page, l'état publié est fusionné avec l'historique du carnet parent afin de préserver les autres entrées.
+
+## 11. Règles de sécurité
 
 1. Une première publication doit publier toutes les mises en page.
 2. Une mise en page `UNKNOWN` doit être conservativement republiée.
@@ -133,8 +175,10 @@ Pour une publication de dossier, la comparaison doit être réalisée indépenda
 4. Une suppression d'une mise en page du carnet ne doit pas être interprétée comme une modification d'une autre mise en page.
 5. Le `UniqueId` reste la référence persistante de la mise en page ; l'`ElementId` courant est résolu au moment du contrôle.
 6. Le mode `MODIFIED_ONLY` ne doit jamais contourner les validations et contrôles de la prévisualisation.
+7. Un carnet sans candidat en `MODIFIED_ONLY` ne doit pas générer de fichier vide.
+8. L'historique doit être conservé par carnet, même lors d'une publication multiple.
 
-## 10. Tests hors Revit déjà préparés
+## 12. Tests hors Revit déjà préparés
 
 `tests/test_publication_history_service.py` couvre :
 
@@ -145,23 +189,29 @@ Pour une publication de dossier, la comparaison doit être réalisée indépenda
 - désactivation de `MODIFIED_ONLY` ;
 - persistance et rechargement de l'historique.
 
-## 11. Tests Revit à réaliser
+Des tests supplémentaires sont attendus pour vérifier la fusion de l'historique lorsqu'une publication partielle ne concerne qu'une partie des mises en page.
+
+## 13. Tests Revit à réaliser
 
 La validation finale nécessite Revit 2025.4 et doit notamment vérifier :
 
 1. lancer Export sur un carnet jamais publié ;
 2. publier le carnet ;
 3. activer `MODIFIED_ONLY` ;
-4. vérifier qu'une seconde publication sans modification ne republie aucune mise en page ;
+4. vérifier qu'une seconde publication sans modification ne republie aucune mise en page et bloque la confirmation ;
 5. modifier une feuille dans Revit ;
 6. vérifier que seule cette feuille est proposée ;
 7. créer une nouvelle mise en page dans un carnet dynamique ou manuel ;
 8. vérifier qu'elle est considérée comme `NEW` ;
-9. supprimer ou rendre introuvable une référence et vérifier le comportement `UNKNOWN`/manquant ;
+9. vérifier le cas `UNKNOWN` lorsque `VersionGuid` ne peut pas être exploité ;
 10. vérifier qu'une publication échouée ne met pas à jour l'historique comme une réussite ;
 11. répéter les contrôles avec PDF séparé, PDF combiné, DWG séparé et DWG combiné lorsque applicable ;
-12. vérifier le comportement sur une publication de dossier avec plusieurs carnets.
+12. vérifier le comportement sur une publication de dossier avec plusieurs carnets ;
+13. vérifier qu'un carnet réussi reste historisé même si un autre carnet du lot échoue ;
+14. publier une seule mise en page puis vérifier que les autres états du carnet sont conservés.
 
-## 12. État actuel
+## 14. État actuel
 
-Le service de comparaison et la persistance de l'historique sont en place. L'interface et le moteur de publication doivent encore être raccordés à ce socle avant de considérer l'étape 07 comme terminée.
+Le socle de persistance, la classification, le contrôle d'interface, le filtrage de prévisualisation, le filtrage avant publication et l'enregistrement post-publication sont raccordés.
+
+**La validation fonctionnelle réelle dans Revit 2025.4 reste obligatoire avant de cocher l'étape 07 comme entièrement validée.**
