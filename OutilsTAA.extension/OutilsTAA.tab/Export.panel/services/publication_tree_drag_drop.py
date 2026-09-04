@@ -3,9 +3,9 @@
 
 import json
 
-from System.Windows import DragDrop, DragDropEffects, DataObject
+from System.Windows import DragDrop, DragDropEffects, DataObject, SystemParameters, Thickness
 from System.Windows.Controls import TreeViewItem
-from System.Windows.Input import MouseButtonState, Keyboard, Key, SystemParameters
+from System.Windows.Input import MouseButtonState, Keyboard, Key
 from System.Windows.Media import VisualTreeHelper, SolidColorBrush, Color
 
 
@@ -72,7 +72,7 @@ class PublicationTreeDragDrop(object):
                 value = tag[1]
                 if getattr(value, "persistent", False) and getattr(value, "id", None):
                     result.append(node)
-            elif kind == "SHEET":
+            else:
                 item = tag[1]
                 carnet = tag[2]
                 if getattr(carnet, "persistent", False) and getattr(item, "unique_id", None):
@@ -82,16 +82,13 @@ class PublicationTreeDragDrop(object):
     def _selection_key(self, tag):
         if tag[0] == "CARNET":
             return "CARNET:" + str(tag[1].id)
-        if tag[0] == "SHEET":
-            return "SHEET:" + str(tag[2].id) + ":" + str(tag[1].unique_id)
-        return None
+        return "SHEET:" + str(tag[2].id) + ":" + str(tag[1].unique_id)
 
     def _refresh_visual_selection(self):
         selected = set(self.selected)
         for kind in ("CARNET", "SHEET"):
             for node in self._persistent_nodes(kind):
-                key = self._selection_key(node.Tag)
-                if key in selected:
+                if self._selection_key(node.Tag) in selected:
                     node.Background = self.SELECTED_BRUSH
                     node.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
                 else:
@@ -111,21 +108,21 @@ class PublicationTreeDragDrop(object):
             return None
         if tag[0] == "CARNET" and not getattr(tag[1], "persistent", False):
             return None
+        if tag[0] == "SHEET" and not getattr(tag[2], "persistent", False):
+            return None
         return self._selection_key(tag)
 
     def _ordered_keys(self, node):
         tag = node.Tag
         if tag[0] == "CARNET":
             return [self._selection_key(n.Tag) for n in self._persistent_nodes("CARNET")]
-        if tag[0] == "SHEET":
-            carnet = tag[2]
-            result = []
-            for child in list(node.Parent.Items) if getattr(node, "Parent", None) is not None else []:
-                ctag = getattr(child, "Tag", None)
-                if ctag and ctag[0] == "SHEET" and ctag[2].id == carnet.id:
-                    result.append(self._selection_key(ctag))
-            return result
-        return []
+        parent = getattr(node, "Parent", None)
+        if parent is None:
+            return []
+        carnet = tag[2]
+        return [self._selection_key(child.Tag) for child in list(parent.Items)
+                if getattr(child, "Tag", None) and child.Tag[0] == "SHEET"
+                and str(child.Tag[2].id) == str(carnet.id)]
 
     def _mouse_down(self, sender, args):
         node = self._tree_item_from_source(args.OriginalSource)
@@ -142,11 +139,9 @@ class PublicationTreeDragDrop(object):
         if shift and self.selected:
             ordered = self._ordered_keys(node)
             try:
-                anchor = self.selected[-1]
-                start = ordered.index(anchor)
-                end = ordered.index(key)
-                low, high = min(start, end), max(start, end)
-                self._set_selection(ordered[low:high + 1])
+                a = ordered.index(self.selected[-1])
+                b = ordered.index(key)
+                self._set_selection(ordered[min(a, b):max(a, b) + 1])
             except ValueError:
                 self._set_selection([key])
             args.Handled = True
@@ -165,8 +160,8 @@ class PublicationTreeDragDrop(object):
         if self.drag_node is None or self.drag_started or args.LeftButton != MouseButtonState.Pressed:
             return
         try:
-            start = args.GetPosition(self.drag_node)
-            if abs(start.X) < SystemParameters.MinimumHorizontalDragDistance and abs(start.Y) < SystemParameters.MinimumVerticalDragDistance:
+            point = args.GetPosition(self.drag_node)
+            if abs(point.X) < SystemParameters.MinimumHorizontalDragDistance and abs(point.Y) < SystemParameters.MinimumVerticalDragDistance:
                 return
         except Exception:
             pass
@@ -175,13 +170,12 @@ class PublicationTreeDragDrop(object):
             return
         if tag[0] == "CARNET" and not getattr(tag[1], "persistent", False):
             return
+        if tag[0] == "SHEET" and not getattr(tag[2], "persistent", False):
+            return
         if not self.selected:
             self._set_selection([self._selection_key(tag)])
         kind = tag[0]
-        payload = []
-        for key in self.selected:
-            if key.startswith(kind + ":"):
-                payload.append(key)
+        payload = [key for key in self.selected if key.startswith(kind + ":")]
         if not payload:
             return
         self.drag_started = True
@@ -198,8 +192,7 @@ class PublicationTreeDragDrop(object):
         try:
             if args.Data.GetDataPresent(self.DATA_FORMAT):
                 raw = args.Data.GetData(self.DATA_FORMAT)
-                if raw:
-                    return json.loads(str(raw))
+                return json.loads(str(raw)) if raw else None
         except Exception:
             pass
         return None
@@ -208,24 +201,20 @@ class PublicationTreeDragDrop(object):
         tag = getattr(target, "Tag", None)
         if not tag or len(tag) < 2:
             return None
-        if payload.get("kind") == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
-            if tag[0] == "CARNET" and getattr(tag[1], "id", None) in [x.split(":", 1)[1] for x in payload.get("items", [])]:
+        kind = payload.get("kind")
+        keys = payload.get("items", [])
+        if kind == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
+            ids = [x.split(":", 1)[1] for x in keys if ":" in x]
+            if tag[0] == "CARNET" and str(tag[1].id) in [str(x) for x in ids]:
                 return None
             return "FOLDER" if tag[0] == "FOLDER" else "BEFORE"
-        if payload.get("kind") == "SHEET" and tag[0] in ("SHEET", "CARNET"):
+        if kind == "SHEET" and tag[0] in ("SHEET", "CARNET"):
             if tag[0] == "CARNET":
-                carnet = tag[1]
-                keys = payload.get("items", [])
-                if any(x.split(":", 2)[1] != str(carnet.id) for x in keys):
-                    return None
-                return "APPEND"
-            target_item = tag[1]
-            target_carnet = tag[2]
-            for key in payload.get("items", []):
-                parts = key.split(":", 2)
-                if len(parts) == 3 and parts[1] == str(target_carnet.id) and parts[2] == str(target_item.unique_id):
-                    return None
-            return "BEFORE"
+                return "APPEND" if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[1].id) for x in keys) else None
+            target_key = self._selection_key(tag)
+            if target_key in keys:
+                return None
+            return "BEFORE" if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[2].id) for x in keys) else None
         return None
 
     def _show_drop_indicator(self, node, mode):
@@ -236,9 +225,9 @@ class PublicationTreeDragDrop(object):
         self.drop_mode = mode
         node.BorderBrush = self.DROP_BRUSH
         if mode == "BEFORE":
-            node.BorderThickness = System.Windows.Thickness(0, 2, 0, 0)
+            node.BorderThickness = Thickness(0, 2, 0, 0)
         else:
-            node.BorderThickness = System.Windows.Thickness(2, 2, 2, 2)
+            node.BorderThickness = Thickness(2, 2, 2, 2)
             node.Background = self.DROP_BACKGROUND
 
     def _clear_drop_indicator(self):
@@ -256,12 +245,7 @@ class PublicationTreeDragDrop(object):
     def _drag_over(self, sender, args):
         target = self._tree_item_from_source(args.OriginalSource)
         payload = self._get_payload(args)
-        if target is None or payload is None:
-            self._clear_drop_indicator()
-            args.Effects = DragDropEffects.None
-            args.Handled = True
-            return
-        mode = self._target_mode(payload, target)
+        mode = self._target_mode(payload, target) if target is not None and payload is not None else None
         if mode is None:
             self._clear_drop_indicator()
             args.Effects = DragDropEffects.None
@@ -276,10 +260,7 @@ class PublicationTreeDragDrop(object):
     def _drop(self, sender, args):
         target = self._tree_item_from_source(args.OriginalSource)
         payload = self._get_payload(args)
-        if target is None or payload is None:
-            self._clear_drop_indicator()
-            return
-        mode = self._target_mode(payload, target)
+        mode = self._target_mode(payload, target) if target is not None and payload is not None else None
         if mode is None:
             self._clear_drop_indicator()
             args.Handled = True
@@ -287,11 +268,10 @@ class PublicationTreeDragDrop(object):
         try:
             if payload["kind"] == "CARNET":
                 ids = [x.split(":", 1)[1] for x in payload["items"]]
-                tag = target.Tag
-                if tag[0] == "FOLDER":
-                    moved = self.window.controller.move_persistent_many(ids, tag[1].id, None)
+                if target.Tag[0] == "FOLDER":
+                    moved = self.window.controller.move_persistent_many(ids, target.Tag[1].id, None)
                 else:
-                    moved = self.window.controller.move_persistent_many(ids, tag[1].folder_id, tag[1].id)
+                    moved = self.window.controller.move_persistent_many(ids, target.Tag[1].folder_id, target.Tag[1].id)
             else:
                 moved = self._move_sheets(payload, target)
             if moved:
@@ -313,14 +293,13 @@ class PublicationTreeDragDrop(object):
         args.Handled = True
 
     def _move_sheets(self, payload, target):
-        tag = target.Tag
         keys = payload.get("items", [])
         carnet_id = None
         selected_ids = []
         for key in keys:
             parts = key.split(":", 2)
             if len(parts) != 3:
-                continue
+                return False
             if carnet_id is None:
                 carnet_id = parts[1]
             if parts[1] != carnet_id:
@@ -328,24 +307,20 @@ class PublicationTreeDragDrop(object):
             selected_ids.append(parts[2])
         if not carnet_id or not selected_ids:
             return False
-        target_carnet = tag[2] if tag[0] == "SHEET" else tag[1]
+        target_carnet = target.Tag[2] if target.Tag[0] == "SHEET" else target.Tag[1]
         if str(target_carnet.id) != str(carnet_id):
             return False
-        carnet = None
-        for value in self.window._carnets:
-            if str(getattr(value, "id", "")) == str(carnet_id):
-                carnet = value
-                break
+        carnet = next((value for value in self.window._carnets if str(getattr(value, "id", "")) == str(carnet_id)), None)
         if carnet is None or not carnet.persistent:
             return False
         selected = [item for item in carnet.items if str(item.unique_id) in selected_ids]
         if not selected:
             return False
         remaining = [item for item in carnet.items if str(item.unique_id) not in selected_ids]
-        if tag[0] == "CARNET":
+        if target.Tag[0] == "CARNET":
             index = len(remaining)
         else:
-            target_uid = str(tag[1].unique_id)
+            target_uid = str(target.Tag[1].unique_id)
             if target_uid in selected_ids:
                 return False
             index = next((i for i, item in enumerate(remaining) if str(item.unique_id) == target_uid), len(remaining))
