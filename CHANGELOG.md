@@ -29,6 +29,9 @@ Le format suit les principes de *Keep a Changelog*.
 - Persistance des réglages de publication au niveau des dossiers.
 - Interface d'héritage affichant les réglages hérités du dossier et les réglages définis au niveau du carnet.
 - Action `Revenir à l'héritage du dossier` pour supprimer les surcharges du carnet.
+- Service de prévisualisation de publication sans export Revit.
+- Fenêtre de confirmation listant les fichiers attendus, noms finaux, chemins, formats et modes.
+- Détection préalable des feuilles introuvables, feuilles non imprimables, doublons, variables inconnues et collisions avec des fichiers existants.
 
 ### Changed
 - `Export` est désormais le nom fonctionnel officiel de l'ancien module PublisherAI.
@@ -42,6 +45,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Le schéma de persistance des carnets/dossiers passe à la version 3 pour conserver les réglages de dossier.
 - Les modifications d'un réglage de carnet ne transforment plus les autres réglages hérités en surcharges locales.
 - La publication et la prévisualisation utilisent désormais les réglages effectivement résolus par `SettingsResolver`.
+- Le bouton `Publier` passe désormais obligatoirement par un aperçu et une confirmation avant de lancer l'export réel.
 
 ## [0.1.0] - 2026-07-21
 
