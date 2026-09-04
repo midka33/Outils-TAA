@@ -8,8 +8,14 @@ class PublicationBatchService(object):
     def __init__(self, publication_service):
         self.publication_service = publication_service
 
-    def publish(self, targets, settings_resolver, folder_resolver=None):
-        """Publie une liste de carnets et agrège le rapport final."""
+    def publish(self, targets, settings_resolver, folder_resolver=None,
+                history_service=None):
+        """Publie une liste de carnets et agrège le rapport final.
+
+        Si un carnet possède `_history_info`, son historique est enregistré
+        immédiatement après sa propre publication réussie. Ainsi un échec sur
+        un autre carnet ne fait pas perdre les publications déjà réussies.
+        """
         results = []
         errors = []
         warnings = []
@@ -17,8 +23,6 @@ class PublicationBatchService(object):
         output_directories = []
 
         for target in targets or []:
-            # Le resolver fourni par l'UI connaît déjà le dossier parent et
-            # centralise toute la logique d'héritage.
             settings = settings_resolver(target)
             validation_errors = settings.validate()
             if validation_errors:
@@ -64,7 +68,20 @@ class PublicationBatchService(object):
                 "{0} : {1}".format(target.name, warning)
                 for warning in result.get("warnings", [])
             ])
-            all_success = all_success and bool(result.get("success"))
+            target_success = bool(result.get("success"))
+            all_success = all_success and target_success
+
+            if target_success and history_service is not None:
+                history_info = getattr(target, "_history_info", None)
+                if history_info:
+                    history_service.record_publication(
+                        target,
+                        history_info.get("states", {}),
+                        successful=True,
+                        output_paths=[
+                            r.get("path") for r in result.get("results", [])
+                            if r.get("path")
+                        ])
 
         return {
             "success": bool(targets) and all_success and not errors,
