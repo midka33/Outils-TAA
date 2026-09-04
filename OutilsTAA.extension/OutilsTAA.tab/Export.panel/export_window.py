@@ -5,16 +5,16 @@ import os
 
 from pyrevit import forms
 from System import Guid
-from System.Windows import Visibility
-from System.Windows.Controls import TreeViewItem, CheckBox, TextBlock
 from System.Windows import Thickness
 from System.Windows import FontWeights
+from System.Windows.Controls import TreeViewItem, TextBlock
 
 from export_report_window import PublicationReportWindow
 from carnet_sheets_window import CarnetSheetsWindow
 from carnet_manager_window import CarnetManagerWindow
 from publication_folder import PublicationFolder
 from publication_settings import PublicationSettings
+from publication_set import PublicationSet
 
 
 class ExportWindow(forms.WPFWindow):
@@ -23,13 +23,14 @@ class ExportWindow(forms.WPFWindow):
     def __init__(self, controller, repository):
         self.controller = controller
         self.repository = repository
-        self.selected_publication_sets = []
         self.session_carnets = []
         self.current_project_unique_ids = set()
         self._loading_settings = False
         self._folders = []
         self._carnets = []
         self._selected_set = None
+        self._selected_item = None
+        self._selected_kind = None
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         self._load_context()
@@ -103,58 +104,67 @@ class ExportWindow(forms.WPFWindow):
     def _make_carnet_node(self, carnet):
         node = TreeViewItem()
         node.Tag = ("CARNET", carnet)
-        check = CheckBox()
-        check.Content = carnet.name
-        check.IsChecked = self._is_selected(carnet)
-        check.Tag = carnet
-        check.Margin = Thickness(0, 1, 0, 1)
-        check.Checked += self.CarnetChecked
-        check.Unchecked += self.CarnetChecked
-        node.Header = check
-        for item in sorted(carnet.items or [], key=lambda x: ((x.sheet_number or ""), (x.sheet_name or ""))):
+        node.Header = TextBlock(Text=carnet.name)
+
+        for item in sorted(carnet.items or [],
+                           key=lambda x: ((x.sheet_number or ""),
+                                          (x.sheet_name or ""))):
             child = TreeViewItem()
-            child.Tag = ("SHEET", item)
+            child.Tag = ("SHEET", item, carnet)
             child.Header = TextBlock(Text="{0} — {1}".format(
                 item.sheet_number or "", item.sheet_name or ""))
             node.Items.Add(child)
         return node
-
-    def _is_selected(self, carnet):
-        return any(c.id == carnet.id for c in self.selected_publication_sets)
 
     def _belongs_to_current_project(self, publication_set):
         return publication_set is not None and any(
             item is not None and item.unique_id in self.current_project_unique_ids
             for item in (publication_set.items or []))
 
-    def CarnetChecked(self, sender, args):
-        carnet = sender.Tag
-        if sender.IsChecked:
-            if not self._is_selected(carnet):
-                self.selected_publication_sets.append(carnet)
-        else:
-            self.selected_publication_sets = [c for c in self.selected_publication_sets
-                                              if c.id != carnet.id]
-        self._update_selection_info()
-
     def Tree_SelectedItemChanged(self, sender, args):
         node = self.PublicationTree.SelectedItem
+        self._selected_set = None
+        self._selected_item = None
+        self._selected_kind = None
+
         if node is None or not getattr(node, "Tag", None):
+            self._set_no_selection()
             return
-        kind, value = node.Tag
+
+        tag = node.Tag
+        kind = tag[0]
         if kind == "CARNET":
-            self._selected_set = value
+            self._selected_kind = "CARNET"
+            self._selected_set = tag[1]
             self._load_selected_settings()
-        elif kind == "SHEET":
-            self.SelectedNodeText.Text = "Mise en page : {0} — {1}".format(
-                value.sheet_number or "", value.sheet_name or "")
+            self._update_selection_info()
+            return
+
+        if kind == "SHEET":
+            self._selected_kind = "SHEET"
+            self._selected_item = tag[1]
+            self._selected_set = tag[2]
+            self._load_selected_settings()
+            self._update_selection_info()
+            return
+
+        self._selected_kind = "FOLDER"
+        self.SelectedNodeText.Text = "Dossier : {0}".format(tag[1].name)
+        self._update_selection_info()
+
+    def _set_no_selection(self):
+        self.SelectedNodeText.Text = "Sélectionnez un carnet ou une mise en page dans l'arborescence."
+        self.SelectionInfo.Text = "Aucune publication sélectionnée."
+        self.PublishButton.Content = "Publier…"
+        self.PublishButton.IsEnabled = False
 
     def Tree_MouseDoubleClick(self, sender, args):
         node = self.PublicationTree.SelectedItem
         if node is None or not getattr(node, "Tag", None):
             return
-        kind, value = node.Tag
-        if kind == "CARNET":
+        tag = node.Tag
+        if tag[0] == "CARNET":
+            value = tag[1]
             if value.persistent:
                 resolution = self.controller.resolve_persistent(value)
                 value = _ResolvedCarnetView(value.name, resolution.items)
@@ -169,8 +179,16 @@ class ExportWindow(forms.WPFWindow):
             self._selected_set.publication_settings = settings
         self._loading_settings = True
         try:
-            self.SelectedNodeText.Text = "{0} • {1} mise(s) en page".format(
-                self._selected_set.name, len(self._selected_set.items or []))
+            if self._selected_kind == "SHEET":
+                item = self._selected_item
+                self.SelectedNodeText.Text = (
+                    "Mise en page : {0} — {1}\n"
+                    "Publication : cette mise en page uniquement."
+                ).format(item.sheet_number or "", item.sheet_name or "")
+            else:
+                self.SelectedNodeText.Text = "{0} • {1} mise(s) en page\nPublication : carnet entier.".format(
+                    self._selected_set.name, len(self._selected_set.items or []))
+
             self.FolderCombo.ItemsSource = self._folders
             for index, folder in enumerate(self._folders):
                 if folder.id == self._selected_set.folder_id:
@@ -234,22 +252,29 @@ class ExportWindow(forms.WPFWindow):
         self.controller.save_folder(folder)
         self._refresh_tree()
 
-    def SelectAllCarnets_Click(self, sender, args):
-        self.selected_publication_sets = list(self._carnets)
-        self._refresh_tree()
-        self._update_selection_info()
-
-    def UnselectAllCarnets_Click(self, sender, args):
-        self.selected_publication_sets = []
-        self._refresh_tree()
-        self._update_selection_info()
-
     def _update_selection_info(self):
-        total = sum(len(c.items or []) for c in self.selected_publication_sets)
-        self.SelectionInfo.Text = (
-            "{0} carnet(s) sélectionné(s) • {1} mise(s) en page.".format(
-                len(self.selected_publication_sets), total)
-            if self.selected_publication_sets else "Cochez les carnets à publier.")
+        if self._selected_kind == "CARNET" and self._selected_set is not None:
+            count = len(self._selected_set.items or [])
+            self.SelectionInfo.Text = "Carnet sélectionné : {0} • {1} mise(s) en page.".format(
+                self._selected_set.name, count)
+            self.PublishButton.Content = "Publier le carnet « {0} »".format(self._selected_set.name)
+            self.PublishButton.IsEnabled = count > 0
+            return
+
+        if self._selected_kind == "SHEET" and self._selected_item is not None:
+            self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(
+                self._selected_item.sheet_number or "", self._selected_item.sheet_name or "")
+            self.PublishButton.Content = "Publier la mise en page"
+            self.PublishButton.IsEnabled = True
+            return
+
+        if self._selected_kind == "FOLDER":
+            self.SelectionInfo.Text = "Dossier sélectionné. La publication par dossier sera ajoutée dans une étape ultérieure."
+            self.PublishButton.Content = "Publier…"
+            self.PublishButton.IsEnabled = False
+            return
+
+        self._set_no_selection()
 
     def BrowseOutput_Click(self, sender, args):
         folder = forms.pick_folder(title="Choisir le dossier de publication")
@@ -261,7 +286,8 @@ class ExportWindow(forms.WPFWindow):
         node = self.PublicationTree.SelectedItem
         if node is None or not getattr(node, "Tag", None):
             return
-        kind, value = node.Tag
+        tag = node.Tag
+        kind, value = tag[0], tag[1]
         if kind == "CARNET":
             if not forms.alert("Supprimer le carnet « {0} » ?".format(value.name),
                                title="Export", yes=True, no=True):
@@ -270,7 +296,6 @@ class ExportWindow(forms.WPFWindow):
                 self.repository.delete(value.id)
             else:
                 self.session_carnets = [c for c in self.session_carnets if c.id != value.id]
-            self.selected_publication_sets = [c for c in self.selected_publication_sets if c.id != value.id]
         elif kind == "FOLDER":
             if value.id == "default":
                 forms.alert("Le dossier Général ne peut pas être supprimé.", title="Export")
@@ -281,17 +306,42 @@ class ExportWindow(forms.WPFWindow):
             if not self.controller.delete_folder(value.id):
                 forms.alert("Le dossier n'est pas vide ou ne peut pas être supprimé.", title="Export")
                 return
+        else:
+            return
         self._selected_set = None
+        self._selected_item = None
+        self._selected_kind = None
         self._refresh_tree()
         self._update_selection_info()
 
+    def _make_sheet_target(self):
+        """Crée un jeu de publication temporaire contenant une seule mise en page."""
+        parent = self._selected_set
+        settings = parent.publication_settings or PublicationSettings(
+            output_directory=parent.output_directory)
+        return PublicationSet(
+            name=parent.name,
+            items=[self._selected_item],
+            source=parent.source,
+            output_directory=settings.output_directory,
+            filename_template_id=parent.filename_template_id,
+            set_id=str(Guid.NewGuid()),
+            persistent=False,
+            folder_id=parent.folder_id,
+            publication_settings=settings)
+
     def Publish_Click(self, sender, args):
-        if not self.selected_publication_sets:
-            forms.alert("Cochez au moins un carnet dans l'arborescence.", title="Publication")
+        if self._selected_kind == "SHEET" and self._selected_item is not None:
+            targets = [self._make_sheet_target()]
+        elif self._selected_kind == "CARNET" and self._selected_set is not None:
+            targets = [self._selected_set]
+        else:
+            forms.alert("Sélectionnez un carnet ou une mise en page dans l'arborescence.", title="Publication")
             return
+
         all_results, all_errors, all_warnings = [], [], []
         all_success = True
-        for publication_set in self.selected_publication_sets:
+        for publication_set in targets:
             settings = publication_set.publication_settings or PublicationSettings(
                 output_directory=publication_set.output_directory)
             errors = settings.validate()
@@ -313,15 +363,21 @@ class ExportWindow(forms.WPFWindow):
                 row = dict(item_result)
                 row["carnet"] = publication_set.name
                 all_results.append(row)
-            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
-            all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
+            all_errors.extend(["{0} : {1}".format(publication_set.name, e)
+                               for e in result.get("errors", [])])
+            all_warnings.extend(["{0} : {1}".format(publication_set.name, w)
+                                 for w in result.get("warnings", [])])
             all_success = all_success and bool(result.get("success"))
 
-        report = {"success": all_success,
-                  "carnet": "{0} carnet(s)".format(len(self.selected_publication_sets)),
-                  "results": all_results, "errors": all_errors,
-                  "warnings": all_warnings,
-                  "output_directory": "Réglages propres à chaque carnet"}
+        selection_label = ("mise en page" if self._selected_kind == "SHEET" else "carnet")
+        report = {
+            "success": all_success,
+            "carnet": "Publication : {0}".format(selection_label),
+            "results": all_results,
+            "errors": all_errors,
+            "warnings": all_warnings,
+            "output_directory": "Réglages propres au carnet"
+        }
         PublicationReportWindow(report, owner=self).ShowDialog()
 
     def Close_Click(self, sender, args):
