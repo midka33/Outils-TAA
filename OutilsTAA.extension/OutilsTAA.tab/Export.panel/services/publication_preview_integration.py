@@ -16,13 +16,7 @@ from publication_folder import PublicationFolder
 
 
 def install_preview_on_export_window(export_window_class):
-    """Installe l'aperçu, la publication de dossier et les handlers WPF.
-
-    Certaines méthodes historiques de ExportWindow ont disparu lors de la
-    refactorisation des étapes précédentes. Elles sont recréées ici avant le
-    chargement de la fenêtre afin que les événements déclarés dans ui.xaml
-    restent toujours résolus par IronPython.
-    """
+    """Installe l'aperçu, la publication de dossier et les handlers WPF."""
     original_selection_changed = getattr(export_window_class, "Tree_SelectedItemChanged", None)
     original_init = export_window_class.__init__
 
@@ -86,9 +80,11 @@ def install_preview_on_export_window(export_window_class):
             self.PublishButton.Content = "Publier le dossier « {0} »".format(self._selected_folder.name)
             self.PublishButton.IsEnabled = count > 0
             return
-        self._set_no_selection_compat()
+        # ExportWindow possède déjà _set_no_selection(). Ne pas appeler un
+        # nom de compatibilité qui n'est jamais exposé sur l'instance.
+        self._set_no_selection()
 
-    def set_no_selection_compat(self):
+    def set_no_selection_compat(self, sender=None, args=None):
         self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
