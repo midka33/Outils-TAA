@@ -39,11 +39,11 @@
 - [x] Détection basée sur `VersionGuid` Revit lorsque disponible.
 - [x] Sélection conservative des éléments à republier lorsque `MODIFIED_ONLY` est actif.
 - [x] Persistance du réglage `modified_only` dans les paramètres.
-- [ ] Intégrer le contrôle `MODIFIED_ONLY` dans l'interface Export.
-- [ ] Intégrer le filtrage dans la prévisualisation.
-- [ ] Intégrer le filtrage dans la publication simple et multiple.
-- [ ] Enregistrer automatiquement l'état après publication réussie.
-- [ ] Ajouter l'affichage « jamais publié / modifié / inchangé » dans l'interface et le rapport.
+- [x] Intégrer le contrôle `MODIFIED_ONLY` dans l'interface Export.
+- [x] Intégrer le filtrage dans la prévisualisation.
+- [x] Intégrer le filtrage dans la publication simple et multiple.
+- [x] Enregistrer automatiquement l'état après publication réussie.
+- [x] Ajouter l'affichage « jamais publié / modifié / inchangé » dans la prévisualisation et le rapport via le résumé d'état.
 - [ ] Valider le comportement réel dans Revit 2025.4.
 
 ### Étape 08 — Dynamique avancé
@@ -54,7 +54,11 @@
 - [ ] Diagnostic des éléments retirés.
 - [ ] Exclusions explicites.
 
-### Étape 09 — Extensibilité
+## Étape suivante après validation Revit
+
+La prochaine étape fonctionnelle est **Étape 08 — Dynamique avancé**. Elle ne doit commencer qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
+
+## Étape 09 — Extensibilité
 
 - [ ] Vues publiables.
 - [ ] IFC.
