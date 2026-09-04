@@ -312,6 +312,52 @@ Pour toute référence Revit persistante, ne jamais considérer un `ElementId` s
 
 ---
 
+## BUG-EXPORT-010 — Valeur numérique incompatible avec `PDFExportQualityType`
+
+**Symptôme**
+
+Lors de la publication PDF, Revit affichait :
+
+```text
+Cannot convert numeric value 300 to PDFExportQualityType. The value must be zero...
+```
+
+L'erreur apparaissait lors de l'affectation de la qualité PDF dans `PDFExportOptions`.
+
+**Cause racine**
+
+Dans l'API Revit 2025, `PDFExportOptions.ExportQuality` attend une valeur de l'énumération `PDFExportQualityType`. Le code transmettait directement l'entier `300`, alors que `300` correspond à la valeur métier de résolution et doit être converti vers `PDFExportQualityType.DPI300`. L'énumération Revit 2025 contient notamment `DPI72`, `DPI144`, `DPI300`, `DPI600`, `DPI1200`, `DPI2400`, `DPI3600` et `DPI4000`. citeturn1search2turn1search3
+
+**Correction**
+
+Le service PDF possède désormais une méthode `_to_export_quality()` qui :
+
+1. accepte directement une valeur `PDFExportQualityType` ;
+2. convertit une résolution numérique vers l'énumération Revit ;
+3. conserve `300 DPI` comme valeur par défaut ;
+4. refuse explicitement les résolutions non supportées avec un message clair.
+
+L'affectation utilisée par l'export est désormais équivalente à :
+
+```python
+options.ExportQuality = PDFExportQualityType.DPI300
+```
+
+**Règle préventive**
+
+Pour toute propriété de l'API Revit typée comme une énumération .NET, ne jamais supposer qu'un entier représentant la valeur affichée par l'interface peut être affecté directement. Vérifier le type API et convertir explicitement vers le membre de l'énumération attendu.
+
+**Contrôle anti-régression**
+
+1. Publier une mise en page seule en PDF.
+2. Publier un carnet complet en PDF combiné.
+3. Publier un carnet en PDF séparé.
+4. Vérifier qu'aucun message `Cannot convert numeric value ... to PDFExportQualityType` n'apparaît.
+5. Vérifier que la résolution par défaut reste 300 DPI.
+6. Tester au moins une autre résolution supportée si l'interface permet de la sélectionner.
+
+---
+
 # 4. Identifiants des bugs
 
 Les identifiants permettent de distinguer les problèmes spécifiques d'un outil des problèmes transversaux :
@@ -392,56 +438,8 @@ Les bugs ci-dessus conduisent aux règles générales suivantes :
 3. **.NET/WPF :** conserver les noms réels des membres .NET ; ne pas appliquer automatiquement les conventions Python aux API .NET.
 4. **Bindings :** les noms de propriétés XAML doivent correspondre exactement au modèle exposé.
 5. **Imports :** éviter les noms de modules ambigus ou dupliqués lorsque plusieurs dossiers sont ajoutés au `sys.path`.
-6. **Persistance :** sauvegarder et restaurer toutes les informations nécessaires à la reconstruction fidèle de l'objet métier.
-7. **Document actif :** filtrer les références persistantes Revit par rapport au document courant.
-8. **Références Revit persistantes :** privilégier `UniqueId` pour retrouver un élément dans le document courant et ne pas utiliser directement un `ElementId` sérialisé comme identifiant durable.
-9. **UTF-8 :** tous les scripts Python pyRevit doivent déclarer explicitement leur encodage.
-10. **Régression :** toute correction d'un bug reproductible doit être accompagnée d'un contrôle ou d'un test permettant de vérifier qu'il ne revient pas.
-11. **Pré-commit :** le registre global des bugs doit être consulté avant toute modification de code et impérativement avant chaque commit ; le code doit être vérifié contre les erreurs déjà capitalisées.
-12. **Transversalité :** lorsqu'une erreur peut concerner plusieurs outils, sa règle préventive doit être formulée de manière générique afin que tous les outils puissent en bénéficier.
-
----
-
-# 7. Procédure obligatoire lors d'un nouveau bug
-
-Lorsqu'un nouveau traceback ou comportement incorrect est rencontré :
-
-### Étape 1 — Conserver le symptôme exact
-
-Copier le message d'erreur et, si possible, le traceback complet.
-
-### Étape 2 — Identifier la première cause exploitable
-
-Pour une erreur XAML, rechercher en priorité le premier contrôle/propriété explicitement signalé comme inconnu.
-
-### Étape 3 — Corriger la cause racine
-
-Éviter les contournements qui masquent seulement le symptôme.
-
-### Étape 4 — Ajouter l'entrée au registre
-
-Documenter :
-
-- identifiant unique ;
-- outil ou périmètre concerné ;
-- symptôme ;
-- cause ;
-- correction ;
-- règle préventive ;
-- contrôle anti-régression.
-
-### Étape 5 — Déterminer le périmètre
-
-Décider si le bug est :
-
-- spécifique à un outil ;
-- spécifique à l'UI ;
-- spécifique à Revit/pyRevit ;
-- commun à plusieurs outils ;
-- spécifique au processus de test.
-
-Si la règle est transversale, elle doit être formulée pour être réutilisable par tous les outils.
-
-### Étape 6 — Mettre à jour les standards si nécessaire
-
-Si le bug révèle une lacune dans les standards de développement ou de test, mettre également à jour le document concerné.
+6. **Persistance :** sauvegarder les informations permettant de reconstruire correctement les objets liés à Revit.
+7. **Identifiants Revit :** considérer les `ElementId` comme des références de session ; utiliser les `UniqueId` pour les références persistantes.
+8. **Énumérations Revit :** vérifier le type exact des propriétés API et utiliser explicitement les membres des enums .NET plutôt que leurs valeurs numériques.
+9. **API réelle :** toute propriété ou méthode utilisée dans un outil doit être vérifiée contre l'API de la version Revit cible.
+10. **Régression :** chaque bug corrigé doit donner lieu à un scénario de test reproductible.
