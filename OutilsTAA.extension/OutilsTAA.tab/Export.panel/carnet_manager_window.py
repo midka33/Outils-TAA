@@ -8,8 +8,9 @@ from System.Windows import Visibility
 
 class CarnetManagerWindow(forms.WPFWindow):
     """Permet de préparer plusieurs carnets puis de les ajouter à la liste."""
-    def __init__(self, controller, owner=None):
+    def __init__(self, controller, owner=None, target_folder_id=None):
         self.controller = controller
+        self.target_folder_id = target_folder_id or "default"
         self.result = []
         self.current_items = []
         self.parameter_carnets = []
@@ -106,20 +107,15 @@ class CarnetManagerWindow(forms.WPFWindow):
             if not selected:
                 forms.alert("Cochez au moins un carnet à ajouter.", title="Export")
                 return
-
-            # Les carnets créés par paramètre sont désormais persistants.
-            # Ils restent donc disponibles à la prochaine ouverture d'Export.
             persisted = []
             try:
                 for carnet in selected:
+                    # Le dossier sélectionné dans l'arborescence devient le parent réel.
+                    carnet.folder_id = self.target_folder_id
                     persisted.append(self.controller.save_persistent(carnet))
             except Exception as exc:
-                forms.alert(
-                    "Impossible d'enregistrer les carnets sélectionnés.\n\n{0}".format(exc),
-                    title="Export"
-                )
+                forms.alert("Impossible d'enregistrer les carnets sélectionnés.\n\n{0}".format(exc), title="Export")
                 return
-
             self.result = persisted
             self.Close()
             return
@@ -134,8 +130,11 @@ class CarnetManagerWindow(forms.WPFWindow):
 
         if self.ModeManual.IsChecked and self.PersistentCheckBox.IsChecked:
             carnet = self.controller.create_manual_persistent(name.strip(), self.current_items)
+            carnet.folder_id = self.target_folder_id
+            self.controller.save_persistent(carnet)
         else:
             carnet = self.controller.create_manual_temporary(name.strip(), self.current_items)
+            carnet.folder_id = self.target_folder_id
         self.result = [carnet]
         self.Close()
 
