@@ -56,6 +56,8 @@
 - [x] Ajouter les tests unitaires hors Revit du moteur de règles.
 - [x] Documenter l'architecture isolée dans `docs/15_Export_Stage08_Dynamique.md`.
 - [x] Maintenir l'architecture isolée hors du workflow de publication Stage 01–07.
+- [x] Ajouter la persistance des snapshots de résolution dynamique.
+- [x] Ajouter le pont `DynamicResolution` → `PublicationItem` existants.
 
 #### Fonctionnalités à raccorder après validation Stage 07
 
@@ -63,13 +65,14 @@
 - [ ] Prévisualisation de résolution.
 - [ ] Détection des nouveaux éléments.
 - [ ] Diagnostic des éléments retirés.
-- [ ] Exclusions explicites persistantes.
-- [ ] Conversion de la résolution vers le modèle `PublicationItem`.
+- [ ] Exclusions explicites persistantes dans le carnet dynamique.
+- [ ] Lecture des paramètres Revit et construction des entrées normalisées.
 - [ ] Intégration au workflow Stage 07 sans second moteur PDF/DWG.
+- [ ] Intégration au bouton `Publier`.
 
 ## Étape suivante après validation Revit
 
-La prochaine étape fonctionnelle reste **Étape 08 — Dynamique avancé**. L'architecture préparatoire peut être développée en isolation, mais le raccordement au workflow réel ne doit intervenir qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
+La prochaine étape fonctionnelle reste **Étape 08 — Dynamique avancé**. Le socle hors Revit et le pont vers `PublicationItem` peuvent être développés en isolation, mais le raccordement au workflow réel ne doit intervenir qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
 
 ## Étape 09 — Extensibilité
 
