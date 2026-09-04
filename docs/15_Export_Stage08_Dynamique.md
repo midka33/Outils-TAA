@@ -1,13 +1,21 @@
 # Export — Étape 08 : Dynamique avancé
 
-**Statut :** Architecture isolée + pont vers `PublicationItem` — non connectée au workflow de publication  
+**Statut :** Architecture isolée + prévisualisation + pont vers `PublicationItem` — non connectée au workflow de publication  
 **Cible :** Revit 2025.4 / pyRevit 5.x
 
 ## Objectif
 
 L'Étape 08 prépare des carnets dont le contenu est résolu dynamiquement à partir de règles. Le résolveur reste indépendant de Revit, WPF et des moteurs PDF/DWG.
 
-Le pont vers le modèle de publication existant est maintenant disponible via `DynamicPublicationAdapter`.
+Le développement hors Revit comprend maintenant :
+
+- le moteur de règles dynamiques ;
+- la comparaison de résolutions ;
+- la persistance des snapshots ;
+- le pont vers `PublicationItem` ;
+- un moteur de prévisualisation structuré destiné à une future UI.
+
+Aucun de ces composants ne déclenche encore de publication réelle.
 
 ## Architecture
 
@@ -17,14 +25,17 @@ DynamicRuleDefinition
 DynamicRuleResolver
         ↓
 DynamicResolution
-        ↓
-DynamicPublicationAdapter
-        ↓
-PublicationItem existants
-        ↓
-Future intégration Stage 07
-        ↓
-Publication PDF / DWG existante
+        ├──→ DynamicPreviewBuilder
+        │          ↓
+        │    DynamicPreview
+        │
+        └──→ DynamicPublicationAdapter
+                   ↓
+             PublicationItem existants
+                   ↓
+             Future intégration Stage 07
+                   ↓
+             Publication PDF / DWG existante
 ```
 
 Aucun second moteur de publication n'est créé.
@@ -56,6 +67,23 @@ Une exclusion explicite est prioritaire sur une règle correspondante. Les exclu
 
 `DynamicResolution.compare(previous)` produit notamment `ADDED`, `REMOVED`, `REINCLUDED`, `UNCHANGED` et `EXCLUDED`. Un `REMOVED` est une évolution de périmètre et ne doit pas être publié.
 
+## Prévisualisation dynamique
+
+`DynamicPreviewBuilder` transforme une `DynamicResolution` courante et, lorsqu'il existe, une résolution précédente en un objet `DynamicPreview` sans effet de bord.
+
+Chaque `DynamicPreviewRow` contient notamment :
+
+- la clé stable ;
+- l'état de changement ;
+- le statut inclus/exclus ;
+- les raisons de résolution.
+
+La prévisualisation expose des collections dédiées pour `ADDED`, `REMOVED`, `EXCLUDED`, `REINCLUDED`, `UNCHANGED` et `NOT_MATCHED` ainsi que `publishable_rows`.
+
+Les éléments `REMOVED` sont conservés dans l'aperçu même lorsqu'ils ne sont plus présents dans la résolution courante. Cela permet à une future interface d'expliquer clairement la disparition d'un élément du carnet dynamique.
+
+Le moteur de prévisualisation ne publie rien, ne modifie pas la résolution et ne dépend ni de Revit ni de WPF.
+
 ## Pont vers `PublicationItem`
 
 `DynamicPublicationAdapter.build_selection(resolution, publication_items)` rapproche chaque clé dynamique de `PublicationItem.unique_id`.
@@ -83,19 +111,22 @@ Le snapshot dynamique représente le **périmètre** ; l'historique Stage 07 rep
 
 `tests/test_dynamic_publication_adapter.py` couvre la correspondance vers les `PublicationItem`, l'ordre, la réutilisation des instances, les exclusions, les éléments absents, les doublons et la résolution vide.
 
+`tests/test_dynamic_preview.py` couvre les changements de périmètre, les exclusions, la réintégration, les suppressions, l'ordre, les diagnostics et l'absence de mutation.
+
 Ces tests ne remplacent pas une validation Revit 2025.4.
 
 ## Limites actuelles
 
 Ne sont pas encore intégrés :
 
+- modèle complet de carnet dynamique ;
 - interface de création de règles ;
 - lecture des paramètres Revit ;
-- persistance complète d'un carnet dynamique ;
 - gestionnaire de carnets ;
-- prévisualisation ;
+- persistance complète d'un carnet dynamique ;
+- intégration de la prévisualisation dans WPF ;
 - Stage 07 ;
 - bouton `Publier` ;
 - export PDF/DWG depuis une résolution dynamique.
 
-Le prochain raccordement fonctionnel devra réutiliser le moteur PDF/DWG existant et conserver la séparation snapshot dynamique / historique Stage 07. La validation Revit 2025.4 de Stage 07 reste un préalable au raccordement réel.
+Le prochain développement hors Revit porte sur le **modèle complet de carnet dynamique** : distinction manuel/dynamique, règles, exclusions, paramètres, persistance, versionnement, validation et migration. La validation Revit 2025.4 de Stage 07 reste un préalable au raccordement réel.
