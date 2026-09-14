@@ -348,36 +348,132 @@ Après avoir publié un carnet, modifier une seule feuille et activer `MODIFIED_
 # Tableau de résultats
 
 ```text
-TEST-01 :
-TEST-02 :
-TEST-03 :
-TEST-04 :
-TEST-05 :
-TEST-06 :
-TEST-07 :
-TEST-08 :
-TEST-09 :
-TEST-10 :
-TEST-11 :
-TEST-12 :
-TEST-13 :
-TEST-14 :
-TEST-15 :
-TEST-16 :
-TEST-17 :
-TEST-18 :
-TEST-19 :
-TEST-20 :
-TEST-21 :
-TEST-22 :
-TEST-23 :
-TEST-24 :
-TEST-25 :
-TEST-26 :
-TEST-27 :
-TEST-28 :
-TEST-29 :
-TEST-30 :
+TEST-01 :ok
+TEST-02 :ok
+TEST-03 :ok
+TEST-04 : Lors de la selection du dossier en cliquant sur le nom pour y ajouter un carnet, message d'erreur:
+IronPython Traceback:
+Traceback (most recent call last):
+ File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\Export.pushbutton\script.py", line 252, in <module>
+ File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\Export.pushbutton\script.py", line 248, in main
+ File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\services\publication_preview_integration.py", line 34, in selection_changed_with_folder_action
+ File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\export_window.py", line 168, in Tree_SelectedItemChanged
+ File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\services\publication_preview_integration.py", line 82, in update_selection_info
+NameError: global name '_folder_targets' is not defined
+
+Script Executor Traceback:
+IronPython.Runtime.UnboundNameException: global name '_folder_targets' is not defined
+ at IronPython.Compiler.PythonGlobal.GetCachedValue(Boolean lightThrow)
+ at IronPython.Compiler.PythonGlobalInstruction.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.LightLambda.Run2[T0,T1,TRet](T0 arg0, T1 arg1)
+ at IronPython.Runtime.Method.MethodBinding.SelfTarget(CallSite site, CodeContext context, Object target)
+ at IronPython.Compiler.Ast.CallExpression.Invoke0Instruction.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.LightLambda.Run4[T0,T1,T2,T3,TRet](T0 arg0, T1 arg1, T2 arg2, T3 arg3)
+ at IronPython.Compiler.PythonCallTargets.OriginalCallTarget3(PythonFunction function, Object arg0, Object arg1, Object arg2)
+ at System.Dynamic.UpdateDelegates.UpdateAndExecute5[T0,T1,T2,T3,T4,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+ at IronPython.Compiler.Ast.CallExpression.Invoke3Instruction.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.LightLambda.Run4[T0,T1,T2,T3,TRet](T0 arg0, T1 arg1, T2 arg2, T3 arg3)
+ at IronPython.Compiler.PythonCallTargets.OriginalCallTarget3(PythonFunction function, Object arg0, Object arg1, Object arg2)
+ at System.Dynamic.UpdateDelegates.UpdateAndExecute5[T0,T1,T2,T3,T4,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+ at CallSite.Target(Closure, CallSite, Object, Object, RoutedPropertyChangedEventArgs`1)
+ at System.Dynamic.UpdateDelegates.UpdateAndExecute3[T0,T1,T2,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2)
+ at _Scripting_(Object[], Object, RoutedPropertyChangedEventArgs`1)
+ at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
+ at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
+ at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)
+ at System.Windows.Controls.TreeViewItem.Select(Boolean selected)
+ at System.Windows.Controls.TreeViewItem.OnGotFocus(RoutedEventArgs e)
+ at System.Windows.FrameworkElement.OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+ at System.Windows.DependencyObject.NotifyPropertyChange(DependencyPropertyChangedEventArgs args)
+ at System.Windows.DependencyObject.UpdateEffectiveValue(EntryIndex entryIndex, DependencyProperty dp, PropertyMetadata metadata, EffectiveValueEntry oldEntry, EffectiveValueEntry& newEntry, Boolean coerceWithDeferredReference, Boolean coerceWithCurrentValue, OperationType operationType)
+ at System.Windows.DependencyObject.SetValueCommon(DependencyProperty dp, Object value, PropertyMetadata metadata, Boolean coerceWithDeferredReference, Boolean coerceWithCurrentValue, OperationType operationType, Boolean isInternal)
+ at System.Windows.DependencyObject.SetValue(DependencyPropertyKey key, Object value)
+ at System.Windows.Input.FocusManager.OnFocusedElementChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+ at System.Windows.FrameworkElement.OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+ at IronPython.NewTypes.System.Windows.Window_29$30.OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+ at System.Windows.DependencyObject.NotifyPropertyChange(DependencyPropertyChangedEventArgs args)
+ at System.Windows.DependencyObject.UpdateEffectiveValue(EntryIndex entryIndex, DependencyProperty dp, PropertyMetadata metadata, EffectiveValueEntry oldEntry, EffectiveValueEntry& newEntry, Boolean coerceWithDeferredReference, Boolean coerceWithCurrentValue, OperationType operationType)
+ at System.Windows.DependencyObject.SetValueCommon(DependencyProperty dp, Object value, PropertyMetadata metadata, Boolean coerceWithDeferredReference, Boolean coerceWithCurrentValue, OperationType operationType, Boolean isInternal)
+ at System.Windows.DependencyObject.SetValue(DependencyProperty dp, Object value)
+ at System.Windows.Input.KeyboardNavigation.UpdateFocusedElement(DependencyObject focusTarget)
+ at System.Windows.FrameworkElement.OnGotKeyboardFocus(Object sender, KeyboardFocusChangedEventArgs e)
+ at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
+ at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
+ at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)
+ at System.Windows.UIElement.RaiseTrustedEvent(RoutedEventArgs args)
+ at System.Windows.Input.InputManager.ProcessStagingArea()
+ at System.Windows.Input.KeyboardDevice.ChangeFocus(DependencyObject focus, Int32 timestamp)
+ at System.Windows.Input.KeyboardDevice.Focus(DependencyObject focus, Boolean askOld, Boolean askNew, Boolean forceToNullIfFailed)
+ at System.Windows.Input.KeyboardDevice.Focus(IInputElement element)
+ at System.Windows.UIElement.Focus()
+ at System.Windows.Controls.TreeViewItem.OnMouseLeftButtonDown(MouseButtonEventArgs e)
+ at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
+ at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
+ at System.Windows.UIElement.ReRaiseEventAs(DependencyObject sender, RoutedEventArgs args, RoutedEvent newEvent)
+ at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
+ at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
+ at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)
+ at System.Windows.UIElement.RaiseTrustedEvent(RoutedEventArgs args)
+ at System.Windows.Input.InputManager.ProcessStagingArea()
+ at System.Windows.Interop.HwndMouseInputProvider.ReportInput(IntPtr hwnd, InputMode mode, Int32 timestamp, RawMouseActions actions, Int32 x, Int32 y, Int32 wheel)
+ at System.Windows.Interop.HwndMouseInputProvider.FilterMessage(IntPtr hwnd, WindowMessage msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
+ at System.Windows.Interop.HwndSource.InputFilterMessage(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
+ at MS.Win32.HwndWrapper.WndProc(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
+ at System.Windows.Threading.ExceptionWrapper.InternalRealCall(Delegate callback, Object args, Int32 numArgs)
+ at System.Windows.Threading.ExceptionWrapper.TryCatchWhen(Object source, Delegate callback, Object args, Int32 numArgs, Delegate catchHandler)
+ at System.Windows.Threading.Dispatcher.LegacyInvokeImpl(DispatcherPriority priority, TimeSpan timeout, Delegate method, Object args, Int32 numArgs)
+ at MS.Win32.HwndSubclass.SubclassWndProc(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam)
+ at MS.Win32.UnsafeNativeMethods.DispatchMessage(MSG& msg)
+ at System.Windows.Threading.Dispatcher.PushFrameImpl(DispatcherFrame frame)
+ at System.Windows.Window.ShowHelper(Object booleanBox)
+ at System.Windows.Window.Show()
+ at System.Windows.Window.ShowDialog()
+ at Microsoft.Scripting.Interpreter.FuncCallInstruction`2.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.LightLambda.Run3[T0,T1,T2,TRet](T0 arg0, T1 arg1, T2 arg2)
+ at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
+ at Microsoft.Scripting.Interpreter.DynamicInstruction`3.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.LightLambda.Run1[T0,TRet](T0 arg0)
+ at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
+ at Microsoft.Scripting.Interpreter.DynamicInstruction`3.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
+ at Microsoft.Scripting.Interpreter.LightLambda.Run2[T0,T1,TRet](T0 arg0, T1 arg1)
+ at IronPython.Compiler.PythonScriptCode.RunWorker(CodeContext ctx)
+ at IronPython.Compiler.RuntimeScriptCode.InvokeTarget(Scope scope)
+ at Microsoft.Scripting.Hosting.CompiledCode.Execute(ScriptScope scope)
+ at PyRevitLabs.PyRevit.Runtime.IronPythonEngine.Execute(ScriptRuntime& runtime)
+TEST-05 : ok
+TEST-06 : ok
+TEST-07 : ok
+TEST-08 : ok mais le une fois déplacer cela referme le dossier dans lequel on la glisser. il faudrait que celui ci reste développer.
+TEST-09 : ok difficil de mettre un carnet en dessous d'un autre 
+TEST-10 : ok
+TEST-11 : ok mais shift ou control doit être maintenu tout le long du glisser déposé. se rapprocher du glisser déposé de windows.
+TEST-12 : ok mais seulement pour au dessus d'un carnet pas en dessous
+TEST-13 : ok mais toujours ce probleme de mettre un items en dessous d'un autre
+TEST-14 : ok
+TEST-15 : ok
+TEST-16 : ko dwg non produit avec 1 erreur indiquer dans le rapport de publication cependant il ne précise pas laquel.
+TEST-17 : ok
+TEST-18 : ok
+TEST-19 : ok
+TEST-20 : ok
+TEST-21 : ok
+TEST-22 : ko pas d'affichage dans aperçu du nom
+TEST-23 : ko pas d'affichage dans aperçu du nom
+TEST-24 : ko une fois un mise en page changer pour avoir un caractêre spéciale; impossible de mettre a jour le nommage de la mise en page.
+TEST-25 : ko fonctionne correctement lorsqu'une destination est mise sinon il fait fermer le revit sans message de plantage
+<img width="531" height="289" alt="image" src="https://github.com/user-attachments/assets/5f6cb591-14ad-4190-9f45-e033442a08e5" />
+En faisant le Test 25 dans un fichier juste creer et nom renommer j'ai retrouver les noms de dossier et les carnets du dernier projet creer sans avoir modifier le nom. Cela a causer des bugs qui empcêche la publication.
+TEST-26 : Bloqué par TEST-25
+TEST-27 : Bloqué par TEST-25
+TEST-28 : Bloqué par TEST-25
+TEST-29 : Bloqué par TEST-25
+TEST-30 : Bloqué par TEST-25
 TEST-31 :
 TEST-32 :
 TEST-33 :
