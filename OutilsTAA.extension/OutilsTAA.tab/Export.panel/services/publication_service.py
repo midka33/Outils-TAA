@@ -73,13 +73,16 @@ class PublicationService(object):
     def sort_items(self, publication_set):
         if publication_set is None:
             return []
-        return sorted(publication_set.items, key=lambda item: (
-            item.sheet_number or "", item.sheet_name or "", item.unique_id or ""))
+        return list(publication_set.items or [])
 
     def _current_view_ids(self, publication_set, items=None):
         source_items = items if items is not None else self.sort_items(publication_set)
-        return [self._resolve_current_sheet_id(item) for item in source_items
-                if self._resolve_current_sheet_id(item) is not None]
+        result = []
+        for item in source_items:
+            current_id = self._resolve_current_sheet_id(item)
+            if current_id is not None:
+                result.append(current_id)
+        return result
 
     def _prepare_output_directory(self, output_directory):
         if not output_directory:
@@ -99,6 +102,27 @@ class PublicationService(object):
                                                folder_name=self._folder_name(publication_set),
                                                extension=extension)
 
+    def _export_dwg(self, view_ids, output_directory, filename_prefix,
+                    setup_name=None, merged_views=False, true_color=True):
+        """Exécute un export DWG et retourne son résultat avec un diagnostic exploitable."""
+        try:
+            success = self.dwg_service.export(
+                view_ids,
+                output_directory,
+                filename_prefix,
+                setup_name,
+                merged_views=merged_views,
+                true_color=true_color)
+        except Exception as exc:
+            return False, "{}".format(exc)
+        if not success:
+            return False, (
+                "Revit a retourné False pour l'export DWG "
+                "(vues={}, configuration={!r}, TrueColor={}, combiné={})."
+                .format(len(view_ids), setup_name, bool(true_color), bool(merged_views))
+            )
+        return True, None
+
     def _publish_items(self, publication_set, items, output_directory,
                        export_pdf=True, export_dwg=False, pdf_combined=True,
                        dwg_combined=False, dwg_setup_name=None, dwg_true_color=True):
@@ -107,6 +131,7 @@ class PublicationService(object):
             return {"success": True, "results": [], "errors": [], "warnings": [], "files": []}
         output_directory = self._prepare_output_directory(output_directory)
         warnings = []
+        errors = []
         results = []
         files = []
         view_ids = self._current_view_ids(publication_set, items)
@@ -116,8 +141,12 @@ class PublicationService(object):
                 filename, unknown = self._filename(publication_set, None, ".pdf")
                 if unknown:
                     warnings.append("Variables non résolues dans le nom PDF : {}.".format(", ".join(unknown)))
-                success = self.pdf_service.export(view_ids, output_directory,
-                                                   os.path.splitext(filename)[0], combined=True)
+                try:
+                    success = self.pdf_service.export(view_ids, output_directory,
+                                                       os.path.splitext(filename)[0], combined=True)
+                except Exception as exc:
+                    success = False
+                    errors.append("PDF {} : {}".format(filename, exc))
                 files.append(os.path.join(output_directory, filename))
                 results.append({"success": bool(success), "format": "PDF", "mode": "combined",
                                 "count": len(items), "path": os.path.join(output_directory, filename)})
@@ -128,8 +157,12 @@ class PublicationService(object):
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    success = self.pdf_service.export([current_id], output_directory,
-                                                      os.path.splitext(filename)[0], combined=True)
+                    try:
+                        success = self.pdf_service.export([current_id], output_directory,
+                                                          os.path.splitext(filename)[0], combined=True)
+                    except Exception as exc:
+                        success = False
+                        errors.append("PDF {} : {}".format(filename, exc))
                     path = os.path.join(output_directory, filename)
                     files.append(path)
                     results.append({"success": bool(success), "format": "PDF", "mode": "separate",
@@ -140,9 +173,11 @@ class PublicationService(object):
                 filename, unknown = self._filename(publication_set, None, ".dwg")
                 if unknown:
                     warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
-                success = self.dwg_service.export(view_ids, output_directory,
-                                                   os.path.splitext(filename)[0], dwg_setup_name,
-                                                   merged_views=True, true_color=dwg_true_color)
+                success, error = self._export_dwg(
+                    view_ids, output_directory, os.path.splitext(filename)[0],
+                    dwg_setup_name, merged_views=True, true_color=dwg_true_color)
+                if error:
+                    errors.append("DWG {} : {}".format(filename, error))
                 path = os.path.join(output_directory, filename)
                 files.append(path)
                 results.append({"success": bool(success), "format": "DWG", "mode": "combined",
@@ -154,17 +189,21 @@ class PublicationService(object):
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    success = self.dwg_service.export([current_id], output_directory,
-                                                      os.path.splitext(filename)[0], dwg_setup_name,
-                                                      merged_views=False, true_color=dwg_true_color)
+                    success, error = self._export_dwg(
+                        [current_id], output_directory, os.path.splitext(filename)[0],
+                        dwg_setup_name, merged_views=False, true_color=dwg_true_color)
+                    if error:
+                        errors.append("DWG {} : {}".format(filename, error))
                     path = os.path.join(output_directory, filename)
                     files.append(path)
                     results.append({"success": bool(success), "format": "DWG", "mode": "separate",
                                     "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
 
+        if any(not r.get("success") for r in results) and not errors:
+            errors.append("Revit a signalé un échec pendant l'export.")
+
         return {"success": all(r.get("success", False) for r in results) if results else True,
-                "results": results, "errors": ["Revit a signalé un échec pendant l'export."]
-                if any(not r.get("success") for r in results) else [],
+                "results": results, "errors": errors,
                 "warnings": warnings, "files": files}
 
     def publish_pdf(self, publication_set, output_directory, combined=True, items=None):

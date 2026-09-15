@@ -52,6 +52,13 @@ class ExportWindow(forms.WPFWindow):
         self._load_dwg_setups()
         self._load_profiles()
         self.FilenameTokenCombo.ItemsSource = ["{carnet}", "{numero}", "{nom}", "{nom_complet}", "{projet}", "{date}", "{indice}", "{dossier}", "{parametre:Nom}"]
+        # Les noms/numéros des feuilles peuvent avoir changé dans Revit depuis
+        # la dernière ouverture d'Export. La synchronisation conserve l'ordre
+        # métier du carnet et ne repose que sur le UniqueId.
+        try:
+            self.controller.refresh_persistent_metadata()
+        except Exception:
+            pass
         self._refresh_tree()
         self._update_selection_info()
 
