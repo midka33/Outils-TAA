@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Entry point for the Export module."""
 
+import json
 import os
 import sys
 
@@ -47,21 +48,56 @@ def _get_storage_path(document):
     return os.path.join(directory, project_key(document) + "_carnets.json")
 
 
+def _legacy_document_identity(document):
+    """Retourne une identité legacy migrable uniquement pour un fichier sauvegardé."""
+    try:
+        from Autodesk.Revit.DB import ModelPathUtils
+        central_path = document.GetWorksharingCentralModelPath()
+        if central_path:
+            visible_path = ModelPathUtils.ConvertModelPathToUserVisiblePath(central_path)
+            if visible_path:
+                return "CENTRAL:" + visible_path
+    except Exception:
+        pass
+    try:
+        path_name = document.PathName
+        if path_name:
+            return "FILE:" + path_name
+    except Exception:
+        pass
+    return None
+
+
 def _prepare_project_storage(document):
     """Prépare une persistance définitivement liée au document Revit.
 
-    Les anciennes versions utilisaient une clé calculée à partir du chemin ou
-    d'une identité de session. Lorsqu'un GUID embarqué est créé, le fichier
-    correspondant est migré une seule fois vers la nouvelle clé.
+    Une ancienne persistance n'est migrée automatiquement que si elle est
+    rattachable sans ambiguïté à un document sauvegardé (chemin du fichier ou
+    chemin du central). Les données d'un ancien document non enregistré ne
+    sont jamais adoptées par un nouveau Projet1.
     """
+    legacy_identity = _legacy_document_identity(document)
     legacy_key = project_key(document)
     ensure_project_identity(document)
+    persistent_identity = get_project_identity(document)
     persistent_key = project_key(document)
     directory = _project_storage_directory()
     legacy_path = os.path.join(directory, legacy_key + "_carnets.json")
     persistent_path = os.path.join(directory, persistent_key + "_carnets.json")
-    if legacy_path != persistent_path and os.path.exists(legacy_path) and not os.path.exists(persistent_path):
-        os.rename(legacy_path, persistent_path)
+
+    if legacy_path != persistent_path and legacy_identity and os.path.exists(legacy_path) and not os.path.exists(persistent_path):
+        try:
+            with open(legacy_path, "r") as handle:
+                legacy_data = json.load(handle)
+            if isinstance(legacy_data, dict) and not legacy_data.get("project_identity"):
+                legacy_data["project_identity"] = persistent_identity
+                with open(persistent_path, "w") as handle:
+                    json.dump(legacy_data, handle, ensure_ascii=False, indent=2)
+                os.remove(legacy_path)
+        except Exception:
+            # La migration est opportuniste : elle ne doit pas empêcher Export
+            # de démarrer. Le repository créera alors un stockage neuf et sûr.
+            pass
     return persistent_path
 
 
@@ -240,7 +276,8 @@ def main():
     parameter_service = ParameterService(parameter_utils)
     publication_service = PublicationService(revit.doc)
     storage_path = _prepare_project_storage(revit.doc)
-    repository = CarnetRepository(storage_path, project_identity=get_project_identity(revit.doc))
+    project_identity = get_project_identity(revit.doc)
+    repository = CarnetRepository(storage_path, project_identity=project_identity)
     controller = CarnetController(export_service, carnet_service, parameter_service,
                                    repository, publication_service)
     window = ExportWindow(controller, repository)
