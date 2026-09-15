@@ -104,8 +104,9 @@ class FilenameService(object):
                 return str(context[token] or "")
             if token.startswith("parametre:"):
                 parameter_name = token[len("parametre:"):].strip()
-                value = self._parameter_value(item or ((publication_set.items or [None])[0]),
-                                              parameter_name)
+                value = self._parameter_value(
+                    item or ((publication_set.items or [None])[0]),
+                    parameter_name)
                 if not value:
                     unknown.append(token)
                 return value
@@ -114,6 +115,20 @@ class FilenameService(object):
 
         value = self.TOKEN_PATTERN.sub(replace, template)
         return self.sanitize(value), unknown
+
+    def preview(self, publication_set, settings):
+        """Retourne le nom résolu affichable dans l'interface, sans extension.
+
+        La prévisualisation utilise exactement le même moteur de résolution que
+        l'export réel. Cela évite qu'un aperçu UI diverge du nom effectivement
+        produit par PDF/DWG.
+        """
+        if publication_set is None:
+            return ""
+        template = getattr(settings, "filename_template", None) or "{carnet}"
+        folder_name = getattr(publication_set, "folder_name", None)
+        value, _ = self.resolve(template, publication_set, item=None, folder_name=folder_name)
+        return value
 
     def sanitize(self, name):
         """Sécurise un nom selon les contraintes de fichiers Windows."""
