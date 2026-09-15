@@ -2,8 +2,24 @@
 """Tests de non-régression de l'isolation des stockages Export par projet."""
 
 import json
+import os
+import sys
 
-from OutilsTAA.extension.OutilsTAA.tab.Export.panel.services.carnet_repository import CarnetRepository
+
+SERVICES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
+                                            "OutilsTAA.extension",
+                                            "OutilsTAA.tab",
+                                            "Export.panel", "services"))
+MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
+                                           "OutilsTAA.extension",
+                                           "OutilsTAA.tab",
+                                           "Export.panel", "models"))
+for path in (SERVICES_DIR, MODELS_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+from carnet_repository import CarnetRepository
+from publication_folder import PublicationFolder
 
 
 def test_repository_creates_general_folder_for_empty_project(tmpdir):
@@ -36,14 +52,14 @@ def test_repository_rejects_storage_from_another_project(tmpdir):
         assert "ne correspond pas au projet Revit courant" in str(exc)
 
 
-def test_repository_records_current_project_identity(tmpdir):
+def test_repository_persists_current_project_identity(tmpdir):
     path = str(tmpdir.join("project.json"))
     repository = CarnetRepository(path, project_identity="EMBEDDED:project-c")
+    folder = PublicationFolder("DCE", "folder-dce", None, True, None)
 
-    repository.list_folders()
+    repository.save_folder(folder)
+
     with open(path, "r") as handle:
-        data = json.load(handle) if False else None
+        data = json.load(handle)
 
-    # La structure initiale est générée en mémoire ; la persistance de
-    # l'identité est vérifiée par la première écriture métier.
-    assert repository.project_identity == "EMBEDDED:project-c"
+    assert data["project_identity"] == "EMBEDDED:project-c"
