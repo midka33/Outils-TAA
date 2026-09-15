@@ -20,7 +20,7 @@ from parameter_service import ParameterService
 from publication_service import PublicationService
 from carnet_controller import CarnetController
 from carnet_repository import CarnetRepository
-from Export_window import ExportWindow
+from export_window import ExportWindow
 import publication_preview_integration
 from publication_preview_integration import install_preview_on_export_window
 from publication_tree_drag_drop import PublicationTreeDragDrop
@@ -52,7 +52,7 @@ def _prepare_project_storage(document):
 
     Les anciennes versions utilisaient une clé calculée à partir du chemin ou
     d'une identité de session. Lorsqu'un GUID embarqué est créé, le fichier
-    historique correspondant est migré une seule fois vers la nouvelle clé.
+    correspondant est migré une seule fois vers la nouvelle clé.
     """
     legacy_key = project_key(document)
     ensure_project_identity(document)
