@@ -10,7 +10,7 @@ FIELD_NAME = "ProjectId"
 
 
 def _get_schema():
-    from System import Guid
+    from System import Guid, String
     from Autodesk.Revit.DB.ExtensibleStorage import Schema, SchemaBuilder
 
     schema_guid = Guid(SCHEMA_GUID)
@@ -20,7 +20,7 @@ def _get_schema():
 
     builder = SchemaBuilder(schema_guid)
     builder.SetSchemaName(SCHEMA_NAME)
-    builder.AddSimpleField(FIELD_NAME, str)
+    builder.AddSimpleField(FIELD_NAME, String)
     return builder.Finish()
 
 
