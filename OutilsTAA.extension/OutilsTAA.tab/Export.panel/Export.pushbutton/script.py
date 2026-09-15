@@ -20,12 +20,12 @@ from parameter_service import ParameterService
 from publication_service import PublicationService
 from carnet_controller import CarnetController
 from carnet_repository import CarnetRepository
-from export_window import ExportWindow
+from Export_window import ExportWindow
 import publication_preview_integration
 from publication_preview_integration import install_preview_on_export_window
 from publication_tree_drag_drop import PublicationTreeDragDrop
 from publication_history_service import PublicationHistoryService
-from project_identity import get_project_identity, project_key
+from project_identity import get_project_identity, project_key, ensure_project_identity
 
 install_preview_on_export_window(ExportWindow)
 
@@ -34,10 +34,35 @@ def _get_project_identity(document):
     return get_project_identity(document)
 
 
-def _get_storage_path(document):
+def _project_storage_directory():
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
     directory = os.path.join(app_data, "Outils-TAA", "Export", "Projects")
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    return directory
+
+
+def _get_storage_path(document):
+    directory = _project_storage_directory()
     return os.path.join(directory, project_key(document) + "_carnets.json")
+
+
+def _prepare_project_storage(document):
+    """Prépare une persistance définitivement liée au document Revit.
+
+    Les anciennes versions utilisaient une clé calculée à partir du chemin ou
+    d'une identité de session. Lorsqu'un GUID embarqué est créé, le fichier
+    historique correspondant est migré une seule fois vers la nouvelle clé.
+    """
+    legacy_key = project_key(document)
+    ensure_project_identity(document)
+    persistent_key = project_key(document)
+    directory = _project_storage_directory()
+    legacy_path = os.path.join(directory, legacy_key + "_carnets.json")
+    persistent_path = os.path.join(directory, persistent_key + "_carnets.json")
+    if legacy_path != persistent_path and os.path.exists(legacy_path) and not os.path.exists(persistent_path):
+        os.rename(legacy_path, persistent_path)
+    return persistent_path
 
 
 def _get_history_path(document):
@@ -214,7 +239,8 @@ def main():
     carnet_service = CarnetService(export_service)
     parameter_service = ParameterService(parameter_utils)
     publication_service = PublicationService(revit.doc)
-    repository = CarnetRepository(_get_storage_path(revit.doc))
+    storage_path = _prepare_project_storage(revit.doc)
+    repository = CarnetRepository(storage_path, project_identity=get_project_identity(revit.doc))
     controller = CarnetController(export_service, carnet_service, parameter_service,
                                    repository, publication_service)
     window = ExportWindow(controller, repository)
