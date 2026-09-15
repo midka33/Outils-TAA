@@ -7,7 +7,7 @@ SERVICES_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "services"))
 if SERVICES_DIR not in sys.path:
     sys.path.insert(0, SERVICES_DIR)
 
-from project_identity import get_project_identity, project_key
+from project_identity import get_project_identity, project_key, _is_embedded_identity_valid_for_document
 
 
 class FakeProjectInfo(object):
@@ -58,3 +58,27 @@ def test_document_title_is_not_used_as_unsaved_identity():
 
     assert identity == "UNSAVED_DOCUMENT:101"
     assert "Projet1" not in identity
+
+
+def test_embedded_identity_from_same_unsaved_document_is_valid():
+    document = FakeDocument("Projet1", document_hash=101)
+
+    assert _is_embedded_identity_valid_for_document(document, "guid-a|101")
+
+
+def test_embedded_identity_copied_from_another_unsaved_document_is_rejected():
+    document = FakeDocument("Projet1", document_hash=202)
+
+    assert not _is_embedded_identity_valid_for_document(document, "guid-a|101")
+
+
+def test_legacy_embedded_guid_without_document_stamp_is_rejected_for_unsaved_project():
+    document = FakeDocument("Projet1", document_hash=202)
+
+    assert not _is_embedded_identity_valid_for_document(document, "guid-a")
+
+
+def test_embedded_identity_is_accepted_after_project_is_saved():
+    document = FakeDocument("Projet1", path_name=r"C:\Projet\A.rvt", document_hash=202)
+
+    assert _is_embedded_identity_valid_for_document(document, "guid-a|101")
