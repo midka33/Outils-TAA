@@ -179,6 +179,14 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 
 **Anti-régression** : publier un carnet avec `MODIFIED_ONLY` désactivé, activer ensuite `MODIFIED_ONLY` sans modifier aucune feuille et vérifier que les feuilles sont reconnues comme `UNCHANGED` et ne sont pas republiées.
 
+### BUG-EXPORT-017 — Dossiers persistants visibles dans un nouveau projet Revit
+
+**Symptôme** : après fermeture d'un projet puis création d'un nouveau `Projet1`, les dossiers persistants (`DCE`, `APD`, `DPC`, etc.) du projet précédent réapparaissaient dans Export, y compris après redémarrage complet de Revit.  
+**Cause** : l'identité du projet non enregistré reposait sur des identifiants qui ne constituent pas une identité documentaire durable et, surtout, les dossiers étaient lus sans identité de projet propre. `ProjectInformation.UniqueId` pouvait être identique entre des projets indépendants et les dossiers du JSON n'étaient pas explicitement rattachés au projet courant.  
+**Correction** : ajout d'un GUID Outils TAA embarqué dans le document Revit via Extensible Storage/DataStorage ; la persistance est désormais indexée par cette identité. Le JSON contient également `project_identity` et refuse tout stockage ne correspondant pas au document actif. Les anciennes clés de stockage sont migrées vers la nouvelle identité lorsqu'elles correspondent au document courant.  
+**Règle** : une configuration Export persistante doit être isolée par une identité documentaire propre, persistante et embarquée dans le fichier Revit ; les dossiers ne doivent jamais être considérés comme des données globales à l'utilisateur.  
+**Anti-régression** : créer un projet A, créer des dossiers/carnets, fermer Revit, créer un nouveau projet B sans l'enregistrer et ouvrir Export : seul `Général` doit apparaître. Redémarrer Revit et refaire le test. Puis enregistrer A, rouvrir A et vérifier que ses dossiers/carnets sont restaurés.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -198,6 +206,7 @@ BUG-EXPORT-013
 BUG-EXPORT-014
 BUG-EXPORT-015
 BUG-EXPORT-016
+BUG-EXPORT-017
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
