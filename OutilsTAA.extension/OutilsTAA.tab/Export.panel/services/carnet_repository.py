@@ -14,7 +14,7 @@ from publication_settings import PublicationSettings
 class CarnetRepository(object):
     """Enregistre l'arborescence Export dans un fichier JSON isolé par projet."""
 
-    SCHEMA_VERSION = 5
+    SCHEMA_VERSION = 6
     DEFAULT_FOLDER_ID = "default"
     DEFAULT_FOLDER_NAME = "Général"
 
@@ -25,8 +25,6 @@ class CarnetRepository(object):
         self.project_identity = project_identity
 
     def _ensure_structure(self, data):
-        if self.project_identity and not data.get("project_identity"):
-            data["project_identity"] = self.project_identity
         if self.project_identity and data.get("project_identity") != self.project_identity:
             raise ValueError("Le stockage Export ne correspond pas au projet Revit courant.")
         if "folders" not in data:
@@ -95,64 +93,45 @@ class CarnetRepository(object):
         return publication_set
 
     def move_set(self, set_id, folder_id, before_set_id=None):
-        """Déplace un carnet vers un dossier et/ou change sa position."""
         return self.move_sets([set_id], folder_id, before_set_id)
 
     def move_sets(self, set_ids, folder_id, before_set_id=None):
-        """Déplace plusieurs carnets vers un dossier en conservant leur ordre."""
         set_ids = list(set_ids or [])
         if not set_ids or not folder_id:
             return False
-
         data = self._ensure_structure(self._read())
         sets = data.get("sets", [])
         folders = data.get("folders", [])
-
         if not any(folder.get("id") == folder_id for folder in folders):
             return False
-
         moving_ids = set(set_ids)
         moving = [value for value in sets if value.get("id") in moving_ids]
         if not moving:
             return False
-
-        moving.sort(key=lambda value: (
-            value.get("folder_id", self.DEFAULT_FOLDER_ID),
-            value.get("sort_order", 0)
-        ))
-
+        moving.sort(key=lambda value: (value.get("folder_id", self.DEFAULT_FOLDER_ID), value.get("sort_order", 0)))
         if before_set_id and before_set_id in moving_ids:
             return False
-
         remaining = [value for value in sets if value.get("id") not in moving_ids]
-        destination = [value for value in remaining
-                       if value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder_id]
-
+        destination = [value for value in remaining if value.get("folder_id", self.DEFAULT_FOLDER_ID) == folder_id]
         for value in moving:
             value["folder_id"] = folder_id
-
         insert_at = len(destination)
         if before_set_id:
             for index, value in enumerate(destination):
                 if value.get("id") == before_set_id:
                     insert_at = index
                     break
-
         destination[insert_at:insert_at] = moving
-
         for index, value in enumerate(destination):
             value["sort_order"] = index
-
         for folder in folders:
             current_folder_id = folder.get("id")
             if current_folder_id == folder_id:
                 continue
-            siblings = [value for value in remaining
-                        if value.get("folder_id", self.DEFAULT_FOLDER_ID) == current_folder_id]
+            siblings = [value for value in remaining if value.get("folder_id", self.DEFAULT_FOLDER_ID) == current_folder_id]
             siblings.sort(key=lambda value: value.get("sort_order", 0))
             for index, value in enumerate(siblings):
                 value["sort_order"] = index
-
         data["sets"] = remaining + [value for value in destination if value not in remaining]
         self._write(data)
         return True
@@ -214,6 +193,16 @@ class CarnetRepository(object):
         if not isinstance(data, dict):
             raise ValueError("Le fichier de carnets est invalide.")
         data.setdefault("sets", [])
+        if self.project_identity and data.get("project_identity") != self.project_identity:
+            # Un ancien fichier sans identité ou un fichier d'un autre projet
+            # est volontairement considéré comme non fiable : il ne doit jamais
+            # être adopté par le projet courant.
+            return {"schema_version": self.SCHEMA_VERSION,
+                    "project_identity": self.project_identity,
+                    "folders": [{"id": self.DEFAULT_FOLDER_ID,
+                                  "name": self.DEFAULT_FOLDER_NAME,
+                                  "parent_id": None, "persistent": True}],
+                    "sets": []}
         return self._ensure_structure(data)
 
     def _write(self, data):
@@ -229,28 +218,23 @@ class CarnetRepository(object):
 
     @staticmethod
     def _folder_to_dict(folder):
-        return {"id": folder.id, "name": folder.name,
-                "parent_id": folder.parent_id, "persistent": True,
+        return {"id": folder.id, "name": folder.name, "parent_id": folder.parent_id, "persistent": True,
                 "publication_settings": (folder.publication_settings.to_dict() if folder.publication_settings else None)}
 
     @staticmethod
     def _to_dict(publication_set):
         settings = publication_set.publication_settings
-        return {
-            "id": publication_set.id, "name": publication_set.name,
-            "persistent": True, "folder_id": publication_set.folder_id,
-            "sort_order": getattr(publication_set, "sort_order", 0),
-            "output_directory": publication_set.output_directory,
-            "filename_template_id": publication_set.filename_template_id,
-            "publication_settings": settings.to_dict() if settings else None,
-            "source": {"mode": publication_set.source.mode,
-                       "parameter_name": publication_set.source.parameter_name,
-                       "parameter_value": publication_set.source.parameter_value},
-            "items": [{"unique_id": item.unique_id, "sheet_id": item.sheet_id,
-                       "item_type": item.item_type, "sheet_number": item.sheet_number,
-                       "sheet_name": item.sheet_name, "parameter_value": item.parameter_value}
-                      for item in publication_set.items]
-        }
+        return {"id": publication_set.id, "name": publication_set.name, "persistent": True,
+                "folder_id": publication_set.folder_id, "sort_order": getattr(publication_set, "sort_order", 0),
+                "output_directory": publication_set.output_directory,
+                "filename_template_id": publication_set.filename_template_id,
+                "publication_settings": settings.to_dict() if settings else None,
+                "source": {"mode": publication_set.source.mode,
+                            "parameter_name": publication_set.source.parameter_name,
+                            "parameter_value": publication_set.source.parameter_value},
+                "items": [{"unique_id": item.unique_id, "sheet_id": item.sheet_id, "item_type": item.item_type,
+                           "sheet_number": item.sheet_number, "sheet_name": item.sheet_name,
+                           "parameter_value": item.parameter_value} for item in publication_set.items]}
 
     @staticmethod
     def _from_dict(value):
@@ -264,8 +248,8 @@ class CarnetRepository(object):
         settings = PublicationSettings.from_dict(value.get("publication_settings"))
         if value.get("publication_settings") is None:
             settings.output_directory = value.get("output_directory")
-        publication_set = PublicationSet(name=value.get("name", ""), items=items, source=source,
-                                         output_directory=value.get("output_directory"),
+        publication_set = PublicationSet(name=value.get("name", ""), items=items,
+                                         source=source, output_directory=value.get("output_directory"),
                                          filename_template_id=value.get("filename_template_id"),
                                          set_id=value.get("id"), persistent=True,
                                          folder_id=value.get("folder_id", CarnetRepository.DEFAULT_FOLDER_ID),
