@@ -38,7 +38,8 @@ def _read_embedded_identity(document):
         if schema is None:
             return None
         field = schema.GetField(FIELD_NAME)
-        from Autodesk.Revit.DB import DataStorage, FilteredElementCollector
+        from Autodesk.Revit.DB.ExtensibleStorage import DataStorage
+        from Autodesk.Revit.DB import FilteredElementCollector
         for storage in FilteredElementCollector(document).OfClass(DataStorage):
             entity = storage.GetEntity(schema)
             if entity is None or not entity.IsValid():
@@ -98,8 +99,8 @@ def ensure_project_identity(document):
         return existing
 
     from System import Guid
-    from Autodesk.Revit.DB import DataStorage, Transaction
-    from Autodesk.Revit.DB.ExtensibleStorage import Entity
+    from Autodesk.Revit.DB import Transaction
+    from Autodesk.Revit.DB.ExtensibleStorage import DataStorage, Entity
 
     project_id = str(Guid.NewGuid())
     schema = _get_schema()
