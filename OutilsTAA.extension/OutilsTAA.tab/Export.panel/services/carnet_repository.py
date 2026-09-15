@@ -12,18 +12,23 @@ from publication_settings import PublicationSettings
 
 
 class CarnetRepository(object):
-    """Enregistre l'arborescence Export dans un fichier JSON."""
+    """Enregistre l'arborescence Export dans un fichier JSON isolé par projet."""
 
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
     DEFAULT_FOLDER_ID = "default"
     DEFAULT_FOLDER_NAME = "Général"
 
-    def __init__(self, storage_path):
+    def __init__(self, storage_path, project_identity=None):
         if not storage_path:
             raise ValueError("Le chemin de stockage est obligatoire.")
         self.storage_path = storage_path
+        self.project_identity = project_identity
 
     def _ensure_structure(self, data):
+        if self.project_identity and not data.get("project_identity"):
+            data["project_identity"] = self.project_identity
+        if self.project_identity and data.get("project_identity") != self.project_identity:
+            raise ValueError("Le stockage Export ne correspond pas au projet Revit courant.")
         if "folders" not in data:
             data["folders"] = [{"id": self.DEFAULT_FOLDER_ID,
                                 "name": self.DEFAULT_FOLDER_NAME,
@@ -111,14 +116,11 @@ class CarnetRepository(object):
         if not moving:
             return False
 
-        # Respecte l'ordre actuel des carnets dans l'arborescence, même si
-        # l'appelant fournit les identifiants dans un ordre différent.
         moving.sort(key=lambda value: (
             value.get("folder_id", self.DEFAULT_FOLDER_ID),
             value.get("sort_order", 0)
         ))
 
-        # Le carnet cible ne doit pas faire partie du groupe déplacé.
         if before_set_id and before_set_id in moving_ids:
             return False
 
@@ -138,11 +140,9 @@ class CarnetRepository(object):
 
         destination[insert_at:insert_at] = moving
 
-        # Réindexe le dossier destination.
         for index, value in enumerate(destination):
             value["sort_order"] = index
 
-        # Réindexe tous les autres dossiers après le retrait des carnets.
         for folder in folders:
             current_folder_id = folder.get("id")
             if current_folder_id == folder_id:
@@ -204,6 +204,7 @@ class CarnetRepository(object):
     def _read(self):
         if not os.path.exists(self.storage_path):
             return {"schema_version": self.SCHEMA_VERSION,
+                    "project_identity": self.project_identity,
                     "folders": [{"id": self.DEFAULT_FOLDER_ID,
                                   "name": self.DEFAULT_FOLDER_NAME,
                                   "parent_id": None, "persistent": True}],
