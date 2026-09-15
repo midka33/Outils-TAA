@@ -8,6 +8,14 @@ La configuration de publication Export est propre au projet Revit actif. Les dos
 
 Export utilise un identifiant propre aux Outils TAA, stocké directement dans le document Revit avec **Extensible Storage / DataStorage**.
 
+Le schéma Extensible Storage utilise un nom compatible avec les règles de nommage de Revit 2025 :
+
+```text
+OutilsTAA_Export_ProjectIdentity
+```
+
+Le GUID du schéma reste son identifiant technique ; le nom du schéma est uniquement son identifiant lisible et ne doit pas utiliser une syntaxe de type namespace avec des points.
+
 Pour un document non enregistré, l'identité embarquée est également liée au hash de l'instance `Document` pendant la session :
 
 ```text
