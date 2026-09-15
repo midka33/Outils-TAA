@@ -48,7 +48,6 @@ Un bug corrigé mais non capitalisé reste susceptible de réapparaître dans un
 Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes restent applicables à l'ensemble des outils.
 
 ### BUG-EXPORT-001 — Propriété WPF `TreeView.VerticalScrollBarVisibility` inconnue
-
 **Symptôme** : erreur WPF au chargement de la fenêtre.  
 **Cause** : propriétés `ScrollViewer` utilisées comme propriétés directes du `TreeView`.  
 **Correction** : utiliser `ScrollViewer.VerticalScrollBarVisibility` et `ScrollViewer.HorizontalScrollBarVisibility`.  
@@ -56,7 +55,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : charger la fenêtre dans Revit après chaque modification XAML.
 
 ### BUG-EXPORT-002 — Collision de modules `publication_report.py`
-
 **Symptôme** : import de la fenêtre de rapport ambigu.  
 **Cause** : deux modules portant le même nom dans des chemins Python différents.  
 **Correction** : fenêtre renommée `export_report_window.py`.  
@@ -64,7 +62,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : contrôler les imports après toute modification de `sys.path`.
 
 ### BUG-EXPORT-003 — Appel incorrect de `ShowDialog()`
-
 **Symptôme** : appel de fenêtre WPF avec `show_dialog()`.  
 **Cause** : confusion entre convention Python et membre .NET réel.  
 **Correction** : utiliser `ShowDialog()`.  
@@ -72,7 +69,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : tester les fenêtres dans IronPython/Revit.
 
 ### BUG-EXPORT-004 — Colonnes du tableau des mises en page vides
-
 **Symptôme** : numéros et noms non affichés dans le DataGrid.  
 **Cause** : casse incorrecte dans les bindings XAML.  
 **Correction** : bindings alignés sur `sheet_number` et `sheet_name`.  
@@ -80,7 +76,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : tester chaque DataGrid avec des données Revit réelles.
 
 ### BUG-EXPORT-005 — Carnets issus d'un paramètre transformés en carnets manuels
-
 **Symptôme** : perte du mode « par paramètre » après sauvegarde.  
 **Cause** : source réinitialisée lors de la persistance.  
 **Correction** : conserver `source.mode`, `parameter_name` et `parameter_value`.  
@@ -88,7 +83,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : sauvegarder, redémarrer et vérifier la reconstruction du carnet.
 
 ### BUG-EXPORT-006 — Carnets persistants et session ajoutés en double
-
 **Symptôme** : doublons après retour du gestionnaire.  
 **Cause** : mélange des sources persistante et temporaire.  
 **Correction** : séparer les collections et recharger la persistance comme source de vérité.  
@@ -96,7 +90,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : ouvrir plusieurs fois le gestionnaire et vérifier l'absence de doublon.
 
 ### BUG-EXPORT-007 — Carnets provenant d'un autre projet Revit
-
 **Symptôme** : affichage de carnets appartenant à un autre projet.  
 **Cause** : absence de filtrage par `UniqueId` du document actif.  
 **Correction** : filtrage sur les feuilles du projet courant.  
@@ -104,7 +97,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : tester deux projets distincts.
 
 ### BUG-EXPORT-008 — Encodage Python incompatible avec IronPython
-
 **Symptôme** : erreurs de décodage/parsing avec caractères accentués.  
 **Cause** : encodage non déclaré.  
 **Correction** : fichiers Python en UTF-8 avec `# -*- coding: utf-8 -*-`.  
@@ -112,7 +104,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : contrôler les nouveaux fichiers Python.
 
 ### BUG-EXPORT-009 — Publication d'une mise en page seule avec un ElementId persistant obsolète
-
 **Symptôme** : feuille existante signalée comme introuvable.  
 **Cause** : utilisation directe d'un `ElementId` persistant au lieu du `UniqueId`.  
 **Correction** : résolution par `UniqueId`, puis récupération de l'`ElementId` courant.  
@@ -120,7 +111,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : publier une feuille seule après rechargement du carnet puis publier le carnet complet.
 
 ### BUG-EXPORT-010 — Valeur numérique incompatible avec `PDFExportQualityType`
-
 **Symptôme** : `Cannot convert numeric value 300 to PDFExportQualityType`.  
 **Cause** : affectation directe de `300` à une propriété attendante une enum Revit.  
 **Correction** : conversion explicite vers `PDFExportQualityType.DPI300`.  
@@ -128,7 +118,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : tester PDF seul, combiné et séparé.
 
 ### BUG-EXPORT-011 — `CarnetController.document` absent lors de l'initialisation de la fenêtre
-
 **Symptôme** : `AttributeError: 'CarnetController' object has no attribute 'document'` au lancement de Export.  
 **Cause** : le contexte Revit n'était pas exposé explicitement par la façade métier.  
 **Correction** : `CarnetController` expose le document utilisé par `ExportService`.  
@@ -136,7 +125,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : lancer Export et tester la prévisualisation de nommage.
 
 ### BUG-EXPORT-012 — Une modification de carnet transformait tous les réglages hérités en surcharges locales
-
 **Symptôme** : un carnet affichant des réglages hérités du dossier cessait d'hériter après modification d'un seul champ.  
 **Cause** : la sauvegarde réécrivait simultanément toutes les valeurs affichées par l'UI, y compris celles provenant du dossier.  
 **Correction** : une modification UI ne sauvegarde désormais que le champ effectivement modifié. Les autres champs restent à `None` lorsqu'ils sont hérités.  
@@ -144,7 +132,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : définir un réglage au niveau dossier, vérifier son héritage dans un carnet, modifier uniquement un autre réglage du carnet et vérifier que le premier reste hérité.
 
 ### BUG-EXPORT-013 — Publication de dossier utilisant une seule destination pour plusieurs carnets
-
 **Symptôme** : lors d'une publication multiple, la prévisualisation pouvait afficher une destination unique alors que les carnets utilisaient des destinations différentes.  
 **Cause** : l'agrégation de prévisualisation conservait la dernière destination rencontrée.  
 **Correction** : l'aperçu signale désormais explicitement plusieurs destinations et conserve le chemin complet sur chaque ligne de livrable.  
@@ -152,7 +139,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : créer deux carnets d'un même dossier avec deux destinations différentes, lancer `Publier le dossier` et vérifier que les deux destinations sont visibles avant confirmation.
 
 ### BUG-EXPORT-014 — Glisser-déposer des carnets non opérationnel et absence de sélection multiple
-
 **Symptôme** : les carnets ne pouvaient pas être déplacés à la souris pour changer de dossier ou d'ordre, et plusieurs carnets ne pouvaient pas être sélectionnés pour un déplacement groupé.  
 **Cause** : le premier mécanisme de drag-and-drop transmettait directement un objet Python WPF et ne disposait d'aucun état de sélection multiple. Le `TreeView` WPF ne fournit pas nativement de sélection multiple.  
 **Correction** : ajout d'un `DataObject` WPF avec format de données explicite, sélection `Ctrl` / `Maj`, surbrillance des carnets sélectionnés et nouvelle opération repository `move_sets` permettant le déplacement groupé avec conservation de l'ordre.  
@@ -160,7 +146,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : sélectionner plusieurs carnets avec `Ctrl` ou une plage avec `Maj`, les glisser vers un dossier, puis les glisser sur un carnet cible pour vérifier leur insertion avant celui-ci et la persistance de l'ordre après fermeture/réouverture.
 
 ### BUG-EXPORT-015 — Handler `ExportWindow` manquant après refactorisation et couche de compatibilité incorrecte
-
 **Symptôme** : au lancement de l'outil, IronPython levait d'abord `AttributeError: 'type' object has no attribute 'Publish_Click'` dans `publication_preview_integration.py`. Après ajout de la couche de compatibilité, une seconde erreur apparaissait : `AttributeError: 'ExportWindow' object has no attribute '_set_no_selection_compat'` lors de la mise à jour de la sélection.  
 **Cause** : `publication_preview_integration.py` supposait que plusieurs handlers historiques (`Publish_Click`, `OpenCarnetManager_Click`, etc.) existaient encore dans `ExportWindow`, alors qu'une refactorisation les avait retirés ou déplacés. La couche de compatibilité introduite pour les réinjecter contenait elle-même un appel vers `_set_no_selection_compat`, nom qui n'était pas exposé sur l'instance alors que le vrai `_set_no_selection()` existait déjà.  
 **Correction** : injection des handlers manquants avant création de la fenêtre et correction de `update_selection_info()` pour appeler le handler canonique `_set_no_selection()`. Le correctif immédiat a été commit dans `d795989882098e75f3dcdc759954f11c00217605`.  
@@ -168,7 +153,6 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : charger `ExportWindow` dans IronPython/Revit et déclencher successivement : sélection d'un dossier, sélection d'un carnet, sélection d'une feuille, retour à aucune sélection, ouverture du gestionnaire de carnets, création/sélection d'un dossier, modification des paramètres, prévisualisation puis publication d'un carnet et d'une feuille. Vérifier qu'aucun `AttributeError` lié à un handler attendu par l'intégration n'apparaît.
 
 ### BUG-EXPORT-016 — Historique non enregistré lorsque `MODIFIED_ONLY` était désactivé
-
 **Symptôme** : le socle Stage 07 pouvait filtrer correctement les publications en `MODIFIED_ONLY`, mais le chemin de publication classique ne préparait pas d'information d'historique et pouvait donc laisser le carnet sans nouvel état après une publication réussie.
 
 **Cause** : l'intégration associait initialement les informations de classification uniquement au chemin `modified_only=True`. L'enregistrement de l'historique était donc conditionné à l'activation de cette option, alors que l'historique doit servir de référence pour les publications suivantes quel que soit le mode utilisé.
@@ -180,12 +164,22 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Anti-régression** : publier un carnet avec `MODIFIED_ONLY` désactivé, activer ensuite `MODIFIED_ONLY` sans modifier aucune feuille et vérifier que les feuilles sont reconnues comme `UNCHANGED` et ne sont pas republiées.
 
 ### BUG-EXPORT-017 — Dossiers persistants visibles dans un nouveau projet Revit
-
 **Symptôme** : après fermeture d'un projet puis création d'un nouveau `Projet1`, les dossiers persistants (`DCE`, `APD`, `DPC`, etc.) du projet précédent réapparaissaient dans Export, y compris après redémarrage complet de Revit.  
 **Cause** : l'identité du projet non enregistré reposait sur des identifiants qui ne constituent pas une identité documentaire durable et, surtout, les dossiers étaient lus sans identité de projet propre. `ProjectInformation.UniqueId` pouvait être identique entre des projets indépendants et les dossiers du JSON n'étaient pas explicitement rattachés au projet courant.  
 **Correction** : ajout d'un GUID Outils TAA embarqué dans le document Revit via Extensible Storage/DataStorage ; la persistance est désormais indexée par cette identité. Le JSON contient également `project_identity` et refuse tout stockage ne correspondant pas au document actif. Les anciennes clés de stockage sont migrées vers la nouvelle identité lorsqu'elles correspondent au document courant.  
 **Règle** : une configuration Export persistante doit être isolée par une identité documentaire propre, persistante et embarquée dans le fichier Revit ; les dossiers ne doivent jamais être considérés comme des données globales à l'utilisateur.  
 **Anti-régression** : créer un projet A, créer des dossiers/carnets, fermer Revit, créer un nouveau projet B sans l'enregistrer et ouvrir Export : seul `Général` doit apparaître. Redémarrer Revit et refaire le test. Puis enregistrer A, rouvrir A et vérifier que ses dossiers/carnets sont restaurés.
+
+### BUG-EXPORT-018 — Sélection d'un dossier appelant un résolveur de carnets inexistant
+**Symptôme** : lors de la sélection d'un dossier dans l'arborescence Export, IronPython levait `NameError: global name '_folder_targets' is not defined` dans `publication_preview_integration.py`. La même référence non définie était utilisée pour activer le bouton de publication du dossier et pour lancer la publication d'un dossier.
+
+**Cause** : la couche `publication_preview_integration.py` appelait une fonction `_folder_targets()` qui n'existait plus après l'évolution de l'architecture. La logique de sélection des carnets d'un dossier n'était pas portée par un composant métier testable et aucun contrôle automatisé ne vérifiait l'intégration du handler de sélection avec le résolveur de publication de dossier.
+
+**Correction** : création de `PublicationFolderTargetService`, service sans dépendance WPF/Revit, chargé de résoudre le dossier racine et tous ses sous-dossiers puis de filtrer les carnets correspondants en conservant leur ordre courant. `publication_preview_integration.py` délègue désormais à ce service via un unique adaptateur `_folder_targets()`.
+
+**Règle** : toute résolution métier utilisée par une couche d'intégration UI doit être fournie par un service explicite et testable ; une fonction appelée par l'intégration ne doit jamais rester implicite ou non définie.
+
+**Anti-régression** : sélectionner un dossier contenant un carnet et vérifier que la sélection ne déclenche aucune exception et affiche le nombre de carnets publiables. Tester également un dossier parent contenant des sous-dossiers et vérifier que les carnets descendants sont résolus dans leur ordre courant.
 
 ## 4. Identifiants des bugs
 
@@ -207,6 +201,7 @@ BUG-EXPORT-014
 BUG-EXPORT-015
 BUG-EXPORT-016
 BUG-EXPORT-017
+BUG-EXPORT-018
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
