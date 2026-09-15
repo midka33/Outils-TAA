@@ -69,6 +69,48 @@ class CarnetController(object):
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
         return self.repository.move_sets(set_ids, folder_id, before_set_id)
 
+    def refresh_persistent_metadata(self):
+        """Actualise les numéros/noms des feuilles sans modifier leur ordre métier.
+
+        Les carnets persistent un UniqueId comme référence durable, mais les
+        libellés visibles d'une feuille peuvent évoluer dans Revit. Au chargement
+        d'Export, ces libellés doivent donc être resynchronisés avant affichage.
+        """
+        if self.repository is None:
+            return False
+        sheets = self.export_service.get_sheets()
+        current = {}
+        for sheet in sheets or []:
+            try:
+                unique_id = sheet.UniqueId
+            except Exception:
+                unique_id = None
+            if unique_id:
+                current[unique_id] = sheet
+
+        changed_any = False
+        for publication_set in self.repository.list_all():
+            changed = False
+            for item in publication_set.items or []:
+                sheet = current.get(getattr(item, "unique_id", None))
+                if sheet is None:
+                    continue
+                try:
+                    number = sheet.SheetNumber or ""
+                    name = sheet.Name or ""
+                except Exception:
+                    continue
+                if item.sheet_number != number:
+                    item.sheet_number = number
+                    changed = True
+                if item.sheet_name != name:
+                    item.sheet_name = name
+                    changed = True
+            if changed:
+                self.repository.save(publication_set)
+                changed_any = True
+        return changed_any
+
     def resolve_persistent(self, publication_set):
         if self.repository is None:
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
