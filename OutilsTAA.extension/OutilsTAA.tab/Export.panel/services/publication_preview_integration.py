@@ -16,6 +16,15 @@ from publication_tree_drag_drop import PublicationTreeDragDrop
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from publication_folder import PublicationFolder
+from publication_folder_targets import PublicationFolderTargetService
+
+
+def _folder_targets(window, folder):
+    """Retourne les carnets du dossier et de ses sous-dossiers."""
+    return PublicationFolderTargetService.get_targets(
+        getattr(window, "_folders", []),
+        getattr(window, "_carnets", []),
+        folder.id)
 
 
 def install_preview_on_export_window(export_window_class):
