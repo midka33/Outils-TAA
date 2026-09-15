@@ -23,25 +23,19 @@ Le GUID embarqué reste associé au document lors des opérations suivantes :
 - `Enregistrer sous` ;
 - fermeture puis réouverture de Revit.
 
-## Stockage externe
+## Règle de sécurité du stockage
 
-Les fichiers de persistance Export sont stockés sous :
+Le fichier JSON externe est une donnée **scopée au projet**. Il contient obligatoirement `project_identity` dès sa première écriture métier.
 
-```text
-%APPDATA%\Outils-TAA\Export\Projects\
-```
+Un fichier existant qui appartient à un autre projet, ou qui ne possède pas encore de `project_identity`, n'est jamais adopté silencieusement par le projet courant. Export repart alors sur une structure neuve contenant uniquement `Général`.
 
-Le nom du fichier est dérivé de l'identité embarquée du projet.
+Cette règle empêche une ancienne persistance globale ou une ancienne clé de session de faire réapparaître `DCE`, `APD`, `DPC`, etc. dans un nouveau `Projet1`.
 
-Le JSON contient également :
+## Migration des anciennes données
 
-```json
-{
-  "project_identity": "EMBEDDED:<guid>"
-}
-```
+Une ancienne persistance peut être migrée automatiquement uniquement lorsqu'elle est rattachable sans ambiguïté au document courant, c'est-à-dire lorsque le document possède un chemin de fichier ou un chemin de modèle central correspondant à l'ancienne clé.
 
-Le dépôt `CarnetRepository` refuse de charger un fichier dont `project_identity` ne correspond pas au document courant.
+Les anciennes données provenant d'un document non enregistré ne sont **jamais** migrées automatiquement : leur attribution à un nouveau projet ne peut pas être déterminée de manière fiable.
 
 ## Dossiers
 
@@ -55,33 +49,27 @@ Général
 
 Les dossiers tels que `DCE`, `APD`, `DPC`, etc. ne sont visibles que s'ils ont été créés ou migrés pour le projet courant.
 
-## Migration
-
-Lorsqu'une ancienne version utilisait une clé de stockage différente, Export tente de migrer le fichier correspondant au document courant vers la nouvelle clé embarquée.
-
-La migration ne doit jamais sélectionner arbitrairement un fichier appartenant à un autre projet.
-
-## Test fonctionnel obligatoire
+## Test fonctionnel obligatoire — TEST-25
 
 ### Projet A
 
 1. Créer un projet Revit A.
 2. Ouvrir Export.
 3. Créer `DCE`, `APD` et un carnet.
-4. Fermer Revit.
+4. Fermer complètement Revit.
 
 ### Projet B
 
-1. Créer un nouveau projet Revit.
+1. Créer un nouveau projet Revit B.
 2. Ouvrir Export.
-3. Vérifier que seuls les éléments propres au projet B sont affichés, au minimum `Général`.
-4. Fermer et relancer Revit.
-5. Rouvrir Export et vérifier le même résultat.
+3. Vérifier que **seul `Général`** apparaît.
+4. Fermer puis relancer Revit.
+5. Rouvrir Export et vérifier à nouveau que seul `Général` apparaît.
 
 ### Retour au projet A
 
-1. Enregistrer ou rouvrir le projet A.
+1. Ouvrir le projet A.
 2. Ouvrir Export.
 3. Vérifier que `DCE`, `APD` et le carnet du projet A sont restaurés.
 
-Cette procédure constitue le scénario anti-régression de `BUG-EXPORT-017` et de `TEST-25`.
+Ce scénario valide la séparation entre deux projets et couvre `BUG-EXPORT-017`.
