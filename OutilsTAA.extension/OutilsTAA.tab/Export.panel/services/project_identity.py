@@ -5,7 +5,9 @@ import hashlib
 
 
 SCHEMA_GUID = "8cef85dd-7891-4715-942b-4667df6f17e4"
-SCHEMA_NAME = "OutilsTAA.Export.ProjectIdentity"
+# Revit 2025 rejects dotted schema names for Extensible Storage.
+# Keep this as a simple identifier; the GUID remains the schema identity.
+SCHEMA_NAME = "OutilsTAA_Export_ProjectIdentity"
 FIELD_NAME = "ProjectId"
 
 
