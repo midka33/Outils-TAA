@@ -7,7 +7,7 @@ SERVICES_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "services"))
 if SERVICES_DIR not in sys.path:
     sys.path.insert(0, SERVICES_DIR)
 
-from project_identity import get_project_identity, project_key, _is_embedded_identity_valid_for_document
+from project_identity import get_project_identity, project_key, _is_embedded_identity_valid_for_document, SCHEMA_NAME
 
 
 class FakeProjectInfo(object):
@@ -82,3 +82,8 @@ def test_embedded_identity_is_accepted_after_project_is_saved():
     document = FakeDocument("Projet1", path_name=r"C:\Projet\A.rvt", document_hash=202)
 
     assert _is_embedded_identity_valid_for_document(document, "guid-a|101")
+
+
+def test_extensible_storage_schema_name_uses_revit_safe_identifier():
+    assert "." not in SCHEMA_NAME
+    assert SCHEMA_NAME == "OutilsTAA_Export_ProjectIdentity"
