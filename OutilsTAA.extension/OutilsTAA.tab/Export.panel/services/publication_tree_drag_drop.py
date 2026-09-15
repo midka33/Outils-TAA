@@ -24,6 +24,7 @@ class PublicationTreeDragDrop(object):
         self.selected = []
         self.drop_node = None
         self.drop_mode = None
+        self._drag_payload_keys = []
         tree = window.PublicationTree
         tree.AllowDrop = True
         tree.PreviewMouseLeftButtonDown += self._mouse_down
@@ -128,6 +129,7 @@ class PublicationTreeDragDrop(object):
         node = self._tree_item_from_source(args.OriginalSource)
         self.drag_node = node
         self.drag_started = False
+        self._drag_payload_keys = []
         if node is None:
             self._set_selection([])
             return
@@ -153,8 +155,13 @@ class PublicationTreeDragDrop(object):
                 keys.append(key)
             self._set_selection(keys)
             args.Handled = True
-        else:
+        elif key not in self.selected:
             self._set_selection([key])
+
+        # La sélection est figée au clic de départ. Elle ne dépend plus de
+        # l'état Ctrl/Maj pendant toute la durée du glisser-déposer, comme dans
+        # le comportement Windows attendu.
+        self._drag_payload_keys = list(self.selected)
 
     def _mouse_move(self, sender, args):
         if self.drag_node is None or self.drag_started or args.LeftButton != MouseButtonState.Pressed:
@@ -172,10 +179,10 @@ class PublicationTreeDragDrop(object):
             return
         if tag[0] == "SHEET" and not getattr(tag[2], "persistent", False):
             return
-        if not self.selected:
-            self._set_selection([self._selection_key(tag)])
+        if not self._drag_payload_keys:
+            self._drag_payload_keys = [self._selection_key(tag)]
         kind = tag[0]
-        payload = [key for key in self.selected if key.startswith(kind + ":")]
+        payload = [key for key in self._drag_payload_keys if key.startswith(kind + ":")]
         if not payload:
             return
         self.drag_started = True
@@ -186,6 +193,7 @@ class PublicationTreeDragDrop(object):
         finally:
             self.drag_node = None
             self.drag_started = False
+            self._drag_payload_keys = []
             self._clear_drop_indicator()
 
     def _get_payload(self, args):
@@ -197,7 +205,7 @@ class PublicationTreeDragDrop(object):
             pass
         return None
 
-    def _target_mode(self, payload, target):
+    def _target_mode(self, payload, target, args=None):
         tag = getattr(target, "Tag", None)
         if not tag or len(tag) < 2:
             return None
@@ -207,7 +215,16 @@ class PublicationTreeDragDrop(object):
             ids = [x.split(":", 1)[1] for x in keys if ":" in x]
             if tag[0] == "CARNET" and str(tag[1].id) in [str(x) for x in ids]:
                 return None
-            return "FOLDER" if tag[0] == "FOLDER" else "BEFORE"
+            if tag[0] == "FOLDER":
+                return "FOLDER"
+            if args is not None:
+                try:
+                    point = args.GetPosition(target)
+                    if point.Y > (target.ActualHeight / 2.0):
+                        return "AFTER"
+                except Exception:
+                    pass
+            return "BEFORE"
         if kind == "SHEET" and tag[0] in ("SHEET", "CARNET"):
             if tag[0] == "CARNET":
                 return "APPEND" if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[1].id) for x in keys) else None
@@ -226,6 +243,8 @@ class PublicationTreeDragDrop(object):
         node.BorderBrush = self.DROP_BRUSH
         if mode == "BEFORE":
             node.BorderThickness = Thickness(0, 2, 0, 0)
+        elif mode == "AFTER":
+            node.BorderThickness = Thickness(0, 0, 0, 2)
         else:
             node.BorderThickness = Thickness(2, 2, 2, 2)
             node.Background = self.DROP_BACKGROUND
@@ -242,10 +261,26 @@ class PublicationTreeDragDrop(object):
         self.drop_mode = None
         self._refresh_visual_selection()
 
+    def _expanded_folder_ids(self):
+        result = set()
+        for node in self._all_tree_items():
+            tag = getattr(node, "Tag", None)
+            if tag and tag[0] == "FOLDER" and getattr(node, "IsExpanded", False):
+                result.add(str(tag[1].id))
+        return result
+
+    def _restore_expanded_folder_ids(self, ids):
+        if not ids:
+            return
+        for node in self._all_tree_items():
+            tag = getattr(node, "Tag", None)
+            if tag and tag[0] == "FOLDER" and str(tag[1].id) in ids:
+                node.IsExpanded = True
+
     def _drag_over(self, sender, args):
         target = self._tree_item_from_source(args.OriginalSource)
         payload = self._get_payload(args)
-        mode = self._target_mode(payload, target) if target is not None and payload is not None else None
+        mode = self._target_mode(payload, target, args) if target is not None and payload is not None else None
         if mode is None:
             self._clear_drop_indicator()
             args.Effects = DragDropEffects.None
@@ -257,21 +292,40 @@ class PublicationTreeDragDrop(object):
     def _drag_leave(self, sender, args):
         self._clear_drop_indicator()
 
+    def _next_carnet_id(self, target):
+        parent = getattr(target, "Parent", None)
+        if parent is None:
+            return None
+        children = list(parent.Items)
+        try:
+            index = children.index(target)
+        except ValueError:
+            return None
+        for child in children[index + 1:]:
+            tag = getattr(child, "Tag", None)
+            if tag and tag[0] == "CARNET":
+                return tag[1].id
+        return None
+
     def _drop(self, sender, args):
         target = self._tree_item_from_source(args.OriginalSource)
         payload = self._get_payload(args)
-        mode = self._target_mode(payload, target) if target is not None and payload is not None else None
+        mode = self._target_mode(payload, target, args) if target is not None and payload is not None else None
         if mode is None:
             self._clear_drop_indicator()
             args.Handled = True
             return
+        expanded_folders = self._expanded_folder_ids()
         try:
             if payload["kind"] == "CARNET":
                 ids = [x.split(":", 1)[1] for x in payload["items"]]
                 if target.Tag[0] == "FOLDER":
                     moved = self.window.controller.move_persistent_many(ids, target.Tag[1].id, None)
                 else:
-                    moved = self.window.controller.move_persistent_many(ids, target.Tag[1].folder_id, target.Tag[1].id)
+                    before_id = target.Tag[1].id
+                    if mode == "AFTER":
+                        before_id = self._next_carnet_id(target)
+                    moved = self.window.controller.move_persistent_many(ids, target.Tag[1].folder_id, before_id)
             else:
                 moved = self._move_sheets(payload, target)
             if moved:
@@ -281,6 +335,7 @@ class PublicationTreeDragDrop(object):
                 self.window._selected_kind = None
                 self.window._selected_folder = None
                 self.window._refresh_tree()
+                self._restore_expanded_folder_ids(expanded_folders)
                 self.window._update_selection_info()
         except Exception as exc:
             try:
