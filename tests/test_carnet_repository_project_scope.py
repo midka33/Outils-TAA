@@ -45,11 +45,29 @@ def test_repository_rejects_storage_from_another_project(tmpdir):
 
     repository = CarnetRepository(path, project_identity="EMBEDDED:project-b")
 
-    try:
-        repository.list_folders()
-        assert False, "Un stockage d'un autre projet ne doit jamais être chargé."
-    except ValueError as exc:
-        assert "ne correspond pas au projet Revit courant" in str(exc)
+    folders = repository.list_folders()
+
+    assert len(folders) == 1
+    assert folders[0].id == "default"
+    assert folders[0].name == "Général"
+
+
+def test_repository_rejects_legacy_unscoped_storage(tmpdir):
+    path = str(tmpdir.join("project.json"))
+    with open(path, "w") as handle:
+        json.dump({
+            "schema_version": 4,
+            "folders": [{"id": "default", "name": "DCE", "parent_id": None, "persistent": True}],
+            "sets": []
+        }, handle)
+
+    repository = CarnetRepository(path, project_identity="EMBEDDED:project-new")
+
+    folders = repository.list_folders()
+
+    assert len(folders) == 1
+    assert folders[0].id == "default"
+    assert folders[0].name == "Général"
 
 
 def test_repository_persists_current_project_identity(tmpdir):
