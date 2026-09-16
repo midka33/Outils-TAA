@@ -199,6 +199,18 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 
 **Anti-régression** : ouvrir Export dans Revit 2025.4 sans créer de dossier supplémentaire, cliquer sur `Général`, puis cliquer successivement sur chaque dossier créé. Vérifier qu'aucune `NameError`, `UnboundNameException` ou fermeture de Revit ne se produit. Tester ensuite la sélection d'un carnet et d'une mise en page.
 
+### BUG-EXPORT-019 — Sélection multiple et déplacement relatif incomplets dans l'arborescence
+
+**Symptôme** : lors de la première validation du réordonnancement, la sélection multiple et le déplacement relatif vers le bas n'étaient pas fiables : plusieurs éléments ne pouvaient pas toujours être déplacés ensemble et un élément unique pouvait être déplacé au-dessus d'une cible mais pas en dessous. Le maintien de l'état ouvert du parent était en revanche attendu après déplacement.
+
+**Cause** : la gestion de la sélection WPF reposait sur un état insuffisamment fiable sous IronPython, et la détermination de la zone de dépôt ne couvrait pas correctement le cas `AFTER` pour tous les éléments de l'arborescence.
+
+**Correction** : fiabilisation de la sélection `Ctrl` / `Maj`, ajout d'un calcul explicite des zones `BEFORE` / `AFTER` / `INSIDE` pour les dossiers et du positionnement relatif pour carnets et mises en page. L'état des dossiers et carnets ouverts est capturé avant le déplacement puis restauré après rafraîchissement de l'arborescence.
+
+**Règle** : toute fonction de réordonnancement WPF doit traiter explicitement les trois opérations `BEFORE`, `AFTER` et `INSIDE` lorsque le type de nœud le permet, et la sélection multiple doit être gérée indépendamment de la sélection native du `TreeView`.
+
+**Anti-régression** : avec trois éléments `A / B / C`, vérifier le déplacement de `A` sous `B`, de `C` sous `A`, et, pour les dossiers, de `B` dans `A`. Sélectionner plusieurs carnets, mises en page puis dossiers avec `Ctrl`, les déplacer ensemble et vérifier la persistance de l'ordre après fermeture/réouverture. Vérifier également qu'un parent initialement développé reste développé après le déplacement.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -220,6 +232,7 @@ BUG-EXPORT-015
 BUG-EXPORT-016
 BUG-EXPORT-017
 BUG-EXPORT-018
+BUG-EXPORT-019
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
@@ -228,24 +241,3 @@ BUG-TEST-001
 ```
 
 ## 5. Règle obligatoire avant toute modification et tout commit
-
-Avant de créer ou modifier du code, et impérativement avant chaque commit contenant une modification ou une création de code, le développeur doit consulter ce registre et vérifier que les règles préventives applicables sont respectées.
-
-Tout nouveau bug significatif doit être ajouté au registre avec :
-
-- symptôme ;
-- cause racine ;
-- correction ;
-- règle préventive ;
-- scénario de test anti-régression.
-
-### Règles transversales minimales
-
-1. **WPF/XAML :** vérifier les propriétés attachées et le comportement réel dans Revit.
-2. **Imports Python :** éviter les collisions de noms après modification de `sys.path`.
-3. **.NET :** utiliser les membres réels des API .NET/WPF.
-4. **Données Revit persistantes :** privilégier `UniqueId` pour les références durables et résoudre l'`ElementId` courant.
-5. **Encodage :** tous les `.py` pyRevit sont UTF-8 avec déclaration d'encodage.
-6. **Énumérations Revit :** utiliser explicitement les membres des enums .NET plutôt que leurs valeurs numériques.
-7. **API réelle :** vérifier les propriétés et méthodes contre la version Revit cible.
-8. **Régression :** chaque bug corrigé doit avoir un scénario de test reproductible.
