@@ -43,10 +43,13 @@ def _folder_targets(window, folder):
     return result
 
 
-# Compatibilite avec publication_preview_integration.py : cette fonction est
-# appelee comme symbole global par les handlers injectes dans ExportWindow.
+# publication_preview_integration importe ce modèle avant d'installer ses
+# handlers. On expose explicitement le helper dans son espace global afin
+# d'éviter toute dépendance au namespace builtins d'IronPython.
 try:
-    import __builtin__ as _builtins
-except ImportError:
-    import builtins as _builtins
-_builtins._folder_targets = _folder_targets
+    import sys
+    _integration = sys.modules.get("publication_preview_integration")
+    if _integration is not None:
+        _integration._folder_targets = _folder_targets
+except Exception:
+    pass
