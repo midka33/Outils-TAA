@@ -99,6 +99,51 @@ class PublicationService(object):
                                                folder_name=self._folder_name(publication_set),
                                                extension=extension)
 
+    @staticmethod
+    def _revit_exception_message(exc):
+        """Retourne le message réellement fourni par l'API .NET/Revit."""
+        try:
+            message = getattr(exc, "Message", None)
+            if message:
+                return str(message)
+        except Exception:
+            pass
+        try:
+            inner = getattr(exc, "InnerException", None)
+            if inner is not None:
+                message = getattr(inner, "Message", None)
+                if message:
+                    return str(message)
+        except Exception:
+            pass
+        return str(exc) or repr(exc)
+
+    def _record_dwg_error(self, errors, context, exc):
+        message = self._revit_exception_message(exc)
+        errors.append("DWG — {} — erreur Revit : {}".format(context, message))
+
+    def _export_dwg(self, view_ids, output_directory, filename, setup_name,
+                    merged_views, true_color, errors, context):
+        """Exécute Revit.Export et conserve son diagnostic exact en cas d'exception."""
+        try:
+            success = self.dwg_service.export(
+                view_ids,
+                output_directory,
+                filename,
+                setup_name,
+                merged_views=merged_views,
+                true_color=true_color
+            )
+            if not success:
+                errors.append(
+                    "DWG — {} — Revit a retourné False sans message d'erreur supplémentaire."
+                    .format(context)
+                )
+            return bool(success)
+        except Exception as exc:
+            self._record_dwg_error(errors, context, exc)
+            return False
+
     def _publish_items(self, publication_set, items, output_directory,
                        export_pdf=True, export_dwg=False, pdf_combined=True,
                        dwg_combined=False, dwg_setup_name=None, dwg_true_color=True):
@@ -107,6 +152,7 @@ class PublicationService(object):
             return {"success": True, "results": [], "errors": [], "warnings": [], "files": []}
         output_directory = self._prepare_output_directory(output_directory)
         warnings = []
+        errors = []
         results = []
         files = []
         view_ids = self._current_view_ids(publication_set, items)
@@ -140,11 +186,19 @@ class PublicationService(object):
                 filename, unknown = self._filename(publication_set, None, ".dwg")
                 if unknown:
                     warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
-                success = self.dwg_service.export(view_ids, output_directory,
-                                                   os.path.splitext(filename)[0], dwg_setup_name,
-                                                   merged_views=True, true_color=dwg_true_color)
                 path = os.path.join(output_directory, filename)
-                files.append(path)
+                success = self._export_dwg(
+                    view_ids,
+                    output_directory,
+                    os.path.splitext(filename)[0],
+                    dwg_setup_name,
+                    merged_views=True,
+                    true_color=dwg_true_color,
+                    errors=errors,
+                    context="carnet '{}' (combiné)".format(publication_set.name)
+                )
+                if success:
+                    files.append(path)
                 results.append({"success": bool(success), "format": "DWG", "mode": "combined",
                                 "count": len(items), "path": path})
             else:
@@ -154,17 +208,30 @@ class PublicationService(object):
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    success = self.dwg_service.export([current_id], output_directory,
-                                                      os.path.splitext(filename)[0], dwg_setup_name,
-                                                      merged_views=False, true_color=dwg_true_color)
                     path = os.path.join(output_directory, filename)
-                    files.append(path)
+                    success = self._export_dwg(
+                        [current_id],
+                        output_directory,
+                        os.path.splitext(filename)[0],
+                        dwg_setup_name,
+                        merged_views=False,
+                        true_color=dwg_true_color,
+                        errors=errors,
+                        context="feuille '{}' — {}".format(
+                            item.sheet_number or "sans numéro",
+                            item.sheet_name or "sans nom"
+                        )
+                    )
+                    if success:
+                        files.append(path)
                     results.append({"success": bool(success), "format": "DWG", "mode": "separate",
                                     "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
 
+        if any(not r.get("success") for r in results) and not errors:
+            errors.append("Revit a signalé un échec pendant l'export.")
+
         return {"success": all(r.get("success", False) for r in results) if results else True,
-                "results": results, "errors": ["Revit a signalé un échec pendant l'export."]
-                if any(not r.get("success") for r in results) else [],
+                "results": results, "errors": errors,
                 "warnings": warnings, "files": files}
 
     def publish_pdf(self, publication_set, output_directory, combined=True, items=None):
