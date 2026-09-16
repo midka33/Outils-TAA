@@ -187,6 +187,18 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle** : une configuration Export persistante doit être isolée par une identité documentaire propre, persistante et embarquée dans le fichier Revit ; les dossiers ne doivent jamais être considérés comme des données globales à l'utilisateur.  
 **Anti-régression** : créer un projet A, créer des dossiers/carnets, fermer Revit, créer un nouveau projet B sans l'enregistrer et ouvrir Export : seul `Général` doit apparaître. Redémarrer Revit et refaire le test. Puis enregistrer A, rouvrir A et vérifier que ses dossiers/carnets sont restaurés.
 
+### BUG-EXPORT-018 — `_folder_targets` non disponible lors de la sélection d'un dossier
+
+**Symptôme** : même sans créer de dossier, un clic sur `Général` provoquait une erreur IronPython `NameError: global name '_folder_targets' is not defined` dans `publication_preview_integration.py`, depuis `selection_changed_with_folder_action()` puis `update_selection_info()`.
+
+**Cause** : le helper `_folder_targets` était défini dans `publication_folder.py` mais utilisé comme une globale du module `publication_preview_integration.py` sans import explicite. Une première tentative de correction reposait sur une injection dynamique via `sys.modules`, dépendante de l'identité et de l'ordre de chargement du module sous IronPython, ce qui n'est pas un contrat fiable.
+
+**Correction** : import explicite du helper dans `publication_preview_integration.py` : `from publication_folder import PublicationFolder, _folder_targets`. Suppression de l'injection dynamique depuis `publication_folder.py`.
+
+**Règle** : une fonction utilisée comme globale d'un module doit être importée ou définie explicitement dans ce module. Ne pas utiliser `sys.modules`, `builtins` ou des injections de namespace comme mécanisme normal de dépendance entre modules pyRevit/IronPython.
+
+**Anti-régression** : ouvrir Export dans Revit 2025.4 sans créer de dossier supplémentaire, cliquer sur `Général`, puis cliquer successivement sur chaque dossier créé. Vérifier qu'aucune `NameError`, `UnboundNameException` ou fermeture de Revit ne se produit. Tester ensuite la sélection d'un carnet et d'une mise en page.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -207,6 +219,7 @@ BUG-EXPORT-014
 BUG-EXPORT-015
 BUG-EXPORT-016
 BUG-EXPORT-017
+BUG-EXPORT-018
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
