@@ -30,14 +30,18 @@ class CarnetRepository(object):
         if "folders" not in data:
             data["folders"] = [{"id": self.DEFAULT_FOLDER_ID,
                                 "name": self.DEFAULT_FOLDER_NAME,
-                                "parent_id": None, "persistent": True}]
+                                "parent_id": None, "persistent": True,
+                                "sort_order": 0}]
             for index, value in enumerate(data.get("sets", [])):
                 value.setdefault("folder_id", self.DEFAULT_FOLDER_ID)
                 value.setdefault("sort_order", index)
         elif not data["folders"]:
             data["folders"].append({"id": self.DEFAULT_FOLDER_ID,
                                     "name": self.DEFAULT_FOLDER_NAME,
-                                    "parent_id": None, "persistent": True})
+                                    "parent_id": None, "persistent": True,
+                                    "sort_order": 0})
+        for index, value in enumerate(data.get("folders", [])):
+            value.setdefault("sort_order", index)
         for index, value in enumerate(data.get("sets", [])):
             value.setdefault("folder_id", self.DEFAULT_FOLDER_ID)
             value.setdefault("sort_order", index)
@@ -51,7 +55,9 @@ class CarnetRepository(object):
         return [self._from_dict(value) for value in values]
 
     def list_folders(self):
-        return [self._folder_from_dict(value) for value in self._read().get("folders", [])]
+        values = self._read().get("folders", [])
+        values = sorted(values, key=lambda v: (v.get("parent_id") or "", v.get("sort_order", 0)))
+        return [self._folder_from_dict(value) for value in values]
 
     def get(self, set_id):
         if not set_id:
@@ -136,6 +142,59 @@ class CarnetRepository(object):
         self._write(data)
         return True
 
+    def move_folders(self, folder_ids, parent_id=None, before_folder_id=None):
+        folder_ids = list(folder_ids or [])
+        if not folder_ids:
+            return False
+        data = self._ensure_structure(self._read())
+        folders = data.get("folders", [])
+        folder_map = dict((value.get("id"), value) for value in folders)
+        if parent_id is not None and parent_id not in folder_map:
+            return False
+        moving_ids = set(folder_ids)
+        if self.DEFAULT_FOLDER_ID in moving_ids:
+            return False
+        moving = [value for value in folders if value.get("id") in moving_ids]
+        if len(moving) != len(moving_ids):
+            return False
+        if before_folder_id and before_folder_id in moving_ids:
+            return False
+        for value in moving:
+            source_id = value.get("id")
+            current = parent_id
+            visited = set()
+            while current is not None and current not in visited:
+                if current == source_id:
+                    return False
+                visited.add(current)
+                current = folder_map.get(current, {}).get("parent_id")
+        moving.sort(key=lambda value: (value.get("parent_id") or "", value.get("sort_order", 0)))
+        remaining = [value for value in folders if value.get("id") not in moving_ids]
+        for value in moving:
+            value["parent_id"] = parent_id
+        destination = [value for value in remaining if value.get("parent_id") == parent_id]
+        insert_at = len(destination)
+        if before_folder_id:
+            for index, value in enumerate(destination):
+                if value.get("id") == before_folder_id:
+                    insert_at = index
+                    break
+        destination[insert_at:insert_at] = moving
+        for index, value in enumerate(destination):
+            value["sort_order"] = index
+        parent_ids = set(value.get("parent_id") for value in folders)
+        parent_ids.add(parent_id)
+        for sibling_parent in parent_ids:
+            siblings = [value for value in remaining if value.get("parent_id") == sibling_parent]
+            if sibling_parent == parent_id:
+                continue
+            siblings.sort(key=lambda value: value.get("sort_order", 0))
+            for index, value in enumerate(siblings):
+                value["sort_order"] = index
+        data["folders"] = remaining + [value for value in destination if value not in remaining]
+        self._write(data)
+        return True
+
     def save_folder(self, folder):
         if folder is None or not folder.id:
             raise ValueError("Le dossier doit posséder un identifiant.")
@@ -148,6 +207,10 @@ class CarnetRepository(object):
                 folders[index] = serialized
                 break
         else:
+            siblings = [value.get("sort_order", 0) for value in folders
+                        if value.get("parent_id") == folder.parent_id]
+            folder.sort_order = (max(siblings) + 1) if siblings else 0
+            serialized = self._folder_to_dict(folder)
             folders.append(serialized)
         data["folders"] = folders
         self._write(data)
@@ -186,7 +249,8 @@ class CarnetRepository(object):
                     "project_identity": self.project_identity,
                     "folders": [{"id": self.DEFAULT_FOLDER_ID,
                                   "name": self.DEFAULT_FOLDER_NAME,
-                                  "parent_id": None, "persistent": True}],
+                                  "parent_id": None, "persistent": True,
+                                  "sort_order": 0}],
                     "sets": []}
         with open(self.storage_path, "r") as handle:
             data = json.load(handle)
@@ -194,14 +258,12 @@ class CarnetRepository(object):
             raise ValueError("Le fichier de carnets est invalide.")
         data.setdefault("sets", [])
         if self.project_identity and data.get("project_identity") != self.project_identity:
-            # Un ancien fichier sans identité ou un fichier d'un autre projet
-            # est volontairement considéré comme non fiable : il ne doit jamais
-            # être adopté par le projet courant.
             return {"schema_version": self.SCHEMA_VERSION,
                     "project_identity": self.project_identity,
                     "folders": [{"id": self.DEFAULT_FOLDER_ID,
                                   "name": self.DEFAULT_FOLDER_NAME,
-                                  "parent_id": None, "persistent": True}],
+                                  "parent_id": None, "persistent": True,
+                                  "sort_order": 0}],
                     "sets": []}
         return self._ensure_structure(data)
 
@@ -218,7 +280,8 @@ class CarnetRepository(object):
 
     @staticmethod
     def _folder_to_dict(folder):
-        return {"id": folder.id, "name": folder.name, "parent_id": folder.parent_id, "persistent": True,
+        return {"id": folder.id, "name": folder.name, "parent_id": folder.parent_id,
+                "persistent": True, "sort_order": getattr(folder, "sort_order", 0),
                 "publication_settings": (folder.publication_settings.to_dict() if folder.publication_settings else None)}
 
     @staticmethod
@@ -260,4 +323,5 @@ class CarnetRepository(object):
     @staticmethod
     def _folder_from_dict(value):
         return PublicationFolder(value.get("name", ""), value.get("id"), value.get("parent_id"), True,
-                                 PublicationSettings.from_dict(value.get("publication_settings")))
+                                 PublicationSettings.from_dict(value.get("publication_settings")),
+                                 value.get("sort_order", 0))
