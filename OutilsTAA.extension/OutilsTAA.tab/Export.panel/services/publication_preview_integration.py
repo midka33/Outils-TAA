@@ -15,7 +15,7 @@ from carnet_manager_window import CarnetManagerWindow
 from publication_tree_drag_drop import PublicationTreeDragDrop
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
-from publication_folder import PublicationFolder
+from publication_folder import PublicationFolder, _folder_targets
 
 
 def install_preview_on_export_window(export_window_class):
