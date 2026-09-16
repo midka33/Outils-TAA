@@ -296,6 +296,24 @@ class PublicationTreeDragDrop(object):
     def _drag_leave(self, sender, args):
         self._clear_drop_indicator()
 
+    def _expanded_carnet_ids(self):
+        result = []
+        for node in self._persistent_nodes("CARNET"):
+            if getattr(node, "IsExpanded", False):
+                tag = getattr(node, "Tag", None)
+                if tag and len(tag) >= 2 and getattr(tag[1], "id", None):
+                    result.append(str(tag[1].id))
+        return result
+
+    def _restore_expanded_carnets(self, carnet_ids):
+        wanted = set(str(value) for value in carnet_ids or [])
+        if not wanted:
+            return
+        for node in self._persistent_nodes("CARNET"):
+            tag = getattr(node, "Tag", None)
+            if tag and len(tag) >= 2 and str(getattr(tag[1], "id", "")) in wanted:
+                node.IsExpanded = True
+
     def _drop(self, sender, args):
         target = self._tree_item_from_source(args.OriginalSource)
         payload = self._get_payload(args)
@@ -305,6 +323,7 @@ class PublicationTreeDragDrop(object):
             args.Handled = True
             return
         try:
+            expanded_carnet_ids = self._expanded_carnet_ids()
             if payload["kind"] == "FOLDER":
                 moved = self._move_folder(payload, target)
             elif payload["kind"] == "CARNET":
@@ -322,6 +341,7 @@ class PublicationTreeDragDrop(object):
                 self.window._selected_kind = None
                 self.window._selected_folder = None
                 self.window._refresh_tree()
+                self._restore_expanded_carnets(expanded_carnet_ids)
                 self.window._update_selection_info()
         except Exception as exc:
             try:
