@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Glisser-déposer des carnets et mises en page dans l'arborescence Export."""
+"""Glisser-déposer des dossiers, carnets et mises en page dans l'arborescence Export."""
 
 import json
 
@@ -72,6 +72,12 @@ class PublicationTreeDragDrop(object):
                 value = tag[1]
                 if getattr(value, "persistent", False) and getattr(value, "id", None):
                     result.append(node)
+            elif kind == "FOLDER":
+                value = tag[1]
+                if (getattr(value, "persistent", False)
+                        and getattr(value, "id", None)
+                        and str(value.id) != "default"):
+                    result.append(node)
             else:
                 item = tag[1]
                 carnet = tag[2]
@@ -80,13 +86,15 @@ class PublicationTreeDragDrop(object):
         return result
 
     def _selection_key(self, tag):
+        if tag[0] == "FOLDER":
+            return "FOLDER:" + str(tag[1].id)
         if tag[0] == "CARNET":
             return "CARNET:" + str(tag[1].id)
         return "SHEET:" + str(tag[2].id) + ":" + str(tag[1].unique_id)
 
     def _refresh_visual_selection(self):
         selected = set(self.selected)
-        for kind in ("CARNET", "SHEET"):
+        for kind in ("FOLDER", "CARNET", "SHEET"):
             for node in self._persistent_nodes(kind):
                 if self._selection_key(node.Tag) in selected:
                     node.Background = self.SELECTED_BRUSH
@@ -104,16 +112,21 @@ class PublicationTreeDragDrop(object):
 
     def _selection_from_node(self, node):
         tag = getattr(node, "Tag", None)
-        if not tag or tag[0] not in ("CARNET", "SHEET"):
+        if not tag or tag[0] not in ("FOLDER", "CARNET", "SHEET"):
             return None
-        if tag[0] == "CARNET" and not getattr(tag[1], "persistent", False):
+        if tag[0] == "FOLDER":
+            if not getattr(tag[1], "persistent", False) or str(getattr(tag[1], "id", "")) == "default":
+                return None
+        elif tag[0] == "CARNET" and not getattr(tag[1], "persistent", False):
             return None
-        if tag[0] == "SHEET" and not getattr(tag[2], "persistent", False):
+        elif tag[0] == "SHEET" and not getattr(tag[2], "persistent", False):
             return None
         return self._selection_key(tag)
 
     def _ordered_keys(self, node):
         tag = node.Tag
+        if tag[0] == "FOLDER":
+            return [self._selection_key(n.Tag) for n in self._persistent_nodes("FOLDER")]
         if tag[0] == "CARNET":
             return [self._selection_key(n.Tag) for n in self._persistent_nodes("CARNET")]
         parent = getattr(node, "Parent", None)
@@ -136,7 +149,7 @@ class PublicationTreeDragDrop(object):
             return
         ctrl = Keyboard.IsKeyDown(Key.LeftCtrl) or Keyboard.IsKeyDown(Key.RightCtrl)
         shift = Keyboard.IsKeyDown(Key.LeftShift) or Keyboard.IsKeyDown(Key.RightShift)
-        if shift and self.selected:
+        if shift and self.selected and not key.startswith("FOLDER:"):
             ordered = self._ordered_keys(node)
             try:
                 a = ordered.index(self.selected[-1])
@@ -145,7 +158,7 @@ class PublicationTreeDragDrop(object):
             except ValueError:
                 self._set_selection([key])
             args.Handled = True
-        elif ctrl:
+        elif ctrl and not key.startswith("FOLDER:"):
             keys = list(self.selected)
             if key in keys:
                 keys.remove(key)
@@ -166,7 +179,9 @@ class PublicationTreeDragDrop(object):
         except Exception:
             pass
         tag = getattr(self.drag_node, "Tag", None)
-        if not tag or tag[0] not in ("CARNET", "SHEET"):
+        if not tag or tag[0] not in ("FOLDER", "CARNET", "SHEET"):
+            return
+        if tag[0] == "FOLDER" and (not getattr(tag[1], "persistent", False) or str(getattr(tag[1], "id", "")) == "default"):
             return
         if tag[0] == "CARNET" and not getattr(tag[1], "persistent", False):
             return
@@ -197,12 +212,36 @@ class PublicationTreeDragDrop(object):
             pass
         return None
 
+    def _folder_is_descendant(self, folder_id, potential_parent_id):
+        current_id = potential_parent_id
+        visited = set()
+        while current_id and current_id not in visited:
+            if str(current_id) == str(folder_id):
+                return True
+            visited.add(str(current_id))
+            folder = self.window._folders_by_id.get(current_id)
+            if folder is None:
+                return False
+            current_id = getattr(folder, "parent_id", None)
+        return False
+
     def _target_mode(self, payload, target):
         tag = getattr(target, "Tag", None)
         if not tag or len(tag) < 2:
             return None
         kind = payload.get("kind")
         keys = payload.get("items", [])
+        if kind == "FOLDER" and tag[0] == "FOLDER":
+            ids = [x.split(":", 1)[1] for x in keys if ":" in x]
+            if len(ids) != 1:
+                return None
+            source_id = ids[0]
+            target_id = str(tag[1].id)
+            if source_id == target_id or source_id == "default" or target_id == "default":
+                return None
+            if self._folder_is_descendant(source_id, target_id):
+                return None
+            return "FOLDER"
         if kind == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
             ids = [x.split(":", 1)[1] for x in keys if ":" in x]
             if tag[0] == "CARNET" and str(tag[1].id) in [str(x) for x in ids]:
@@ -266,7 +305,9 @@ class PublicationTreeDragDrop(object):
             args.Handled = True
             return
         try:
-            if payload["kind"] == "CARNET":
+            if payload["kind"] == "FOLDER":
+                moved = self._move_folder(payload, target)
+            elif payload["kind"] == "CARNET":
                 ids = [x.split(":", 1)[1] for x in payload["items"]]
                 if target.Tag[0] == "FOLDER":
                     moved = self.window.controller.move_persistent_many(ids, target.Tag[1].id, None)
@@ -291,6 +332,28 @@ class PublicationTreeDragDrop(object):
         finally:
             self._clear_drop_indicator()
         args.Handled = True
+
+    def _move_folder(self, payload, target):
+        keys = payload.get("items", [])
+        if len(keys) != 1 or target.Tag[0] != "FOLDER":
+            return False
+        parts = keys[0].split(":", 1)
+        if len(parts) != 2:
+            return False
+        source_id = parts[1]
+        source = self.window._folders_by_id.get(source_id)
+        destination = target.Tag[1]
+        if source is None or destination is None:
+            return False
+        if str(source.id) == "default" or str(destination.id) == "default":
+            return False
+        if self._folder_is_descendant(source.id, destination.id):
+            return False
+        if str(source.parent_id) == str(destination.id):
+            return False
+        source.parent_id = destination.id
+        self.window.controller.save_folder(source)
+        return True
 
     def _move_sheets(self, payload, target):
         keys = payload.get("items", [])
