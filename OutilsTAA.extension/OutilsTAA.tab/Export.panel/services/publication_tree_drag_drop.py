@@ -6,7 +6,7 @@ import json
 from System.Windows import DragDrop, DragDropEffects, DataObject, SystemParameters, Thickness
 from System.Windows.Controls import TreeViewItem
 from System.Windows.Input import MouseButtonState, Keyboard, Key
-from System.Windows.Media import VisualTreeHelper, SolidColorBrush, Color
+from System.Windows.Media import SolidColorBrush, Color
 
 
 class PublicationTreeDragDrop(object):
@@ -33,33 +33,47 @@ class PublicationTreeDragDrop(object):
         tree.Drop += self._drop
 
     def _tree_item_from_source(self, source):
+        """Remonte uniquement la hiérarchie logique WPF, sans parcourir le visual tree."""
         current = source
+        visited = set()
         while current is not None:
             if isinstance(current, TreeViewItem):
                 return current
+            marker = id(current)
+            if marker in visited:
+                return None
+            visited.add(marker)
             try:
-                current = VisualTreeHelper.GetParent(current)
+                current = getattr(current, "Parent", None)
             except Exception:
                 return None
+            if current is None:
+                try:
+                    current = getattr(source, "TemplatedParent", None)
+                except Exception:
+                    return None
         return None
 
     def _all_tree_items(self):
+        """Parcourt les éléments logiques du TreeView, sans VisualTreeHelper."""
         result = []
-        self._collect_tree_items(self.window.PublicationTree, result)
+        try:
+            roots = list(self.window.PublicationTree.Items)
+        except Exception:
+            return result
+        for root in roots:
+            self._collect_tree_items(root, result)
         return result
 
-    def _collect_tree_items(self, parent, result):
+    def _collect_tree_items(self, node, result):
+        if not isinstance(node, TreeViewItem):
+            return
+        result.append(node)
         try:
-            count = VisualTreeHelper.GetChildrenCount(parent)
+            children = list(node.Items)
         except Exception:
             return
-        for index in range(count):
-            try:
-                child = VisualTreeHelper.GetChild(parent, index)
-            except Exception:
-                continue
-            if isinstance(child, TreeViewItem):
-                result.append(child)
+        for child in children:
             self._collect_tree_items(child, result)
 
     def _persistent_nodes(self, kind):
