@@ -22,6 +22,7 @@ def install_preview_on_export_window(export_window_class):
     """Installe l'aperçu, la publication de dossier et les handlers WPF."""
     original_selection_changed = getattr(export_window_class, "Tree_SelectedItemChanged", None)
     original_init = export_window_class.__init__
+    original_refresh_tree = getattr(export_window_class, "_refresh_tree", None)
 
     def init_with_tree_features(self, controller, repository):
         original_init(self, controller, repository)
@@ -36,6 +37,40 @@ def install_preview_on_export_window(export_window_class):
             count = len(_folder_targets(self, self._selected_folder))
             self.PublishButton.Content = "Publier le dossier « {0} »".format(self._selected_folder.name)
             self.PublishButton.IsEnabled = count > 0
+
+    def refresh_tree_preserving_expansion(self):
+        """Rafraîchit l'arbre sans refermer les dossiers/carnets déjà ouverts."""
+        expanded_ids = set()
+        try:
+            def collect(items):
+                for node in items:
+                    tag = getattr(node, "Tag", None)
+                    if tag and tag[0] in ("FOLDER", "CARNET") and getattr(node, "IsExpanded", False):
+                        value = tag[1]
+                        node_id = getattr(value, "id", None)
+                        if node_id:
+                            expanded_ids.add((tag[0], node_id))
+                    collect(getattr(node, "Items", []))
+            collect(self.PublicationTree.Items)
+        except Exception:
+            expanded_ids = set()
+
+        if original_refresh_tree is not None:
+            original_refresh_tree(self)
+
+        try:
+            def restore(items):
+                for node in items:
+                    tag = getattr(node, "Tag", None)
+                    if tag and tag[0] in ("FOLDER", "CARNET"):
+                        value = tag[1]
+                        node_id = getattr(value, "id", None)
+                        if (tag[0], node_id) in expanded_ids:
+                            node.IsExpanded = True
+                    restore(getattr(node, "Items", []))
+            restore(self.PublicationTree.Items)
+        except Exception:
+            pass
 
     def publish_click_with_preview(self, sender, args):
         if self._selected_kind == "SHEET" and self._selected_item is not None:
@@ -173,13 +208,95 @@ def install_preview_on_export_window(export_window_class):
         publication_set.folder_name = self._folder_name_compat(publication_set)
 
     def profile_changed(self, sender, args):
-        return self.Profile_SelectionChanged(sender, args)
+        """Applique un profil sans appeler un handler inexistant."""
+        if self._loading_profile or self._loading_settings:
+            return
+        name = self.ProfileCombo.SelectedItem
+        if not name:
+            return
+        if self._selected_kind not in ("CARNET", "SHEET") or self._selected_set is None:
+            self.ProfileInfoText.Text = "Sélectionnez un carnet ou une mise en page pour appliquer un profil."
+            return
+        values = self.profile_service.get(str(name))
+        if not values:
+            return
+        try:
+            self._loading_profile = True
+            self._apply_profile_values(values)
+            if self._selected_set.persistent:
+                self.controller.save_persistent(self._selected_set)
+            self.ProfileInfoText.Text = "Profil « {0} » appliqué au carnet.".format(name)
+            self._load_selected_settings()
+        except Exception as exc:
+            self.ProfileInfoText.Text = "Impossible d'appliquer le profil : {0}".format(exc)
+        finally:
+            self._loading_profile = False
+
+    def save_profile_click(self, sender, args):
+        if self._selected_kind not in ("FOLDER", "CARNET", "SHEET"):
+            forms.alert("Sélectionnez un dossier, un carnet ou une mise en page avant d'enregistrer un profil.", title="Profil")
+            return
+        name = forms.ask_for_string(default="Nouveau profil", prompt="Nom du profil", title="Export")
+        if not name or not name.strip():
+            return
+        try:
+            if self._selected_kind == "FOLDER":
+                source = self._selected_folder.publication_settings or PublicationSettings.defaults()
+            else:
+                source = self._resolve_settings(self._selected_set)
+            self.profile_service.save(name.strip(), source)
+            self._load_profiles()
+            self.ProfileCombo.SelectedItem = name.strip()
+            self.ProfileInfoText.Text = "Profil « {0} » enregistré.".format(name.strip())
+        except Exception as exc:
+            forms.alert("Impossible d'enregistrer le profil : {0}".format(exc), title="Profil")
+
+    def delete_profile_click(self, sender, args):
+        name = self.ProfileCombo.SelectedItem
+        if not name:
+            return
+        if str(name) in self.profile_service.DEFAULT_PROFILES:
+            forms.alert("Les profils intégrés ne peuvent pas être supprimés.", title="Profil")
+            return
+        if not forms.alert("Supprimer le profil « {0} » ?".format(name), title="Profil", yes=True, no=True):
+            return
+        if self.profile_service.delete(str(name)):
+            self._load_profiles()
+            self.ProfileInfoText.Text = "Profil supprimé."
 
     def filename_token_changed(self, sender, args):
         return
 
     def insert_filename_token_click(self, sender, args):
-        return self.FilenameToken_InsertClick(sender, args)
+        token = self.FilenameTokenCombo.SelectedItem
+        if not token:
+            return
+        current = self.FilenameTemplateTextBox.Text or ""
+        self.FilenameTemplateTextBox.Text = current + str(token)
+        self.FilenameTokenCombo.SelectedIndex = -1
+
+    def settings_changed(self, sender, args):
+        if self._loading_settings or self._selected_set is None:
+            return
+        field = None
+        name = getattr(sender, "Name", None)
+        mapping = {
+            "PdfCheckBox": "pdf_enabled",
+            "PdfCombinedRadio": "pdf_mode",
+            "PdfSeparateRadio": "pdf_mode",
+            "DwgCheckBox": "dwg_enabled",
+            "DwgCombinedRadio": "dwg_mode",
+            "DwgSeparateRadio": "dwg_mode",
+            "DwgSetupCombo": "dwg_setup_name",
+            "DwgTrueColorCheckBox": "dwg_true_color",
+            "FilenameTemplateTextBox": "filename_template"
+        }
+        field = mapping.get(name)
+        if field:
+            if self._selected_kind == "FOLDER":
+                self._save_folder_settings(field)
+            else:
+                self._save_selected_field(field)
 
     def modified_only_changed(self, sender, args):
         if self._loading_settings:
@@ -211,6 +328,12 @@ def install_preview_on_export_window(export_window_class):
         export_window_class.DeleteNode_Click = delete_node_click
     if not hasattr(export_window_class, "ProfileChanged"):
         export_window_class.ProfileChanged = profile_changed
+    if not hasattr(export_window_class, "SaveProfile_Click"):
+        export_window_class.SaveProfile_Click = save_profile_click
+    if not hasattr(export_window_class, "DeleteProfile_Click"):
+        export_window_class.DeleteProfile_Click = delete_profile_click
+    if not hasattr(export_window_class, "SettingsChanged"):
+        export_window_class.SettingsChanged = settings_changed
     if not hasattr(export_window_class, "FilenameTokenChanged"):
         export_window_class.FilenameTokenChanged = filename_token_changed
     if not hasattr(export_window_class, "InsertFilenameToken_Click"):
@@ -219,6 +342,7 @@ def install_preview_on_export_window(export_window_class):
         export_window_class.ModifiedOnlyChanged = modified_only_changed
 
     export_window_class.__init__ = init_with_tree_features
+    export_window_class._refresh_tree = refresh_tree_preserving_expansion
     export_window_class.Tree_SelectedItemChanged = selection_changed_with_folder_action
     export_window_class.OpenCarnetManager_Click = manager_click_with_folder
     export_window_class.Publish_Click = publish_click_with_preview
