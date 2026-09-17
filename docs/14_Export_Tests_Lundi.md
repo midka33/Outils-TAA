@@ -351,7 +351,7 @@ Après avoir publié un carnet, modifier une seule feuille et activer `MODIFIED_
 TEST-01 :ok
 TEST-02 :ok
 TEST-03 :ok
-TEST-04 : ok mais les dossier et carnet developper se referme lorsque l'on ajoute une mise en apge ou un carnet
+TEST-04 : ok 
 TEST-05 : ok
 TEST-06 : ok
 TEST-07 : ok
@@ -366,12 +366,11 @@ IronPython Traceback:
 Traceback (most recent call last):
  File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\Export.pushbutton\script.py", line 291, in <module>
  File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\Export.pushbutton\script.py", line 287, in main
- File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\services\publication_preview_integration.py", line 176, in profile_changed
- File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\export_window.py", line 367, in Profile_SelectionChanged
-AttributeError: 'PublicationProfileService' object has no attribute 'get_profile'
+ File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\services\publication_preview_integration.py", line 81, in publish_click_with_preview
+AttributeError: 'ExportWindow' object has no attribute '_set_folder_name_compat'
 
 Script Executor Traceback:
-System.MissingMemberException: 'PublicationProfileService' object has no attribute 'get_profile'
+System.MissingMemberException: 'ExportWindow' object has no attribute '_set_folder_name_compat'
  at IronPython.Runtime.Binding.MetaUserObject.FastGetBinderHelper.<>c__DisplayClass16_0.<FallbackError>b__1(CallSite site, Object self, CodeContext context)
  at IronPython.Runtime.Types.GetMemberDelegates.SlotDict(CallSite site, Object self, CodeContext context)
  at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
@@ -379,22 +378,14 @@ System.MissingMemberException: 'PublicationProfileService' object has no attribu
  at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
  at Microsoft.Scripting.Interpreter.LightLambda.Run4[T0,T1,T2,T3,TRet](T0 arg0, T1 arg1, T2 arg2, T3 arg3)
  at IronPython.Compiler.PythonCallTargets.OriginalCallTarget3(PythonFunction function, Object arg0, Object arg1, Object arg2)
- at IronPython.Runtime.Method.MethodBinding`2.SelfTarget(CallSite site, CodeContext context, Object target, T0 arg0, T1 arg1)
- at System.Dynamic.UpdateDelegates.UpdateAndExecute4[T0,T1,T2,T3,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2, T3 arg3)
- at IronPython.Compiler.Ast.CallExpression.Invoke2Instruction.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.LightLambda.Run4[T0,T1,T2,T3,TRet](T0 arg0, T1 arg1, T2 arg2, T3 arg3)
- at IronPython.Compiler.PythonCallTargets.OriginalCallTarget3(PythonFunction function, Object arg0, Object arg1, Object arg2)
- at CallSite.Target(Closure, CallSite, Object, Object, SelectionChangedEventArgs)
+ at CallSite.Target(Closure, CallSite, Object, Object, RoutedEventArgs)
  at System.Dynamic.UpdateDelegates.UpdateAndExecute3[T0,T1,T2,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2)
- at _Scripting_(Object[], Object, SelectionChangedEventArgs)
- at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
+ at _Scripting_(Object[], Object, RoutedEventArgs)
  at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
  at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)
- at System.Windows.Controls.ComboBox.OnSelectionChanged(SelectionChangedEventArgs e)
- at System.Windows.Controls.Primitives.Selector.SelectionChanger.SelectJustThisItem(ItemInfo info, Boolean assumeInItemsCollection)
- at System.Windows.Controls.ComboBox.NotifyComboBoxItemMouseUp(ComboBoxItem comboBoxItem)
- at System.Windows.Controls.ComboBoxItem.OnMouseLeftButtonUp(MouseButtonEventArgs e)
+ at System.Windows.Controls.Primitives.ButtonBase.OnClick()
+ at System.Windows.Controls.Button.OnClick()
+ at System.Windows.Controls.Primitives.ButtonBase.OnMouseLeftButtonUp(MouseButtonEventArgs e)
  at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
  at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
  at System.Windows.UIElement.ReRaiseEventAs(DependencyObject sender, RoutedEventArgs args, RoutedEvent newEvent)
@@ -428,7 +419,6 @@ System.MissingMemberException: 'PublicationProfileService' object has no attribu
  at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
  at Microsoft.Scripting.Interpreter.LightLambda.Run2[T0,T1,TRet](T0 arg0, T1 arg1)
  at IronPython.Compiler.PythonScriptCode.RunWorker(CodeContext ctx)
- at IronPython.Compiler.PythonScriptCode.Run(Scope scope)
  at IronPython.Compiler.RuntimeScriptCode.InvokeTarget(Scope scope)
  at Microsoft.Scripting.Hosting.CompiledCode.Execute(ScriptScope scope)
  at PyRevitLabs.PyRevit.Runtime.IronPythonEngine.Execute(ScriptRuntime& runtime)
