@@ -170,14 +170,33 @@ class PublicationService(object):
             else:
                 for item in items:
                     current_id = self._resolve_current_sheet_id(item)
+                    if current_id is None:
+                        errors.append("PDF — feuille introuvable : {}.".format(
+                            item.sheet_number or item.sheet_name or "sans nom"))
+                        results.append({"success": False, "format": "PDF", "mode": "separate",
+                                        "count": 1, "path": None,
+                                        "sheet_key": getattr(item, "unique_id", None)})
+                        continue
                     filename, unknown = self._filename(publication_set, item, ".pdf")
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    success = self.pdf_service.export([current_id], output_directory,
-                                                      os.path.splitext(filename)[0], combined=True)
+                    try:
+                        # Le mode séparé doit réellement utiliser Combine=False.
+                        # L'ancienne implémentation appelait Combine=True pour chaque
+                        # feuille, ce qui ne correspondait pas au réglage utilisateur et
+                        # pouvait déclencher un comportement instable du moteur PDF Revit.
+                        success = self.pdf_service.export(
+                            [current_id], output_directory,
+                            None, combined=False)
+                    except Exception as exc:
+                        errors.append("PDF — feuille '{}' — erreur Revit : {}".format(
+                            item.sheet_number or item.sheet_name or "sans nom",
+                            self._revit_exception_message(exc)))
+                        success = False
                     path = os.path.join(output_directory, filename)
-                    files.append(path)
+                    if success:
+                        files.append(path)
                     results.append({"success": bool(success), "format": "PDF", "mode": "separate",
                                     "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
 
