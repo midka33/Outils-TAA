@@ -31,6 +31,14 @@ from project_identity import get_project_identity, project_key, ensure_project_i
 install_preview_on_export_window(ExportWindow)
 
 
+def _set_folder_name_compat(self, publication_set):
+    """Compatibilité avec l'ancien handler appelé par l'intégration Preview."""
+    publication_set.folder_name = self._folder_name(publication_set)
+
+
+ExportWindow._set_folder_name_compat = _set_folder_name_compat
+
+
 def _get_project_identity(document):
     return get_project_identity(document)
 
