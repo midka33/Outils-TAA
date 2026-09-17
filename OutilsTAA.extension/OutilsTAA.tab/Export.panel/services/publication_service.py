@@ -101,7 +101,6 @@ class PublicationService(object):
 
     @staticmethod
     def _revit_exception_message(exc):
-        """Retourne le message réellement fourni par l'API .NET/Revit."""
         try:
             message = getattr(exc, "Message", None)
             if message:
@@ -124,7 +123,6 @@ class PublicationService(object):
 
     def _export_dwg(self, view_ids, output_directory, filename, setup_name,
                     merged_views, true_color, errors, context):
-        """Exécute Revit.Export et conserve son diagnostic exact en cas d'exception."""
         try:
             success = self.dwg_service.export(
                 view_ids,
@@ -162,12 +160,24 @@ class PublicationService(object):
                 filename, unknown = self._filename(publication_set, None, ".pdf")
                 if unknown:
                     warnings.append("Variables non résolues dans le nom PDF : {}.".format(", ".join(unknown)))
-                success = self.pdf_service.export(view_ids, output_directory,
-                                                   os.path.splitext(filename)[0], combined=True)
-                files.append(os.path.join(output_directory, filename))
+                try:
+                    success = self.pdf_service.export(view_ids, output_directory,
+                                                       os.path.splitext(filename)[0], combined=True)
+                except Exception as exc:
+                    errors.append("PDF combiné — erreur Revit : {}".format(
+                        self._revit_exception_message(exc)))
+                    success = False
+                path = os.path.join(output_directory, filename)
+                if success:
+                    files.append(path)
                 results.append({"success": bool(success), "format": "PDF", "mode": "combined",
-                                "count": len(items), "path": os.path.join(output_directory, filename)})
+                                "count": len(items), "path": path})
             else:
+                # Revit sait exporter plusieurs feuilles en PDF séparés dans un
+                # seul appel Document.Export. C'est le mode natif prévu par l'API
+                # et il évite de lancer N exports PDF successifs sur le même document.
+                separate_ids = []
+                separate_items = []
                 for item in items:
                     current_id = self._resolve_current_sheet_id(item)
                     if current_id is None:
@@ -177,23 +187,23 @@ class PublicationService(object):
                                         "count": 1, "path": None,
                                         "sheet_key": getattr(item, "unique_id", None)})
                         continue
+                    separate_ids.append(current_id)
+                    separate_items.append(item)
+
+                success = False
+                if separate_ids:
+                    try:
+                        success = self.pdf_service.export(
+                            separate_ids, output_directory, None, combined=False)
+                    except Exception as exc:
+                        errors.append("PDF séparé — erreur Revit : {}".format(
+                            self._revit_exception_message(exc)))
+
+                for item in separate_items:
                     filename, unknown = self._filename(publication_set, item, ".pdf")
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    try:
-                        # Le mode séparé doit réellement utiliser Combine=False.
-                        # L'ancienne implémentation appelait Combine=True pour chaque
-                        # feuille, ce qui ne correspondait pas au réglage utilisateur et
-                        # pouvait déclencher un comportement instable du moteur PDF Revit.
-                        success = self.pdf_service.export(
-                            [current_id], output_directory,
-                            None, combined=False)
-                    except Exception as exc:
-                        errors.append("PDF — feuille '{}' — erreur Revit : {}".format(
-                            item.sheet_number or item.sheet_name or "sans nom",
-                            self._revit_exception_message(exc)))
-                        success = False
                     path = os.path.join(output_directory, filename)
                     if success:
                         files.append(path)
@@ -207,15 +217,9 @@ class PublicationService(object):
                     warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
                 path = os.path.join(output_directory, filename)
                 success = self._export_dwg(
-                    view_ids,
-                    output_directory,
-                    os.path.splitext(filename)[0],
-                    dwg_setup_name,
-                    merged_views=True,
-                    true_color=dwg_true_color,
-                    errors=errors,
-                    context="carnet '{}' (combiné)".format(publication_set.name)
-                )
+                    view_ids, output_directory, os.path.splitext(filename)[0], dwg_setup_name,
+                    merged_views=True, true_color=dwg_true_color, errors=errors,
+                    context="carnet '{}' (combiné)".format(publication_set.name))
                 if success:
                     files.append(path)
                 results.append({"success": bool(success), "format": "DWG", "mode": "combined",
@@ -229,18 +233,10 @@ class PublicationService(object):
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
                     path = os.path.join(output_directory, filename)
                     success = self._export_dwg(
-                        [current_id],
-                        output_directory,
-                        os.path.splitext(filename)[0],
-                        dwg_setup_name,
-                        merged_views=False,
-                        true_color=dwg_true_color,
-                        errors=errors,
+                        [current_id], output_directory, os.path.splitext(filename)[0], dwg_setup_name,
+                        merged_views=False, true_color=dwg_true_color, errors=errors,
                         context="feuille '{}' — {}".format(
-                            item.sheet_number or "sans numéro",
-                            item.sheet_name or "sans nom"
-                        )
-                    )
+                            item.sheet_number or "sans numéro", item.sheet_name or "sans nom"))
                     if success:
                         files.append(path)
                     results.append({"success": bool(success), "format": "DWG", "mode": "separate",
