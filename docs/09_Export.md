@@ -1317,26 +1317,26 @@ Préparer sans priorité immédiate :
 Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourra :
 
 1. choisir explicitement un Profil, un Set / Dossier, un Carnet précis ou Tous les carnets, puis un périmètre Tout le contenu / Révision courante / Sélection ;
-3. ouvrir une arborescence de publications claire, sans cases à cocher de sélection, où les mises en page indiquent visuellement leur format PDF, DWG ou PDF + DWG ;
-2. créer et organiser des dossiers ;
+2. ouvrir une arborescence de publications claire, sans cases à cocher de sélection, où les mises en page indiquent visuellement leur format PDF, DWG ou PDF + DWG ;
+3. créer et organiser des dossiers ;
 4. créer un carnet directement dans le dossier choisi ;
 5. réorganiser les carnets par glisser-déposer ;
 6. sélectionner plusieurs carnets et les déplacer ensemble ;
 7. sélectionner un carnet et publier tout son contenu ;
-8. sélectionner une mise en page et publier uniquement celle-ci ;
+8. sélectionner une ou plusieurs mises en page et publier uniquement cette sélection ;
 9. sélectionner un dossier et publier récursivement ses carnets ;
-10. conserver les réglages du carnet entre les sessions ;
-11. hériter des réglages d'un dossier et revenir à l'héritage ;
-12. appliquer un profil de publication ;
-13. définir une règle de nommage assistée ;
-14. prévisualiser les fichiers avant publication ;
-15. publier PDF et DWG selon les configurations Revit appropriées ;
-16. gérer les collisions explicitement ;
-17. organiser les carnets par dossiers et conserver leur ordre ;
-18. utiliser des carnets fixes ou dynamiques ;
-19. suivre les résultats dans un rapport ;
-20. préparer ultérieurement la publication des seuls éléments modifiés.
-
+10. publier uniquement les mises en page de la révision courante dans le contexte choisi ;
+11. conserver les réglages du carnet entre les sessions ;
+12. hériter des réglages d'un dossier et revenir à l'héritage ;
+13. appliquer un profil de publication ;
+14. définir une règle de nommage assistée ;
+15. prévisualiser les fichiers avant publication ;
+16. publier PDF et DWG selon les configurations Revit appropriées ;
+17. gérer les collisions explicitement ;
+18. organiser les carnets par dossiers et conserver leur ordre ;
+19. utiliser des carnets fixes ou dynamiques ;
+20. suivre les résultats dans un rapport ;
+21. préparer ultérieurement la publication des seuls éléments modifiés.
 > **La réussite d'Export se mesure à la qualité du workflow de publication, pas uniquement à la capacité de produire un PDF ou un DWG.**
 
 ---
