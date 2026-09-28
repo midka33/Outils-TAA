@@ -358,32 +358,6 @@ class ExportWindow(forms.WPFWindow):
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
 
-    def Profile_SelectionChanged(self, sender, args):
-        if self._loading_profile:
-            return
-        profile = self.ProfileCombo.SelectedItem
-        if not profile or self._selected_set is None:
-            return
-        values = self.profile_service.get_profile(profile)
-        self._apply_profile_values(values)
-
-    def SaveProfile_Click(self, sender, args):
-        name = self.ProfileNameTextBox.Text.strip()
-        if not name or self._selected_set is None:
-            return
-        self.profile_service.save_profile(name, self._settings_to_dict(self._resolve_settings(self._selected_set)))
-        self._load_profiles()
-
-    def DeleteProfile_Click(self, sender, args):
-        profile = self.ProfileCombo.SelectedItem
-        if not profile:
-            return
-        self.profile_service.delete_profile(profile)
-        self._load_profiles()
-
-    def _settings_to_dict(self, settings):
-        return {field: getattr(settings, field) for field in PublicationSettings.FIELDS}
-
     def _update_filename_preview(self, settings):
         try:
             if self._selected_set is None:
