@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 4.0  
+**Version :** 4.1  
 **Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -104,18 +104,24 @@ Le bouton principal reflète le contexte courant afin de rendre l'action immédi
 
 ### 2.4 L'arborescence est le point central de l'interface
 
-L'écran principal fonctionne comme un explorateur de publications :
+L'écran principal fonctionne comme un explorateur de publications.
+
+La structure visuelle cible est organisée en deux zones principales :
 
 ```text
-Arborescence                     Réglages / aperçu
-────────────────────             ─────────────────────
-📁 DCE                           Carnet : Plans
-  📦 Plans                       PDF : ☑ Combiné
-    📄 A101 – RDC                DWG : ☑ Séparé
-    📄 A102 – R+1                Nom : ...
-  📦 Coupes                      Destination : ...
-    📄 A201 – Coupe AA
+Arborescence de publication        Réglages contextuels
+───────────────────────────        ─────────────────────
+📁 DCE Architecture               Carnet : Plans DCE
+  📁 Plans                        Destination : ...
+    ◇ Plans DCE                   PDF : Combiné par carnet
+      PDF A101 – RDC              DWG : True Color
+      DWG A102 – R+1              Informations
+      PDF DWG A103 – R+2          Options avancées
 ```
+
+L'arborescence doit rester le composant dominant de la fenêtre. Les réglages sont contextuels et secondaires.
+
+La sélection d'un dossier, carnet ou d'une mise en page se fait directement sur la ligne. Les cases à cocher ne servent pas à sélectionner les éléments de l'arborescence.
 
 ### 2.5 La sélection multiple complète la sélection simple
 
@@ -270,7 +276,7 @@ Un carnet ou une mise en page provenant d'un autre projet ne doit pas être publ
 
 ---
 
-## 5. Arborescence Publisher TAA
+## 5. Arborescence Export
 
 ### 5.1 Structure
 
@@ -317,6 +323,37 @@ Un clic sur une mise en page permet de :
 - voir le carnet parent ;
 - connaître les formats activés ;
 - publier uniquement cette mise en page.
+
+### 5.5.1 Règles visuelles des éléments
+
+La représentation graphique de l'arborescence doit permettre de comprendre immédiatement le type d'élément et, pour les mises en page, le format d'export prévu.
+
+Règles :
+
+- **Dossier** → icône de dossier simple ;
+- **Carnet** → icône de carnet simple ;
+- **Mise en page PDF uniquement** → pictogramme PDF à la place de l'icône de feuille générique ;
+- **Mise en page DWG uniquement** → pictogramme DWG à la place de l'icône de feuille générique ;
+- **Mise en page PDF + DWG** → deux pictogrammes PDF et DWG côte à côte ;
+- aucun badge PDF/DWG supplémentaire ne doit être ajouté au dossier ou au carnet pour répéter la même information ;
+- le panneau de réglages à droite ne doit pas afficher de logos PDF/DWG décoratifs ou redondants.
+
+La sélection active doit être indiquée par un traitement visuel discret : fond légèrement teinté et accent TAA Orange. L'information de sélection ne doit pas dépendre uniquement de la couleur.
+
+Les pictogrammes de format servent à informer rapidement l'utilisateur ; les valeurs détaillées restent accessibles dans le panneau de réglages.
+
+### 5.5.2 Sélection sans cases à cocher
+
+L'arborescence n'utilise pas de cases à cocher pour choisir ce qui sera publié.
+
+Le périmètre est défini par la sélection :
+
+- clic simple → élément courant ;
+- `Ctrl + clic` → ajout/retrait dans une sélection multiple ;
+- `Shift + clic` → sélection d'une plage lorsque l'implémentation le permet ;
+- la publication agit sur la sélection courante selon les règles de périmètre.
+
+Une CheckBox reste réservée aux véritables options binaires des réglages, pas à la sélection des éléments de publication.
 
 ### 5.6 Action contextuelle
 
@@ -1002,6 +1039,12 @@ Toute modification du module Export doit notamment vérifier :
 - sélection d'un carnet ;
 - sélection d'une mise en page ;
 - sélection multiple ;
+- absence de cases à cocher pour la sélection des éléments de l'arborescence ;
+- sélection visible par traitement de ligne ;
+- pictogramme PDF pour une mise en page PDF uniquement ;
+- pictogramme DWG pour une mise en page DWG uniquement ;
+- deux pictogrammes côte à côte pour une mise en page PDF + DWG ;
+- absence de pictogrammes PDF/DWG décoratifs dans le panneau de réglages ;
 - glisser-déposer d'un carnet vers un dossier ;
 - glisser-déposer avant un carnet ;
 - conservation de l'ordre après réouverture ;
@@ -1086,6 +1129,20 @@ Toute API non garantie doit être validée dans l'environnement réel.
 
 ## 25. Roadmap restante
 
+### Refonte UI/UX Export
+
+À appliquer au XAML actuel avant de considérer la nouvelle interface comme implémentée :
+
+- arborescence principale à gauche et réglages contextuels à droite ;
+- suppression des cases à cocher utilisées pour la sélection de l'arborescence ;
+- sélection simple et multiple par ligne ;
+- dossier et carnet avec leurs pictogrammes simples ;
+- pictogrammes PDF/DWG portés uniquement par les mises en page selon leur format effectif ;
+- deux pictogrammes côte à côte lorsqu'une mise en page produit PDF + DWG ;
+- suppression des pictogrammes PDF/DWG redondants dans le panneau de réglages ;
+- bouton **Publier** comme action principale mise en avant en TAA Orange ;
+- validation du rendu réel dans Revit 2025.4.
+
 ### Étape 07 — Historique et « modifiés uniquement »
 
 À réaliser après stabilisation des étapes actuelles :
@@ -1117,11 +1174,11 @@ Préparer sans priorité immédiate :
 
 ---
 
-## 26. Critères de réussite de la cible Publisher TAA
+## 26. Critères de réussite de la cible Export
 
 Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourra :
 
-1. ouvrir une arborescence de publications claire ;
+1. ouvrir une arborescence de publications claire, sans cases à cocher de sélection, où les mises en page indiquent visuellement leur format PDF, DWG ou PDF + DWG ;
 2. créer et organiser des dossiers ;
 3. créer un carnet directement dans le dossier choisi ;
 4. réorganiser les carnets par glisser-déposer ;
@@ -1172,8 +1229,8 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 ## 28. Correspondance avec les étapes réalisées
 
 ```text
-Étape 01 → Sélection contextuelle Publisher                 ✅
-Étape 02 → Éditeur de nommage Publisher                     ✅
+Étape 01 → Sélection contextuelle Export                 ✅
+Étape 02 → Éditeur de nommage Export                     ✅
 Étape 03 → Profils de publication                            ✅
 Étape 04 → Héritage dossier → carnet                        ✅
 Étape 05 → Prévisualisation                                 ✅
