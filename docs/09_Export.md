@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 4.1  
+**Version :** 4.2  
 **Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -42,6 +42,9 @@ L'utilisateur doit pouvoir :
 - conserver les réglages de publication avec le carnet ;
 - hériter de réglages définis au niveau dossier ;
 - utiliser des profils de publication ;
+- choisir explicitement le **Set / Dossier** de publication ;
+- choisir un **Carnet** précis ou l'ensemble des carnets du Set / Dossier ;
+- choisir le **périmètre de publication** : tout le contenu, révision courante ou sélection de mises en page ;
 - choisir les règles de nommage des fichiers ;
 - prévisualiser les livrables avant de les créer ;
 - publier PDF et DWG selon les configurations retenues ;
@@ -90,25 +93,46 @@ Un réglage peut être :
 
 Une valeur effective héritée ne doit pas être enregistrée automatiquement comme surcharge locale.
 
-### 2.3 La sélection est contextuelle
+### 2.3 Le contexte et le périmètre de publication sont explicites
 
-La sélection dans l'arborescence définit directement le périmètre de publication :
+La sélection dans l'arborescence sert à naviguer, inspecter et sélectionner des éléments, mais elle ne définit pas toujours à elle seule ce qui sera publié.
+
+Le contexte de publication est défini par quatre choix visibles dans l'interface :
 
 ```text
-Sélection d'une mise en page → publier cette mise en page
-Sélection d'un carnet       → publier tout le carnet
-Sélection d'un dossier      → publier les carnets du dossier et de ses sous-dossiers
+Profil
+  ↓
+Set / Dossier
+  ↓
+Carnet
+  ↓
+Périmètre
 ```
 
-Le bouton principal reflète le contexte courant afin de rendre l'action immédiatement compréhensible.
+Le **Set / Dossier** définit l'ensemble de publication dans lequel l'utilisateur travaille.
+
+Le **Carnet** définit le carnet concerné. L'interface doit également permettre de choisir **Tous les carnets** du Set / Dossier lorsque ce périmètre est pertinent.
+
+Le **Périmètre** définit ensuite les mises en page réellement publiées :
+
+- **Tout le contenu** : toutes les mises en page du carnet choisi, ou de tous les carnets si « Tous les carnets » est sélectionné ;
+- **Révision courante** : uniquement les mises en page correspondant à la révision courante dans le contexte choisi ;
+- **Sélection** : uniquement une ou plusieurs mises en page sélectionnées dans l'arborescence.
+
+La sélection multiple en mode **Sélection** utilise `Ctrl + clic` et `Shift + clic` lorsque l'implémentation WPF le permet.
+
+Le résumé de publication et le bouton principal doivent permettre de comprendre le périmètre actif avant toute exécution.
 
 ### 2.4 L'arborescence est le point central de l'interface
 
 L'écran principal fonctionne comme un explorateur de publications.
 
-La structure visuelle cible est organisée en deux zones principales :
+La structure visuelle cible comporte une ligne de contexte en haut, puis deux zones principales :
 
 ```text
+Profil [DCE ▼]   Set / Dossier [DCE Architecture ▼]   Carnet [Plans DCE ▼]
+Périmètre :  ● Tout le contenu   ○ Révision courante   ○ Sélection
+
 Arborescence de publication        Réglages contextuels
 ───────────────────────────        ─────────────────────
 📁 DCE Architecture               Carnet : Plans DCE
@@ -122,6 +146,8 @@ Arborescence de publication        Réglages contextuels
 L'arborescence doit rester le composant dominant de la fenêtre. Les réglages sont contextuels et secondaires.
 
 La sélection d'un dossier, carnet ou d'une mise en page se fait directement sur la ligne. Les cases à cocher ne servent pas à sélectionner les éléments de l'arborescence.
+
+Les sélecteurs **Profil**, **Set / Dossier**, **Carnet** et **Périmètre** doivent rester visibles sans ouvrir une fenêtre secondaire.
 
 ### 2.5 La sélection multiple complète la sélection simple
 
@@ -290,16 +316,18 @@ Dossier
 
 Les dossiers peuvent être imbriqués.
 
-### 5.2 Gestion des dossiers
+### 5.2 Gestion des dossiers / Sets
 
 Le gestionnaire doit permettre de :
 
 - créer un dossier ;
-- sélectionner un dossier ;
+- sélectionner explicitement un **Set / Dossier** dans le sélecteur de contexte ;
 - créer un carnet directement dans le dossier sélectionné ;
 - déplacer ultérieurement un carnet vers un autre dossier ;
 - conserver l'identité et les réglages du carnet lors du déplacement ;
-- publier tous les carnets d'un dossier, y compris ceux de ses sous-dossiers.
+- publier tous les carnets d'un dossier, y compris ceux de ses sous-dossiers lorsque le mode choisi l'autorise.
+
+Le terme **Set / Dossier** désigne dans l'interface le niveau d'organisation servant de contexte de publication. Il reste représenté par une icône de dossier simple.
 
 ### 5.3 Gestion de l'ordre
 
@@ -311,7 +339,14 @@ L'ordre est stocké via `sort_order` et restauré à la réouverture.
 
 Le carnet est sélectionnable comme une unité de publication.
 
-Un clic sur un carnet affiche ses réglages effectifs et son contenu.
+Un sélecteur **Carnet** doit permettre de choisir :
+
+- un carnet précis du Set / Dossier actif ;
+- **Tous les carnets** du Set / Dossier actif lorsque l'utilisateur souhaite publier ou filtrer plusieurs carnets avec le même périmètre.
+
+Un clic sur un carnet dans l'arborescence affiche ses réglages effectifs et son contenu sans imposer automatiquement le périmètre de publication.
+
+Le sélecteur Carnet et la sélection dans l'arborescence doivent rester synchronisés de manière prévisible.
 
 ### 5.5 Mise en page
 
@@ -346,30 +381,47 @@ Les pictogrammes de format servent à informer rapidement l'utilisateur ; les va
 
 L'arborescence n'utilise pas de cases à cocher pour choisir ce qui sera publié.
 
-Le périmètre est défini par la sélection :
+Le mode **Sélection** utilise directement la sélection des lignes :
 
 - clic simple → élément courant ;
 - `Ctrl + clic` → ajout/retrait dans une sélection multiple ;
-- `Shift + clic` → sélection d'une plage lorsque l'implémentation le permet ;
-- la publication agit sur la sélection courante selon les règles de périmètre.
+- `Shift + clic` → sélection d'une plage lorsque l'implémentation le permet.
+
+Lorsque le périmètre actif est **Tout le contenu** ou **Révision courante**, la sélection dans l'arborescence reste disponible pour naviguer et consulter les propriétés, mais elle ne réduit pas silencieusement le périmètre.
 
 Une CheckBox reste réservée aux véritables options binaires des réglages, pas à la sélection des éléments de publication.
 
-### 5.6 Action contextuelle
+### 5.6 Action contextuelle et résumé
+
+L'action principale doit refléter le contexte complet : Set / Dossier, Carnet et Périmètre.
+
+Exemples :
 
 ```text
-Aucune sélection
-→ action de publication inactive ou information
+Set : DCE Architecture
+Carnet : Plans DCE
+Périmètre : Tout le contenu
+→ Publier le carnet « Plans DCE »
 
-Carnet sélectionné
-→ Publier le carnet « DCE »
+Set : DCE Architecture
+Carnet : Tous les carnets
+Périmètre : Révision courante
+→ Publier la révision courante du Set « DCE Architecture »
 
-Mise en page sélectionnée
-→ Publier la mise en page
-
-Dossier sélectionné
-→ Publier le dossier « DCE »
+Set : DCE Architecture
+Carnet : Plans DCE
+Périmètre : Sélection
+3 mises en page sélectionnées
+→ Publier 3 mises en page
 ```
+
+La barre de résumé inférieure doit afficher au minimum :
+
+```text
+Profil • Set / Dossier • Carnet • Périmètre • nombre de mises en page • formats
+```
+
+L'utilisateur doit pouvoir comprendre exactement ce qui sera publié avant de cliquer sur **Publier**.
 
 ### 5.7 Publication d'un dossier
 
@@ -703,35 +755,76 @@ Pour un carnet fixe, un élément supprimé doit rester identifiable comme manqu
 
 ---
 
-## 12. Périmètres de publication
+## 12. Contexte et périmètres de publication
 
-Le modèle conserve :
+Le moteur doit distinguer le **contexte de publication** du **filtre de périmètre**.
+
+### 12.1 Contexte
+
+Le contexte est défini par :
 
 ```text
-ENTIRE_SET
-SELECTED_ITEMS
-SELECTED_NODES
+Profil
+Set / Dossier
+Carnet = carnet précis | Tous les carnets
 ```
 
-et prépare :
+Le Set / Dossier et le Carnet déterminent l'espace dans lequel le périmètre est évalué.
+
+### 12.2 Périmètres exposés à l'utilisateur
+
+Trois choix doivent être disponibles :
+
+```text
+Tout le contenu
+Révision courante
+Sélection
+```
+
+#### Tout le contenu
+
+- carnet précis → toutes les mises en page de ce carnet ;
+- Tous les carnets → toutes les mises en page des carnets du Set / Dossier concerné.
+
+Le libellé peut être contextualisé dans l'interface en **Tout le carnet** ou **Tous les carnets** pour rendre l'action plus explicite.
+
+#### Révision courante
+
+Le mode **Révision courante** filtre le contexte actif pour ne conserver que les mises en page rattachées à la révision courante.
+
+La définition technique exacte de « révision courante » doit s'appuyer sur les données de révision réellement disponibles dans Revit 2025.4 et être validée dans Revit avant implémentation définitive. Aucun rapprochement par texte ou nom de feuille ne doit être utilisé comme substitut silencieux.
+
+Le nombre de mises en page concernées doit être visible avant publication.
+
+#### Sélection
+
+Le mode **Sélection** publie uniquement une ou plusieurs mises en page sélectionnées dans l'arborescence.
+
+La sélection multiple doit respecter le contexte Set / Dossier + Carnet actif et ne doit pas inclure silencieusement des éléments hors contexte.
+
+### 12.3 Modèle interne cible
+
+Le modèle de périmètre cible doit pouvoir représenter explicitement :
+
+```text
+ENTIRE_SCOPE
+CURRENT_REVISION
+SELECTED_ITEMS
+```
+
+Les constantes historiques `ENTIRE_SET`, `SELECTED_ITEMS` et `SELECTED_NODES` peuvent rester supportées pendant la transition interne, mais l'interface ne doit pas exposer une terminologie ambiguë.
+
+`MODIFIED_ONLY` reste une évolution distincte et ne doit pas être confondu avec **Révision courante**.
 
 ```text
 MODIFIED_ONLY
 ```
 
-### 12.1 Traduction utilisateur
+correspond à un filtrage basé sur l'état de publication ou les modifications détectées depuis une exécution précédente.
 
-```text
-Carnet sélectionné → ENTIRE_SET
-Mise en page sélectionnée → SELECTED_ITEMS
-Dossier sélectionné → ensemble des carnets descendants
-```
+### 12.4 Publication multiple
 
-### 12.2 Publication multiple
-
-La publication d'un dossier est une agrégation de publications de carnets existants.
-
-Chaque carnet est résolu indépendamment, notamment pour :
+Lorsque **Tous les carnets** est sélectionné, chaque carnet est résolu indépendamment, notamment pour :
 
 - héritage ;
 - destination ;
@@ -739,11 +832,22 @@ Chaque carnet est résolu indépendamment, notamment pour :
 - PDF/DWG ;
 - collisions.
 
-### 12.3 Modifiés uniquement
+Le filtre de périmètre actif est ensuite appliqué à chaque carnet dans le contexte retenu.
 
-`MODIFIED_ONLY` reste une évolution ultérieure. Il ne doit être activé qu'après mise en place d'un état de publication fiable permettant de comparer les exécutions.
+### 12.5 Résumé obligatoire avant publication
 
----
+Avant publication, l'interface doit afficher une synthèse du type :
+
+```text
+Profil : DCE
+Set : DCE Architecture
+Carnet : Plans DCE
+Périmètre : Révision courante
+12 mises en page
+PDF + DWG
+```
+
+Cette synthèse doit être cohérente avec la prévisualisation et avec le périmètre réellement transmis au moteur.
 
 ## 13. PDF
 
@@ -804,19 +908,23 @@ Chaque collision doit être visible dans la prévisualisation et dans le rapport
 
 ## 17. Workflow cible complet
 
-### 17.1 Publication d'une mise en page
+### 17.1 Publication par sélection de mises en page
 
 ```text
-Sélection mise en page
+Profil
       ↓
-Carnet parent
+Set / Dossier
       ↓
-Résolution des réglages effectifs
+Carnet
       ↓
-Création d'un périmètre temporaire
+Périmètre = Sélection
+      ↓
+Sélection d'une ou plusieurs mises en page
       ↓
 SELECTED_ITEMS
       ↓
+Résolution des réglages effectifs
+      ↓
 Validation
       ↓
 Prévisualisation
@@ -826,16 +934,22 @@ Confirmation
 Publication
 ```
 
-### 17.2 Publication d'un carnet
+### 17.2 Publication de tout le contenu
 
 ```text
-Sélection carnet
+Profil
       ↓
-Résolution du carnet
+Set / Dossier
+      ↓
+Carnet précis ou Tous les carnets
+      ↓
+Périmètre = Tout le contenu
+      ↓
+Résolution du ou des carnets
       ↓
 Réglages effectifs
       ↓
-ENTIRE_SET
+ENTIRE_SCOPE
       ↓
 Validation
       ↓
@@ -846,23 +960,31 @@ Confirmation
 Publication
 ```
 
-### 17.3 Publication d'un dossier
+### 17.3 Publication de la révision courante
 
 ```text
-Sélection dossier
+Profil
       ↓
-Recherche récursive des carnets
+Set / Dossier
       ↓
-Résolution indépendante de chaque carnet
+Carnet précis ou Tous les carnets
       ↓
-Prévisualisation globale
+Périmètre = Révision courante
+      ↓
+Résolution des mises en page du contexte
+      ↓
+Filtrage CURRENT_REVISION
+      ↓
+Validation
+      ↓
+Prévisualisation
       ↓
 Confirmation
       ↓
-Publication batch
-      ↓
-Rapport global
+Publication
 ```
+
+Si aucune mise en page n'appartient à la révision courante, l'interface doit l'indiquer clairement et empêcher une publication vide involontaire.
 
 ### 17.4 Organisation par glisser-déposer
 
@@ -1039,6 +1161,15 @@ Toute modification du module Export doit notamment vérifier :
 - sélection d'un carnet ;
 - sélection d'une mise en page ;
 - sélection multiple ;
+- choix du Profil ;
+- choix du Set / Dossier ;
+- choix d'un Carnet précis ;
+- choix « Tous les carnets » ;
+- périmètre Tout le contenu ;
+- périmètre Révision courante ;
+- périmètre Sélection avec une et plusieurs mises en page ;
+- synchronisation du résumé de publication avec le contexte et le périmètre actifs ;
+- absence de publication hors du Set / Dossier ou du Carnet actif ;
 - absence de cases à cocher pour la sélection des éléments de l'arborescence ;
 - sélection visible par traitement de ligne ;
 - pictogramme PDF pour une mise en page PDF uniquement ;
@@ -1119,6 +1250,9 @@ Toute API non garantie doit être validée dans l'environnement réel.
 
 ### Limites actuelles
 
+- la nouvelle barre de contexte **Profil / Set / Dossier / Carnet / Périmètre** est une cible UI/UX à raccorder au XAML ;
+- le mode **Révision courante** doit encore être implémenté et validé avec les données de révision Revit 2025.4 ;
+- le choix **Tous les carnets** dans le sélecteur Carnet est une cible à intégrer au workflow de publication ;
 - `MODIFIED_ONLY` n'est pas encore implémenté ;
 - les règles dynamiques avancées restent une cible ;
 - les niveaux supplémentaires de l'arborescence ne sont pas prioritaires ;
@@ -1133,6 +1267,10 @@ Toute API non garantie doit être validée dans l'environnement réel.
 
 À appliquer au XAML actuel avant de considérer la nouvelle interface comme implémentée :
 
+- barre de contexte visible avec **Profil**, **Set / Dossier**, **Carnet** et **Périmètre** ;
+- possibilité de choisir un carnet précis ou **Tous les carnets** ;
+- trois périmètres : **Tout le contenu**, **Révision courante**, **Sélection** ;
+- résumé inférieur affichant clairement le contexte actif, le nombre de mises en page et les formats ;
 - arborescence principale à gauche et réglages contextuels à droite ;
 - suppression des cases à cocher utilisées pour la sélection de l'arborescence ;
 - sélection simple et multiple par ligne ;
@@ -1178,25 +1316,26 @@ Préparer sans priorité immédiate :
 
 Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourra :
 
-1. ouvrir une arborescence de publications claire, sans cases à cocher de sélection, où les mises en page indiquent visuellement leur format PDF, DWG ou PDF + DWG ;
+1. choisir explicitement un Profil, un Set / Dossier, un Carnet précis ou Tous les carnets, puis un périmètre Tout le contenu / Révision courante / Sélection ;
+3. ouvrir une arborescence de publications claire, sans cases à cocher de sélection, où les mises en page indiquent visuellement leur format PDF, DWG ou PDF + DWG ;
 2. créer et organiser des dossiers ;
-3. créer un carnet directement dans le dossier choisi ;
-4. réorganiser les carnets par glisser-déposer ;
-5. sélectionner plusieurs carnets et les déplacer ensemble ;
-6. sélectionner un carnet et publier tout son contenu ;
-7. sélectionner une mise en page et publier uniquement celle-ci ;
-8. sélectionner un dossier et publier récursivement ses carnets ;
-9. conserver les réglages du carnet entre les sessions ;
-10. hériter des réglages d'un dossier et revenir à l'héritage ;
-11. appliquer un profil de publication ;
-12. définir une règle de nommage assistée ;
-13. prévisualiser les fichiers avant publication ;
-14. publier PDF et DWG selon les configurations Revit appropriées ;
-15. gérer les collisions explicitement ;
-16. organiser les carnets par dossiers et conserver leur ordre ;
-17. utiliser des carnets fixes ou dynamiques ;
-18. suivre les résultats dans un rapport ;
-19. préparer ultérieurement la publication des seuls éléments modifiés.
+4. créer un carnet directement dans le dossier choisi ;
+5. réorganiser les carnets par glisser-déposer ;
+6. sélectionner plusieurs carnets et les déplacer ensemble ;
+7. sélectionner un carnet et publier tout son contenu ;
+8. sélectionner une mise en page et publier uniquement celle-ci ;
+9. sélectionner un dossier et publier récursivement ses carnets ;
+10. conserver les réglages du carnet entre les sessions ;
+11. hériter des réglages d'un dossier et revenir à l'héritage ;
+12. appliquer un profil de publication ;
+13. définir une règle de nommage assistée ;
+14. prévisualiser les fichiers avant publication ;
+15. publier PDF et DWG selon les configurations Revit appropriées ;
+16. gérer les collisions explicitement ;
+17. organiser les carnets par dossiers et conserver leur ordre ;
+18. utiliser des carnets fixes ou dynamiques ;
+19. suivre les résultats dans un rapport ;
+20. préparer ultérieurement la publication des seuls éléments modifiés.
 
 > **La réussite d'Export se mesure à la qualité du workflow de publication, pas uniquement à la capacité de produire un PDF ou un DWG.**
 
@@ -1223,6 +1362,9 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 17. Le glisser-déposer doit respecter les règles de destination et d'insertion définies par l'interface.
 18. Les erreurs reproductibles sont capitalisées dans `11_BUGS_Prevention_Registry.md`.
 19. Avant toute modification de code et avant chaque commit, le registre global des bugs est consulté.
+20. Le Set / Dossier, le Carnet et le Périmètre sont des notions distinctes et ne doivent pas être déduits silencieusement les uns des autres.
+21. Le mode Révision courante est distinct de MODIFIED_ONLY.
+22. En mode Sélection, seules les mises en page explicitement sélectionnées dans le contexte actif sont publiées.
 
 ---
 
