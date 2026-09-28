@@ -78,7 +78,6 @@ def install_preview_on_export_window(export_window_class):
             return _preview_then_publish_single(self, targets)
 
         if self._selected_kind == "CARNET" and self._selected_set is not None:
-            self._set_folder_name_compat(self._selected_set)
             return _preview_then_publish_single(self, [self._selected_set])
 
         if self._selected_kind == "FOLDER" and self._selected_folder is not None:
@@ -204,9 +203,6 @@ def install_preview_on_export_window(export_window_class):
         folder = self._folder_for_set(publication_set)
         return folder.name if folder is not None else "Général"
 
-    def set_folder_name_compat(self, publication_set):
-        publication_set.folder_name = self._folder_name_compat(publication_set)
-
     def profile_changed(self, sender, args):
         """Applique un profil sans appeler un handler inexistant."""
         if self._loading_profile or self._loading_settings:
@@ -326,12 +322,10 @@ def install_preview_on_export_window(export_window_class):
         export_window_class.BrowseOutput_Click = browse_output_click
     if not hasattr(export_window_class, "DeleteNode_Click"):
         export_window_class.DeleteNode_Click = delete_node_click
-    if not hasattr(export_window_class, "ProfileChanged"):
-        export_window_class.ProfileChanged = profile_changed
-    if not hasattr(export_window_class, "SaveProfile_Click"):
-        export_window_class.SaveProfile_Click = save_profile_click
-    if not hasattr(export_window_class, "DeleteProfile_Click"):
-        export_window_class.DeleteProfile_Click = delete_profile_click
+    # Ces handlers remplacent explicitement les anciennes implémentations de ExportWindow.
+    export_window_class.ProfileChanged = profile_changed
+    export_window_class.SaveProfile_Click = save_profile_click
+    export_window_class.DeleteProfile_Click = delete_profile_click
     if not hasattr(export_window_class, "SettingsChanged"):
         export_window_class.SettingsChanged = settings_changed
     if not hasattr(export_window_class, "FilenameTokenChanged"):
