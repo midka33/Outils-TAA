@@ -2,7 +2,7 @@
 
 ## Chapitre 04 — UI Guidelines
 
-**Version :** 1.0  
+**Version :** 1.1  
 **Statut :** Référence  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF  
@@ -738,18 +738,20 @@ Lorsqu'un outil manipule de nombreux éléments Revit, utiliser des listes clair
 
 ---
 
-# 34. Listes avec cases à cocher
+# 34. Sélection dans les listes et arborescences
 
-Pour Export et les outils similaires, un système de listes avec cases à cocher est recommandé.
+La sélection d'un élément et l'activation d'une option sont deux concepts différents.
 
-Exemple :
+Une **CheckBox** ne doit être utilisée que lorsque l'utilisateur active ou désactive un état binaire indépendant.
 
-```text
-☑ Carnet APS
-☑ Carnet DCE
-☐ Carnet Commercial
-☑ Carnet Synthèse
-```
+Lorsqu'un clic sur une ligne suffit à sélectionner l'élément, ne pas ajouter de case à cocher uniquement pour matérialiser cette sélection.
+
+Pour les arborescences de publication comme **Export** :
+
+- la sélection simple se fait par clic sur la ligne ;
+- la sélection multiple utilise les mécanismes prévus par l'outil (`Ctrl`, `Shift`, sélection groupée) ;
+- les cases à cocher ne sont pas utilisées pour sélectionner dossiers, carnets ou mises en page ;
+- la sélection active doit rester identifiable sans dépendre uniquement de la couleur.
 
 ---
 
@@ -811,7 +813,15 @@ Les icônes doivent rester :
 - simples ;
 - reconnaissables ;
 - homogènes ;
-- cohérentes avec l'action.
+- cohérentes avec l'action ou le type d'élément.
+
+Une icône peut porter une information métier lorsqu'elle permet de comprendre immédiatement la nature ou le format d'un élément.
+
+Dans ce cas :
+
+- éviter d'ajouter un badge ou un second pictogramme redondant ailleurs dans la même zone ;
+- conserver une convention stable dans toute l'interface ;
+- ne jamais utiliser l'icône comme seul moyen de transmettre une information critique.
 
 Éviter les styles mélangés entre les outils.
 
@@ -1510,44 +1520,28 @@ Chemin d'export
 
 Export est susceptible de devenir l'un des outils les plus complets de la suite.
 
-Sa structure recommandée est :
+L'interface doit conserver une hiérarchie très lisible avec une arborescence de publication à gauche et des réglages contextuels à droite.
 
-```text
-┌───────────────────────────────────────────────┐
-│ Export                                   │
-│ Publication de carnets PDF et DWG             │
-├───────────────────────────────────────────────┤
-│                                               │
-│ CARNETS                                       │
-│                                               │
-│ ☑ APS                                         │
-│ ☑ DCE                                         │
-│ ☐ Commercial                                  │
-│                                               │
-│ [Tout sélectionner] [Tout désélectionner]     │
-│                                               │
-├───────────────────────────────────────────────┤
-│ OPTIONS                                       │
-│                                               │
-│ ☑ Exporter PDF                                │
-│ ☑ Exporter DWG                                │
-│ ☑ Fusionner les PDF                           │
-│                                               │
-│ Dossier                                       │
-│ [ C:\Projet\Exports            ] [Parcourir]  │
-│                                               │
-├───────────────────────────────────────────────┤
-│ Progression                                   │
-│ ███████████████░░░░ 75 %                      │
-│ Export de A103...                             │
-├───────────────────────────────────────────────┤
-│ [Annuler]                           [Publier]  │
-└───────────────────────────────────────────────┘
-```
+Principes spécifiques :
 
-Le bouton **Publier** utilise TAA Orange.
+- l'arborescence de publication est le composant principal de la fenêtre ;
+- la sélection d'un dossier, carnet ou d'une mise en page se fait par la **ligne**, sans case à cocher de sélection ;
+- une sélection active utilise un fond léger et un accent visuel TAA Orange, sans transformer toute la ligne en bloc orange ;
+- les dossiers utilisent une icône de dossier simple ;
+- les carnets utilisent une icône de carnet simple ;
+- pour une mise en page, l'icône de feuille générique est remplacée par le format d'export effectif :
+  - **PDF uniquement** → pictogramme PDF ;
+  - **DWG uniquement** → pictogramme DWG ;
+  - **PDF + DWG** → deux pictogrammes PDF et DWG côte à côte ;
+- les pictogrammes PDF/DWG sont réservés à l'arborescence des mises en page lorsqu'ils servent à identifier immédiatement le format ;
+- le panneau de réglages à droite n'ajoute pas de pictogrammes PDF/DWG décoratifs ou redondants : les libellés et contrôles suffisent ;
+- les réglages détaillés restent secondaires par rapport à l'arborescence et peuvent être regroupés dans des sections repliables ;
+- une seule action principale forte est mise en avant : **Publier** ;
+- le bouton **Publier** utilise TAA Orange ;
+- la barre d'état inférieure synthétise le périmètre courant et les formats concernés ;
+- pendant une opération longue, la progression et l'élément en cours doivent rester visibles.
 
-La barre de progression peut également utiliser TAA Orange.
+L'objectif visuel est une interface sobre, dense mais respirante, proche d'un outil natif Revit tout en restant immédiatement identifiable comme Outils TAA.
 
 ---
 
@@ -2332,6 +2326,10 @@ Avant de considérer une interface comme terminée, vérifier :
 ☐ Les couleurs proviennent des ressources communes.
 
 ☐ Aucun code couleur majeur n'est dupliqué dans la fenêtre.
+
+☐ Les cases à cocher ne sont pas utilisées comme substitut inutile à une sélection de ligne.
+
+☐ Les pictogrammes apportent une information utile et ne sont pas répétés de manière décorative dans plusieurs zones.
 
 ☐ L'interface ne contient pas de logique métier importante.
 
