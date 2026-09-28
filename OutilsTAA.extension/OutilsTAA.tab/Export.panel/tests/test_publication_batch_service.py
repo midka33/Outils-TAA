@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """Tests unitaires de la publication multiple."""
 
+import os
+import sys
+PANEL = os.path.dirname(os.path.dirname(__file__))
+for subdir in ("services", "models"):
+    sys.path.insert(0, os.path.join(PANEL, subdir))
+
 from publication_batch_service import PublicationBatchService
+from publication_set import PublicationSet
 
 
 class _Settings(object):
@@ -18,9 +25,8 @@ class _Settings(object):
         return []
 
 
-class _Target(object):
-    def __init__(self, name):
-        self.name = name
+class _Target(PublicationSet):
+    pass
 
 
 def test_publish_multiple_carnets():

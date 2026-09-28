@@ -87,3 +87,11 @@ Le format suit les principes de *Keep a Changelog*.
 
 ### Added
 - Initialisation du repository.
+
+## Correctifs préparatoires TEST-14 — 2026-09-28
+
+- Nommage réel des PDF séparés aligné sur le modèle TAA, avec contrôle des fichiers,
+  collisions bloquantes et restauration sur échec de livraison.
+- Transmission des réglages hérités sur une copie de publication.
+- Suppression de deux abonnements redondants au glisser-déposer.
+- Tests et documentation synchronisés ; validation Revit 2025.4 encore requise.

@@ -190,25 +190,28 @@ class PublicationService(object):
                     separate_ids.append(current_id)
                     separate_items.append(item)
 
-                success = False
-                if separate_ids:
-                    try:
-                        success = self.pdf_service.export(
-                            separate_ids, output_directory, None, combined=False)
-                    except Exception as exc:
-                        errors.append("PDF séparé — erreur Revit : {}".format(
-                            self._revit_exception_message(exc)))
-
+                filenames = []
                 for item in separate_items:
                     filename, unknown = self._filename(publication_set, item, ".pdf")
+                    filenames.append(filename)
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    path = os.path.join(output_directory, filename)
-                    if success:
-                        files.append(path)
-                    results.append({"success": bool(success), "format": "PDF", "mode": "separate",
-                                    "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
+                paths = []
+                if separate_ids:
+                    try:
+                        paths = self.pdf_service.export_named_separate(
+                            separate_ids, output_directory, filenames)
+                    except Exception as exc:
+                        errors.append("PDF séparé — erreur : {}".format(
+                            self._revit_exception_message(exc)))
+                success = bool(separate_items) and len(paths) == len(separate_items)
+                if success:
+                    files.extend(paths)
+                for index, item in enumerate(separate_items):
+                    results.append({"success": success, "format": "PDF", "mode": "separate",
+                                    "count": 1, "path": paths[index] if success else None,
+                                    "sheet_key": getattr(item, "unique_id", None)})
 
         if export_dwg:
             if dwg_combined:

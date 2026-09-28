@@ -547,7 +547,24 @@ DWG séparé
 → contexte mise en page
 ```
 
-Le service de nommage doit être commun à la prévisualisation et à la publication.
+Le service de nommage est commun à la prévisualisation et à la publication.
+Les réglages effectifs, y compris le modèle hérité du dossier, sont transmis sur
+une copie de publication ; les surcharges persistantes du carnet restent intactes.
+
+Pour les PDF séparés, Revit exporte toutes les feuilles en une seule opération
+`Combine=False` dans un sous-dossier temporaire de la destination. Une règle
+native explicite `taa_` + numéro de feuille permet d'associer les fichiers sans
+dépendre de leur ordre. Chaque PDF attendu doit exister et être non vide avant
+livraison sous le nom TAA annoncé. Les noms en doublon (casse Windows comprise)
+dans un carnet bloquent la publication ; utiliser par exemple `{carnet}-{numero}`.
+Les numéros de feuilles comportant des caractères interdits dans un nom Windows
+sont refusés avec une erreur, sans changer la maquette.
+
+Les fichiers existants sont sauvegardés le temps du remplacement. En cas d'échec,
+une restauration est tentée et le rapport indique le dossier temporaire conservé,
+ainsi que tout échec de restauration. Un export échoué ne fournit aucun chemin
+comme livré. Aucun paramètre de feuille n'est modifié pour le nommage.
+La validation du moteur natif reste à effectuer dans Revit 2025.4.
 
 ### 9.5 Architecture
 
@@ -1088,13 +1105,11 @@ Toute API non garantie doit être validée dans l'environnement réel.
 
 ### Étape 07 — Historique et « modifiés uniquement »
 
-À réaliser après stabilisation des étapes actuelles :
-
-- historique ;
-- état de publication ;
-- comparaison ;
-- snapshots ou hash métier ;
-- `MODIFIED_ONLY`.
+Le socle, la prévisualisation et le raccordement simple/multiple sont implémentés.
+Restent la validation Revit 2025.4 et la consolidation ultérieure de la surcouche
+`stage07`. Les correctifs de préparation TEST-14 sont testés hors Revit : nommage
+PDF séparé, héritage du modèle et instance unique du glisser-déposer.
+Voir `17_Export_Preparation_TEST14.md` et la roadmap racine.
 
 ### Étape 08 — Dynamique avancé
 

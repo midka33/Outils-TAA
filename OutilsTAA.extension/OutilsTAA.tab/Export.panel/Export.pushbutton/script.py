@@ -24,7 +24,6 @@ from carnet_repository import CarnetRepository
 from export_window import ExportWindow
 import publication_preview_integration
 from publication_preview_integration import install_preview_on_export_window
-from publication_tree_drag_drop import PublicationTreeDragDrop
 from publication_history_service import PublicationHistoryService
 from project_identity import get_project_identity, project_key, ensure_project_identity
 
@@ -199,7 +198,7 @@ def _publish_targets_stage07(window, targets):
         output_directory = settings.output_directory
         try:
             result = window.controller.publish(
-                publication_set, settings.output_directory,
+                publication_set.with_settings(settings), settings.output_directory,
                 export_pdf=settings.pdf_enabled, export_dwg=settings.dwg_enabled,
                 pdf_combined=settings.pdf_mode == "COMBINED",
                 dwg_combined=settings.dwg_mode == "COMBINED",
@@ -284,7 +283,6 @@ def main():
     window = ExportWindow(controller, repository)
     _install_modified_only_selection_sync(window)
     _install_modified_only_value_support(window)
-    window._publication_tree_drag_drop = PublicationTreeDragDrop(window)
     window.ShowDialog()
 
 

@@ -2,6 +2,7 @@
 """Service d'export PDF natif Revit pour l'outil Export."""
 
 import os
+from pdf_file_delivery import deliver_named_pdfs, validate_names
 
 
 class PdfExportService(object):
@@ -89,8 +90,27 @@ class PdfExportService(object):
             options
         )
 
+    def export_named_separate(self, sheet_ids, output_directory, filenames,
+                              export_quality=300):
+        """Associe chaque PDF à son numéro de feuille, puis applique le modèle TAA."""
+        self._validate(sheet_ids, output_directory)
+        sheet_ids = list(sheet_ids)
+        source_names = []
+        for sheet_id in sheet_ids:
+            sheet = self.document.GetElement(sheet_id)
+            number = getattr(sheet, "SheetNumber", None)
+            if not number:
+                raise ValueError("PDF séparé : numéro de feuille indisponible.")
+            source_names.append("taa_" + number + ".pdf")
+        # Refuser les numéros que Revit pourrait nettoyer de manière ambiguë.
+        validate_names(source_names)
+        return deliver_named_pdfs(
+            output_directory, source_names, filenames,
+            lambda directory: self.export_separate(
+                sheet_ids, directory, export_quality, use_sheet_numbers=True))
+
     def export_separate(self, sheet_ids, output_directory,
-                        export_quality=300):
+                        export_quality=300, use_sheet_numbers=False):
         """Exporte chaque feuille dans son propre PDF.
 
         Le nom de chaque fichier est alors généré par Revit selon sa règle de
@@ -103,6 +123,19 @@ class PdfExportService(object):
 
         options = PDFExportOptions()
         options.Combine = False
+        if use_sheet_numbers:
+            from Autodesk.Revit.DB import (TableCellCombinedParameterData,
+                                           BuiltInParameter, BuiltInCategory, ElementId)
+            from System.Collections.Generic import List
+            field = TableCellCombinedParameterData.Create()
+            field.CategoryId = ElementId(BuiltInCategory.OST_Sheets)
+            field.ParamId = ElementId(BuiltInParameter.SHEET_NUMBER)
+            field.Prefix = "taa_"
+            field.Suffix = ""
+            field.Separator = ""
+            rule = List[TableCellCombinedParameterData]()
+            rule.Add(field)
+            options.SetNamingRule(rule)
         options.ExportQuality = self._to_export_quality(export_quality)
 
         return self.document.Export(

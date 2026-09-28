@@ -12,7 +12,6 @@ from publication_batch_service import PublicationBatchService
 from publication_history_service import PublicationHistoryService
 from export_report_window import PublicationReportWindow
 from carnet_manager_window import CarnetManagerWindow
-from publication_tree_drag_drop import PublicationTreeDragDrop
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from publication_folder import PublicationFolder, _folder_targets
@@ -26,8 +25,6 @@ def install_preview_on_export_window(export_window_class):
 
     def init_with_tree_features(self, controller, repository):
         original_init(self, controller, repository)
-        if not hasattr(self, "_publication_tree_drag_drop"):
-            self._publication_tree_drag_drop = PublicationTreeDragDrop(self)
         self._publication_history_service = _history_service()
 
     def selection_changed_with_folder_action(self, sender, args):
@@ -432,7 +429,7 @@ def _publish_targets(window, targets):
         output_directory = settings.output_directory
         try:
             result = window.controller.publish(
-                effective_target,
+                effective_target.with_settings(settings),
                 settings.output_directory,
                 export_pdf=settings.pdf_enabled,
                 export_dwg=settings.dwg_enabled,

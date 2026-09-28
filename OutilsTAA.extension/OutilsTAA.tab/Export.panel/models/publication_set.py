@@ -31,3 +31,10 @@ class PublicationSet(object):
 
         self.items.append(item)
         return True
+
+    def with_settings(self, settings):
+        """Copie de travail pour la publication, sans écraser les réglages hérités."""
+        from copy import copy
+        target = copy(self)
+        target.publication_settings = settings
+        return target

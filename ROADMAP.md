@@ -32,6 +32,16 @@
 - [x] Persistance des destinations et des réglages.
 - [x] Registre de bugs et règles anti-régression.
 
+### Stabilisation avant TEST-14 — 2026-09-28
+
+- [x] Associer les PDF séparés aux noms TAA et contrôler les fichiers livrés.
+- [x] Transmettre le modèle hérité sans changer les surcharges persistantes.
+- [x] Supprimer les deux initialisations redondantes du glisser-déposer.
+- [x] Actualiser les tests et capitaliser les bugs 020 à 024.
+- [ ] Rejouer TEST-14 dans Revit 2025.4 : profils, PDF combinés/séparés et noms réels.
+- [ ] Recontrôler TEST-04 et un déplacement multiple après suppression des doublons.
+- [ ] Consolider la surcouche `stage07` après validation réelle.
+
 ### Étape 07 — Historique et « modifiés uniquement »
 
 - [x] Socle de persistance de l'historique des publications.
