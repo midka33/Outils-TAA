@@ -2512,6 +2512,32 @@ Ressources graphiques mutualisées
 
 ---
 
+
+# Références visuelles officielles
+
+Les maquettes validées pendant la définition de l'identité Outils TAA sont des **références de conception** au même titre que les règles de ce document.
+
+Emplacement prévu dans le dépôt :
+
+```text
+docs/assets/ui/
+├── UI_Design_System_TAA.jpg
+├── UI_Export_Reference.jpg
+└── UI_Suite_Outils_TAA_Orange.jpg
+```
+
+Rôle des références :
+
+- `UI_Design_System_TAA.jpg` — synthèse de l'identité visuelle et des composants communs ;
+- `UI_Export_Reference.jpg` — référence principale pour la fenêtre Export / Publier issue du travail fonctionnel du projet ;
+- `UI_Suite_Outils_TAA_Orange.jpg` — vision d'ensemble des différentes fenêtres de la suite.
+
+La maquette bleue exploratoire n'est **pas** une référence officielle : la direction retenue utilise les nuances orange pastel TAA.
+
+En cas de création ou de refonte d'une fenêtre, le développeur doit consulter **à la fois** ce document et les références visuelles. Les règles fonctionnelles et d'accessibilité priment toujours sur une reproduction pixel-perfect de la maquette.
+
+---
+
 # 130. Conclusion
 
 Les interfaces Outils TAA doivent constituer un environnement cohérent autour des outils Revit développés par l'agence.
