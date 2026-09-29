@@ -970,6 +970,12 @@ Pour une publication de dossier, le rapport doit permettre d'identifier le résu
 
 Les échecs partiels doivent rester traçables.
 
+Le rapport affiche intégralement les erreurs et avertissements globaux dans une
+zone en lecture seule, sélectionnable et défilante en bas de fenêtre. Ce texte
+reste accessible même si l'échec n'a produit aucune ligne de livrable. Une ligne
+en échec ne doit jamais afficher « Export terminé ». Les lignes utilisent leur
+propre nom de carnet et le champ `path` transmis par l'orchestrateur.
+
 ---
 
 ## 21. Validation

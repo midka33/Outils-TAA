@@ -10,19 +10,21 @@ class PublicationReportRow(object):
     """Ligne affichée dans le rapport de publication."""
 
     def __init__(self, carnet, result, path=None):
-        self.Carnet = carnet or "—"
+        self.Carnet = result.get("carnet") or carnet or "—"
         self.Format = result.get("format", "—")
         self.Mode = "Combiné" if result.get("mode") == "combined" else "Séparé"
         self.Status = "OK" if result.get("success") else "ERREUR"
         self.Count = result.get("count", 0)
-        self.Path = path or result.get("file") or result.get("directory") or "—"
+        self.Path = path or result.get("path") or result.get("file") or result.get("directory") or "—"
 
         details = []
         for warning in result.get("warnings", []):
             details.append("AVERTISSEMENT : " + warning)
         for error in result.get("errors", []):
             details.append("ERREUR : " + error)
-        self.Details = " | ".join(details) if details else "Export terminé."
+        self.Details = " | ".join(details) if details else (
+            "Export terminé." if result.get("success")
+            else "Échec de l'export. Consulter les erreurs ci-dessous.")
 
 
 class PublicationReportWindow(forms.WPFWindow):
@@ -67,11 +69,13 @@ class PublicationReportWindow(forms.WPFWindow):
 
         warnings = self.report.get("warnings", [])
         errors = self.report.get("errors", [])
-        self.WarningsText.Text = ""
-        if warnings:
-            self.WarningsText.Text += "{0} avertissement(s). ".format(len(warnings))
-        if errors:
-            self.WarningsText.Text += "{0} erreur(s).".format(len(errors))
+        # Les services transmettent les exceptions au niveau global du rapport,
+        # même lorsqu'aucune ligne de livrable n'a pu être construite.
+        details = ["ERREUR : {0}".format(error) for error in errors]
+        details.extend("AVERTISSEMENT : {0}".format(warning) for warning in warnings)
+        if not success and not errors:
+            details.insert(0, "Échec de publication sans détail supplémentaire.")
+        self.WarningsText.Text = "\n\n".join(details)
 
     def OpenFolder_Click(self, sender, args):
         """Ouvre le dossier de publication dans l'explorateur Windows."""

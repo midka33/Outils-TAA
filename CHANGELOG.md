@@ -6,6 +6,11 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Fixed
+- Rapport Export : erreurs globales complètes et copiables, suppression du faux
+  message de succès sur les lignes en échec, chemins et carnets issus des résultats.
+  Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
+
 ### Added
 - Architecture explicite du repository.
 - Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.

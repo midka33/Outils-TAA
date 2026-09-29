@@ -40,4 +40,13 @@ paramètre SHEET_NUMBER. La vérification API native Revit 2025.4 reste ouverte.
 
 Conserver les anciens résultats TEST-14 comme historique. Ajouter le nouveau résultat
 avec le commit testé, les noms attendus/réels et le traceback complet en cas d'échec.
-**Statut Revit : NON TESTÉ.**
+**Statut Revit : ÉCHEC signalé sur `858f858`, 2026-09-28.**
+
+Le rapport montrait des lignes « ERREUR / Export terminé. », un compteur
+« 1 erreur(s) » et aucun PDF publié selon l'utilisateur. La cause native reste
+à identifier : l'erreur globale était masquée par l'interface.
+
+Le correctif de diagnostic BUG-EXPORT-025 affiche désormais le texte complet en
+bas du rapport (sélectionnable avec Ctrl+A / Ctrl+C après clic dans la zone).
+Après mise à jour et redémarrage Revit, rejouer le même export puis transmettre
+ce texte. L'export PDF réel reste bloquant pour TEST-14.

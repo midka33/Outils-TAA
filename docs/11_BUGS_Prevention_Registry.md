@@ -271,6 +271,23 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle préventive :** les doubles doivent respecter les propriétés effectivement lues ; vérifier le contrat métier plutôt qu'imposer une identité mémoire non spécifiée.
 **Anti-régression :** suite pytest complète, avec `--import-mode=importlib` pour les deux fichiers `test_project_identity.py`.
 
+### BUG-EXPORT-025 — Rapport masquant la cause d'un échec de publication
+
+**Symptôme :** TEST-14 sur `858f858` : aucun PDF publié selon le retour utilisateur,
+lignes « ERREUR » avec détail « Export terminé. », bas de fenêtre « 1 erreur(s) ».
+**Cause confirmée du rapport :** l'orchestrateur transmet les exceptions dans
+`report.errors`, mais la fenêtre n'affichait que leur nombre ; les lignes sans
+message utilisaient un texte de succès indépendamment de leur statut. Elle ne
+lisait pas non plus les champs `path` et `carnet` des résultats actuels.
+**Correction :** erreurs/avertissements complets dans une zone copiable et
+défilante, détail d'échec explicite et lecture des champs actuels.
+**Règle préventive :** tester le contrat complet service → rapport, y compris
+une erreur globale sans erreur locale et un échec avant création des lignes.
+**Anti-régression :** `tests/test_export_report_window.py` (fenêtre simulée et
+contrôle XAML), puis copier le diagnostic réel depuis Revit 2025.4.
+**Limite :** la cause native de l'absence de PDF reste inconnue ; ce correctif
+rend le diagnostic accessible et ne constitue pas une réparation validée de l'export.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -298,6 +315,7 @@ BUG-EXPORT-021
 BUG-EXPORT-022
 BUG-EXPORT-023
 BUG-EXPORT-024
+BUG-EXPORT-025
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001
