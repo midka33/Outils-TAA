@@ -13,7 +13,7 @@ Base analysée : `afe840753217f81b298f1cec6b71a393e8982908`.
 - Quatre tests obsolètes remis en cohérence ; capitalisation centrale 020–024.
 - Surcouche stage07 conservée ; aucun raccordement Stage 08 ajouté.
 
-## Validation hors Revit
+## Validation hors Revit initiale
 
 Commande : `python -m pytest -q --import-mode=importlib` (pytest requis).
 Résultat : **97 tests réussis**. Le test du contrat API emploie des doubles :
@@ -21,7 +21,7 @@ il ne prouve pas le fonctionnement natif PDF/WPF dans Revit.
 
 Références de contrat consultées : documentation Autodesk PDFExportOptions
 SetNamingRule et TableCellCombinedParameterData ; catégorie OST_Sheets et
-paramètre SHEET_NUMBER. La vérification API native Revit 2025.4 reste ouverte.
+paramètre SHEET_NUMBER. La vérification API native Revit 2025.4 était alors ouverte ; voir la validation utilisateur en fin de document.
 
 ## Vérification dans Revit 2025.4
 
@@ -57,3 +57,18 @@ taa_PC 09*.pdf`. Le contrôle Windows a arrêté le traitement avant
 la feuille, puis vérifie les noms réellement produits par Revit. Après mise
 à jour, refaire un export du carnet DPC et vérifier chaque PDF. En cas de
 nouvelle erreur, conserver le message complet et le dossier temporaire indiqué.
+
+## Validation utilisateur — 2026-09-29
+
+**TEST-14 : VALIDÉ dans Revit 2025.4**, selon les essais et la confirmation
+« tout fonctionne » de l'utilisateur sur la branche contenant `7bb533c`.
+
+Périmètre confirmé : PDF séparés du carnet DPC (dont `PC 09*`), noms conformes
+à l'aperçu et contenu des feuilles, PDF combiné, enregistrement et rechargement
+des profils. Les erreurs précédentes sont conservées comme historique.
+
+Validation automatisée du code livré : **107 tests réussis** avec
+`python -m pytest -q --import-mode=importlib`. Les essais Revit ont été réalisés
+par l'utilisateur ; ils ne résultent pas d'une exécution Revit dans cet environnement.
+Cette validation ne clôt pas les autres tests de la campagne ni toute l'Étape 07.
+La PR #4 a été fusionnée dans `main` au commit `d4657ca`.
