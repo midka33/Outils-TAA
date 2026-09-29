@@ -2,7 +2,7 @@
 
 ## Chapitre 04 — UI Guidelines
 
-**Version :** 1.1  
+**Version :** 1.2  
 **Statut :** Référence  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF  
@@ -53,14 +53,21 @@ La priorité est toujours donnée à :
 
 L'identité graphique des outils repose sur une interface majoritairement neutre avec l'utilisation ponctuelle de la couleur de l'agence.
 
-La couleur principale de l'agence est :
+La couleur institutionnelle de l'agence reste :
 
 ```text
 RGB : 250, 100, 31
 HEX : #FA641F
 ```
 
-Cette couleur constitue la couleur d'accent principale du design system Outils TAA.
+Pour les interfaces logicielles, cette teinte est déclinée en une variante plus douce afin de réduire le contraste visuel lors d'un usage prolongé :
+
+```text
+TAA Orange UI
+HEX : #FD8B5A
+```
+
+`#FA641F` reste la référence de marque ; `#FD8B5A` devient l'accent principal des fenêtres WPF.
 
 Nom interne recommandé :
 
@@ -75,9 +82,9 @@ TAA Orange
 ## 4.1 TAA Orange
 
 ```text
-Nom : TAA Orange
-RGB : 250 / 100 / 31
-HEX : #FA641F
+Nom : TAA Orange UI
+HEX : #FD8B5A
+Référence de marque : #FA641F
 ```
 
 Cette couleur doit permettre d'identifier immédiatement les actions importantes et les éléments appartenant à l'identité Outils TAA.
@@ -124,9 +131,9 @@ La palette Outils TAA doit rester volontairement réduite.
 ## Couleur d'accent principale
 
 ```text
-TAA Orange
-#FA641F
-RGB(250,100,31)
+TAA Orange UI
+#FD8B5A
+Référence marque : #FA641F
 ```
 
 ## Fond principal clair
@@ -602,9 +609,9 @@ Pour le bouton TAA Orange, l'état Hover peut utiliser une variante légèrement
 Exemple recommandé :
 
 ```text
-Normal : #FA641F
-Hover  : #E85819
-Pressed: #D84F12
+Normal : #FD8B5A
+Hover  : #F77A45
+Pressed: #E96B37
 ```
 
 Ces valeurs peuvent être adaptées dans le fichier de ressources central du thème.
@@ -652,7 +659,7 @@ Lorsqu'un champ possède le focus, une bordure utilisant TAA Orange peut être u
 Exemple :
 
 ```text
-BorderBrush = #FA641F
+BorderBrush = #FD8B5A
 ```
 
 Cela renforce l'identité graphique sans surcharger l'interface.
@@ -851,8 +858,8 @@ gris foncé
 Les icônes actives ou principales peuvent utiliser :
 
 ```text
-TAA Orange
-#FA641F
+TAA Orange UI
+#FD8B5A
 ```
 
 ---
@@ -1094,8 +1101,8 @@ Analyse des pièces...
 La barre de progression peut utiliser :
 
 ```text
-TAA Orange
-#FA641F
+TAA Orange UI
+#FD8B5A
 ```
 
 Cette utilisation renforce naturellement l'identité graphique.
@@ -1594,7 +1601,7 @@ Fond contrôle        #FFFFFF
 Texte principal      #252525
 Texte secondaire     #666666
 Bordure               #D9D9D9
-Accent TAA           #FA641F
+Accent TAA UI        #FD8B5A
 ```
 
 ---
@@ -2119,6 +2126,10 @@ Le code-behind doit principalement gérer les interactions directement liées à
 
 # 115. Design system centralisé
 
+Les maquettes validées de la suite Outils TAA constituent la référence visuelle. La fenêtre **Export / Publier** validée (en-tête sobre, arborescence à gauche, paramètres contextuels à droite, résumé et action principale en pied) sert de patron aux outils complexes. Les futurs écrans doivent reprendre son langage graphique plutôt que créer un style local.
+
+
+
 À terme, Outils TAA doit disposer de son propre mini design system.
 
 Exemple :
@@ -2144,7 +2155,7 @@ Certaines valeurs doivent devenir des constantes communes.
 Exemple :
 
 ```text
-AccentColor
+AccentColorUI
 TextPrimaryColor
 TextSecondaryColor
 BackgroundPrimaryColor
@@ -2170,7 +2181,7 @@ Les interfaces doivent rester modernes mais sobres.
 Recommandation :
 
 ```text
-CornerRadius : 3 à 6 px
+CornerRadius : 4 à 6 px
 ```
 
 Éviter les boutons extrêmement arrondis typiques d'interfaces mobiles.
@@ -2226,16 +2237,19 @@ Interface mobile surdimensionnée
 
 # 121. Exemple de palette complète
 
+La palette UI privilégie des oranges pastel et des fonds chauds très légers. L'orange institutionnel saturé est réservé au logo, à la marque et aux cas nécessitant ponctuellement davantage d'impact.
+
+
 ```text
-TAA Orange
-#FA641F
+TAA Orange UI
+#FD8B5A
 RGB 250 / 100 / 31
 
 TAA Orange Hover
-#E85819
+#F77A45
 
 TAA Orange Pressed
-#D84F12
+#E96B37
 
 Background Primary
 #FFFFFF
@@ -2257,6 +2271,12 @@ Text Disabled
 
 Border
 #D9D9D9
+
+Selection Background
+#FFF0E8
+
+Orange Very Light
+#FFF4ED
 ```
 
 ---
@@ -2381,7 +2401,9 @@ Segoe UI
 
 Couleurs centralisées
 
-TAA Orange = #FA641F
+TAA Orange UI = #FD8B5A
+
+TAA Orange marque = #FA641F
 
 Action principale clairement identifiable
 
@@ -2446,10 +2468,17 @@ Si l'une de ces réponses n'est pas évidente, l'interface doit être simplifié
 # 129. Résumé du Design System Outils TAA
 
 ```text
-Couleur principale
+Couleur de marque
 TAA Orange
 RGB(250,100,31)
 #FA641F
+
+Accent interface
+TAA Orange UI
+#FD8B5A
+
+Sélection
+#FFF0E8
 
 Style
 Sobre
@@ -2487,7 +2516,7 @@ Ressources graphiques mutualisées
 
 Les interfaces Outils TAA doivent constituer un environnement cohérent autour des outils Revit développés par l'agence.
 
-La couleur **TAA Orange — RGB(250,100,31) — #FA641F** constitue le principal élément d'identité visuelle, mais son efficacité repose sur une utilisation mesurée.
+La couleur de marque **TAA Orange — RGB(250,100,31) — #FA641F** reste l'identité institutionnelle. Dans les fenêtres, sa déclinaison pastel **TAA Orange UI — #FD8B5A** constitue l'accent principal afin d'obtenir une interface plus douce et professionnelle.
 
 Le design system doit permettre à un utilisateur de reconnaître immédiatement un outil Outils TAA tout en conservant une interface professionnelle adaptée à un usage quotidien dans Revit.
 
