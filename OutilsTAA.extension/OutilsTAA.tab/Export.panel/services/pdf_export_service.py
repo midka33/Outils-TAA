@@ -2,7 +2,9 @@
 """Service d'export PDF natif Revit pour l'outil Export."""
 
 import os
-from pdf_file_delivery import deliver_named_pdfs, validate_names
+from pdf_file_delivery import (deliver_named_pdfs, validate_names,
+                               validate_native_keys, reconcile_native_pdfs)
+from filename_service import FilenameService
 
 
 class PdfExportService(object):
@@ -101,13 +103,21 @@ class PdfExportService(object):
             number = getattr(sheet, "SheetNumber", None)
             if not number:
                 raise ValueError("PDF séparé : numéro de feuille indisponible.")
-            source_names.append("taa_" + number + ".pdf")
-        # Refuser les numéros que Revit pourrait nettoyer de manière ambiguë.
+            source_names.append(FilenameService().sanitize("taa_" + number) + ".pdf")
+        # Un numéro contenant * est autorisé dans Revit. La comparaison des
+        # sorties natives doit rester unique même après nettoyage Windows.
         validate_names(source_names)
+        validate_native_keys(source_names)
+
+        def export_and_match(directory):
+            success = self.export_separate(
+                sheet_ids, directory, export_quality, use_sheet_numbers=True)
+            if success:
+                reconcile_native_pdfs(directory, source_names)
+            return success
+
         return deliver_named_pdfs(
-            output_directory, source_names, filenames,
-            lambda directory: self.export_separate(
-                sheet_ids, directory, export_quality, use_sheet_numbers=True))
+            output_directory, source_names, filenames, export_and_match)
 
     def export_separate(self, sheet_ids, output_directory,
                         export_quality=300, use_sheet_numbers=False):

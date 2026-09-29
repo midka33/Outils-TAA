@@ -557,8 +557,12 @@ native explicite `taa_` + numéro de feuille permet d'associer les fichiers sans
 dépendre de leur ordre. Chaque PDF attendu doit exister et être non vide avant
 livraison sous le nom TAA annoncé. Les noms en doublon (casse Windows comprise)
 dans un carnet bloquent la publication ; utiliser par exemple `{carnet}-{numero}`.
-Les numéros de feuilles comportant des caractères interdits dans un nom Windows
-sont refusés avec une erreur, sans changer la maquette.
+Les caractères interdits dans un nom Windows (par exemple `PC 09*`) sont
+sécurisés pour le nom temporaire et le nom TAA. Après export, les PDF natifs
+sont associés aux feuilles par une clé unique qui ignore la ponctuation que
+Revit peut nettoyer. Si deux numéros deviennent ambigus ou si les fichiers
+produits ne correspondent pas, l'export est signalé en erreur et les PDF
+temporaires sont conservés pour diagnostic. La maquette reste inchangée.
 
 Les fichiers existants sont sauvegardés le temps du remplacement. En cas d'échec,
 une restauration est tentée et le rapport indique le dossier temporaire conservé,

@@ -9,7 +9,7 @@ import pytest
 PANEL = Path(__file__).resolve().parents[1] / 'OutilsTAA.extension/OutilsTAA.tab/Export.panel'
 sys.path.insert(0, str(PANEL / 'services'))
 sys.path.insert(0, str(PANEL / 'models'))
-from pdf_file_delivery import deliver_named_pdfs
+from pdf_file_delivery import deliver_named_pdfs, reconcile_native_pdfs
 from pdf_export_service import PdfExportService
 
 
@@ -106,6 +106,53 @@ def test_native_export_one_call_explicit_sheet_naming_rule(tmp_path, monkeypatch
     paths = service.export_named_separate([1, 2], str(tmp_path), ['RDC.pdf', 'Etage.pdf'])
     assert len(calls) == 1
     assert [Path(p).read_bytes() for p in paths] == [b'1', b'2']
+
+
+def test_starred_sheet_number_matches_sanitized_native_output(tmp_path, monkeypatch):
+    class Document:
+        def GetElement(self, element_id):
+            return SimpleNamespace(SheetNumber='PC 09*' if element_id == 1 else 'PC 10')
+    service = PdfExportService(Document())
+    calls = []
+    def export(ids, directory, quality, use_sheet_numbers):
+        calls.append(ids)
+        assert use_sheet_numbers
+        Path(directory, 'taa_PC 10.pdf').write_bytes(b'10')
+        Path(directory, 'taa_PC 09.pdf').write_bytes(b'09')
+        return True
+    monkeypatch.setattr(service, 'export_separate', export)
+    paths = service.export_named_separate([1, 2], str(tmp_path),
+                                          ['Plans-PC 09_.pdf', 'Plans-PC 10.pdf'])
+    assert len(calls) == 1
+    assert [Path(path).read_bytes() for path in paths] == [b'09', b'10']
+
+
+def test_ambiguous_sheet_numbers_block_before_export(tmp_path, monkeypatch):
+    class Document:
+        def GetElement(self, element_id):
+            return SimpleNamespace(SheetNumber='PC 09*' if element_id == 1 else 'PC 09')
+    service = PdfExportService(Document())
+    calls = []
+    monkeypatch.setattr(service, 'export_separate', lambda *a, **kw: calls.append(a))
+    with pytest.raises(ValueError, match='ambigus'):
+        service.export_named_separate([1, 2], str(tmp_path), ['A.pdf', 'B.pdf'])
+    assert not calls
+
+
+def test_native_matching_rejects_extra_or_unmatched_files(tmp_path):
+    (tmp_path / 'taa_PC 09.pdf').write_bytes(b'09')
+    (tmp_path / 'taa_other.pdf').write_bytes(b'other')
+    with pytest.raises(RuntimeError, match='Impossible'):
+        reconcile_native_pdfs(str(tmp_path), ['taa_PC 09_.pdf'])
+    assert (tmp_path / 'taa_PC 09.pdf').read_bytes() == b'09'
+
+
+def test_native_matching_never_uses_directory_order(tmp_path):
+    (tmp_path / 'taa_PC 10.pdf').write_bytes(b'10')
+    (tmp_path / 'taa_PC 09-.pdf').write_bytes(b'09')
+    reconcile_native_pdfs(str(tmp_path), ['taa_PC 09_.pdf', 'taa_PC 10.pdf'])
+    assert (tmp_path / 'taa_PC 09_.pdf').read_bytes() == b'09'
+    assert (tmp_path / 'taa_PC 10.pdf').read_bytes() == b'10'
 
 
 def test_orchestrator_and_preview_use_the_same_effective_names(tmp_path):

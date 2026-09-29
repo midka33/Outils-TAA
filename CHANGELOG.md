@@ -7,6 +7,9 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Fixed
+- PDF séparés : numéro de feuille contenant `*` ou un autre caractère interdit
+  dans un nom Windows ; rapprochement contrôlé des fichiers natifs, sans
+  modifier les numéros dans Revit. Validation réelle TEST-14 à poursuivre.
 - Rapport Export : erreurs globales complètes et copiables, suppression du faux
   message de succès sur les lignes en échec, chemins et carnets issus des résultats.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.

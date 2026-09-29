@@ -252,7 +252,7 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Symptôme :** aperçu et rapport annoncent des noms TAA alors que Revit utilise sa règle native.
 **Cause :** le modèle TAA n'était ni transmis au moteur ni appliqué après export ; le modèle hérité du dossier n'était pas transmis aux chemins de publication.
 **Correction :** un export natif groupé `Combine=False` dans un répertoire temporaire, règle explicite `taa_` + numéro de feuille, correspondance exacte puis livraison sous les noms TAA. Les réglages effectifs sont transmis sur une copie du carnet, sans modifier l'héritage persistant. Une collision dans un carnet bloque avant export. Les anciens fichiers sont sauvegardés pendant la livraison et restaurés si celle-ci échoue.
-**Règle préventive :** ne jamais annoncer un chemin calculé comme livré sans vérifier le fichier correspondant ; ne jamais associer les PDF par ordre de répertoire. Les numéros incompatibles avec les noms Windows sont refusés, sans correspondance devinée.
+**Règle préventive :** ne jamais annoncer un chemin calculé comme livré sans vérifier le fichier correspondant ; ne jamais associer les PDF par ordre de répertoire. Vérifier les correspondances de noms après nettoyage et refuser les ambiguïtés.
 **Anti-régression :** `tests/test_pdf_delivery.py` couvre ordre natif inversé, noms personnalisés, collisions, sortie partielle/vide, retour False, exception, restauration et contrat des options Revit simulées ; TEST-14 dans Revit reste obligatoire.
 
 ### BUG-EXPORT-024 — Gestionnaire de glisser-déposer instancié trois fois
@@ -285,8 +285,23 @@ défilante, détail d'échec explicite et lecture des champs actuels.
 une erreur globale sans erreur locale et un échec avant création des lignes.
 **Anti-régression :** `tests/test_export_report_window.py` (fenêtre simulée et
 contrôle XAML), puis copier le diagnostic réel depuis Revit 2025.4.
-**Limite :** la cause native de l'absence de PDF reste inconnue ; ce correctif
-rend le diagnostic accessible et ne constitue pas une réparation validée de l'export.
+**Suite :** le diagnostic réel a identifié `taa_PC 09*.pdf`, bloqué par la
+validation du nom temporaire avant tout appel au moteur PDF.
+
+### BUG-EXPORT-026 — Astérisque dans un numéro de feuille bloquant TEST-14
+
+**Symptôme :** `PDF séparé — erreur : Nom PDF non valide : taa_PC 09*.pdf`,
+aucun fichier créé pour le carnet DPC.
+**Cause :** le numéro de feuille Revit `PC 09*` était injecté tel quel dans un
+nom temporaire Windows, puis refusé avant export.
+**Correction :** sécuriser le nom temporaire ; après l'export natif groupé,
+rapprocher les PDF des feuilles par une clé conservatrice et unique qui ignore
+la ponctuation. Ne livrer aucun PDF en cas d'ambiguïté ou de sortie inattendue.
+**Règle préventive :** les noms Revit ne sont pas nécessairement des noms de
+fichiers ; conserver la maquette et vérifier toute correspondance avant livraison.
+**Anti-régression :** `tests/test_pdf_delivery.py` couvre le numéro étoilé,
+l'ordre inversé, les collisions après nettoyage et les sorties inattendues.
+Validation réelle du comportement de nommage Revit 2025.4 encore requise.
 
 ## 4. Identifiants des bugs
 
@@ -316,6 +331,7 @@ BUG-EXPORT-022
 BUG-EXPORT-023
 BUG-EXPORT-024
 BUG-EXPORT-025
+BUG-EXPORT-026
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

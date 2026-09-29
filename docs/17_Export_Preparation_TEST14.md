@@ -50,3 +50,10 @@ Le correctif de diagnostic BUG-EXPORT-025 affiche désormais le texte complet en
 bas du rapport (sélectionnable avec Ctrl+A / Ctrl+C après clic dans la zone).
 Après mise à jour et redémarrage Revit, rejouer le même export puis transmettre
 ce texte. L'export PDF réel reste bloquant pour TEST-14.
+
+**Diagnostic du 2026-09-29 :** `DPC : PDF séparé — erreur : Nom PDF non valide :
+taa_PC 09*.pdf`. Le contrôle Windows a arrêté le traitement avant
+`Document.Export`. Le correctif BUG-EXPORT-026 accepte ce numéro sans modifier
+la feuille, puis vérifie les noms réellement produits par Revit. Après mise
+à jour, refaire un export du carnet DPC et vérifier chaque PDF. En cas de
+nouvelle erreur, conserver le message complet et le dossier temporaire indiqué.
