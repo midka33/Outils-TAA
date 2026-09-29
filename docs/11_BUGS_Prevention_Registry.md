@@ -211,6 +211,98 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 
 **Anti-régression** : avec trois éléments `A / B / C`, vérifier le déplacement de `A` sous `B`, de `C` sous `A`, et, pour les dossiers, de `B` dans `A`. Sélectionner plusieurs carnets, mises en page puis dossiers avec `Ctrl`, les déplacer ensemble et vérifier la persistance de l'ordre après fermeture/réouverture. Vérifier également qu'un parent initialement développé reste développé après le déplacement.
 
+### BUG-EXPORT-020 — Fermeture de l'arborescence après rafraîchissement
+
+**Symptôme :** après ajout d'un carnet ou d'une mise en page, le dossier et/ou le carnet précédemment développé se refermait.
+
+**Cause :** `_refresh_tree()` reconstruisait entièrement le `TreeView` après chaque opération sans restaurer l'état `IsExpanded` des nœuds.
+
+**Correction :** la couche d'intégration mémorise les dossiers et carnets développés avant le rafraîchissement puis restaure leur état après reconstruction.
+
+**Règle préventive :** tout rafraîchissement doit conserver les états ouverts.
+
+**Test de non-régression :** TEST-04 — ajouter un carnet puis plusieurs mises en page en conservant les parents développés.
+
+### BUG-EXPORT-021 — Sélection d'un profil appelant un handler inexistant
+
+**Symptôme :** l'utilisation du contrôle Profil provoquait une erreur/crash de l'application. Le code appelait `self.Profile_SelectionChanged(...)`, alors que cette méthode n'existait pas dans `ExportWindow`.
+
+**Cause :** le handler XAML `ProfileChanged` avait été injecté comme couche de compatibilité, mais son implémentation appelait un ancien nom de handler qui n'était plus présent après refactorisation.
+
+**Correction :** implémentation directe de `ProfileChanged`, ajout des handlers `SaveProfile_Click`, `DeleteProfile_Click` et `SettingsChanged`, application persistante du profil au carnet et gestion explicite des profils intégrés/personnalisés.
+
+**Règle préventive :** chaque handler doit appeler une API réellement disponible et avoir un propriétaire explicite.
+
+**Test de non-régression :** TEST-14 et TEST-44 — sélectionner un profil, appliquer un profil, enregistrer puis supprimer un profil personnalisé sans exception WPF/IronPython.
+
+### BUG-EXPORT-022 — PDF séparé exécuté comme une succession de PDF combinés
+
+**Symptôme :** le mode PDF séparé d'un carnet provoquait un crash de Revit pendant la publication.
+
+**Cause :** l'ancien orchestrateur parcourait les feuilles une par une et appelait `Document.Export` avec `Combine=True` pour chaque feuille. Cela ne correspondait pas au mode PDF séparé demandé par l'utilisateur et multipliait les appels au moteur PDF natif.
+
+**Correction :** le mode séparé utilise maintenant `PDFExportOptions.Combine=False` et transmet toutes les feuilles du périmètre dans un seul appel natif `Document.Export`. Autodesk indique que `Combine=False` est précisément le mode prévu pour créer un PDF par vue/feuille ; les noms sont alors générés par la règle de nommage PDF de Revit.
+
+**Règle préventive :** utiliser un seul appel natif par périmètre ; ne pas confondre correction statique et validation du crash dans Revit.
+
+**Test de non-régression :** TEST-14 — publier un carnet de plusieurs feuilles en PDF séparé et vérifier qu'un PDF est produit par feuille sans crash de Revit.
+
+### BUG-EXPORT-023 — Noms PDF séparés annoncés différents des fichiers créés
+
+**Symptôme :** aperçu et rapport annoncent des noms TAA alors que Revit utilise sa règle native.
+**Cause :** le modèle TAA n'était ni transmis au moteur ni appliqué après export ; le modèle hérité du dossier n'était pas transmis aux chemins de publication.
+**Correction :** un export natif groupé `Combine=False` dans un répertoire temporaire, règle explicite `taa_` + numéro de feuille, correspondance exacte puis livraison sous les noms TAA. Les réglages effectifs sont transmis sur une copie du carnet, sans modifier l'héritage persistant. Une collision dans un carnet bloque avant export. Les anciens fichiers sont sauvegardés pendant la livraison et restaurés si celle-ci échoue.
+**Règle préventive :** ne jamais annoncer un chemin calculé comme livré sans vérifier le fichier correspondant ; ne jamais associer les PDF par ordre de répertoire. Vérifier les correspondances de noms après nettoyage et refuser les ambiguïtés.
+**Anti-régression :** `tests/test_pdf_delivery.py` couvre ordre natif inversé, noms personnalisés, collisions, sortie partielle/vide, retour False, exception, restauration et contrat des options Revit simulées ; TEST-14 dans Revit reste obligatoire.
+
+### BUG-EXPORT-024 — Gestionnaire de glisser-déposer instancié trois fois
+
+**Symptôme :** trois jeux de handlers WPF abonnés au même arbre, avec risque d'opérations multiples.
+**Cause :** initialisation dans `ExportWindow`, son intégration et `script.main()` sous deux noms d'attributs.
+**Correction :** `ExportWindow._drag_drop_manager` est l'unique propriétaire ; suppression des deux autres constructions et imports.
+**Règle préventive :** une seule instance responsable de l'abonnement aux événements d'un contrôle.
+**Anti-régression :** `test_drag_drop_has_one_constructor_owner` ; reprendre TEST-04 et un déplacement Ctrl/Maj dans Revit.
+
+### BUG-TEST-002 — Tests désynchronisés des contrats de publication et de diagnostics
+
+**Symptôme :** quatre échecs hors Revit.
+**Cause :** fausses vues sans `Id` ; assertion d'identité de liste incompatible avec la copie défensive des diagnostics.
+**Correction :** doubles exposant l'identifiant courant et test de contenu/non-mutation de la liste source. Les tests de lot utilisent le modèle réel PublicationSet.
+**Règle préventive :** les doubles doivent respecter les propriétés effectivement lues ; vérifier le contrat métier plutôt qu'imposer une identité mémoire non spécifiée.
+**Anti-régression :** suite pytest complète, avec `--import-mode=importlib` pour les deux fichiers `test_project_identity.py`.
+
+### BUG-EXPORT-025 — Rapport masquant la cause d'un échec de publication
+
+**Symptôme :** TEST-14 sur `858f858` : aucun PDF publié selon le retour utilisateur,
+lignes « ERREUR » avec détail « Export terminé. », bas de fenêtre « 1 erreur(s) ».
+**Cause confirmée du rapport :** l'orchestrateur transmet les exceptions dans
+`report.errors`, mais la fenêtre n'affichait que leur nombre ; les lignes sans
+message utilisaient un texte de succès indépendamment de leur statut. Elle ne
+lisait pas non plus les champs `path` et `carnet` des résultats actuels.
+**Correction :** erreurs/avertissements complets dans une zone copiable et
+défilante, détail d'échec explicite et lecture des champs actuels.
+**Règle préventive :** tester le contrat complet service → rapport, y compris
+une erreur globale sans erreur locale et un échec avant création des lignes.
+**Anti-régression :** `tests/test_export_report_window.py` (fenêtre simulée et
+contrôle XAML), puis copier le diagnostic réel depuis Revit 2025.4.
+**Suite :** le diagnostic réel a identifié `taa_PC 09*.pdf`, bloqué par la
+validation du nom temporaire avant tout appel au moteur PDF.
+
+### BUG-EXPORT-026 — Astérisque dans un numéro de feuille bloquant TEST-14
+
+**Symptôme :** `PDF séparé — erreur : Nom PDF non valide : taa_PC 09*.pdf`,
+aucun fichier créé pour le carnet DPC.
+**Cause :** le numéro de feuille Revit `PC 09*` était injecté tel quel dans un
+nom temporaire Windows, puis refusé avant export.
+**Correction :** sécuriser le nom temporaire ; après l'export natif groupé,
+rapprocher les PDF des feuilles par une clé conservatrice et unique qui ignore
+la ponctuation. Ne livrer aucun PDF en cas d'ambiguïté ou de sortie inattendue.
+**Règle préventive :** les noms Revit ne sont pas nécessairement des noms de
+fichiers ; conserver la maquette et vérifier toute correspondance avant livraison.
+**Anti-régression :** `tests/test_pdf_delivery.py` couvre le numéro étoilé,
+l'ordre inversé, les collisions après nettoyage et les sorties inattendues.
+Validation réelle du comportement de nommage Revit 2025.4 encore requise.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -233,6 +325,14 @@ BUG-EXPORT-016
 BUG-EXPORT-017
 BUG-EXPORT-018
 BUG-EXPORT-019
+BUG-EXPORT-020
+BUG-EXPORT-021
+BUG-EXPORT-022
+BUG-EXPORT-023
+BUG-EXPORT-024
+BUG-EXPORT-025
+BUG-EXPORT-026
+BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

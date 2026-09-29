@@ -72,7 +72,8 @@ class PublicationPreviewService(object):
             normalized = os.path.normcase(os.path.abspath(path)) if directory else os.path.normcase(filename)
             duplicate = normalized in generated_paths
             if duplicate:
-                warnings.append("Collision de nom dans la publication : {0}.".format(filename))
+                message = "Collision de nom dans la publication : {0}.".format(filename)
+                (errors if fmt == "PDF" else warnings).append(message)
             generated_paths[normalized] = True
             exists = bool(directory) and os.path.exists(path)
             if exists:

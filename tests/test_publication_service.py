@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests unitaires de l'orchestrateur de publication Export."""
 
 import os
@@ -27,7 +28,8 @@ from publication_service import PublicationService
 class FakeView(object):
     """Vue Revit minimale utilisée pour la validation."""
 
-    def __init__(self, printable=True):
+    def __init__(self, printable=True, element_id=None):
+        self.Id = element_id
         self.CanBePrinted = printable
 
 
@@ -58,7 +60,7 @@ class FakeDwgService(object):
 class PublicationServiceTests(unittest.TestCase):
 
     def setUp(self):
-        self.document = FakeDocument({1: FakeView(), 2: FakeView()})
+        self.document = FakeDocument({1: FakeView(element_id=1), 2: FakeView(element_id=2)})
         self.service = PublicationService(self.document)
         self.service.pdf_service = FakePdfService()
         self.service.dwg_service = FakeDwgService()
@@ -75,7 +77,7 @@ class PublicationServiceTests(unittest.TestCase):
         self.assertEqual([], errors)
 
     def test_validation_refuse_une_feuille_non_imprimable(self):
-        self.document.views[2] = FakeView(False)
+        self.document.views[2] = FakeView(False, element_id=2)
         carnet = PublicationSet("DCE", self.items)
 
         errors = self.service.validate_publication_set(carnet)

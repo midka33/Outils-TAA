@@ -29,7 +29,7 @@ class PublicationBatchService(object):
             items = getattr(target, "_publication_items", None)
             try:
                 result = self.publication_service.publish(
-                    target, settings.output_directory,
+                    target.with_settings(settings), settings.output_directory,
                     export_pdf=settings.pdf_enabled,
                     export_dwg=settings.dwg_enabled,
                     pdf_combined=settings.pdf_mode == "COMBINED",

@@ -98,9 +98,12 @@ def test_preview_propagates_diagnostics_without_mutating_resolution():
     original_candidates = list(resolution.candidates)
     preview = DynamicPreviewBuilder().build(resolution)
 
-    assert preview.diagnostics is resolution.diagnostics
+    assert preview.diagnostics == resolution.diagnostics
+    assert preview.diagnostics is not resolution.diagnostics
     assert preview.diagnostics[0].code == "EXCLUSION_NOT_FOUND"
     assert resolution.candidates == original_candidates
+    preview.diagnostics.clear()
+    assert len(resolution.diagnostics) == 1
 
 
 def test_preview_rejects_invalid_resolution_types():

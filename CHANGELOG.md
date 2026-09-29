@@ -6,6 +6,14 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Fixed
+- PDF séparés : numéro de feuille contenant `*` ou un autre caractère interdit
+  dans un nom Windows ; rapprochement contrôlé des fichiers natifs, sans
+  modifier les numéros dans Revit. Validation réelle TEST-14 à poursuivre.
+- Rapport Export : erreurs globales complètes et copiables, suppression du faux
+  message de succès sur les lignes en échec, chemins et carnets issus des résultats.
+  Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
+
 ### Added
 - Architecture explicite du repository.
 - Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.
@@ -87,3 +95,11 @@ Le format suit les principes de *Keep a Changelog*.
 
 ### Added
 - Initialisation du repository.
+
+## Correctifs préparatoires TEST-14 — 2026-09-28
+
+- Nommage réel des PDF séparés aligné sur le modèle TAA, avec contrôle des fichiers,
+  collisions bloquantes et restauration sur échec de livraison.
+- Transmission des réglages hérités sur une copie de publication.
+- Suppression de deux abonnements redondants au glisser-déposer.
+- Tests et documentation synchronisés ; validation Revit 2025.4 encore requise.

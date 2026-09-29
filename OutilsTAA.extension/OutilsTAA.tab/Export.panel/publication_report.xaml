@@ -69,9 +69,14 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="WarningsText"
+            <TextBox x:Name="WarningsText"
                        Grid.Column="0"
                        VerticalAlignment="Center"
+                       IsReadOnly="True"
+                       AcceptsReturn="True"
+                       MaxHeight="160"
+                       VerticalScrollBarVisibility="Auto"
+                       HorizontalScrollBarVisibility="Disabled"
                        TextWrapping="Wrap"
                        Margin="0,0,12,0" />
             <Button Grid.Column="1"
