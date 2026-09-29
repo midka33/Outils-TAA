@@ -38,7 +38,7 @@
 - [x] Transmettre le modèle hérité sans changer les surcharges persistantes.
 - [x] Supprimer les deux initialisations redondantes du glisser-déposer.
 - [x] Actualiser les tests et capitaliser les bugs 020 à 024.
-- [ ] Rejouer TEST-14 dans Revit 2025.4 : profils, PDF combinés/séparés et noms réels.
+- [x] TEST-14 validé par l'utilisateur le 2026-09-29 dans Revit 2025.4 : profils, PDF combinés/séparés, noms et contenu des fichiers (dont `PC 09*`), code `7bb533c`. Voir `docs/17_Export_Preparation_TEST14.md`.
 - [ ] Recontrôler TEST-04 et un déplacement multiple après suppression des doublons.
 - [ ] Consolider la surcouche `stage07` après validation réelle.
 
