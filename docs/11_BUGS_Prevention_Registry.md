@@ -382,6 +382,20 @@ publication directe carnet/feuille ; les dossiers parents restent liés au péri
 **Test :** chemins aperçu/export dans les 4 combinaisons PDF/DWG et 3 périmètres ;
 TEST-V1-02 réel à rejouer. Le constat utilisateur reste KO jusqu'à cette validation.
 
+### BUG-EXPORT-033 — Surcharge intermédiaire sans retour à l'héritage accessible
+
+**Symptôme :** A405 indique « Hérité du dossier » mais reste différent de DCE ;
+l'interface ne précise pas quel dossier fournit les valeurs.
+**Cause confirmée dans le code :** bouton de retour désactivé pour tous les dossiers,
+handler limité aux carnets et origine affichée sans nom d'ancêtre. Une surcharge
+intermédiaire reste donc prioritaire sans moyen UI de l'enlever.
+**Correction :** retour explicite à l'héritage du parent pour le sous-dossier sélectionné,
+sauvegarde et affichage du nom du dossier effectif pour chaque groupe de champs.
+**Règle :** chaque niveau permettant des surcharges doit permettre leur retrait ;
+ne jamais effacer automatiquement les réglages existants pour simuler un héritage.
+**Test :** vraie méthode UI exécutée hors WPF, scénario DCE/Plan/A405, sauvegarde et
+relecture du dossier, conservation des descendants ; validation Revit restante.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -417,6 +431,7 @@ BUG-EXPORT-029
 BUG-EXPORT-030
 BUG-EXPORT-031
 BUG-EXPORT-032
+BUG-EXPORT-033
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

@@ -29,6 +29,19 @@ au nom du carnet. **Résultat Revit : KO initial ; correctif élargi, à reteste
   destination et modes au parent, vérifier affichage et aperçu ; définir une surcharge
   locale et vérifier qu'elle reste prioritaire, puis fermer/rouvrir.
 
+## Reprise héritage après capture A405 — 2026-09-30
+
+La création des dossiers est confirmée par l'utilisateur. A405 affiche un héritage
+mais reste en combiné/Documents alors que DCE est en séparé/Pictures.
+Le retour à l'héritage est désormais proposé aussi sur les sous-dossiers ; le panneau
+nomme le dossier effectif par groupe de réglages.
+
+Sélectionner Plan, contrôler les origines affichées et cliquer sur « Revenir à
+l'héritage du parent » pour supprimer ses surcharges si souhaité. Sélectionner A405
+puis prévisualiser DCE : vérifier modes/destinations. Répéter pour Coupe/PRO si
+nécessaire, puis fermer/rouvrir. Les surcharges propres des carnets restent prioritaires.
+**Résultat Revit de ce correctif : à tester.**
+
 ## TEST-V1-01 — Publication complète sans filtre historique
 
 1. Ouvrir un projet/carnet avec l'ancienne option activée, puis rouvrir Export.

@@ -60,3 +60,13 @@ class SettingsResolver(object):
                 self.profile_service.get(profile_name).get(field) is not None:
             return "Profil"
         return "Défaut"
+
+    def source_label(self, publication_set, field, folder=None, folders=None):
+        """Nomme le dossier effectif pour distinguer héritage proche et lointain."""
+        source = self.source_for(publication_set, field, folder=folder, folders=folders)
+        if source == "Dossier":
+            for ancestor in self.folder_chain(folder, folders):
+                settings = getattr(ancestor, "publication_settings", None)
+                if settings is not None and getattr(settings, field, None) is not None:
+                    return "Dossier « {0} »".format(ancestor.name)
+        return source

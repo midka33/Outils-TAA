@@ -14,6 +14,8 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Sous-dossiers : bouton de retour à l’héritage du parent, origine des réglages
+  nommée et libellé lisible dans la liste des dossiers.
 - Héritage des sous-dossiers : résolution récursive et affichage des valeurs effectives.
 - Mode séparé : dossier au nom du carnet également en publication directe carnet/feuille.
 - TEST-15/16 : collection DWG explicitement typée `List[ElementId]` pour IronPython.

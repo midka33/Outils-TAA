@@ -26,7 +26,10 @@ Les valeurs sont résolues propriété par propriété : carnet, dossier immédi
 puis dossiers parents du plus proche au plus éloigné, profil et valeurs par défaut.
 Une surcharge locale explicite (y compris `False`) reste prioritaire. Les champs à
 `None` héritent ; les réglages effectifs affichés ne sont pas persistés comme surcharges.
-La sélection d'un sous-dossier affiche aussi ses valeurs héritées. Une modification
+La sélection d'un sous-dossier affiche aussi ses valeurs héritées. Le panneau indique le nom du dossier fournissant chaque groupe de réglages.
+Sur un sous-dossier possédant des surcharges, « Revenir à l’héritage du parent »
+efface uniquement ses réglages locaux, après clic explicite, et sauvegarde ce choix.
+Les réglages des descendants ne sont pas effacés. Une modification
 ultérieure du parent s'applique aux descendants sans surcharge de ce champ.
 
 ## Publication d'un dossier — arborescence des livrables
