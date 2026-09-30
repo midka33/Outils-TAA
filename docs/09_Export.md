@@ -7,6 +7,38 @@
 
 ---
 
+## Périmètre V1 — décision du 2026-09-30
+
+L'option « Publier uniquement les mises en page nouvelles ou modifiées » est retirée.
+La V1 publie toutes les mises en page du périmètre choisi (feuille, carnet ou dossier),
+sous réserve des contrôles habituels. Les collisions de fichiers restent signalées.
+Les anciennes valeurs `modified_only=true` sont ignorées au chargement et ne sont
+plus sérialisées comme réglages actifs ; aucun nettoyage manuel n'est nécessaire.
+L'historique technique est conservé mais ne réduit plus le contenu à publier.
+Le modèle expose `modified_only=False` en lecture seule pour les intégrations Stage 07
+encore présentes. La case XAML et ses handlers/synchronisations sont supprimés.
+Les services de filtrage isolés restent disponibles pour une éventuelle V2.
+Le retour de l'option sera étudié **après finalisation et sortie de la V1** : voir `ROADMAP.md`.
+
+## Publication d'un dossier — arborescence des livrables
+
+La destination effective de chaque carnet reste la racine de sortie. Lorsqu'un
+dossier est publié, son nom et les sous-dossiers jusqu'au carnet sont reproduits
+sous cette racine. Seule la branche sélectionnée est reproduite : publier directement
+`Architecture` ne rajoute pas son parent `DCE`.
+
+- Mode combiné : fichier dans le dossier contenant le carnet.
+- Mode séparé : fichiers dans un sous-dossier au nom du carnet.
+- PDF et DWG suivent leur propre mode : `DCE/Architecture/Plans.pdf` peut coexister
+  avec `DCE/Architecture/Plans/Feuille-01.dwg`.
+
+Les modèles de nommage des fichiers restent appliqués. Les noms des dossiers sont
+sécurisés pour Windows. Aucun dossier n'est créé pendant l'aperçu ou après annulation.
+L'aperçu montre les chemins réels et bloque les collisions de fichiers entre carnets.
+La publication directe d'un carnet ou d'une feuille conserve sa destination habituelle.
+Le chemin relatif est porté par une copie de travail du carnet et partagé par
+`PublicationPreviewService` et `PublicationService` via `publication_paths.py`.
+
 ## 1. Vision
 
 **Export** est le gestionnaire de publications des **Outils TAA**.

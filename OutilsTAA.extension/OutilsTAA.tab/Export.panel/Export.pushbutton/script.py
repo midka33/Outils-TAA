@@ -128,37 +128,6 @@ def _current_states(window, publication_set):
     return states
 
 
-def _install_modified_only_value_support(window):
-    original = window._control_value
-    def control_value(field):
-        if field == "modified_only":
-            return bool(window.ModifiedOnlyCheckBox.IsChecked)
-        return original(field)
-    window._control_value = control_value
-
-
-def _install_modified_only_selection_sync(window):
-    def on_selection_changed(sender, args):
-        try:
-            if window._selected_kind == "FOLDER" and window._selected_folder is not None:
-                settings = window._selected_folder.publication_settings
-                value = bool(getattr(settings, "modified_only", False)) if settings is not None else False
-            elif window._selected_set is not None:
-                value = bool(getattr(window._resolve_settings(window._selected_set), "modified_only", False))
-            else:
-                value = False
-            window._loading_settings = True
-            window.ModifiedOnlyCheckBox.IsChecked = value
-            window._loading_settings = False
-        except Exception:
-            try:
-                window._loading_settings = False
-            except Exception:
-                pass
-    window.PublicationTree.SelectedItemChanged += on_selection_changed
-    window._modified_only_selection_sync = on_selection_changed
-
-
 def _build_preview_stage07(window, targets):
     service = publication_preview_integration.PublicationPreviewService(
         window.controller.publication_service, window.filename_service)
@@ -250,14 +219,6 @@ def _preview_then_publish_folder_stage07(window, targets):
 
 
 def _install_stage07_hooks():
-    def modified_only_changed(self, sender, args):
-        if getattr(self, "_loading_settings", False):
-            return
-        if self._selected_kind == "FOLDER":
-            self._save_folder_settings("modified_only")
-        else:
-            self._save_selected_field("modified_only")
-    ExportWindow.ModifiedOnlyChanged = modified_only_changed
     publication_preview_integration._build_preview = _build_preview_stage07
     publication_preview_integration._publish_targets = _publish_targets_stage07
     publication_preview_integration._preview_then_publish_folder = _preview_then_publish_folder_stage07
@@ -281,8 +242,6 @@ def main():
     controller = CarnetController(export_service, carnet_service, parameter_service,
                                    repository, publication_service)
     window = ExportWindow(controller, repository)
-    _install_modified_only_selection_sync(window)
-    _install_modified_only_value_support(window)
     window.ShowDialog()
 
 

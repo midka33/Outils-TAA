@@ -1,7 +1,13 @@
 # Export — Étape 07 : Historique et « modifiés uniquement »
 
-**Statut :** Intégration technique réalisée — validation Revit 2025.4 restante  
+**Statut :** Spécification historique, filtrage retiré de la V1 le 2026-09-30 ; retour éventuel en V2
 **Cible :** Revit 2025.4 / pyRevit 5.x
+
+Les sections ci-dessous décrivent l'intégration expérimentale antérieure et la cible
+à réévaluer pour V2, **pas le comportement actif V1**. Les tests 35 et 36 ont révélé
+des résultats non conformes. En V1, le contrôle est supprimé, les anciens réglages
+sont ignorés et toutes les feuilles du périmètre choisi sont proposées. Le socle
+historique reste conservé. Voir `ROADMAP.md` et `docs/09_Export.md`.
 
 ## 1. Objectif
 

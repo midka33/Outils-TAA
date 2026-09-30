@@ -327,6 +327,38 @@ service ; ne pas masquer les erreurs comme une absence de sélection.
 **Anti-régression :** `tests/test_export_tests15_23.py`, numéro/paramètre Revit/dossier
 sur carnet et feuille sélectionnée ; rejouer TEST-22/23 dans Revit.
 
+### BUG-EXPORT-029 — Filtrage expérimental retiré du périmètre V1
+
+**Symptôme :** TEST-35 : collision au lieu du résultat attendu ; TEST-36 : une ligne
+ajoutée sur une feuille n'est pas proposée comme modification.
+**Cause :** le filtrage repose sur la comparaison du `VersionGuid` de la feuille ;
+la couverture des modifications de contenu n'est pas démontrée. La cause exacte
+Revit des retours 35/36 reste à analyser avant toute réintroduction.
+**Décision V1 :** retrait de l'option demandé par l'utilisateur ; ce n'est pas une
+correction de l'algorithme de détection. Le modèle force `modified_only=False`,
+retire ce champ des réglages héritables/sérialisés et ignore les anciennes valeurs.
+Le contrôle XAML et ses handlers sont supprimés ; le socle historique est conservé.
+**Règle préventive :** retirer une option de l'interface exige de neutraliser aussi
+les valeurs persistées, sinon un filtre invisible peut exclure des livrables.
+**Anti-régression :** `tests/test_export_v1_scope.py` couvre profil/dossier/carnet
+anciens, périmètre feuille/carnet/dossier et absence de références UI résiduelles.
+TEST-V1-01 reste à exécuter dans Revit. Réétudier les tests 35/36 pour V2.
+
+### BUG-EXPORT-030 — Publication récursive aplatie dans la destination
+
+**Symptôme :** publier un dossier avec sous-dossiers et carnets ne créait pas
+l'arborescence attendue sur disque.
+**Cause :** les cibles ne transportaient pas leur chemin relatif et les moteurs
+PDF/DWG utilisaient une destination unique quel que soit le mode.
+**Correction :** copies de cibles portant le chemin depuis le dossier sélectionné,
+service de chemins commun à l'aperçu et aux exports ; sous-dossier au nom du carnet
+uniquement pour les formats séparés. Les destinations propres restent respectées.
+**Règle préventive :** calculer les chemins dans un seul service sans effet disque,
+ne pas muter les carnets persistants et contrôler les collisions entre carnets.
+**Anti-régression :** `tests/test_publication_folder_paths.py`, quatre combinaisons
+PDF/DWG, fichiers simulés comparés à l'aperçu, sélection partielle et noms Windows.
+TEST-V1-02 reste à valider dans Revit 2025.4.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -358,6 +390,8 @@ BUG-EXPORT-025
 BUG-EXPORT-026
 BUG-EXPORT-027
 BUG-EXPORT-028
+BUG-EXPORT-029
+BUG-EXPORT-030
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

@@ -1,5 +1,38 @@
 # Export — Checklist de tests Revit 2025.4
 
+> **Périmètre actualisé le 2026-09-30 :** « modifiés uniquement » est retiré de la V1.
+> TEST-34 à TEST-43 et TEST-45 à TEST-56 sont reportés pour une éventuelle V2,
+> après finalisation et sortie de la V1. Les résultats saisis ci-dessous restent
+> conservés comme historique (les KO 35/36 ne sont pas déclarés corrigés).
+> TEST-31 reste KO et à corriger en V1 ; TEST-32/33 sont validés par l'utilisateur.
+> Continuer avec TEST-V1-01 ci-dessous puis TEST-44 et les profils P1 à P4.
+
+## TEST-V1-02 — Arborescence des fichiers publiés
+
+Créer `DCE → Architecture → Plans` avec plusieurs feuilles, puis publier DCE.
+Vérifier les quatre combinaisons PDF/DWG combiné/séparé : combiné dans
+`destination/DCE/Architecture/`, séparé dans `destination/DCE/Architecture/Plans/`.
+Les noms de fichiers suivent le modèle choisi. Comparer chemins de l'aperçu,
+rapport et fichiers réellement créés. Annuler un aperçu : aucun dossier créé.
+Tester aussi deux carnets avec destinations différentes, un sous-dossier sélectionné
+seul, des caractères interdits et des noms produisant une collision entre carnets.
+Une collision doit bloquer la confirmation. Recontrôler la publication directe d'un
+carnet et d'une feuille. **Résultat Revit : à tester.**
+
+## TEST-V1-01 — Publication complète sans filtre historique
+
+1. Ouvrir un projet/carnet avec l'ancienne option activée, puis rouvrir Export.
+2. Vérifier que la case a disparu et que la sélection dossier/carnet/feuille fonctionne.
+3. Prévisualiser puis publier vers une destination vide : toutes les feuilles du périmètre doivent être présentes.
+4. Sans changer les feuilles, refaire l'opération vers une autre destination vide.
+5. Répéter pour une feuille seule et un dossier de plusieurs carnets, PDF/DWG, séparé/combiné.
+6. Appliquer un ancien profil, fermer/rouvrir et vérifier à nouveau le périmètre complet.
+
+**Attendu :** aucune exclusion liée à l'historique ; contrôles de destination,
+feuilles manquantes et collisions toujours actifs. Les noms et contenus des fichiers
+correspondent à la prévisualisation. **Résultat Revit : à tester.**
+
+
 **Projet :** Outils TAA  
 **Module :** Export  
 **Étape :** 07 — Historique et `MODIFIED_ONLY`  
