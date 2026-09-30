@@ -10,6 +10,16 @@ class DwgExportService(object):
     def __init__(self, document):
         self.document = document
 
+    @staticmethod
+    def _to_element_ids(view_ids):
+        """Construit l'ICollection[ElementId] attendue par l'API DWG."""
+        from Autodesk.Revit.DB import ElementId
+        from System.Collections.Generic import List
+        result = List[ElementId]()
+        for view_id in view_ids:
+            result.Add(view_id)
+        return result
+
     def get_predefined_setups(self):
         """Retourne les configurations DWG natives disponibles dans Revit."""
         from Autodesk.Revit.DB import DWGExportOptions
@@ -82,7 +92,7 @@ class DwgExportService(object):
         return self.document.Export(
             output_directory,
             filename_prefix,
-            list(view_ids),
+            self._to_element_ids(view_ids),
             options
         )
 
@@ -103,7 +113,7 @@ class DwgExportService(object):
         return self.document.Export(
             output_directory,
             filename,
-            list(view_ids),
+            self._to_element_ids(view_ids),
             options
         )
 

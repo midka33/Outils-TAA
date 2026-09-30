@@ -303,6 +303,30 @@ fichiers ; conserver la maquette et vérifier toute correspondance avant livrais
 l'ordre inversé, les collisions après nettoyage et les sorties inattendues.
 Validation réelle du comportement de nommage Revit 2025.4 encore requise.
 
+### BUG-EXPORT-027 — Liste Python refusée par l'export DWG
+
+**Symptôme :** TEST-15/16 : `expected ICollection[ElementId], got list`.
+**Cause :** les deux modes DWG passaient `list(view_ids)` à la surcharge Revit.
+**Correction :** construction explicite de `List[ElementId]` avant l'appel natif.
+**Règle préventive :** les doubles d'API doivent vérifier la collection typée,
+pas seulement accepter toute liste Python ; respecter le contrat .NET de la surcharge.
+**Anti-régression :** `tests/test_export_tests15_23.py`, modes séparé/combiné et
+True Color activé/désactivé. Rejouer TEST-15 puis TEST-16 dans Revit.
+Le retour TEST-16 démontre un blocage d'export, pas encore un défaut de couleur.
+
+### BUG-EXPORT-028 — Aperçu du nom absent dans la fenêtre principale
+
+**Symptôme :** TEST-22/23 : nom correct dans la fenêtre de publication, tiret dans
+l'aperçu principal.
+**Cause :** appel à `FilenameService.preview`, méthode inexistante, puis exception
+masquée par un tiret.
+**Correction :** appel au service canonique `resolve`, avec feuille sélectionnée
+et dossier parent ; affichage des erreurs et variables non résolues.
+**Règle préventive :** tester le raccordement de la vraie méthode UI au vrai
+service ; ne pas masquer les erreurs comme une absence de sélection.
+**Anti-régression :** `tests/test_export_tests15_23.py`, numéro/paramètre Revit/dossier
+sur carnet et feuille sélectionnée ; rejouer TEST-22/23 dans Revit.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -332,6 +356,8 @@ BUG-EXPORT-023
 BUG-EXPORT-024
 BUG-EXPORT-025
 BUG-EXPORT-026
+BUG-EXPORT-027
+BUG-EXPORT-028
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001
