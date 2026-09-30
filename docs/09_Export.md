@@ -20,6 +20,15 @@ encore présentes. La case XAML et ses handlers/synchronisations sont supprimés
 Les services de filtrage isolés restent disponibles pour une éventuelle V2.
 Le retour de l'option sera étudié **après finalisation et sortie de la V1** : voir `ROADMAP.md`.
 
+## Héritage récursif des réglages
+
+Les valeurs sont résolues propriété par propriété : carnet, dossier immédiat,
+puis dossiers parents du plus proche au plus éloigné, profil et valeurs par défaut.
+Une surcharge locale explicite (y compris `False`) reste prioritaire. Les champs à
+`None` héritent ; les réglages effectifs affichés ne sont pas persistés comme surcharges.
+La sélection d'un sous-dossier affiche aussi ses valeurs héritées. Une modification
+ultérieure du parent s'applique aux descendants sans surcharge de ce champ.
+
 ## Publication d'un dossier — arborescence des livrables
 
 La destination effective de chaque carnet reste la racine de sortie. Lorsqu'un
@@ -35,7 +44,8 @@ sous cette racine. Seule la branche sélectionnée est reproduite : publier dire
 Les modèles de nommage des fichiers restent appliqués. Les noms des dossiers sont
 sécurisés pour Windows. Aucun dossier n'est créé pendant l'aperçu ou après annulation.
 L'aperçu montre les chemins réels et bloque les collisions de fichiers entre carnets.
-La publication directe d'un carnet ou d'une feuille conserve sa destination habituelle.
+La publication directe d'un carnet ou d'une feuille ajoute également le dossier du
+carnet en mode séparé ; le mode combiné conserve la destination choisie.
 Le chemin relatif est porté par une copie de travail du carnet et partagé par
 `PublicationPreviewService` et `PublicationService` via `publication_paths.py`.
 

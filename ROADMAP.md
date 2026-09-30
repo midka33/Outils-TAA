@@ -49,7 +49,8 @@
 - [x] Reproduire les dossiers/sous-dossiers sur disque ; ranger les formats séparés par carnet.
 - [ ] Valider les quatre combinaisons PDF/DWG et les chemins réels (TEST-V1-02).
 - [ ] Valider dans Revit la publication complète après retrait de l'option (TEST-V1-01).
-- [ ] Corriger l'héritage des sous-dossiers signalé au TEST-31.
+- [x] Résoudre les réglages à travers les dossiers parents (TEST-31).
+- [ ] Revalider TEST-31 dans Revit après correction.
 - [ ] Terminer les tests V1, dont TEST-44 et profils P1 à P4, puis la non-régression.
 - [ ] Finaliser et sortir Export V1 avant de reprendre les fonctionnalités V2.
 

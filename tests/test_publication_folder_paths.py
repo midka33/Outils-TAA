@@ -26,10 +26,13 @@ def folder_target():
     return carnet, _folder_targets(window, root)[0], window, child
 
 
+@pytest.mark.parametrize('scope', ['folder', 'set', 'sheet'])
 @pytest.mark.parametrize('pdf_combined', [True, False])
 @pytest.mark.parametrize('dwg_combined', [True, False])
-def test_preview_matches_export_and_creates_only_needed_folders(tmp_path, pdf_combined, dwg_combined):
+def test_preview_matches_export_and_creates_only_needed_folders(tmp_path, pdf_combined, dwg_combined, scope):
     original, target, _, _ = folder_target()
+    if scope != "folder":
+        target = original
     settings = PublicationSettings.defaults()
     settings.output_directory = str(tmp_path)
     settings.filename_template = '{carnet}-{numero}'
@@ -66,7 +69,7 @@ def test_preview_matches_export_and_creates_only_needed_folders(tmp_path, pdf_co
     assert result['success'], result['errors']
     assert sorted(row.Path for row in preview['rows']) == sorted(delivered)
     assert sorted(row['path'] for row in result['results']) == sorted(delivered)
-    base = tmp_path / 'DCE' / 'Architecture'
+    base = tmp_path / 'DCE' / 'Architecture' if scope == 'folder' else tmp_path
     for extension, combined in (('.pdf', pdf_combined), ('.dwg', dwg_combined)):
         assert ((base if combined else base / 'Plans') / ('Plans-A1' + extension)).is_file()
     assert (base / 'Plans').exists() is (not pdf_combined or not dwg_combined)
@@ -77,7 +80,7 @@ def test_selected_subfolder_and_custom_destination(tmp_path):
     original, target, window, child = folder_target()
     sub = _folder_targets(window, child)[0]
     assert publication_directory(sub, str(tmp_path / 'autre'), False) == str(tmp_path / 'autre/Architecture/Plans')
-    assert publication_directory(original, str(tmp_path), False) == str(tmp_path)
+    assert publication_directory(original, str(tmp_path), False) == str(tmp_path / "Plans")
 
 
 @pytest.mark.parametrize('name,expected', [('PC:09*', 'PC_09_'), ('../Plans', '.._Plans'),
@@ -98,3 +101,28 @@ def test_cross_booklet_collision_blocks_confirmation():
         {'rows': [SimpleNamespace(Path='/export/DCE/Plan.pdf')]},
         {'rows': [SimpleNamespace(Path='/export/DCE/plan.pdf')]}])
     assert any('Collision entre carnets' in message for message in merged['errors'])
+
+
+def test_recursive_settings_follow_parents_and_preserve_overrides():
+    from settings_resolver import SettingsResolver
+    root = PublicationFolder('DCE', 'root', publication_settings=PublicationSettings(
+        output_directory='sortie', pdf_mode='SEPARATE', dwg_enabled=False))
+    child = PublicationFolder('Architecture', 'child', 'root', publication_settings=PublicationSettings(dwg_enabled=True))
+    leaf = PublicationFolder('Etage', 'leaf', 'child', publication_settings=PublicationSettings())
+    target = PublicationSet('Plans', publication_settings=PublicationSettings(pdf_enabled=False))
+    folders = [root, child, leaf]
+    resolver = SettingsResolver(SimpleNamespace(get=lambda name: None))
+    effective = resolver.resolve(target, leaf, folders=folders)
+    assert effective.output_directory == 'sortie'
+    assert effective.pdf_mode == 'SEPARATE'
+    assert effective.dwg_enabled is True
+    assert effective.pdf_enabled is False
+    assert resolver.source_for(target, 'output_directory', leaf, folders=folders) == 'Dossier'
+    assert leaf.publication_settings.to_dict()['output_directory'] is None
+    root.publication_settings.output_directory = 'nouvelle-sortie'
+    assert resolver.resolve(None, leaf, folders=folders).output_directory == 'nouvelle-sortie'
+    child.publication_settings.dwg_enabled = None
+    assert resolver.resolve(target, leaf, folders=folders).dwg_enabled is False
+    root.parent_id = 'leaf'
+    with pytest.raises(ValueError, match='Cycle'):
+        resolver.resolve(target, leaf, folders=folders)

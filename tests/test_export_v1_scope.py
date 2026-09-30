@@ -23,7 +23,7 @@ def test_legacy_filter_is_ignored_at_every_level(layer, tmp_path):
     old = {'modified_only': True, 'output_directory': str(tmp_path)}
     settings = PublicationSettings.from_dict(old)
     target = PublicationSet('DCE', [], publication_settings=settings if layer == 'set' else None)
-    folder = SimpleNamespace(publication_settings=settings if layer == 'folder' else None)
+    folder = SimpleNamespace(id='folder', publication_settings=settings if layer == 'folder' else None)
     profiles = SimpleNamespace(get=lambda name: old if layer == 'profile' else {})
     resolved = SettingsResolver(profiles).resolve(target, folder, 'ancien')
     assert resolved.modified_only is False

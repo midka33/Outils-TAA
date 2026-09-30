@@ -18,13 +18,11 @@ def safe_directory_name(name):
 def publication_directory(target, destination, combined):
     """Décline la destination effective sans créer de dossier pendant l'aperçu.
 
-    Seules les copies préparées pour une publication de dossier portent le chemin
-    relatif. La publication directe d'une feuille ou d'un carnet reste inchangée.
+    Les cibles de dossier portent leur chemin relatif. Le mode séparé ajoute
+    toujours le nom du carnet, même lors de sa publication directe.
     """
-    parts = getattr(target, "publication_folder_parts", None)
-    if parts is None:
-        return destination
+    parts = getattr(target, "publication_folder_parts", ())
     names = [safe_directory_name(part) for part in parts]
     if not combined:
         names.append(safe_directory_name(target.name))
-    return os.path.join(destination, *names)
+    return os.path.join(destination, *names) if names else destination

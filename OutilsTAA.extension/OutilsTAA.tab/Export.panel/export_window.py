@@ -134,10 +134,10 @@ class ExportWindow(forms.WPFWindow):
         return self._folders_by_id.get(getattr(publication_set, "folder_id", None))
 
     def _resolve_settings(self, publication_set):
-        return self.settings_resolver.resolve(publication_set, folder=self._folder_for_set(publication_set))
+        return self.settings_resolver.resolve(publication_set, folder=self._folder_for_set(publication_set), folders=self._folders)
 
     def _setting_source(self, publication_set, field):
-        return self.settings_resolver.source_for(publication_set, field, folder=self._folder_for_set(publication_set))
+        return self.settings_resolver.source_for(publication_set, field, folder=self._folder_for_set(publication_set), folders=self._folders)
 
     def Tree_SelectedItemChanged(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -231,11 +231,11 @@ class ExportWindow(forms.WPFWindow):
         folder = self._selected_folder
         if folder is None:
             return
-        settings = folder.publication_settings or PublicationSettings()
+        settings = self.settings_resolver.resolve(None, folder=folder, folders=self._folders)
         self._loading_settings = True
         self._loading_profile = True
         try:
-            self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les carnets du dossier.".format(folder.name)
+            self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les sous-dossiers et les carnets.".format(folder.name)
             self.FolderCombo.ItemsSource = self._folders
             self.FolderCombo.SelectedIndex = -1
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
@@ -250,7 +250,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
             self.ProfileCombo.SelectedIndex = -1
             self._set_inheritance_ui(False, {})
-            self.ProfileInfoText.Text = "Réglages du dossier : les carnets peuvent les hériter ou les remplacer."
+            self.ProfileInfoText.Text = "Réglages effectifs : les valeurs non définies ici proviennent des dossiers parents."
         finally:
             self._loading_profile = False
             self._loading_settings = False
@@ -328,7 +328,7 @@ class ExportWindow(forms.WPFWindow):
         setattr(settings, field, self._control_value(field))
         folder.publication_settings = settings
         self.controller.save_folder(folder)
-        self._update_filename_preview(settings)
+        self._load_folder_settings()
 
     def _apply_profile_values(self, values):
         if not values or self._selected_set is None:

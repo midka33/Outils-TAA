@@ -359,6 +359,29 @@ ne pas muter les carnets persistants et contrôler les collisions entre carnets.
 PDF/DWG, fichiers simulés comparés à l'aperçu, sélection partielle et noms Windows.
 TEST-V1-02 reste à valider dans Revit 2025.4.
 
+### BUG-EXPORT-031 — Héritage limité au dossier immédiat
+
+**Symptôme :** un sous-dossier ne reprend pas la destination ni les modes du parent.
+**Cause :** SettingsResolver ne recevait que le dossier immédiat ; l'UI affichait
+les réglages bruts du sous-dossier plutôt que les valeurs effectives.
+**Correction :** chaîne récursive des parents injectée depuis la fenêtre, résolution
+par champ et affichage effectif ; sauvegarde limitée au champ changé conservée.
+**Règle :** traverser tous les ancêtres sans écraser les surcharges ni confondre False/None.
+**Test :** héritage sur trois niveaux, changement du parent, surcharge explicite,
+retour à None, détection de cycle ; TEST-31 réel à rejouer.
+
+### BUG-EXPORT-032 — Pas de dossier de carnet en publication directe séparée
+
+**Symptôme :** fichiers séparés directement dans la destination.
+**Cause identifiée :** la création du dossier du carnet dépendait du chemin relatif
+préparé seulement lors d'une sélection de dossier. La sélection exacte du retour
+utilisateur n'a pas pu être vérifiée, la capture étant inaccessible.
+**Correction :** le mode séparé ajoute toujours le dossier du carnet, même pour une
+publication directe carnet/feuille ; les dossiers parents restent liés au périmètre choisi.
+**Règle :** vérifier tous les points d'entrée utilisateur, pas uniquement le moteur.
+**Test :** chemins aperçu/export dans les 4 combinaisons PDF/DWG et 3 périmètres ;
+TEST-V1-02 réel à rejouer. Le constat utilisateur reste KO jusqu'à cette validation.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -392,6 +415,8 @@ BUG-EXPORT-027
 BUG-EXPORT-028
 BUG-EXPORT-029
 BUG-EXPORT-030
+BUG-EXPORT-031
+BUG-EXPORT-032
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

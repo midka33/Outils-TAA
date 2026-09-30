@@ -14,6 +14,8 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Héritage des sous-dossiers : résolution récursive et affichage des valeurs effectives.
+- Mode séparé : dossier au nom du carnet également en publication directe carnet/feuille.
 - TEST-15/16 : collection DWG explicitement typée `List[ElementId]` pour IronPython.
 - TEST-22/23 : aperçu principal raccordé au service de nommage existant, avec
   contexte de feuille/dossier et erreurs visibles. Validation Revit à rejouer.

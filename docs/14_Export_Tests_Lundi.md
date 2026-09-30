@@ -4,7 +4,7 @@
 > TEST-34 à TEST-43 et TEST-45 à TEST-56 sont reportés pour une éventuelle V2,
 > après finalisation et sortie de la V1. Les résultats saisis ci-dessous restent
 > conservés comme historique (les KO 35/36 ne sont pas déclarés corrigés).
-> TEST-31 reste KO et à corriger en V1 ; TEST-32/33 sont validés par l'utilisateur.
+> TEST-31 : correctif d’héritage récursif proposé, à retester ; TEST-32/33 validés.
 > Continuer avec TEST-V1-01 ci-dessous puis TEST-44 et les profils P1 à P4.
 
 ## TEST-V1-02 — Arborescence des fichiers publiés
@@ -17,7 +17,17 @@ rapport et fichiers réellement créés. Annuler un aperçu : aucun dossier cré
 Tester aussi deux carnets avec destinations différentes, un sous-dossier sélectionné
 seul, des caractères interdits et des noms produisant une collision entre carnets.
 Une collision doit bloquer la confirmation. Recontrôler la publication directe d'un
-carnet et d'une feuille. **Résultat Revit : à tester.**
+carnet et d'une feuille : en séparé, les fichiers vont également dans un dossier
+au nom du carnet. **Résultat Revit : KO initial ; correctif élargi, à retester.**
+
+## Retour utilisateur du 2026-09-30 et reprise
+
+- Disparition de « modifiés uniquement » confirmée ; publication complète TEST-V1-01 à confirmer.
+- Héritage des sous-dossiers KO : correctif récursif fourni, sans écraser les surcharges.
+- Dossier en mode séparé KO : correctif étendu à la sélection directe carnet/feuille.
+- Rejouer TEST-31 avec parent → sous-dossier → sous-sous-dossier → carnet : changer
+  destination et modes au parent, vérifier affichage et aperçu ; définir une surcharge
+  locale et vérifier qu'elle reste prioritaire, puis fermer/rouvrir.
 
 ## TEST-V1-01 — Publication complète sans filtre historique
 
