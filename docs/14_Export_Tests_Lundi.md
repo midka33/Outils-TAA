@@ -362,15 +362,15 @@ TEST-11 : ok
 TEST-12 : ok
 TEST-13 : ok
 TEST-14 : ok
-TEST-15 : ko - ERREUR : COM : DWG — feuille 'CN0' — Niveau 0 COM — erreur Revit : expected ICollection[ElementId], got list
-TEST-16 : ko - ERREUR : COM : DWG — feuille 'CN0' — Niveau 0 COM — erreur Revit : expected ICollection[ElementId], got list
+TEST-15 : ok
+TEST-16 : ok
 TEST-17 : ok
 TEST-18 : ok
 TEST-19 : ok
 TEST-20 : ok
 TEST-21 : ok
-TEST-22 : ko affichage correct dans fenêtre aperçu de publication mais pas d'aperçu dans la fenêtre principale
-TEST-23 : ko affichage correct dans fenêtre aperçu de publication mais pas d'aperçu dans la fenêtre principale
+TEST-22 : ok
+TEST-23 : ok
 TEST-24 : ok caractère interdites remplacé pars_.
 TEST-25 : ok
 TEST-26 : ok
