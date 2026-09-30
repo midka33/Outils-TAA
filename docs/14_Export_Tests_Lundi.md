@@ -378,12 +378,12 @@ TEST-27 : ok
 TEST-28 : ok
 TEST-29 : ok
 TEST-30 : ok
-TEST-31 :
-TEST-32 :
-TEST-33 :
-TEST-34 :
-TEST-35 :
-TEST-36 :
+TEST-31 :ko quand on ajoute un dossier dans un dossier celui ci ne prends pas les héritage du dossier au dessus A+B+C sont pris en compte mais du les régalges sont a faire dans chaque sous-dossier sépraément
+TEST-32 :ok
+TEST-33 :ok 
+TEST-34 :ok status est en publier
+TEST-35 :ko status est en collision
+TEST-36 :ko dessiner un ligne sur mise en page, mais l'aperçu dit qu'i n'y a aucune nouvelle mise en page 
 TEST-37 :
 TEST-38 :
 TEST-39 :
