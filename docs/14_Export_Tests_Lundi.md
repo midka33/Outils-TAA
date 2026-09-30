@@ -361,81 +361,21 @@ TEST-10 : ok
 TEST-11 : ok
 TEST-12 : ok
 TEST-13 : ok
-TEST-14 : ko pdf en séparé d'un carnet creer un crash de revit. l'usage des profil fait crasher l'app
-IronPython Traceback:
-Traceback (most recent call last):
- File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\Export.pushbutton\script.py", line 291, in <module>
- File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\Export.pushbutton\script.py", line 287, in main
- File "C:\Users\AKDIM\AppData\Roaming\pyRevit\Extensions\Outils-TAA\OutilsTAA.extension\OutilsTAA.tab\Export.panel\services\publication_preview_integration.py", line 81, in publish_click_with_preview
-AttributeError: 'ExportWindow' object has no attribute '_set_folder_name_compat'
-
-Script Executor Traceback:
-System.MissingMemberException: 'ExportWindow' object has no attribute '_set_folder_name_compat'
- at IronPython.Runtime.Binding.MetaUserObject.FastGetBinderHelper.<>c__DisplayClass16_0.<FallbackError>b__1(CallSite site, Object self, CodeContext context)
- at IronPython.Runtime.Types.GetMemberDelegates.SlotDict(CallSite site, Object self, CodeContext context)
- at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
- at IronPython.Compiler.Ast.DynamicGetMemberExpression.GetMemberInstruction.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.LightLambda.Run4[T0,T1,T2,T3,TRet](T0 arg0, T1 arg1, T2 arg2, T3 arg3)
- at IronPython.Compiler.PythonCallTargets.OriginalCallTarget3(PythonFunction function, Object arg0, Object arg1, Object arg2)
- at CallSite.Target(Closure, CallSite, Object, Object, RoutedEventArgs)
- at System.Dynamic.UpdateDelegates.UpdateAndExecute3[T0,T1,T2,TRet](CallSite site, T0 arg0, T1 arg1, T2 arg2)
- at _Scripting_(Object[], Object, RoutedEventArgs)
- at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
- at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)
- at System.Windows.Controls.Primitives.ButtonBase.OnClick()
- at System.Windows.Controls.Button.OnClick()
- at System.Windows.Controls.Primitives.ButtonBase.OnMouseLeftButtonUp(MouseButtonEventArgs e)
- at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
- at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
- at System.Windows.UIElement.ReRaiseEventAs(DependencyObject sender, RoutedEventArgs args, RoutedEvent newEvent)
- at System.Windows.RoutedEventArgs.InvokeHandler(Delegate handler, Object target)
- at System.Windows.EventRoute.InvokeHandlersImpl(Object source, RoutedEventArgs args, Boolean reRaised)
- at System.Windows.UIElement.RaiseEventImpl(DependencyObject sender, RoutedEventArgs args)
- at System.Windows.UIElement.RaiseTrustedEvent(RoutedEventArgs args)
- at System.Windows.Input.InputManager.ProcessStagingArea()
- at System.Windows.Interop.HwndMouseInputProvider.ReportInput(IntPtr hwnd, InputMode mode, Int32 timestamp, RawMouseActions actions, Int32 x, Int32 y, Int32 wheel)
- at System.Windows.Interop.HwndMouseInputProvider.FilterMessage(IntPtr hwnd, WindowMessage msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
- at System.Windows.Interop.HwndSource.InputFilterMessage(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
- at MS.Win32.HwndWrapper.WndProc(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
- at System.Windows.Threading.ExceptionWrapper.InternalRealCall(Delegate callback, Object args, Int32 numArgs)
- at System.Windows.Threading.ExceptionWrapper.TryCatchWhen(Object source, Delegate callback, Object args, Int32 numArgs, Delegate catchHandler)
- at System.Windows.Threading.Dispatcher.LegacyInvokeImpl(DispatcherPriority priority, TimeSpan timeout, Delegate method, Object args, Int32 numArgs)
- at MS.Win32.HwndSubclass.SubclassWndProc(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam)
- at MS.Win32.UnsafeNativeMethods.DispatchMessage(MSG& msg)
- at System.Windows.Threading.Dispatcher.PushFrameImpl(DispatcherFrame frame)
- at System.Windows.Window.ShowHelper(Object booleanBox)
- at System.Windows.Window.Show()
- at System.Windows.Window.ShowDialog()
- at Microsoft.Scripting.Interpreter.FuncCallInstruction`2.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.LightLambda.Run3[T0,T1,T2,TRet](T0 arg0, T1 arg1, T2 arg2)
- at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
- at Microsoft.Scripting.Interpreter.DynamicInstruction`3.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.LightLambda.Run1[T0,TRet](T0 arg0)
- at System.Dynamic.UpdateDelegates.UpdateAndExecute2[T0,T1,TRet](CallSite site, T0 arg0, T1 arg1)
- at Microsoft.Scripting.Interpreter.DynamicInstruction`3.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.Interpreter.Run(InterpretedFrame frame)
- at Microsoft.Scripting.Interpreter.LightLambda.Run2[T0,T1,TRet](T0 arg0, T1 arg1)
- at IronPython.Compiler.PythonScriptCode.RunWorker(CodeContext ctx)
- at IronPython.Compiler.RuntimeScriptCode.InvokeTarget(Scope scope)
- at Microsoft.Scripting.Hosting.CompiledCode.Execute(ScriptScope scope)
- at PyRevitLabs.PyRevit.Runtime.IronPythonEngine.Execute(ScriptRuntime& runtime)
-TEST-15 : ko publier un dwg fait crasher revit avec le message revit a rencontré une erreur fatale et ne peut pas continuer
-TEST-16 : ko car test 15
+TEST-14 : ok
+TEST-15 : ko - ERREUR : COM : DWG — feuille 'CN0' — Niveau 0 COM — erreur Revit : expected ICollection[ElementId], got list
+TEST-16 : ko - ERREUR : COM : DWG — feuille 'CN0' — Niveau 0 COM — erreur Revit : expected ICollection[ElementId], got list
 TEST-17 : ok
 TEST-18 : ok
 TEST-19 : ok
 TEST-20 : ok
 TEST-21 : ok
-TEST-22 : ko pas d'affichage dans aperçu du nom
-TEST-23 : ko pas d'affichage dans aperçu du nom
-TEST-24 : ko une fois un mise en page changer pour avoir un caractêre spéciale; impossible de mettre a jour le nommage de la mise en page.
+TEST-22 : ko affichage correct dans fenêtre aperçu de publication mais pas d'aperçu dans la fenêtre principale
+TEST-23 : ko affichage correct dans fenêtre aperçu de publication mais pas d'aperçu dans la fenêtre principale
+TEST-24 : ok caractère interdites remplacé pars_.
 TEST-25 : ok
 TEST-26 : ok
-TEST-27 : non testé
-TEST-28 : non testé
+TEST-27 : ok
+TEST-28 : ok
 TEST-29 : ok
 TEST-30 : ok
 TEST-31 :
