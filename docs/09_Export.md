@@ -611,6 +611,12 @@ Exemples :
 
 ### 9.3 Éditeur
 
+Dans la fenêtre principale, « Aperçu du nom » affiche le nom sécurisé sans
+extension, calculé par le même service que la prévisualisation de publication.
+Il utilise la feuille sélectionnée, ou la première feuille du carnet si le carnet
+est sélectionné, et le dossier parent. Les variables non résolues et erreurs
+sont visibles ; une erreur technique ne doit pas être remplacée par un simple tiret.
+
 L'interface propose :
 
 - champ de modèle ;
@@ -891,6 +897,10 @@ Les deux modes sont conservés :
 - séparé.
 
 Export réutilise autant que possible les configurations `ExportDWGSettings` natives de Revit.
+
+Les identifiants sont transmis à `Document.Export` dans une collection .NET
+`List[ElementId]`, compatible avec l'argument `ICollection[ElementId]` requis
+pour le DWG sous IronPython, dans les deux modes.
 
 La préférence TAA est **Couleur vraie / True Color**, sous réserve de la configuration et de l'API réellement disponibles.
 

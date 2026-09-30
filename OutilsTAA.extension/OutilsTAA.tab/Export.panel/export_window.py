@@ -363,10 +363,16 @@ class ExportWindow(forms.WPFWindow):
             if self._selected_set is None:
                 self.FilenamePreviewText.Text = "—"
                 return
-            preview = self.filename_service.preview(self._selected_set, settings)
+            folder = self._folder_for_set(self._selected_set)
+            item = self._selected_item if self._selected_kind == "SHEET" else None
+            preview, unknown = self.filename_service.resolve(
+                settings.filename_template or "{carnet}", self._selected_set,
+                item=item, folder_name=getattr(folder, "name", None))
+            if unknown:
+                preview += " — Variables non résolues : " + ", ".join(unknown)
             self.FilenamePreviewText.Text = preview or "—"
-        except Exception:
-            self.FilenamePreviewText.Text = "—"
+        except Exception as exc:
+            self.FilenamePreviewText.Text = "Aperçu indisponible : {0}".format(exc)
 
     def FilenameToken_InsertClick(self, sender, args):
         token = self.FilenameTokenCombo.SelectedItem

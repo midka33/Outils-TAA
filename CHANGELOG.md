@@ -7,6 +7,9 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Fixed
+- TEST-15/16 : collection DWG explicitement typée `List[ElementId]` pour IronPython.
+- TEST-22/23 : aperçu principal raccordé au service de nommage existant, avec
+  contexte de feuille/dossier et erreurs visibles. Validation Revit à rejouer.
 - PDF séparés : numéro de feuille contenant `*` ou un autre caractère interdit
   dans un nom Windows ; rapprochement contrôlé des fichiers natifs, sans
   modifier les numéros dans Revit. Validation réelle TEST-14 à poursuivre.
