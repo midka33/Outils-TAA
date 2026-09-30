@@ -2,6 +2,7 @@
 """Prépare un aperçu de publication sans lancer d'export Revit."""
 
 import os
+from publication_paths import publication_directory
 
 
 class PublicationPreviewService(object):
@@ -68,7 +69,8 @@ class PublicationPreviewService(object):
         generated_paths = {}
 
         def add_row(fmt, mode, item, filename, unknown):
-            path = os.path.join(directory, filename) if directory else filename
+            row_directory = publication_directory(publication_set, directory, mode == "COMBINED") if directory else ""
+            path = os.path.join(row_directory, filename) if row_directory else filename
             normalized = os.path.normcase(os.path.abspath(path)) if directory else os.path.normcase(filename)
             duplicate = normalized in generated_paths
             if duplicate:

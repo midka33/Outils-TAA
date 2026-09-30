@@ -42,19 +42,28 @@
 - [ ] Recontrôler TEST-04 et un déplacement multiple après suppression des doublons.
 - [ ] Consolider la surcouche `stage07` après validation réelle.
 
-### Étape 07 — Historique et « modifiés uniquement »
+### V1 — Stabilisation et sortie
 
-- [x] Socle de persistance de l'historique des publications.
-- [x] Classification NEW / MODIFIED / UNCHANGED / UNKNOWN.
-- [x] Détection basée sur `VersionGuid` Revit lorsque disponible.
-- [x] Sélection conservative des éléments à republier lorsque `MODIFIED_ONLY` est actif.
-- [x] Persistance du réglage `modified_only` dans les paramètres.
-- [x] Intégrer le contrôle `MODIFIED_ONLY` dans l'interface Export.
-- [x] Intégrer le filtrage dans la prévisualisation.
-- [x] Intégrer le filtrage dans la publication simple et multiple.
-- [x] Enregistrer automatiquement l'état après publication réussie.
-- [x] Ajouter l'affichage « jamais publié / modifié / inchangé » dans la prévisualisation et le rapport via le résumé d'état.
-- [ ] Valider le comportement réel dans Revit 2025.4.
+- [x] Retirer l'option « Publier uniquement les mises en page nouvelles ou modifiées » (décision du 2026-09-30).
+- [x] Neutraliser les anciennes valeurs `modified_only`, y compris dans les dossiers, carnets et profils.
+- [x] Reproduire les dossiers/sous-dossiers sur disque ; ranger les formats séparés par carnet.
+- [ ] Valider les quatre combinaisons PDF/DWG et les chemins réels (TEST-V1-02).
+- [ ] Valider dans Revit la publication complète après retrait de l'option (TEST-V1-01).
+- [x] Résoudre les réglages à travers les dossiers parents (TEST-31).
+- [ ] Revalider TEST-31 dans Revit après correction.
+- [ ] Terminer les tests V1, dont TEST-44 et profils P1 à P4, puis la non-régression.
+- [ ] Finaliser et sortir Export V1 avant de reprendre les fonctionnalités V2.
+
+### V2 — Réévaluer la publication des seules mises en page nouvelles ou modifiées
+
+**Reportée après finalisation et sortie de la V1 ; réintroduction à décider.**
+Le socle historique et ses tests isolés sont conservés, mais le filtrage est désactivé en V1.
+
+- [ ] Analyser les retours TEST-35 (collision) et TEST-36 (ligne ajoutée non détectée).
+- [ ] Définir une détection fiable des changements du contenu des feuilles et des vues placées ; ne pas supposer que le seul `VersionGuid` de la feuille suffit.
+- [ ] Réévaluer les livrables manquants, renommés et les réglages d'export modifiés.
+- [ ] Réintroduire, si retenus, le réglage, son héritage, la prévisualisation filtrée et la publication simple/multiple.
+- [ ] Rejouer TEST-34 à TEST-43 et TEST-45 à TEST-56 dans Revit 2025.4, PDF/DWG séparés et combinés.
 
 ### Étape 08 — Dynamique avancé
 
@@ -75,7 +84,7 @@
 - [x] Ajouter le cycle de vie création / lecture / mise à jour / duplication / suppression.
 - [x] Ajouter les tests hors Revit du store et du cycle de vie.
 
-#### Fonctionnalités à raccorder après validation Stage 07
+#### Fonctionnalités futures à réévaluer après sortie V1
 
 - [ ] Règles combinées dans l'interface.
 - [ ] Prévisualisation de résolution dans WPF.
@@ -88,7 +97,7 @@
 
 ## Étape suivante après validation Revit
 
-La prochaine étape fonctionnelle reste **Étape 08 — Dynamique avancé**. Le socle métier, la prévisualisation, le modèle, la sérialisation et la persistance hors Revit sont préparés. Les `pytest` correspondants doivent être exécutés réellement lors du raccordement avant toute validation de Stage. Le raccordement au workflow réel ne doit intervenir qu'après la validation Revit 2025.4 de l'Étape 07 et la correction/capitalisation des éventuels bugs issus de la campagne de tests.
+La priorité est de finaliser les tests et corrections de la V1, puis de la sortir. Le dynamique avancé et le retour éventuel de « modifiés uniquement » seront réévalués ensuite pour la V2. Les tests isolés devront être exécutés au raccordement, puis complétés par une validation réelle dans Revit.
 
 ## Étape 09 — Extensibilité
 

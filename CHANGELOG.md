@@ -6,7 +6,18 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Changed
+- Publication de dossier : arborescence reproduite sur disque, sous-dossier par carnet
+  pour les formats séparés et chemins partagés entre aperçu et export.
+- Export V1 : retrait de « Publier uniquement les mises en page nouvelles ou modifiées ».
+  Anciennes valeurs neutralisées, contrôle et handlers retirés. Retour éventuel reporté
+  en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
+
 ### Fixed
+- Sous-dossiers : bouton de retour à l’héritage du parent, origine des réglages
+  nommée et libellé lisible dans la liste des dossiers.
+- Héritage des sous-dossiers : résolution récursive et affichage des valeurs effectives.
+- Mode séparé : dossier au nom du carnet également en publication directe carnet/feuille.
 - TEST-15/16 : collection DWG explicitement typée `List[ElementId]` pour IronPython.
 - TEST-22/23 : aperçu principal raccordé au service de nommage existant, avec
   contexte de feuille/dossier et erreurs visibles. Validation Revit à rejouer.

@@ -291,14 +291,6 @@ def install_preview_on_export_window(export_window_class):
             else:
                 self._save_selected_field(field)
 
-    def modified_only_changed(self, sender, args):
-        if self._loading_settings:
-            return
-        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
-            self._save_folder_settings("modified_only")
-        elif self._selected_set is not None:
-            self._save_selected_field("modified_only")
-
     if not hasattr(export_window_class, "_update_selection_info"):
         export_window_class._update_selection_info = update_selection_info
     if not hasattr(export_window_class, "_set_no_selection"):
@@ -329,8 +321,6 @@ def install_preview_on_export_window(export_window_class):
         export_window_class.FilenameTokenChanged = filename_token_changed
     if not hasattr(export_window_class, "InsertFilenameToken_Click"):
         export_window_class.InsertFilenameToken_Click = insert_filename_token_click
-    if not hasattr(export_window_class, "ModifiedOnlyChanged"):
-        export_window_class.ModifiedOnlyChanged = modified_only_changed
 
     export_window_class.__init__ = init_with_tree_features
     export_window_class._refresh_tree = refresh_tree_preserving_expansion
@@ -515,6 +505,14 @@ def _merge_previews(previews):
         directory = preview.get("directory")
         if directory and directory not in directories:
             directories.append(directory)
+
+    # Deux carnets ne doivent pas écrire le même fichier après sécurisation des noms.
+    seen_paths = set()
+    for row in rows:
+        path = os.path.normcase(os.path.abspath(row.Path)).lower()
+        if path in seen_paths:
+            errors.append("Collision entre carnets : {0}.".format(row.Path))
+        seen_paths.add(path)
 
     if len(directories) == 1:
         directory = directories[0]

@@ -96,7 +96,8 @@ class PublicationPreviewServiceTests(unittest.TestCase):
     def test_preview_signale_un_fichier_deja_present(self):
         settings = Settings()
         settings.output_directory = tempfile.mkdtemp()
-        with open(os.path.join(settings.output_directory, "A101.pdf"), "w") as stream:
+        os.makedirs(os.path.join(settings.output_directory, "DCE"))
+        with open(os.path.join(settings.output_directory, "DCE", "A101.pdf"), "w") as stream:
             stream.write("existing")
 
         preview = self.service.build(self.carnet, settings)

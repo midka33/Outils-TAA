@@ -32,6 +32,9 @@ def _folder_targets(window, folder):
                 folder_ids.add(str(candidate.id))
                 changed = True
 
+    from copy import copy
+    folders = dict((str(entry.id), entry) for entry in (getattr(window, "_folders", []) or []))
+    folders[str(folder.id)] = folder
     result = []
     seen = set()
     for carnet in getattr(window, "_carnets", []) or []:
@@ -39,6 +42,19 @@ def _folder_targets(window, folder):
         if carnet_id is None or str(carnet_id) in seen:
             continue
         if str(getattr(carnet, "folder_id", "default")) in folder_ids:
-            result.append(carnet)
+            # Copie de publication : aucun chemin temporaire sur le carnet persistant.
+            target = copy(carnet)
+            parts = []
+            current_id = str(carnet.folder_id)
+            visited = set()
+            while current_id not in visited:
+                visited.add(current_id)
+                current = folders[current_id]
+                parts.insert(0, current.name)
+                if current_id == str(folder.id):
+                    break
+                current_id = str(current.parent_id)
+            target.publication_folder_parts = tuple(parts)
+            result.append(target)
             seen.add(str(carnet_id))
     return result

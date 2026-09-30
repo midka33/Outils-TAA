@@ -134,10 +134,10 @@ class ExportWindow(forms.WPFWindow):
         return self._folders_by_id.get(getattr(publication_set, "folder_id", None))
 
     def _resolve_settings(self, publication_set):
-        return self.settings_resolver.resolve(publication_set, folder=self._folder_for_set(publication_set))
+        return self.settings_resolver.resolve(publication_set, folder=self._folder_for_set(publication_set), folders=self._folders)
 
     def _setting_source(self, publication_set, field):
-        return self.settings_resolver.source_for(publication_set, field, folder=self._folder_for_set(publication_set))
+        return self.settings_resolver.source_for(publication_set, field, folder=self._folder_for_set(publication_set), folders=self._folders)
 
     def Tree_SelectedItemChanged(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -231,11 +231,11 @@ class ExportWindow(forms.WPFWindow):
         folder = self._selected_folder
         if folder is None:
             return
-        settings = folder.publication_settings or PublicationSettings()
+        settings = self.settings_resolver.resolve(None, folder=folder, folders=self._folders)
         self._loading_settings = True
         self._loading_profile = True
         try:
-            self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les carnets du dossier.".format(folder.name)
+            self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les sous-dossiers et les carnets.".format(folder.name)
             self.FolderCombo.ItemsSource = self._folders
             self.FolderCombo.SelectedIndex = -1
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
@@ -249,29 +249,43 @@ class ExportWindow(forms.WPFWindow):
             self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
             self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
             self.ProfileCombo.SelectedIndex = -1
-            self._set_inheritance_ui(False, {})
-            self.ProfileInfoText.Text = "Réglages du dossier : les carnets peuvent les hériter ou les remplacer."
+            self._update_folder_inheritance_info(folder)
+            self.ProfileInfoText.Text = "Réglages effectifs : les valeurs non définies ici proviennent des dossiers parents."
         finally:
             self._loading_profile = False
             self._loading_settings = False
         self._update_filename_preview(settings)
 
+    def _inheritance_description(self, publication_set, folder):
+        groups = []
+        labels = {}
+        for field in self.INHERITABLE_FIELDS:
+            label = self.settings_resolver.source_label(
+                publication_set, field, folder=folder, folders=self._folders)
+            if label not in labels:
+                labels[label] = []
+                groups.append(label)
+            labels[label].append(self._field_label(field))
+        return " | ".join("{0} : {1}".format(label, ", ".join(labels[label]))
+                          for label in groups)
+
+    def _update_folder_inheritance_info(self, folder):
+        settings = folder.publication_settings
+        local = settings is not None and any(
+            getattr(settings, field, None) is not None for field in self.INHERITABLE_FIELDS)
+        self.RevertInheritanceButton.Content = "Revenir à l'héritage du parent"
+        self.RevertInheritanceButton.IsEnabled = bool(folder.parent_id and local)
+        self.InheritanceInfoText.Text = self._inheritance_description(None, folder)
+
     def _update_inheritance_info(self, publication_set):
         sources = dict((field, self._setting_source(publication_set, field)) for field in self.INHERITABLE_FIELDS)
         self._set_inheritance_ui(True, sources)
-        inherited = [field for field in self.INHERITABLE_FIELDS if sources[field] == "Dossier"]
-        local = [field for field in self.INHERITABLE_FIELDS if sources[field] == "Carnet"]
-        if inherited and local:
-            self.InheritanceInfoText.Text = "🔗 Hérité du dossier : {0}  |  ✏️ Défini dans le carnet : {1}".format(", ".join(self._field_label(f) for f in inherited), ", ".join(self._field_label(f) for f in local))
-        elif inherited:
-            self.InheritanceInfoText.Text = "🔗 Hérité du dossier : {0}".format(", ".join(self._field_label(f) for f in inherited))
-        elif local:
-            self.InheritanceInfoText.Text = "✏️ Réglages définis au niveau du carnet."
-        else:
-            self.InheritanceInfoText.Text = "⚙ Réglages par défaut."
+        self.InheritanceInfoText.Text = self._inheritance_description(
+            publication_set, self._folder_for_set(publication_set))
 
     def _set_inheritance_ui(self, enabled, sources):
         self.InheritanceInfoText.Text = ""
+        self.RevertInheritanceButton.Content = "Revenir à l’héritage du dossier"
         self.RevertInheritanceButton.IsEnabled = enabled and self._selected_set is not None and any(sources.get(field) == "Carnet" for field in self.INHERITABLE_FIELDS)
 
     @staticmethod
@@ -280,12 +294,23 @@ class ExportWindow(forms.WPFWindow):
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
+        if self._selected_kind == "FOLDER":
+            folder = self._selected_folder
+            if folder is None or not folder.parent_id or folder.publication_settings is None:
+                return
+            # Action explicite sur ce dossier uniquement, jamais sur ses descendants.
+            for field in self.INHERITABLE_FIELDS:
+                setattr(folder.publication_settings, field, None)
+            self.controller.save_folder(folder)
+            self._load_folder_settings()
+            return
         if self._selected_set is None or self._selected_set.publication_settings is None:
             return
         settings = self._selected_set.publication_settings
         for field in self.INHERITABLE_FIELDS:
             setattr(settings, field, None)
         self._selected_set.publication_settings = settings
+        self._selected_set.output_directory = None
         if self._selected_set.persistent:
             self.controller.save_persistent(self._selected_set)
         self._load_selected_settings()
@@ -328,7 +353,7 @@ class ExportWindow(forms.WPFWindow):
         setattr(settings, field, self._control_value(field))
         folder.publication_settings = settings
         self.controller.save_folder(folder)
-        self._update_filename_preview(settings)
+        self._load_folder_settings()
 
     def _apply_profile_values(self, values):
         if not values or self._selected_set is None:

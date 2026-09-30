@@ -327,6 +327,75 @@ service ; ne pas masquer les erreurs comme une absence de sélection.
 **Anti-régression :** `tests/test_export_tests15_23.py`, numéro/paramètre Revit/dossier
 sur carnet et feuille sélectionnée ; rejouer TEST-22/23 dans Revit.
 
+### BUG-EXPORT-029 — Filtrage expérimental retiré du périmètre V1
+
+**Symptôme :** TEST-35 : collision au lieu du résultat attendu ; TEST-36 : une ligne
+ajoutée sur une feuille n'est pas proposée comme modification.
+**Cause :** le filtrage repose sur la comparaison du `VersionGuid` de la feuille ;
+la couverture des modifications de contenu n'est pas démontrée. La cause exacte
+Revit des retours 35/36 reste à analyser avant toute réintroduction.
+**Décision V1 :** retrait de l'option demandé par l'utilisateur ; ce n'est pas une
+correction de l'algorithme de détection. Le modèle force `modified_only=False`,
+retire ce champ des réglages héritables/sérialisés et ignore les anciennes valeurs.
+Le contrôle XAML et ses handlers sont supprimés ; le socle historique est conservé.
+**Règle préventive :** retirer une option de l'interface exige de neutraliser aussi
+les valeurs persistées, sinon un filtre invisible peut exclure des livrables.
+**Anti-régression :** `tests/test_export_v1_scope.py` couvre profil/dossier/carnet
+anciens, périmètre feuille/carnet/dossier et absence de références UI résiduelles.
+TEST-V1-01 reste à exécuter dans Revit. Réétudier les tests 35/36 pour V2.
+
+### BUG-EXPORT-030 — Publication récursive aplatie dans la destination
+
+**Symptôme :** publier un dossier avec sous-dossiers et carnets ne créait pas
+l'arborescence attendue sur disque.
+**Cause :** les cibles ne transportaient pas leur chemin relatif et les moteurs
+PDF/DWG utilisaient une destination unique quel que soit le mode.
+**Correction :** copies de cibles portant le chemin depuis le dossier sélectionné,
+service de chemins commun à l'aperçu et aux exports ; sous-dossier au nom du carnet
+uniquement pour les formats séparés. Les destinations propres restent respectées.
+**Règle préventive :** calculer les chemins dans un seul service sans effet disque,
+ne pas muter les carnets persistants et contrôler les collisions entre carnets.
+**Anti-régression :** `tests/test_publication_folder_paths.py`, quatre combinaisons
+PDF/DWG, fichiers simulés comparés à l'aperçu, sélection partielle et noms Windows.
+TEST-V1-02 reste à valider dans Revit 2025.4.
+
+### BUG-EXPORT-031 — Héritage limité au dossier immédiat
+
+**Symptôme :** un sous-dossier ne reprend pas la destination ni les modes du parent.
+**Cause :** SettingsResolver ne recevait que le dossier immédiat ; l'UI affichait
+les réglages bruts du sous-dossier plutôt que les valeurs effectives.
+**Correction :** chaîne récursive des parents injectée depuis la fenêtre, résolution
+par champ et affichage effectif ; sauvegarde limitée au champ changé conservée.
+**Règle :** traverser tous les ancêtres sans écraser les surcharges ni confondre False/None.
+**Test :** héritage sur trois niveaux, changement du parent, surcharge explicite,
+retour à None, détection de cycle ; TEST-31 réel à rejouer.
+
+### BUG-EXPORT-032 — Pas de dossier de carnet en publication directe séparée
+
+**Symptôme :** fichiers séparés directement dans la destination.
+**Cause identifiée :** la création du dossier du carnet dépendait du chemin relatif
+préparé seulement lors d'une sélection de dossier. La sélection exacte du retour
+utilisateur n'a pas pu être vérifiée, la capture étant inaccessible.
+**Correction :** le mode séparé ajoute toujours le dossier du carnet, même pour une
+publication directe carnet/feuille ; les dossiers parents restent liés au périmètre choisi.
+**Règle :** vérifier tous les points d'entrée utilisateur, pas uniquement le moteur.
+**Test :** chemins aperçu/export dans les 4 combinaisons PDF/DWG et 3 périmètres ;
+TEST-V1-02 réel à rejouer. Le constat utilisateur reste KO jusqu'à cette validation.
+
+### BUG-EXPORT-033 — Surcharge intermédiaire sans retour à l'héritage accessible
+
+**Symptôme :** A405 indique « Hérité du dossier » mais reste différent de DCE ;
+l'interface ne précise pas quel dossier fournit les valeurs.
+**Cause confirmée dans le code :** bouton de retour désactivé pour tous les dossiers,
+handler limité aux carnets et origine affichée sans nom d'ancêtre. Une surcharge
+intermédiaire reste donc prioritaire sans moyen UI de l'enlever.
+**Correction :** retour explicite à l'héritage du parent pour le sous-dossier sélectionné,
+sauvegarde et affichage du nom du dossier effectif pour chaque groupe de champs.
+**Règle :** chaque niveau permettant des surcharges doit permettre leur retrait ;
+ne jamais effacer automatiquement les réglages existants pour simuler un héritage.
+**Test :** vraie méthode UI exécutée hors WPF, scénario DCE/Plan/A405, sauvegarde et
+relecture du dossier, conservation des descendants ; validation Revit restante.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -358,6 +427,11 @@ BUG-EXPORT-025
 BUG-EXPORT-026
 BUG-EXPORT-027
 BUG-EXPORT-028
+BUG-EXPORT-029
+BUG-EXPORT-030
+BUG-EXPORT-031
+BUG-EXPORT-032
+BUG-EXPORT-033
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

@@ -6,6 +6,7 @@ import os
 from pdf_export_service import PdfExportService
 from dwg_export_service import DwgExportService
 from filename_service import FilenameService
+from publication_paths import publication_directory
 
 
 class PublicationService(object):
@@ -156,18 +157,20 @@ class PublicationService(object):
         view_ids = self._current_view_ids(publication_set, items)
 
         if export_pdf:
+            pdf_directory = self._prepare_output_directory(
+                publication_directory(publication_set, output_directory, pdf_combined))
             if pdf_combined:
                 filename, unknown = self._filename(publication_set, None, ".pdf")
                 if unknown:
                     warnings.append("Variables non résolues dans le nom PDF : {}.".format(", ".join(unknown)))
                 try:
-                    success = self.pdf_service.export(view_ids, output_directory,
+                    success = self.pdf_service.export(view_ids, pdf_directory,
                                                        os.path.splitext(filename)[0], combined=True)
                 except Exception as exc:
                     errors.append("PDF combiné — erreur Revit : {}".format(
                         self._revit_exception_message(exc)))
                     success = False
-                path = os.path.join(output_directory, filename)
+                path = os.path.join(pdf_directory, filename)
                 if success:
                     files.append(path)
                 results.append({"success": bool(success), "format": "PDF", "mode": "combined",
@@ -201,7 +204,7 @@ class PublicationService(object):
                 if separate_ids:
                     try:
                         paths = self.pdf_service.export_named_separate(
-                            separate_ids, output_directory, filenames)
+                            separate_ids, pdf_directory, filenames)
                     except Exception as exc:
                         errors.append("PDF séparé — erreur : {}".format(
                             self._revit_exception_message(exc)))
@@ -214,13 +217,16 @@ class PublicationService(object):
                                     "sheet_key": getattr(item, "unique_id", None)})
 
         if export_dwg:
+            dwg_directory = self._prepare_output_directory(
+                publication_directory(publication_set, output_directory, dwg_combined))
+
             if dwg_combined:
                 filename, unknown = self._filename(publication_set, None, ".dwg")
                 if unknown:
                     warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
-                path = os.path.join(output_directory, filename)
+                path = os.path.join(dwg_directory, filename)
                 success = self._export_dwg(
-                    view_ids, output_directory, os.path.splitext(filename)[0], dwg_setup_name,
+                    view_ids, dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
                     merged_views=True, true_color=dwg_true_color, errors=errors,
                     context="carnet '{}' (combiné)".format(publication_set.name))
                 if success:
@@ -234,9 +240,9 @@ class PublicationService(object):
                     if unknown:
                         warnings.append("Variables non résolues pour {} : {}.".format(
                             item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                    path = os.path.join(output_directory, filename)
+                    path = os.path.join(dwg_directory, filename)
                     success = self._export_dwg(
-                        [current_id], output_directory, os.path.splitext(filename)[0], dwg_setup_name,
+                        [current_id], dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
                         merged_views=False, true_color=dwg_true_color, errors=errors,
                         context="feuille '{}' — {}".format(
                             item.sheet_number or "sans numéro", item.sheet_name or "sans nom"))

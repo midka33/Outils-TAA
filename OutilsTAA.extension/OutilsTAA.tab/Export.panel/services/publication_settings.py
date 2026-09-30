@@ -13,7 +13,7 @@ class PublicationSettings(object):
     FIELDS = (
         "pdf_enabled", "pdf_mode", "dwg_enabled", "dwg_mode",
         "dwg_setup_name", "dwg_true_color", "output_directory",
-        "filename_template", "modified_only"
+        "filename_template"
     )
 
     def __init__(self, output_directory=None, pdf_enabled=None,
@@ -28,7 +28,12 @@ class PublicationSettings(object):
         self.dwg_setup_name = dwg_setup_name
         self.dwg_true_color = dwg_true_color
         self.filename_template = filename_template
-        self.modified_only = modified_only
+        # Le paramètre historique est accepté mais ignoré en V1.
+
+    @property
+    def modified_only(self):
+        """Compatibilité Stage 07 : aucun filtrage historique en V1."""
+        return False
 
     @classmethod
     def defaults(cls):
@@ -52,8 +57,6 @@ class PublicationSettings(object):
             errors.append("Le mode DWG est invalide.")
         if self.pdf_enabled is None or self.dwg_enabled is None:
             errors.append("Les réglages PDF/DWG n'ont pas été résolus.")
-        if self.modified_only is None:
-            errors.append("Le réglage des mises en page modifiées n'a pas été résolu.")
         return errors
 
     def to_dict(self):
