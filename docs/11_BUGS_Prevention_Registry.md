@@ -494,6 +494,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 **Règle préventive :** ne jamais utiliser chaîne vide, espace seul ou caractère invisible comme substitut au titre obligatoire d'un `PushButtonData`.  
 **Anti-régression :** test statique exigeant `title: Export` et `ShowText = False`, puis rechargement réel pyRevit sans erreur dans Revit 2025.4.
 
+### BUG-PDV-001 — Crop logement incliné dans une vue orientée
+
+**Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
+
+**Cause racine :** l'emprise était calculée dans les axes globaux X/Y du modèle. Une vue Revit possède son propre repère d'affichage ; ses axes écran sont exposés par `View.RightDirection` et `View.UpDirection`.
+
+**Correction :** projeter les points de contour des pièces dans le repère de la vue, calculer et agrandir l'emprise en coordonnées `u/v`, puis reconstruire les coins XYZ avant `SetCropShape`.
+
+**Règle préventive :** toute géométrie destinée à être alignée visuellement dans une vue doit être calculée dans le repère de cette vue, et non supposée alignée sur les axes globaux du modèle.
+
+**Anti-régression :** test pur d'un `ViewFrame` tourné à 45°, contrôle statique de l'utilisation de `RightDirection` / `UpDirection`, puis validation réelle dans Revit 2025.4 sur une vue orientée.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -541,6 +553,7 @@ BUG-CALCULS-001
 BUG-CALCULS-002
 BUG-CALCULS-003
 BUG-CALCULS-004
+BUG-PDV-001
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

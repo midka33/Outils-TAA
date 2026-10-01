@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Prototype contrôlé : vue dépendante + crop logement."""
+"""Prototype contrôlé : vue dépendante + crop logement aligné à la vue."""
 
 from common.transaction import RevitTransaction
 
@@ -48,8 +48,9 @@ class PrototypeViewService(object):
         if not source_view.CanViewBeDuplicated(ViewDuplicateOption.AsDependent):
             raise ValueError("Cette vue ne peut pas être dupliquée comme vue dépendante.")
 
-        bounds = self.crop_geometry_service.build_bounds(
+        world_corners = self.crop_geometry_service.build_view_aligned_corners(
             housing.room_unique_ids,
+            source_view,
             margin_mm,
         )
 
@@ -66,7 +67,10 @@ class PrototypeViewService(object):
             created_view.Name = self._unique_view_name(
                 "PDV PROTO - {} - {}".format(housing.key, level_name)
             )
-            self.crop_geometry_service.apply_to_view(created_view, bounds)
+            self.crop_geometry_service.apply_to_view(
+                created_view,
+                world_corners,
+            )
 
             primary_id = created_view.GetPrimaryViewId()
             if primary_id != source_view.Id:

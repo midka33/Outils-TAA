@@ -11,6 +11,7 @@ PANEL = ROOT / "OutilsTAA.extension" / "OutilsTAA.tab" / "PlansDeVente.panel"
 def test_new_python_files_parse_and_keep_encoding_header():
     paths = [
         ROOT / "OutilsTAA.extension" / "lib" / "plans_vente" / "crop_bounds.py",
+        ROOT / "OutilsTAA.extension" / "lib" / "plans_vente" / "view_frame.py",
         PANEL / "services" / "plan_view_service.py",
         PANEL / "services" / "crop_geometry_service.py",
         PANEL / "services" / "prototype_view_service.py",
@@ -51,3 +52,18 @@ def test_prototype_service_uses_dependent_view_and_unique_ids():
     assert "room_unique_ids" in service_text
     assert "GetCropRegionShapeManager" in geometry_text
     assert "SetCropShape" in geometry_text
+
+
+def test_crop_is_computed_in_view_coordinate_system():
+    service_text = (PANEL / "services" / "crop_geometry_service.py").read_text(
+        encoding="utf-8"
+    )
+    prototype_text = (PANEL / "services" / "prototype_view_service.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "RightDirection" in service_text
+    assert "UpDirection" in service_text
+    assert "ViewFrame" in service_text
+    assert "build_view_aligned_corners" in service_text
+    assert "build_view_aligned_corners" in prototype_text

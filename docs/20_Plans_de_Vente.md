@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.3  
+**Version :** 0.4  
 **Statut :** Développement — Étape 01  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1133,3 +1133,104 @@ Point restant :
 - la prochaine itération doit étudier l'orientation dominante du logement / de la vue et préparer un cadrage plus propre et plus proche du contour réel.
 
 Cette validation permet de poursuivre le prototype sans remettre en cause le principe des vues dépendantes.
+
+
+## Prototype A.2 — Crop aligné au repère de la vue
+
+À la suite de la validation du prototype initial, l'utilisateur a signalé que le cadrage global était correct mais apparaissait **légèrement incliné**.
+
+### Cause identifiée
+
+Le premier prototype calculait l'emprise rectangulaire directement dans les axes globaux du modèle Revit :
+
+```text
+Model X / Model Y
+```
+
+Or une vue Revit peut présenter le modèle suivant un repère écran différent. L'API expose précisément ce repère par :
+
+- `View.Origin` ;
+- `View.RightDirection` ;
+- `View.UpDirection`.
+
+Un rectangle aligné sur les axes globaux peut donc apparaître incliné lorsque la vue elle-même n'est pas alignée sur ces axes.
+
+### Correction
+
+Le nouveau calcul :
+
+1. collecte les points des `BoundarySegments` des pièces ;
+2. les projette dans le repère 2D de la vue ;
+3. calcule l'emprise dans les coordonnées écran `u / v` ;
+4. ajoute la marge dans ce même repère ;
+5. reconstruit les quatre coins dans les coordonnées monde ;
+6. applique ce rectangle à la vue dépendante.
+
+Pipeline :
+
+```text
+Contours des pièces
+        ↓
+Coordonnées monde XYZ
+        ↓
+Projection dans RightDirection / UpDirection
+        ↓
+Emprise rectangulaire u/v
+        ↓
+Marge
+        ↓
+Retour vers XYZ
+        ↓
+SetCropShape
+```
+
+Le crop reste volontairement rectangulaire à ce stade, mais il est désormais **aligné avec l'écran de la vue source**, et non avec les axes globaux du projet.
+
+### Architecture
+
+Un modèle métier pur `ViewFrame` a été ajouté dans :
+
+```text
+OutilsTAA.extension/lib/plans_vente/view_frame.py
+```
+
+Il ne dépend pas de Revit et permet de tester :
+
+- projection monde → vue ;
+- reconstruction vue → monde ;
+- normalisation des axes ;
+- validation de l'orthogonalité.
+
+Le service Revit `CropGeometryService` reste responsable de la conversion entre objets `XYZ` Revit et le modèle pur.
+
+### Tests hors Revit
+
+Suite ciblée Plans de vente exécutée avant commit :
+
+```text
+16 passed
+```
+
+Les tests couvrent notamment :
+
+- regroupement des logements ;
+- calcul d'emprise ;
+- marges ;
+- projection dans un repère tourné ;
+- reconstruction dans le modèle ;
+- validation des axes ;
+- contrats XAML / handlers ;
+- présence de `RightDirection` et `UpDirection` ;
+- utilisation de `ViewDuplicateOption.AsDependent` ;
+- raccordement à `SetCropShape`.
+
+### Validation Revit à effectuer
+
+1. reprendre le même logement et la même vue source que lors du test précédent ;
+2. créer un nouveau prototype avec une marge de 500 mm ;
+3. vérifier que le cadrage est visuellement horizontal/vertical par rapport à l'écran de la vue ;
+4. confirmer que tout le logement reste inclus ;
+5. confirmer que la marge reste cohérente ;
+6. confirmer que la vue principale n'est toujours pas modifiée.
+
+Cette étape ne modifie pas encore le contour pour suivre précisément la forme du logement. Le crop polygonal éventuel sera étudié séparément après validation du repère de vue.
