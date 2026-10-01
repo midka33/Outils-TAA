@@ -19,17 +19,9 @@ class RoomCalculator(object):
     REASON_INVALID_GROUP = "invalid_group"
 
     def calculate(self, items, progress=None):
-        """Calcule les totaux de source_value par group_value.
-
-        Args:
-            items: iterable de RoomCalculationItem.
-            progress: callback optionnel progress(current, total).
-
-        Returns:
-            CalculationResult.
-        """
         normalized_items = list(items or [])
         totals = {}
+        members_by_group = {}
         skipped = []
         calculated_items = 0
         total = len(normalized_items)
@@ -54,6 +46,7 @@ class RoomCalculator(object):
             try:
                 current_total = totals.get(group_value, 0)
                 totals[group_value] = current_total + numeric_value
+                members_by_group.setdefault(group_value, []).append(room_key)
             except TypeError:
                 skipped.append(SkippedRoom(room_key, self.REASON_INVALID_GROUP))
                 continue
@@ -65,6 +58,7 @@ class RoomCalculator(object):
             total_items=total,
             calculated_items=calculated_items,
             skipped=skipped,
+            members_by_group=members_by_group,
         )
 
     @staticmethod

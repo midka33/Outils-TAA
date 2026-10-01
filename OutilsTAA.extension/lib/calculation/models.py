@@ -5,11 +5,7 @@ from __future__ import unicode_literals
 
 
 class RoomCalculationItem(object):
-    """Donnée normalisée nécessaire au calcul pour une pièce.
-
-    Le modèle ne dépend pas de l'API Revit. Les adaptateurs Revit sont
-    responsables de convertir les paramètres en valeurs Python avant calcul.
-    """
+    """Donnée normalisée nécessaire au calcul pour une pièce."""
 
     def __init__(self, room_key, group_value, source_value):
         self.room_key = room_key
@@ -28,8 +24,19 @@ class SkippedRoom(object):
 class CalculationResult(object):
     """Résultat immutable par convention d'un calcul de regroupement/somme."""
 
-    def __init__(self, totals=None, total_items=0, calculated_items=0, skipped=None):
+    def __init__(
+        self,
+        totals=None,
+        total_items=0,
+        calculated_items=0,
+        skipped=None,
+        members_by_group=None,
+    ):
         self._totals = dict(totals or {})
+        self._members_by_group = dict(
+            (key, list(value or []))
+            for key, value in (members_by_group or {}).items()
+        )
         self.total_items = int(total_items)
         self.calculated_items = int(calculated_items)
         self.skipped = list(skipped or [])
@@ -38,6 +45,14 @@ class CalculationResult(object):
     def totals(self):
         """Retourne une copie des totaux par groupe."""
         return dict(self._totals)
+
+    @property
+    def members_by_group(self):
+        """Retourne une copie des identifiants de pièces par groupe."""
+        return dict(
+            (key, list(value))
+            for key, value in self._members_by_group.items()
+        )
 
     @property
     def skipped_items(self):
@@ -49,3 +64,6 @@ class CalculationResult(object):
 
     def get_total(self, group_value, default=None):
         return self._totals.get(group_value, default)
+
+    def get_members(self, group_value):
+        return list(self._members_by_group.get(group_value, []))
