@@ -51,8 +51,6 @@ class RoomParameterService(object):
                     continue
                 if numeric_only and not descriptor.is_numeric:
                     continue
-                if writable_only and not descriptor.writable:
-                    continue
 
                 existing = descriptors.get(descriptor.identity_key)
                 if existing is None:
@@ -62,8 +60,12 @@ class RoomParameterService(object):
                     # considéré non sûr si une occurrence observée est readonly.
                     existing.writable = existing.writable and descriptor.writable
 
+        values = list(descriptors.values())
+        if writable_only:
+            values = [descriptor for descriptor in values if descriptor.writable]
+
         return sorted(
-            descriptors.values(),
+            values,
             key=lambda item: (item.name.lower(), item.identity_key),
         )
 
