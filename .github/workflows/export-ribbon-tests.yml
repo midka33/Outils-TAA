@@ -1,6 +1,9 @@
 name: Export ribbon contract
 
 on:
+  push:
+    branches:
+      - "fix/export-ribbon-icon-only"
   pull_request:
     paths:
       - "OutilsTAA.extension/OutilsTAA.tab/Export.panel/**"
