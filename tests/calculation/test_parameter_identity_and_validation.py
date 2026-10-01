@@ -189,6 +189,34 @@ class ParameterIdentityTests(unittest.TestCase):
         self.assertEqual(2, len(descriptors))
         self.assertNotEqual(descriptors[0].identity_key, descriptors[1].identity_key)
 
+    def test_writable_only_rejects_identity_read_only_on_any_room(self):
+        shared_guid = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+        rooms = [
+            FakeRoom([
+                FakeParameter(
+                    "Surface calculée",
+                    "Double",
+                    read_only=False,
+                    shared_guid=shared_guid,
+                ),
+            ]),
+            FakeRoom([
+                FakeParameter(
+                    "Surface calculée",
+                    "Double",
+                    read_only=True,
+                    shared_guid=shared_guid,
+                ),
+            ]),
+        ]
+
+        descriptors = self.service.get_parameter_descriptors(
+            rooms,
+            writable_only=True,
+        )
+
+        self.assertEqual([], descriptors)
+
     def test_definition_descriptor_resolves_exact_parameter_among_homonyms(self):
         first = FakeParameter(
             "Zone",
