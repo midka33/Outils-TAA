@@ -1,19 +1,47 @@
 # Calculs
 
-Module destiné aux fonctionnalités métier **Calculs des pièces**.
+Module **Calculs des pièces** pour Revit 2025.4 / pyRevit 5.x.
 
 ## Périmètre
 
-Le module travaille toujours à partir de **toutes les pièces du projet Revit actif**.
+Le module part toujours de **toutes les pièces du projet Revit actif**.
 
-Il n'expose pas de choix « vue active / toutes les pièces ».
+Il n'expose pas de choix « Vue active / Toutes les pièces ».
 
 Un filtre métier optionnel par paramètre peut ensuite réduire le jeu de pièces.
 
-## Migration
+## État
 
-La migration depuis l'ancien module RoomTools est en cours sur la branche `feature/calculs-pieces-migration`.
+La migration depuis l'ancien RoomTools est implémentée sur :
 
-Le moteur métier pur de regroupement/somme est maintenant isolé dans `OutilsTAA.extension/lib/calculation/`.
+```text
+feature/calculs-pieces-migration
+```
 
-La collecte complète du document, le filtre métier optionnel, l'identité des paramètres, leur validation et la gestion commune des unités sont maintenant préparés et testés hors Revit. L'écriture, la persistance et l'interface WPF restent à réaliser ; tous les accès Revit doivent encore être validés dans Revit 2025.4.
+Sont désormais présents :
+
+- moteur de regroupement/somme ;
+- collecte projet entière ;
+- filtre optionnel ;
+- identités et validation des paramètres ;
+- unités Revit ;
+- écriture contrôlée et transaction ;
+- persistance ;
+- interface WPF ;
+- rapport ;
+- bouton pyRevit ;
+- tests automatisés.
+
+La CI hors Revit valide actuellement :
+
+```text
+68 passed
+```
+
+Le module doit maintenant être **validé dans Revit 2025.4 réel** avant fusion dans `main`.
+
+Voir :
+
+```text
+docs/18_Calculs_Pieces_Tests_Revit.md
+```

@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Calculs des pièces : migration fonctionnelle prête pour validation Revit 2025.4 ; collecte projet entière, workflow READ → DATA → CALCULATE → VALIDATE → WRITE et suppression définitive du choix de périmètre Vue active / Toutes les pièces.
 - Calculs des pièces : le périmètre source est désormais défini comme toutes les pièces du projet ; les choix « vue active / toutes les pièces » ne font pas partie de la cible. Le filtre optionnel par paramètre reste distinct de ce périmètre.
 - Publication de dossier : arborescence reproduite sur disque, sous-dossier par carnet
   pour les formats séparés et chemins partagés entre aperçu et export.
@@ -15,6 +16,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Calculs des pièces : correction du masquage du package métier `calculation` par le dossier de tests et sécurisation de la syntaxe générée des fichiers WPF/workflow.
 - Calculs des pièces : correction de la collision Python du module générique `models` et agrégation de l'état readonly avant filtrage des destinations écrivable.
 - Sous-dossiers : bouton de retour à l’héritage du parent, origine des réglages
   nommée et libellé lisible dans la liste des dossiers.
@@ -31,6 +33,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Calculs des pièces : écriture contrôlée, transaction avec rollback, rapport d'exécution, persistance Outils TAA, migration des réglages RoomTools, interface WPF, thème TAA partagé, bouton pyRevit et CI dédiée ; 68 tests hors Revit réussis avant campagne réelle.
 - Calculs des pièces : descripteurs de paramètres sérialisables, identités GUID / ForgeTypeId / définition avec fallback contrôlé par nom, validation source/destination et gestion commune des unités Revit.
 - Calculs des pièces : premier moteur métier pur de regroupement/somme dans `lib/calculation`, indépendant de Revit et WPF, avec 6 tests unitaires exécutés hors Revit.
 - Calculs des pièces : collecte du document entier sans filtre de vue, filtre métier optionnel, première lecture typée des paramètres et 14 tests unitaires cumulés exécutés hors Revit.

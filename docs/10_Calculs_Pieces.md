@@ -1,43 +1,42 @@
 # Calculs des pièces
 
-**Statut :** Migration en cours — Blocs 1 à 3 implémentés hors Revit  
+**Statut :** Implémentation hors Revit terminée — validation réelle Revit requise  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
-**Module :** `Calculs.panel`
+**Module :** `Calculs.panel`  
+**Branche de validation :** `feature/calculs-pieces-migration`
 
 ---
 
 ## 1. Responsabilité
 
-Le module **Calculs des pièces** regroupe les traitements métier portant sur les pièces Revit : collecte, filtrage métier optionnel, regroupement, agrégation et mise à jour contrôlée de paramètres.
+Le module **Calculs des pièces** regroupe les traitements métier portant sur les pièces Revit : collecte, filtre métier optionnel, regroupement, agrégation et écriture contrôlée du résultat dans un paramètre de pièce.
 
-Le nom historique **RoomCalculator** est conservé uniquement lorsqu'il est nécessaire de décrire l'ancien module source.
+Le nom historique **RoomCalculator** n'est utilisé que pour désigner l'ancien module source.
 
 ---
 
-## 2. Décision de périmètre
+## 2. Périmètre source
 
-Le périmètre source est fixe :
+Le périmètre est fixe :
 
 > **Calculs des pièces travaille toujours à partir de toutes les pièces du projet Revit actif.**
 
-L'interface ne doit pas proposer de choix entre :
+L'interface ne propose pas de choix :
 
-- toutes les pièces ;
-- vue active ;
-- pièces sélectionnées.
+- Vue active ;
+- Toutes les pièces ;
+- Pièces sélectionnées.
 
-Ces choix ne font pas partie de la cible actuelle.
+Un filtre métier optionnel par paramètre peut ensuite réduire ce jeu de pièces.
 
-Un **filtre métier optionnel par paramètre** peut ensuite réduire le jeu de pièces lorsque l'utilisateur le configure explicitement.
-
-Le flux cible est donc :
+Le flux est :
 
 ```text
 Toutes les pièces du projet
         ↓
 Filtre par paramètre (optionnel)
         ↓
-Lecture des valeurs
+Lecture des paramètres
         ↓
 Regroupement
         ↓
@@ -45,84 +44,74 @@ Somme
         ↓
 Validation
         ↓
+Confirmation utilisateur
+        ↓
+Transaction Revit
+        ↓
 Écriture
+        ↓
+Rapport
 ```
 
-La collecte ne doit pas exclure implicitement une pièce uniquement parce qu'elle n'est pas visible dans la vue active.
-
-La gestion des pièces sans valeur exploitable, non placées ou invalides doit relever d'une règle de validation explicite et traçable, pas d'un changement silencieux de périmètre.
+La collecte n'exclut pas implicitement une pièce parce qu'elle n'est pas visible dans la vue active ou parce que sa surface vaut zéro.
 
 ---
 
-## 3. Fonctionnalités à préserver de l'ancien module
+## 3. Fonctionnalités migrées
 
-La migration doit conserver, après validation technique :
+La migration couvre désormais :
 
-- filtre optionnel par paramètre et valeur ;
+- collecte de toutes les pièces du projet ;
+- filtre optionnel par paramètre et valeur exacte ;
 - choix du paramètre de regroupement ;
 - choix du paramètre numérique à additionner ;
 - choix du paramètre de destination ;
 - calcul d'une somme par groupe ;
-- écriture du résultat dans les pièces du groupe ;
-- gestion cohérente des unités ;
-- progression et retour utilisateur ;
-- mémorisation des choix utiles.
-
-Les contrôles historiques « vue active » et « toutes les pièces » sont volontairement retirés de la cible.
-
-Les options historiques présentes dans l'UI mais non réellement raccordées ne doivent pas être reproduites sans implémentation réelle.
+- écriture du total dans les pièces appartenant au groupe ;
+- gestion explicite des pièces ignorées pendant le calcul ;
+- validation des paramètres avant écriture ;
+- gestion des paramètres homonymes ;
+- gestion centralisée des unités Revit ;
+- progression ;
+- confirmation avant modification du modèle ;
+- rapport de succès / échecs / éléments ignorés ;
+- persistance des choix utilisateur ;
+- migration contrôlée des anciens réglages RoomTools ;
+- interface WPF Outils TAA ;
+- bouton pyRevit **Calculs des pièces**.
 
 ---
 
-## 4. Architecture cible
+## 4. Architecture
 
 ```text
+CalculsPieces.pushbutton/script.py
+        ↓
 UI WPF
-  ↓
-Controller / orchestration
-  ↓
-Services métier
-  ├── modèles normalisés
-  ├── filtre métier
-  ├── calculateur
-  └── validation
-  ↓
-Adaptateurs Revit
-  ├── collecte des pièces
-  ├── lecture des paramètres
-  ├── unités
-  └── écriture
-  ↓
-API Revit
+        ↓
+CalculationController
+        ↓
+RoomCalculationWorkflow
+        ├── RoomCollectorService
+        ├── RoomFilter
+        ├── RoomParameterService
+        ├── RoomParameterValidator
+        ├── RoomCalculator
+        ├── RoomWriter
+        └── RevitTransaction
+                ↓
+             API Revit
 ```
 
-Règles :
-
-- l'UI ne réalise aucun calcul métier ;
-- le moteur de calcul ne dépend ni de Revit ni de WPF ;
-- les transactions restent hors du moteur de calcul ;
-- les lectures et écritures de paramètres sont séparées ;
-- `lib/common` est réutilisé pour les comportements réellement transversaux ;
-- le module reste indépendant d'Export.
+Le moteur métier `lib/calculation` ne dépend ni de WPF ni directement de Revit.
 
 ---
 
-## 5. Bloc 1 — moteur métier pur
+## 5. Moteur de calcul
 
-Le premier bloc migré est placé dans :
+### 5.1 Entrée normalisée
 
-```text
-OutilsTAA.extension/
-└── lib/
-    └── calculation/
-        ├── __init__.py
-        ├── models.py
-        └── room_calculator.py
-```
-
-### 5.1 Modèle d'entrée
-
-`RoomCalculationItem` contient uniquement les données nécessaires au calcul :
+`RoomCalculationItem` contient :
 
 ```text
 room_key
@@ -130,186 +119,104 @@ group_value
 source_value
 ```
 
-Il ne contient aucun objet Revit.
-
-Les futurs adaptateurs Revit doivent transformer les paramètres Revit en ces données normalisées avant d'appeler le moteur.
-
-### 5.2 Calcul
+### 5.2 Regroupement et somme
 
 `RoomCalculator` :
 
-- regroupe par `group_value` ;
-- additionne les valeurs numériques `source_value` ;
+- regroupe les pièces par `group_value` ;
+- additionne les valeurs numériques ;
 - accepte zéro comme valeur valide ;
 - accepte zéro comme clé de groupe valide ;
-- ignore explicitement les groupes vides ;
-- ignore explicitement les sources non numériques ;
-- retourne les pièces ignorées avec une raison ;
-- expose une progression indépendante de WPF.
+- signale les groupes vides ;
+- signale les sources non numériques ;
+- conserve les membres d'un groupe même lorsqu'une pièce ne contribue pas à la somme.
 
-### 5.3 Résultat
-
-`CalculationResult` expose :
-
-- les totaux par groupe ;
-- le nombre d'éléments reçus ;
-- le nombre d'éléments calculés ;
-- les éléments ignorés ;
-- le nombre de groupes.
+Cette dernière règle permet de conserver le comportement métier historique : une pièce ayant un groupe valide mais une source vide peut recevoir le total calculé à partir des autres pièces de son groupe.
 
 ---
 
-## 6. Bloc 2 — collecte, filtre et lecture de paramètres
+## 6. Collecte et filtre
 
-Le deuxième bloc ajoute :
+`RoomCollectorService.collect_all_rooms()` collecte la catégorie des pièces dans le document entier.
 
-```text
-Calculs.panel/services/
-├── room_collector_service.py
-└── room_parameter_service.py
-
-lib/calculation/
-└── room_filter.py
-```
-
-### 6.1 Collecte
-
-`RoomCollectorService.collect_all_rooms()` collecte les éléments de la catégorie des pièces dans le document entier.
-
-Règles implémentées :
+Règles :
 
 - aucun filtre de vue ;
 - aucun recours à `ActiveView` ;
-- aucune exclusion implicite basée sur `Area == 0` ;
-- la collecte renvoie le jeu complet des pièces, la validation intervenant ensuite.
+- aucune exclusion implicite par `Area == 0`.
 
-Ce comportement traduit directement la décision utilisateur de toujours partir de toutes les pièces du projet.
-
-### 6.2 Filtre métier optionnel
-
-`RoomFilter` applique éventuellement un filtre par paramètre et valeur.
-
-Sans paramètre ou sans valeur de filtre, toutes les pièces collectées sont conservées.
-
-Le filtre est indépendant du périmètre de collecte.
-
-### 6.3 Lecture des paramètres
-
-`RoomParameterService` fournit actuellement :
-
-- découverte des noms de paramètres ;
-- possibilité de limiter la liste aux paramètres numériques ;
-- lecture `String` ;
-- lecture `Integer` ;
-- lecture `Double` ;
-- lecture `ElementId` ;
-- détection explicite de l'état lecture seule.
-
-Cette première implémentation reste à compléter par l'identité stable des paramètres et leur type de donnée Revit avant raccordement final de l'UI et de la persistance.
+`RoomFilter` applique ensuite, si demandé, un filtre métier par paramètre et valeur exacte.
 
 ---
 
-## 7. Bloc 3 — identité, validation et unités
+## 7. Paramètres Revit
 
-Le troisième bloc fiabilise les paramètres avant toute écriture dans Revit.
+### 7.1 Identité
 
-### 7.1 Descripteur de paramètre
+`RoomParameterDescriptor` conserve :
 
-Le modèle `calculation.parameter_descriptor.RoomParameterDescriptor` conserve :
+- nom affiché ;
+- identité technique ;
+- `StorageType` ;
+- type de donnée Revit ;
+- unité Revit ;
+- état writable.
 
-```text
-nom affiché
-identité technique
-StorageType
-DataType Revit
-unité Revit
-état writable
-```
+Priorité d'identification :
 
-L'identité est choisie dans cet ordre :
+1. GUID de paramètre partagé ;
+2. ForgeTypeId d'un paramètre Revit intégré ;
+3. identifiant de définition ;
+4. nom en dernier recours.
 
-1. GUID pour un paramètre partagé ;
-2. identifiant ForgeTypeId pour un paramètre Revit intégré ;
-3. identifiant de définition Revit ;
-4. nom uniquement en dernier recours.
+Deux paramètres homonymes mais distincts ne sont pas fusionnés silencieusement.
 
-Deux paramètres portant le même nom mais ayant deux identités différentes ne sont donc plus fusionnés silencieusement.
+Si seul le nom est disponible et que plusieurs paramètres portent ce nom, la résolution est bloquée comme ambiguë.
 
-Lorsqu'un simple nom est le seul identifiant disponible et que plusieurs paramètres portent ce nom, la résolution est considérée ambiguë et doit être bloquée.
+### 7.2 Destination
 
-### 7.2 Agrégation de l'état d'écriture
+Une destination doit :
 
-Pour une destination présente sur plusieurs pièces, l'état `writable` est agrégé sur toutes les occurrences observées.
+- exister ;
+- ne pas être `ReadOnly` ;
+- utiliser un type d'écriture pris en charge ;
+- rester compatible avec les règles de type définies par le validateur.
 
-Si une seule occurrence du même paramètre est en lecture seule, le descripteur agrégé n'est pas considéré comme une destination sûre dans un filtre `writable_only`.
-
-### 7.3 Type de donnée Revit
-
-Le service lit le type de donnée de la définition via l'API Revit moderne et le conserve sous forme d'identifiant sérialisable.
-
-Pour deux paramètres `Double`, une différence connue de type de donnée est bloquante avant écriture.
-
-Exemple :
+Types de destination pris en charge :
 
 ```text
-Surface → Surface = compatible
-Surface → Volume  = incompatible
+Double
+Integer
+String
 ```
 
-### 7.4 Validation de la destination
+`ElementId` n'est pas une destination autorisée.
 
-`RoomParameterValidator` vérifie actuellement :
+---
 
-- source numérique ;
-- destination prise en charge ;
-- destination non readonly ;
-- compatibilité des types de donnée pour une écriture `Double → Double` ;
-- avertissement pour `Double → Integer` ;
-- avertissement pour une destination texte ;
-- rejet d'une destination `ElementId`.
+## 8. Unités
 
-Ces règles sont préparatoires au futur `RoomWriter`.
+Les valeurs `Double` restent en unités internes Revit pendant le calcul.
 
-### 7.5 Unités
-
-Le nouveau module commun :
+Les conversions sont centralisées dans :
 
 ```text
 lib/common/unit_utils.py
 ```
 
-centralise :
+L'interface utilise les unités compatibles retournées par Revit pour le type de donnée concerné.
 
-- conversion depuis les unités internes Revit ;
-- conversion vers les unités internes Revit ;
-- comparaison des types de donnée normalisés.
+Le système historique basé sur des facteurs manuels et la détection par mots-clés dans le nom du paramètre n'est pas repris.
 
-Principe retenu :
+Pour une écriture `Double → Double`, la valeur reste en unités internes Revit.
 
-> les valeurs `Double` utilisées par le moteur de calcul restent en unités internes Revit.
-
-Les conversions ne doivent intervenir que lorsqu'une entrée ou un affichage exige une unité explicite.
-
-Le service `RoomUnitService` utilise l'unité fournie par le paramètre Revit lorsqu'elle existe.
-
-Aucun facteur manuel basé sur le nom « surface », « volume », « longueur », etc. n'est repris de l'ancien module.
-
-### 7.6 Compatibilité API à valider dans Revit
-
-Le raccordement réel devra être vérifié dans Revit 2025.4 pour :
-
-- GUID de paramètre partagé ;
-- `ForgeTypeId` d'un paramètre intégré ;
-- identité de définition des paramètres projet ;
-- type de donnée de la définition ;
-- unité du paramètre ;
-- résolution de paramètres homonymes.
+Pour une sortie `Double → Integer` ou `Double → String`, l'unité de sortie peut être choisie lorsqu'une conversion explicite est pertinente.
 
 ---
 
-## 8. Transactions et écriture
+## 9. Validation et écriture
 
-Le workflow cible reste :
+Le workflow applique :
 
 ```text
 READ
@@ -323,119 +230,174 @@ VALIDATE
 WRITE
 ```
 
-Le calcul est réalisé hors transaction.
+Aucune transaction n'est ouverte pendant la collecte ou le calcul.
 
-La transaction Revit n'est ouverte qu'au moment de l'écriture des résultats validés.
+Avant écriture :
+
+- la paire source/destination est validée ;
+- chaque destination est recontrôlée sur la pièce ;
+- la valeur à écrire est préparée hors transaction.
+
+La transaction est ensuite ouverte uniquement pour les écritures valides.
+
+Un échec local sur une pièce est rapporté sans masquer les autres résultats valides.
+
+Une erreur fatale de transaction provoque un rollback et aucun succès n'est déclaré pour les écritures annulées.
 
 ---
 
-## 9. Interface cible
+## 10. Persistance
+
+Les préférences sont stockées sous :
+
+```text
+%APPDATA%/Outils-TAA/Calculs/settings.json
+```
+
+Le stockage conserve uniquement des données sérialisables et jamais d'objet Revit.
+
+Sont mémorisés :
+
+- paramètre de regroupement ;
+- paramètre source ;
+- paramètre destination ;
+- filtre éventuel ;
+- valeur de filtre ;
+- unité de sortie.
+
+L'ancien fichier :
+
+```text
+%APPDATA%/RoomTools/settings.json
+```
+
+peut être lu pour migrer les anciens noms de paramètres.
+
+Les anciens tags d'unités manuels ne sont pas transformés artificiellement en ForgeTypeId.
+
+---
+
+## 11. Interface
 
 L'interface suit `docs/04_UI_Guidelines.md`.
 
-Principes spécifiques :
+Elle comporte :
 
-- titre fonctionnel : **Calculs des pièces** ;
-- pas de choix « toutes les pièces / vue active » ;
-- affichage informatif : **Toutes les pièces du projet** ;
-- filtre optionnel par paramètre ;
-- paramètres de regroupement, source et destination clairement séparés ;
+- titre **Calculs des pièces** ;
+- source informative **Toutes les pièces du projet** ;
+- compteur de pièces détectées ;
+- filtre optionnel ;
+- Regrouper par ;
+- Additionner ;
+- Paramètre destination ;
+- unité de sortie contextuelle ;
+- état et progression ;
+- bouton secondaire Fermer ;
 - une seule action principale : **Calculer** ;
-- progression et résultat visibles ;
-- styles WPF communs Outils TAA lorsque disponibles.
+- confirmation avant écriture ;
+- rapport détaillé après exécution.
+
+Les styles communs sont définis dans :
+
+```text
+OutilsTAA.extension/resources/ui/taa_theme.xaml
+```
+
+avec l'accent TAA Orange `#FA641F`.
 
 ---
 
-## 10. Tests
+## 12. Tests automatisés hors Revit
 
-Les Blocs 1 à 3 possèdent actuellement **34 tests unitaires hors Revit**, exécutés avec succès dans l'environnement de travail.
+Une CI dédiée exécute :
 
-Ils couvrent notamment :
+```text
+python -m pytest tests/calculation -q
+```
 
-- regroupement et somme ;
-- cas vide, zéro et valeurs non numériques ;
-- progression ;
-- filtre métier optionnel ;
-- collecte de toutes les pièces du projet sans filtre de vue ;
-- conservation d'une pièce à surface nulle dans le périmètre source ;
-- lecture String / Integer / Double / ElementId ;
-- identité par GUID partagé ;
-- identité de paramètre intégré ;
-- identité de définition ;
-- paramètres homonymes distincts ;
-- refus d'un fallback par nom ambigu ;
-- sérialisation du descripteur ;
-- agrégation readonly sur plusieurs pièces ;
-- compatibilité / incompatibilité de types de donnée ;
-- avertissements de conversion de type ;
-- conversions d'unités via un adaptateur UnitUtils ;
-- rejet d'un paramètre non mesurable lorsque l'unité est requise ;
-- non-régression de la collision Python entre modules génériques.
+Dernière exécution validée avant la campagne Revit :
 
-Les blocs suivants devront ajouter les tests sur :
+```text
+68 passed
+```
 
-- paramètres absents ;
-- paramètres homonymes et identités stables lorsque pertinentes ;
-- String / Integer / Double / ElementId ;
-- paramètres en lecture seule ;
+Les tests couvrent notamment :
+
+- calcul et regroupement ;
+- valeurs vides, zéro et valeurs non numériques ;
+- membres de groupe sans source exploitable ;
+- filtre métier ;
+- collecte du projet entier ;
+- paramètres String / Integer / Double / ElementId ;
+- identités GUID / ForgeTypeId / définition ;
+- homonymes ;
+- ReadOnly ;
+- compatibilité source / destination ;
 - unités ;
-- écriture ;
-- rollback ;
+- préparation et écriture ;
+- transaction / rollback ;
 - persistance ;
-- chargement WPF ;
-- workflow complet dans Revit 2025.4.
+- migration des réglages historiques ;
+- contrôleur ;
+- structure et événements XAML ;
+- syntaxe Python des fichiers du module ;
+- absence de `ActiveView` ;
+- absence de `except:` nu.
+
+La CI hors Revit ne valide pas le comportement réel de l'API Autodesk ni le chargement WPF dans IronPython/pyRevit.
 
 ---
 
-## 11. État d'implémentation
+## 13. Bugs capitalisés pendant la migration
 
-### Implémenté et testé hors Revit
+Voir `docs/11_BUGS_Prevention_Registry.md`.
 
-- modèle métier de calcul ;
-- moteur de regroupement/somme ;
-- diagnostics simples des entrées ignorées ;
-- callback de progression ;
-- tests unitaires du moteur ;
-- collecte complète du projet sans filtre de vue ;
-- filtre métier optionnel par paramètre ;
-- première lecture normalisée des paramètres Revit ;
-- descripteurs sérialisables avec identité stable lorsque disponible ;
-- détection des homonymes ;
-- métadonnées DataType / unité ;
-- validation source / destination ;
-- utilitaires communs d'unités ;
-- agrégation conservative de l'état writable.
+Bugs spécifiques actuellement capitalisés :
 
-### À implémenter
+- `BUG-CALCULS-001` — collision du module générique `models` ;
+- `BUG-CALCULS-002` — état writable filtré avant agrégation ;
+- `BUG-CALCULS-003` — échappements de chaînes corrompant le code Python généré ;
+- `BUG-CALCULS-004` — dossier de tests masquant le package métier `calculation`.
 
-- écriture Revit ;
-- persistance Outils TAA ;
-- UI WPF ;
+---
+
+## 14. État avant validation Revit
+
+### Implémenté et validé hors Revit
+
+- moteur métier ;
+- collecte/adaptateur préparé ;
+- filtre ;
+- paramètres et identités ;
+- validation ;
+- unités ;
+- écriture préparée ;
+- transaction contrôlée ;
+- persistance ;
+- contrôleur ;
+- interface WPF ;
+- rapport ;
 - bouton pyRevit ;
-- tests d'intégration.
+- CI hors Revit : **68 tests réussis**.
 
 ### À valider dans Revit 2025.4
 
-Tout comportement dépendant de :
+- apparition du bouton pyRevit ;
+- chargement réel des fenêtres WPF ;
+- collecte réelle des pièces ;
+- résolution des paramètres Revit ;
+- GUID / ForgeTypeId / définitions ;
+- unités et libellés ;
+- écriture réelle dans les paramètres ;
+- transaction / Undo ;
+- comportement des paramètres manquants ou readonly ;
+- persistance après réouverture ;
+- rendu UI à l'échelle Revit.
 
-- collecte Revit ;
-- paramètres ;
-- unités Revit ;
-- transactions ;
-- WPF / pyRevit ;
-- écriture dans le modèle.
+La campagne officielle est décrite dans :
 
----
+```text
+docs/18_Calculs_Pieces_Tests_Revit.md
+```
 
-## 12. Règles non négociables
-
-1. Le périmètre source est toujours toutes les pièces du projet actif.
-2. Le filtre par paramètre est un filtre métier optionnel appliqué après cette collecte.
-3. L'UI ne contient pas de logique de calcul.
-4. Le moteur métier ne dépend pas de Revit.
-5. Les unités ne sont pas devinées uniquement depuis le nom d'un paramètre.
-6. Les paramètres de destination sont validés avant écriture.
-7. Une exception importante ne doit pas être masquée par `except: pass`.
-8. Une transaction n'est ouverte qu'au moment de l'écriture.
-9. Le comportement documenté doit rester synchronisé avec le code.
-10. Toute validation Revit doit être réalisée dans Revit 2025.4 avant d'être déclarée acquise.
+La migration ne doit pas être considérée comme finalisée ni fusionnée dans `main` avant cette validation.
