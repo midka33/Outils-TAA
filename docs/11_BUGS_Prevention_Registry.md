@@ -406,6 +406,14 @@ relecture du dossier, conservation des descendants ; validation Revit restante.
 **Règle :** dans Outils TAA, ne pas importer comme modules top-level des noms génériques présents dans plusieurs chemins Python (`models`, `services`, `settings`, etc.). Préférer un package explicitement qualifié ou un nom de module spécifique.  
 **Anti-régression :** exécuter toute la suite `tests/calculation` dans un même processus afin de détecter les collisions dépendantes de l'ordre d'import.
 
+### BUG-CALCULS-002 — Filtre `writable_only` appliqué avant agrégation
+
+**Symptôme :** un paramètre pouvait rester proposé comme destination écrivable si sa première occurrence était modifiable mais qu'une occurrence suivante du même paramètre était en lecture seule.  
+**Cause :** `get_parameter_descriptors(..., writable_only=True)` excluait les occurrences readonly avant de fusionner l'état des différentes pièces. L'information readonly n'atteignait donc jamais le descripteur agrégé.  
+**Correction :** toutes les occurrences d'une même identité sont d'abord agrégées ; l'état `writable` est calculé avec un ET logique, puis le filtre `writable_only` est appliqué sur le résultat agrégé.  
+**Règle :** lorsqu'une propriété de sécurité dépend de plusieurs éléments, ne pas filtrer les occurrences avant d'avoir calculé l'état agrégé complet.  
+**Anti-régression :** deux pièces portant le même paramètre partagé, l'une modifiable et l'autre readonly, ne doivent pas faire apparaître ce paramètre dans une liste `writable_only`.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -444,6 +452,7 @@ BUG-EXPORT-032
 BUG-EXPORT-033
 BUG-TEST-002
 BUG-CALCULS-001
+BUG-CALCULS-002
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
