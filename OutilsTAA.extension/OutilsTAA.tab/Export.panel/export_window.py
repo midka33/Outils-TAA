@@ -4,9 +4,11 @@
 import os
 
 from pyrevit import forms
+from taa_ui_theme import apply_theme
 from System import Guid
-from System.Windows import FontWeights
-from System.Windows.Controls import TreeViewItem, TextBlock
+from System.Windows import FontWeights, Thickness, VerticalAlignment
+from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation
+from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
 from carnet_sheets_window import CarnetSheetsWindow
@@ -43,6 +45,7 @@ class ExportWindow(forms.WPFWindow):
         self.settings_resolver = SettingsResolver(self.profile_service)
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
+        apply_theme(self)
         self._load_context()
         self._drag_drop_manager = PublicationTreeDragDrop(self)
 
@@ -102,28 +105,43 @@ class ExportWindow(forms.WPFWindow):
         self._folders_by_id = dict((f.id, f) for f in self._folders)
         self._load_selected_settings()
 
+    def _node_header(self, text, icon_key, bold=False):
+        """Pictogrammes vectoriels sans dépendance à une police d'icônes."""
+        panel = StackPanel(Orientation=Orientation.Horizontal)
+        icon = IconPath()
+        icon.Data = self.FindResource(icon_key)
+        icon.Stroke = self.FindResource("TaaAccentPressed")
+        icon.StrokeThickness = 1.5
+        icon.Width = 20
+        icon.Height = 20
+        icon.Margin = Thickness(0, 0, 8, 0)
+        label = TextBlock(Text=text)
+        label.VerticalAlignment = VerticalAlignment.Center
+        if bold:
+            label.FontWeight = FontWeights.SemiBold
+        panel.Children.Add(icon)
+        panel.Children.Add(label)
+        return panel
+
     def _make_folder_node(self, folder):
         node = TreeViewItem()
         node.AllowDrop = True
         node.Tag = ("FOLDER", folder)
-        header = TextBlock()
-        header.Text = folder.name
-        header.FontWeight = FontWeights.Bold
-        node.Header = header
+        node.Header = self._node_header(folder.name, "TaaFolderIcon", True)
         return node
 
     def _make_carnet_node(self, carnet):
         node = TreeViewItem()
         node.AllowDrop = True
         node.Tag = ("CARNET", carnet)
-        node.Header = TextBlock(Text=carnet.name)
+        node.Header = self._node_header(carnet.name, "TaaBookIcon")
         # L'ordre de la liste est volontaire : il représente l'ordre manuel
         # défini par l'utilisateur dans l'arborescence de publication.
         for item in (carnet.items or []):
             child = TreeViewItem()
             child.AllowDrop = True
             child.Tag = ("SHEET", item, carnet)
-            child.Header = TextBlock(Text="{0} — {1}".format(item.sheet_number or "", item.sheet_name or ""))
+            child.Header = self._node_header("{0} — {1}".format(item.sheet_number or "", item.sheet_name or ""), "TaaSheetIcon")
             node.Items.Add(child)
         return node
 

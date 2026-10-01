@@ -52,6 +52,15 @@ carnet en mode séparé ; le mode combiné conserve la destination choisie.
 Le chemin relatif est porté par une copie de travail du carnet et partagé par
 `PublicationPreviewService` et `PublicationService` via `publication_paths.py`.
 
+## Interface V1 — charte TAA
+
+Les fenêtres de publication, ajout des carnets, consultation des feuilles, aperçu et
+rapport utilisent le thème commun `resources/ui/Theme.xaml` : Segoe UI, fonds clairs,
+accent orange pastel, sélection pêche et pictogrammes vectoriels.
+Les actions et le périmètre fonctionnel restent ceux de la V1 ; les maquettes ne
+réintroduisent pas les options différées en V2. Validation graphique et non-régression
+Revit encore requises : voir `docs/18_Export_Charte_UI_V1.md`.
+
 ## 1. Vision
 
 **Export** est le gestionnaire de publications des **Outils TAA**.

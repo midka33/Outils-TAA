@@ -54,6 +54,17 @@
 - [ ] Terminer les tests V1, dont TEST-44 et profils P1 à P4, puis la non-régression.
 - [ ] Finaliser et sortir Export V1 avant de reprendre les fonctionnalités V2.
 
+### V1 — Finition graphique TAA
+
+- [x] Socle fonctionnel validé par l'utilisateur le 2026-09-30, TEST-44 et profils P1–P4 compris.
+- [x] Thème commun orange pastel, typographie, contrôles, tableaux et pictogrammes.
+- [x] Application aux cinq fenêtres Export et adaptation des champs au redimensionnement.
+- [ ] Valider le rendu réel, clavier et DPI dans Revit (UI-01 à UI-03).
+- [ ] Rejouer la non-régression après refonte (UI-04 à UI-06).
+- [ ] Finaliser la V1 après acceptation graphique ; ne pas confondre fin des tests fonctionnels et sortie.
+
+Voir `docs/18_Export_Charte_UI_V1.md` pour les contrôles réalisés et ceux restant dans Revit.
+
 ### V2 — Réévaluer la publication des seules mises en page nouvelles ou modifiées
 
 **Reportée après finalisation et sortie de la V1 ; réintroduction à décider.**

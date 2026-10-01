@@ -18,6 +18,7 @@ def report_module(monkeypatch):
                 setattr(self, name, SimpleNamespace())
     monkeypatch.setitem(sys.modules, 'pyrevit', SimpleNamespace(
         forms=SimpleNamespace(WPFWindow=Window)))
+    monkeypatch.setitem(sys.modules, 'taa_ui_theme', SimpleNamespace(apply_theme=lambda window: None))
     spec = importlib.util.spec_from_file_location('report_under_test', PANEL / 'export_report_window.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -7,6 +7,8 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Charte TAA appliquée aux cinq fenêtres Export : thème partagé, orange pastel,
+  Segoe UI, pictogrammes vectoriels, tableaux et champs adaptables. Validation WPF/Revit restante.
 - Publication de dossier : arborescence reproduite sur disque, sous-dossier par carnet
   pour les formats séparés et chemins partagés entre aperçu et export.
 - Export V1 : retrait de « Publier uniquement les mises en page nouvelles ou modifiées ».

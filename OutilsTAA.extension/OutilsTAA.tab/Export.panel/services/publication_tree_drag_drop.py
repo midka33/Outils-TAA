@@ -3,17 +3,16 @@ import json
 from System.Windows import DragDrop, DragDropEffects, DataObject, SystemParameters, Thickness
 from System.Windows.Controls import TreeViewItem
 from System.Windows.Input import MouseButtonState, Keyboard, Key, ModifierKeys
-from System.Windows.Media import SolidColorBrush, Color
 
 
 class PublicationTreeDragDrop(object):
     DATA_FORMAT = "OutilsTAA.Export.DragPayload"
-    SELECTED_BRUSH = SolidColorBrush(Color.FromRgb(250, 100, 31))
-    DROP_BRUSH = SolidColorBrush(Color.FromRgb(250, 100, 31))
-    DROP_BACKGROUND = SolidColorBrush(Color.FromArgb(45, 250, 100, 31))
-
     def __init__(self, window):
         self.window = window
+        self.SELECTED_BRUSH = window.FindResource("TaaSelection")
+        self.DROP_BRUSH = window.FindResource("TaaAccent")
+        self.DROP_BACKGROUND = window.FindResource("TaaSelection")
+        self.selected_foreground = window.FindResource("TaaText")
         self.drag_node = None
         self.drag_started = False
         self.selected = []
@@ -109,7 +108,7 @@ class PublicationTreeDragDrop(object):
             for node in self._nodes(kind):
                 if self._key(node.Tag) in selected:
                     node.Background = self.SELECTED_BRUSH
-                    node.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                    node.Foreground = self.selected_foreground
                 else:
                     node.ClearValue(TreeViewItem.BackgroundProperty)
                     node.ClearValue(TreeViewItem.ForegroundProperty)

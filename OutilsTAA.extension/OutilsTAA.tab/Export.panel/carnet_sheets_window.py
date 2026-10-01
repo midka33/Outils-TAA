@@ -4,6 +4,7 @@
 import os
 
 from pyrevit import forms
+from taa_ui_theme import apply_theme
 
 
 class CarnetSheetsWindow(forms.WPFWindow):
@@ -16,6 +17,7 @@ class CarnetSheetsWindow(forms.WPFWindow):
             "carnet_sheets_window.xaml"
         )
         forms.WPFWindow.__init__(self, xaml_path)
+        apply_theme(self)
 
         if owner is not None:
             self.Owner = owner

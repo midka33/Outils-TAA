@@ -396,6 +396,17 @@ ne jamais effacer automatiquement les réglages existants pour simuler un hérit
 **Test :** vraie méthode UI exécutée hors WPF, scénario DCE/Plan/A405, sauvegarde et
 relecture du dossier, conservation des descendants ; validation Revit restante.
 
+### BUG-EXPORT-034 — Champs de réglages comprimés par des largeurs fixes
+
+**Symptôme :** les rangées de profil et de nommage peuvent dépasser la colonne de
+réglages lors d'une réduction de fenêtre ; le bloc héritage laisse trop peu de place au texte.
+**Cause :** somme des largeurs fixes dans des StackPanel horizontaux sans retour à la ligne.
+**Correction :** rangées souples DockPanel/Grid, variables sur une seconde ligne,
+profils/configuration en WrapPanel et action d'héritage sous la description.
+**Règle préventive :** tester les largeurs minimales et les DPI réels ; ne pas assimiler
+la validité XML à une validation WPF. Préserver les noms, événements et bindings.
+**Contrôle :** contrats XAML conservés ; tests UI-01 à UI-06 à exécuter dans Revit.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -432,6 +443,7 @@ BUG-EXPORT-030
 BUG-EXPORT-031
 BUG-EXPORT-032
 BUG-EXPORT-033
+BUG-EXPORT-034
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001
