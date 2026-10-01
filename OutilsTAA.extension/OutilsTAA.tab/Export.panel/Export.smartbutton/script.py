@@ -31,6 +31,58 @@ install_preview_on_export_window(ExportWindow)
 
 
 
+
+
+def _get_adwindows_ribbon_button(ui_button_cmp):
+    """Retourne le RibbonButton Autodesk.Windows sans modifier son identité."""
+    getter = getattr(ui_button_cmp, "get_adwindows_object", None)
+    if getter is not None:
+        try:
+            button = getter()
+            if button is not None:
+                return button
+        except Exception:
+            pass
+
+    raw_button = getattr(ui_button_cmp, "ui_button", None)
+    if raw_button is None:
+        raw_getter = getattr(ui_button_cmp, "get_rvtapi_object", None)
+        if raw_getter is not None:
+            try:
+                raw_button = raw_getter()
+            except Exception:
+                raw_button = None
+
+    if raw_button is None:
+        return None
+
+    try:
+        from System.Reflection import BindingFlags
+        method = raw_button.GetType().GetMethod(
+            "getRibbonItem",
+            BindingFlags.NonPublic | BindingFlags.Instance,
+        )
+        if method is not None:
+            return method.Invoke(raw_button, None)
+    except Exception:
+        return None
+
+    return None
+
+
+def __selfinit__(script_cmp, ui_button_cmp, __rvt__):
+    """Masque seulement le texte visuel du bouton dans le ruban."""
+    try:
+        ribbon_button = _get_adwindows_ribbon_button(ui_button_cmp)
+        if ribbon_button is not None:
+            ribbon_button.ShowText = False
+            if hasattr(ribbon_button, "ShowImage"):
+                ribbon_button.ShowImage = True
+    except Exception:
+        # Un échec visuel ne doit jamais désactiver la commande Export.
+        pass
+    return True
+
 def _get_project_identity(document):
     return get_project_identity(document)
 

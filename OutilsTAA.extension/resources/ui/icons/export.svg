@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="12 5 69 85">
-  <title>Export / Publier — Outils TAA</title>
-  <path d="M25 10h30l18 18v53a5 5 0 0 1-5 5H25a5 5 0 0 1-5-5V15a5 5 0 0 1 5-5Z" fill="#FD8B5A"/>
-  <path d="M55 10v14a4 4 0 0 0 4 4h14" fill="#FFD4BF"/>
-  <path d="M43 46H32v25h31v-9" fill="none" stroke="white" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M44 57h22m-8-8 8 8-8 8" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <path d="M20 6H58L82 30V84C82 87.314 79.314 90 76 90H20C16.686 90 14 87.314 14 84V12C14 8.686 16.686 6 20 6Z" fill="#FA641F"/>
+  <path d="M58 6V23C58 26.866 61.134 30 65 30H82" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linejoin="round" opacity="0.92"/>
+  <path d="M39 42H26V73H65V63" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 57H75M64 46L75 57L64 68" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

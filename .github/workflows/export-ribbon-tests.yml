@@ -1,0 +1,30 @@
+name: Export ribbon contract
+
+on:
+  push:
+    branches:
+      - "fix/export-ribbon-icon-only"
+  pull_request:
+    paths:
+      - "OutilsTAA.extension/OutilsTAA.tab/Export.panel/**"
+      - "OutilsTAA.extension/resources/ui/icons/export*"
+      - "tests/test_export_ribbon_contract.py"
+      - ".github/workflows/export-ribbon-tests.yml"
+
+jobs:
+  test-export-ribbon:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer pytest
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Contrat ruban Export
+        run: python -m pytest tests/test_export_ribbon_contract.py -q

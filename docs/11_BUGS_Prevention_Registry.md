@@ -478,6 +478,22 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 **Test :** test_manual_destination_saves_only_destination_at_active_level vérifie
  le raccordement XAML et les deux niveaux ; saisie réelle à contrôler dans Revit.
 
+### BUG-EXPORT-038 — Libellé « Export » affiché deux fois dans le ruban
+
+**Symptôme :** « Export » apparaît sous l’icône du bouton puis une seconde fois comme nom du panneau.  
+**Cause racine :** le bouton standard porte un titre `Export` nécessaire à la création du `PushButtonData`, tandis que `Export.panel` affiche indépendamment le même nom comme titre de panneau.  
+**Correction finale :** conserver le titre API non vide `Export` et le tooltip, puis utiliser le mécanisme pyRevit `.smartbutton` / `__selfinit__` pour masquer uniquement le rendu du texte via `Autodesk.Windows.RibbonButton.ShowText = False`. Le basename de commande reste `Export`, le panneau reste `Export.panel` et le script métier exécuté au clic reste inchangé.  
+**Règle préventive :** distinguer identité de commande, texte API obligatoire, visibilité du texte, tooltip et titre du panneau. Pour une commande icon-only, ne jamais rendre `PushButtonData.Text` vide ; masquer l'affichage après création du contrôle.  
+**Anti-régression :** `tests/test_export_ribbon_contract.py` vérifie le bundle smartbutton, le titre API `Export`, le hook `__selfinit__`, `ShowText = False`, le tooltip, les tailles PNG et l'absence de texte dans le SVG. Validation finale obligatoire dans Revit 2025.4.
+
+### BUG-EXPORT-039 — Titre blanc du PushButton rejeté au rechargement pyRevit
+
+**Symptôme :** rechargement pyRevit en erreur critique : `The value cannot be empty. Parameter name: text` lors de la création du bouton Export.  
+**Cause racine :** la tentative `title: " "` est normalisée comme texte vide avant ou pendant la création du `PushButtonData`; l'API Revit refuse un texte vide.  
+**Correction :** restaurer un titre réel `Export` pour la création API et agir uniquement sur la propriété visuelle `ShowText` du contrôle de ruban après sa création.  
+**Règle préventive :** ne jamais utiliser chaîne vide, espace seul ou caractère invisible comme substitut au titre obligatoire d'un `PushButtonData`.  
+**Anti-régression :** test statique exigeant `title: Export` et `ShowText = False`, puis rechargement réel pyRevit sans erreur dans Revit 2025.4.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -515,6 +531,8 @@ BUG-EXPORT-031
 BUG-EXPORT-032
 BUG-EXPORT-033
 BUG-EXPORT-037
+BUG-EXPORT-038
+BUG-EXPORT-039
 BUG-EXPORT-036
 BUG-EXPORT-035
 BUG-EXPORT-034
