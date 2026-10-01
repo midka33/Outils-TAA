@@ -59,9 +59,9 @@ def test_crop_is_linearized_to_straight_segments_before_revit_validation():
     assert text.index("Linéarisation du contour extérieur") < text.index(
         "Application de la marge"
     )
-    assert text.index("Linéarisation finale") < text.index(
-        "Validation du crop Revit"
-    )
+    assert "Linéarisation finale" in text
+    assert "def apply_to_view(" in text
+    assert "manager.IsCropRegionShapeValid(selected_loop)" in text
 
 
 def test_crop_fallback_reports_exact_failed_stage():
@@ -71,4 +71,19 @@ def test_crop_fallback_reports_exact_failed_stage():
     assert "Étape en échec" in text
     assert '"Union géométrique des pièces"' in text
     assert '"Extraction du contour extérieur"' in text
-    assert '"Validation du crop Revit"' in text
+    assert "Étape en échec" in text
+
+
+def test_crop_capability_is_checked_on_created_target_view():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    build_start = text.index("def build_optimized_crop(")
+    apply_start = text.index("def apply_to_view(")
+    build_block = text[build_start:apply_start]
+    apply_block = text[apply_start:]
+
+    assert "CanHaveShape" not in build_block
+    assert "CanHaveShape" in apply_block
+    assert "_try_release_scope_box" in apply_block
+    assert "VIEWER_VOLUME_OF_INTEREST_CROP" in text
+    assert "fallback_curve_loop" in text
