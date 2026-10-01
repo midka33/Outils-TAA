@@ -11,7 +11,7 @@ from common.parameter_utils import (
     get_parameter_unit_type_id,
     get_shared_parameter_guid,
 )
-from models.room_parameter_descriptor import RoomParameterDescriptor
+from calculation.parameter_descriptor import RoomParameterDescriptor
 
 
 class RoomParameterService(object):

@@ -20,7 +20,7 @@ for path in (LIB_DIR, PANEL_DIR, SERVICE_DIR):
         sys.path.insert(0, path)
 
 from common.exceptions import ValidationError
-from models.room_parameter_descriptor import RoomParameterDescriptor
+from calculation.parameter_descriptor import RoomParameterDescriptor
 from room_parameter_service import RoomParameterService
 from room_parameter_validator import RoomParameterValidator
 
