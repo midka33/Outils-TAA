@@ -108,13 +108,6 @@ class CropGeometryService(object):
                 view,
             )
 
-            self._stage(
-                "Validation géométrique du crop",
-                self._validate_crop_geometry,
-                view,
-                final_loop,
-            )
-
             return OptimizedCropResult(
                 curve_loop=final_loop,
                 mode="Contour optimisé",
@@ -562,7 +555,6 @@ class CropGeometryService(object):
         ):
             loop.Append(Line.CreateBound(start, end))
 
-        self._validate_crop_geometry(view, loop)
         return loop
 
     def _collect_boundary_points(self, room_unique_ids):
