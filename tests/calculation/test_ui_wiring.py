@@ -96,6 +96,7 @@ def test_shared_theme_exists_and_uses_taa_orange():
     text = _read(theme_path)
 
     ET.parse(theme_path)
+    assert "#FD8B5A" in text
     assert "#FA641F" in text
     assert "TAAPrimaryButton" in text
     assert "TAASecondaryButton" in text
@@ -123,3 +124,46 @@ def test_unit_selector_is_contextual_and_warnings_are_shown_before_write():
     assert 'target.storage_type in ("Integer", "String")' in text
     assert "if prepared.warnings:" in text
     assert "Avertissements :" in text
+
+
+def test_main_window_is_compact_at_standard_resolution():
+    path = os.path.join(UI_DIR, "calculs_ui.xaml")
+    root = ET.parse(path).getroot()
+    text = _read(path)
+
+    assert int(root.attrib["Height"]) <= 600
+    assert int(root.attrib["MinHeight"]) <= 500
+    assert int(root.attrib["Width"]) <= 900
+    assert 'VerticalScrollBarVisibility="Auto"' in text
+    assert "Les résultats sont validés avant l'ouverture" not in text
+    assert "ToolTip=" in text
+
+
+def test_compact_layout_keeps_common_controls_on_shared_rows():
+    root = ET.parse(os.path.join(UI_DIR, "calculs_ui.xaml")).getroot()
+
+    by_name = {}
+    for element in root.iter():
+        for key, value in element.attrib.items():
+            if key.endswith("}Name"):
+                by_name[value] = element
+
+    assert by_name["FilterParameterCombo"].attrib.get("{http://schemas.microsoft.com/winfx/2006/xaml/presentation}Grid.Column") is None
+    assert by_name["GroupParameterCombo"] is not None
+    assert by_name["SourceParameterCombo"] is not None
+    assert by_name["TargetParameterCombo"] is not None
+
+
+def test_ribbon_icons_exist_and_are_32px_png():
+    import struct
+
+    button_dir = os.path.join(PANEL, "CalculsPieces.pushbutton")
+    for filename in ("icon.png", "icon.dark.png"):
+        path = os.path.join(button_dir, filename)
+        assert os.path.exists(path)
+        with open(path, "rb") as handle:
+            data = handle.read(24)
+
+        assert data[:8] == b"\x89PNG\r\n\x1a\n"
+        width, height = struct.unpack(">II", data[16:24])
+        assert (width, height) == (32, 32)

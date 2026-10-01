@@ -1,6 +1,6 @@
 # Calculs des pièces — Campagne de validation Revit 2025.4
 
-**Statut :** À exécuter  
+**Statut :** Fonctionnel validé — revalidation visuelle du patch UI/icône requise  
 **Branche :** `feature/calculs-pieces-migration`  
 **Environnement :** Revit 2025.4 / pyRevit 5.x  
 **Prérequis :** travailler sur une copie d'un projet ou une maquette de test.
@@ -20,7 +20,7 @@ Cette campagne valide les comportements impossibles à certifier hors Revit :
 - transaction / Undo ;
 - persistance.
 
-La CI hors Revit a déjà validé **68 tests**.
+La CI hors Revit a déjà validé **68 tests**. Le 1er octobre 2026, l'utilisateur a confirmé que les tests fonctionnels Revit étaient OK avant le correctif visuel demandé (icône du ruban + compacité de la fenêtre).
 
 ---
 
@@ -89,11 +89,14 @@ Vérifier :
 - unité de sortie ;
 - état / progression ;
 - bouton Calculer en action principale ;
-- interface lisible sans défilement horizontal.
+- interface lisible sans défilement horizontal ;
+- sur un écran 1920 × 1080, tous les réglages courants sont accessibles sans défilement vertical ;
+- le ScrollViewer ne devient utile qu'après réduction importante de la fenêtre ;
+- l'icône **Plan 2×2 + somme Σ** apparaît dans le ruban.
 
 ### Attendu
 
-L'interface reste cohérente avec le design Outils TAA et l'orange `#FA641F` reste un accent.
+L'interface reste cohérente avec le design Outils TAA. L'accent des fenêtres utilise le TAA Orange UI `#FD8B5A`, tandis que l'icône du ruban peut utiliser la référence de marque `#FA641F`.
 
 ---
 
@@ -386,3 +389,27 @@ KO
 NON APPLICABLE
 Observation / capture / erreur éventuelle
 ```
+
+
+---
+
+## 24. Revalidation après correctif visuel du 1er octobre 2026
+
+Les tests fonctionnels ont été déclarés OK avant ce correctif.
+
+Après mise à jour de la branche, il suffit de rejouer prioritairement :
+
+### VISUAL-CALC-01 — Ruban
+
+- recharger pyRevit ;
+- vérifier que le bouton Calculs des pièces affiche le pictogramme validé **Plan 2×2 + somme Σ** ;
+- vérifier sa lisibilité en taille de ruban.
+
+### VISUAL-CALC-02 — Fenêtre 1920 × 1080
+
+- ouvrir la fenêtre sur un écran 1920 × 1080 ;
+- vérifier que Source, Filtre, Calcul, Unité de sortie, État, Fermer et Calculer sont visibles sans scroll vertical ;
+- vérifier que la taille des textes reste confortable ;
+- réduire fortement la hauteur de la fenêtre et vérifier que le ScrollViewer prend alors le relais.
+
+Si ces deux contrôles sont OK et qu'aucune régression fonctionnelle n'est constatée, la campagne peut être considérée close.

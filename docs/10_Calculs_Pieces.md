@@ -303,7 +303,43 @@ Les styles communs sont définis dans :
 OutilsTAA.extension/resources/ui/taa_theme.xaml
 ```
 
-avec l'accent TAA Orange `#FA641F`.
+La fenêtre utilise l'accent **TAA Orange UI `#FD8B5A`** ; la référence de marque `#FA641F` reste utilisée notamment par l'icône du ruban.
+
+### 11.1 Compacité de la fenêtre
+
+La fenêtre principale vise environ **860 × 560 px** en taille nominale.
+
+Sur un écran **1920 × 1080**, les réglages courants doivent être visibles sans défilement vertical.
+
+Le ScrollViewer reste présent uniquement comme sécurité lorsque :
+
+- la fenêtre est fortement réduite ;
+- le scaling Windows diminue l'espace disponible ;
+- la résolution est insuffisante.
+
+La compacité est obtenue sans diminuer la lisibilité :
+
+- sections plus rapprochées ;
+- paddings verticaux réduits ;
+- filtre sur une ligne ;
+- trois paramètres de calcul sur une ligne ;
+- textes explicatifs secondaires déplacés en ToolTips.
+
+### 11.2 Icône du ruban
+
+Le bouton pyRevit utilise l'icône validée **Plan 2×2 + somme Σ** :
+
+```text
+CalculsPieces.pushbutton/
+├── icon.png
+└── icon.dark.png
+```
+
+Le pictogramme associe :
+
+- un plan de pièces simplifié ;
+- une pièce en TAA Orange ;
+- un badge Σ indiquant l'agrégation / somme.
 
 ---
 
