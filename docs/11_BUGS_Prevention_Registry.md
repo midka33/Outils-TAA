@@ -422,6 +422,14 @@ relecture du dossier, conservation des descendants ; validation Revit restante.
 **Règle :** lorsqu'un fichier source est généré par une autre couche de langage, préserver explicitement les antislashs ; ne jamais supposer qu'une chaîne générée est syntaxiquement valide.  
 **Anti-régression :** parser avec `ast.parse` tous les nouveaux fichiers Python générés avant validation, en particulier ceux contenant des chaînes multi-lignes ou des séquences `\\n`.
 
+### BUG-CALCULS-004 — Le dossier de tests masquait le package métier `calculation`
+
+**Symptôme :** la CI pytest échouait pendant la collecte avec `ModuleNotFoundError: No module named 'calculation.models'` et des erreurs similaires sur `parameter_descriptor` et `unit_option`.  
+**Cause :** `tests/calculation/__init__.py` transformait le dossier de tests en package Python nommé `calculation`. Ce package de tests était chargé avant `OutilsTAA.extension/lib/calculation` et masquait donc le vrai package métier.  
+**Correction :** suppression de `tests/calculation/__init__.py`. Pytest collecte toujours le dossier de tests sans en faire un package concurrent.  
+**Règle :** un dossier de tests ne doit pas porter le même nom de package importable qu'un package métier lorsque sa présence dans `sys.path` peut créer un masquage.  
+**Anti-régression :** exécuter `python -m pytest tests/calculation -q` dans un environnement vierge et vérifier que les imports `calculation.*` résolvent le package sous `OutilsTAA.extension/lib`.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -462,6 +470,7 @@ BUG-TEST-002
 BUG-CALCULS-001
 BUG-CALCULS-002
 BUG-CALCULS-003
+BUG-CALCULS-004
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
