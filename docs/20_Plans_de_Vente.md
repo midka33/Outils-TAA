@@ -1011,3 +1011,23 @@ Tests hors Revit préparés et exécutés avant commit :
 Résultat local avant commit : **6 tests réussis**.
 
 La validation du chargement de la fenêtre et de la lecture réelle des paramètres reste à effectuer dans **Revit 2025.4 / pyRevit 5.x**.
+
+
+## Validation Revit Étape 01
+
+Validation utilisateur réalisée le **2026-10-01** dans **Revit 2025.4 / pyRevit 5.x**.
+
+Résultat : **validé**.
+
+Points confirmés :
+
+- le bouton Plans de vente est visible et se charge correctement ;
+- la fenêtre WPF s'ouvre sans erreur ;
+- les paramètres texte des pièces sont proposés ;
+- le paramètre logement peut être sélectionné ;
+- l'analyse regroupe correctement les pièces par logement ;
+- le nombre de pièces par logement est cohérent ;
+- les niveaux affichés sont cohérents ;
+- aucun effet de bord ni modification de la maquette n'a été constaté sur cette étape en lecture seule.
+
+L'Étape 01 peut servir de base stable pour les prototypes suivants.
