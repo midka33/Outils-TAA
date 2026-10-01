@@ -26,13 +26,15 @@ def test_optimized_crop_uses_room_center_boundaries_and_boolean_union():
     assert "BooleanOperationsType.Union" in text
 
 
-def test_optimized_crop_extracts_outer_loop_and_offsets_it():
+def test_optimized_crop_extracts_outer_loop_and_builds_robust_margin():
     text = SERVICE.read_text(encoding="utf-8")
 
     assert "GetEdgesAsCurveLoops" in text
-    assert "CurveLoop.CreateViaOffset" in text
     assert "_extract_outer_union_loop" in text
-    assert "_offset_outward" in text
+    assert "def _buffer_outward(" in text
+    assert "CreateViaOffset" not in text
+    assert "cap_radius" in text
+    assert "BooleanOperationsType.Union" in text
 
 
 def test_fallback_is_explicit_and_reported():
@@ -87,3 +89,15 @@ def test_crop_capability_is_checked_on_created_target_view():
     assert "_try_release_scope_box" in apply_block
     assert "VIEWER_VOLUME_OF_INTEREST_CROP" in text
     assert "fallback_curve_loop" in text
+
+
+def test_robust_margin_uses_edge_strips_and_vertex_caps():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _buffer_outward(" in text
+    assert "strip_loop" in text
+    assert "cap_points" in text
+    assert "sides = 8" in text
+    assert "math.cos(math.pi / float(sides))" in text
+    assert "BooleanOperationsUtils.ExecuteBooleanOperation" in text
+    assert "CurveLoop.CreateViaOffset" not in text
