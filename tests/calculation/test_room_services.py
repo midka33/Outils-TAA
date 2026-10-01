@@ -6,15 +6,18 @@ import sys
 import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SERVICE_DIR = os.path.join(
+LIB_DIR = os.path.join(ROOT, "OutilsTAA.extension", "lib")
+PANEL_DIR = os.path.join(
     ROOT,
     "OutilsTAA.extension",
     "OutilsTAA.tab",
     "Calculs.panel",
-    "services",
 )
-if SERVICE_DIR not in sys.path:
-    sys.path.insert(0, SERVICE_DIR)
+SERVICE_DIR = os.path.join(PANEL_DIR, "services")
+
+for path in (LIB_DIR, PANEL_DIR, SERVICE_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
