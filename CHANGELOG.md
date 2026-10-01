@@ -31,6 +31,9 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Nommage Export : recherche et insertion des paramètres des feuilles et des
+  informations sur le projet, sources distinctes et gestion des homonymes.
+  Anciens modèles `{parametre:...}` conservés ; validation Revit restante.
 - Architecture explicite du repository.
 - Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.
 - Structure initiale des modules `Export` et `Calculs`.

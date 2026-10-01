@@ -59,7 +59,8 @@ class ExportWindow(forms.WPFWindow):
         self.PdfQualityCombo.ItemsSource = list(PublicationSettings.PDF_QUALITIES)
         self._load_dwg_setups()
         self._load_profiles()
-        self.FilenameTokenCombo.ItemsSource = ["{carnet}", "{numero}", "{nom}", "{nom_complet}", "{projet}", "{date}", "{indice}", "{dossier}", "{parametre:Nom}"]
+        self._filename_variables = self.filename_service.variable_catalogue(sheets)
+        self.FilenameTokenCombo.ItemsSource = self._filename_variables
         self._refresh_tree()
         self._update_selection_info()
 
@@ -489,13 +490,23 @@ class ExportWindow(forms.WPFWindow):
         except Exception as exc:
             self.FilenamePreviewText.Text = "Aperçu indisponible : {0}".format(exc)
 
-    def FilenameToken_InsertClick(self, sender, args):
-        token = self.FilenameTokenCombo.SelectedItem
-        if not token:
+    def FilenameVariableSearchChanged(self, sender, args):
+        query = (self.FilenameVariableSearch.Text or "").strip().lower()
+        self.FilenameTokenCombo.ItemsSource = [
+            variable for variable in getattr(self, "_filename_variables", [])
+            if query in variable.Label.lower()]
+
+    def InsertFilenameToken_Click(self, sender, args):
+        variable = self.FilenameTokenCombo.SelectedItem
+        if variable is None:
             return
-        text = self.FilenameTemplateTextBox.Text or ""
-        self.FilenameTemplateTextBox.Text = text + token
-        self._save_selected_field("filename_template")
+        box = self.FilenameTemplateTextBox
+        text = box.Text or ""
+        start = box.SelectionStart
+        end = start + box.SelectionLength
+        box.Text = text[:start] + variable.Token + text[end:]
+        box.CaretIndex = start + len(variable.Token)
+        box.Focus()
 
     def Preview_Click(self, sender, args):
         # Réutilise le constructeur d'aperçu actif, y compris le raccordement Stage 07.

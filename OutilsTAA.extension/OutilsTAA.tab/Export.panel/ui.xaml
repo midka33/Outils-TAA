@@ -106,12 +106,13 @@
               <CheckBox x:Name="CarnetSubfolderCheckBox" Content="Créer un sous-dossier pour ce carnet" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,10" ToolTip="Exports séparés uniquement. Par défaut, les feuilles sont regroupées dans un dossier au nom du carnet. Les exports combinés restent dans le dossier parent."/>
               <Expander x:Name="AdvancedOptions" Header="Options avancées" IsExpanded="False">
                 <Grid Margin="0,8,0,0">
-                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                  <DockPanel>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBox x:Name="FilenameVariableSearch" MinHeight="28" Padding="6,3" Margin="0,0,0,6" TextChanged="FilenameVariableSearchChanged" ToolTip="Rechercher une variable, un paramètre de feuille ou des informations sur le projet"/>
+                  <DockPanel Grid.Row="1">
                     <Button Content="Insérer" Click="InsertFilenameToken_Click" MinHeight="28" Padding="8,3" Margin="6,0,0,0" DockPanel.Dock="Right"/>
-                    <ComboBox x:Name="FilenameTokenCombo" MinHeight="28" Padding="6,2" SelectionChanged="FilenameTokenChanged" ToolTip="Variable à ajouter au nom du fichier"/>
+                    <ComboBox x:Name="FilenameTokenCombo" MinHeight="28" Padding="6,2" DisplayMemberPath="Label" MaxDropDownHeight="280" ToolTip="Choisir un paramètre puis cliquer sur Insérer"/>
                   </DockPanel>
-                  <TextBlock Grid.Row="1" Text="Variables : {carnet}, {numero}, {nom}, {nom_complet}, {projet}, {date}, {indice}, {dossier}, {parametre:Nom}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource TaaSecondary}"/>
+                  <TextBlock Grid.Row="2" Text="Rechercher ci-dessus, choisir une variable puis Insérer. Feuille : paramètres de la feuille exportée (première feuille pour un PDF combiné). Informations sur le projet : paramètres communs au projet." FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource TaaSecondary}"/>
                 </Grid>
               </Expander>
             </StackPanel>

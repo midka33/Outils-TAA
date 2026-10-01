@@ -652,16 +652,58 @@ L'utilisateur peut construire une règle de nommage à partir de variables.
 
 ### 9.2 Paramètres Revit
 
+Dans **Options avancées**, le champ de recherche filtre une liste construite à
+l'ouverture de la fenêtre à partir du document actif. Elle contient les variables
+intégrées, l'union des paramètres accessibles de toutes les feuilles et les
+paramètres de **Informations sur le projet**. Les paramètres natifs, partagés et
+personnalisés sont proposés, même vides ou en lecture seule. Les paramètres de
+famille/type du cartouche ne sont pas des paramètres de feuille et ne sont pas
+inclus dans ce catalogue.
+
+Choisir un résultat puis **Insérer** ajoute sa variable à la position du curseur
+(ou remplace le texte sélectionné) dans le modèle de nommage. Les libellés
+« Feuille » et « Informations sur le projet » distinguent les deux sources.
+
 ```text
-{parametre:NomDuParametre}
+{feuille:Numéro de feuille}
+{info_projet:Nom du projet}
+{info_projet:Numéro du projet}-{feuille:Numéro de feuille}
 ```
 
-Exemples :
+Les noms exacts dépendent des paramètres présents et de la langue de Revit :
+utiliser le sélecteur pour insérer le nom réel. Les modèles historiques
+`{parametre:NomDuParametre}` restent compatibles et lisent la feuille.
+`{projet}` conserve le titre du fichier Revit ; il est distinct de
+`{info_projet:Nom du projet}`.
 
-```text
-{parametre:Sous-titre}
-{parametre:Phase}
-```
+Les paramètres de feuille utilisent la feuille exportée en mode séparé et la
+première feuille du carnet, dans son ordre, en mode combiné. Les paramètres des
+informations sur le projet sont communs à toutes les feuilles.
+Une valeur absente, vide ou ambiguë est signalée dans les variables non résolues ;
+aucun homonyme n'est choisi arbitrairement. Les valeurs numériques utilisent le
+texte formaté par Revit lorsqu'il existe ; zéro est une valeur valide.
+
+Si plusieurs paramètres ont le même nom dans une source, le sélecteur insère
+`{feuille_id:...}` ou `{info_projet_id:...}` avec une identité durable : identifiant
+natif négatif, GUID partagé ou UniqueId de la définition de paramètre du projet.
+Cette dernière identité reste liée au document ; elle n'est pas portable dans
+un autre projet. Aucun ElementId positif n'est enregistré dans un modèle.
+Les noms contenant des accolades utilisent également cette forme.
+La lecture du modèle ne modifie aucun paramètre Revit.
+
+Le catalogue et la lecture appartiennent à `services/naming_parameters.py` ;
+`FilenameService` reste le point de résolution commun à l'aperçu et aux exports
+PDF/DWG. La recherche et l'insertion sont des handlers canoniques d'`ExportWindow`,
+sans injection de doublons par la couche de prévisualisation.
+
+Validation hors Revit : 205 tests Python exécutés avec succès, dont 10 cas ajoutés
+pour le catalogue, les sources, les homonymes, les identités durables, les accents,
+les valeurs typées/vides et l'insertion au curseur. Contrôle fonctionnel restant :
+ouvrir Options avancées dans Revit 2025.4, chercher un paramètre de feuille puis
+un paramètre des informations sur le projet, insérer les deux, comparer l'aperçu
+et les fichiers PDF/DWG séparés, puis le PDF combiné. Vérifier également un modèle
+historique `{parametre:...}` et un paramètre vide. Aucun test WPF/Revit réel n'a été
+exécuté dans l'environnement Linux de développement.
 
 ### 9.3 Éditeur
 

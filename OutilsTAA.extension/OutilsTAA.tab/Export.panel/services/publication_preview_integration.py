@@ -242,16 +242,6 @@ def install_preview_on_export_window(export_window_class):
             self._load_profiles()
             self.ProfileInfoText.Text = "Profil supprimé."
 
-    def filename_token_changed(self, sender, args):
-        return
-
-    def insert_filename_token_click(self, sender, args):
-        token = self.FilenameTokenCombo.SelectedItem
-        if not token:
-            return
-        current = self.FilenameTemplateTextBox.Text or ""
-        self.FilenameTemplateTextBox.Text = current + str(token)
-        self.FilenameTokenCombo.SelectedIndex = -1
 
     def settings_changed(self, sender, args):
         if self._loading_settings or self._selected_set is None:
@@ -300,10 +290,6 @@ def install_preview_on_export_window(export_window_class):
     export_window_class.DeleteProfile_Click = delete_profile_click
     if not hasattr(export_window_class, "SettingsChanged"):
         export_window_class.SettingsChanged = settings_changed
-    if not hasattr(export_window_class, "FilenameTokenChanged"):
-        export_window_class.FilenameTokenChanged = filename_token_changed
-    if not hasattr(export_window_class, "InsertFilenameToken_Click"):
-        export_window_class.InsertFilenameToken_Click = insert_filename_token_click
 
     export_window_class.__init__ = init_with_tree_features
     export_window_class._refresh_tree = refresh_tree_preserving_expansion
