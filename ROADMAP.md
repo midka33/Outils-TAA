@@ -108,9 +108,14 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 3 — Calculs des pièces
 
-- [ ] Formaliser le modèle métier.
-- [ ] Migrer les fonctionnalités existantes dans l'architecture commune.
-- [ ] Ajouter UI, services et tests.
+- [x] Formaliser le modèle métier du regroupement et de la somme.
+- [x] Ajouter le moteur métier pur indépendant de Revit/WPF et ses premiers tests unitaires.
+- [ ] Migrer la collecte de toutes les pièces du projet et le filtre métier optionnel par paramètre.
+- [ ] Migrer la lecture/validation des paramètres et la gestion des unités.
+- [ ] Migrer l'écriture contrôlée dans les paramètres Revit.
+- [ ] Ajouter la persistance Outils TAA.
+- [ ] Ajouter l'interface WPF Outils TAA.
+- [ ] Raccorder le bouton pyRevit et valider le workflow complet dans Revit 2025.4.
 
 ## Phase 4 — Industrialisation
 

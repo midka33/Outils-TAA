@@ -1552,41 +1552,45 @@ L'objectif visuel est une interface sobre, dense mais respirante, proche d'un ou
 
 ---
 
-# 84. Interface de CalculsPieces
+# 84. Interface de Calculs des pièces
+
+Le périmètre n'est pas un choix utilisateur : le module travaille toujours à partir de **toutes les pièces du projet Revit actif**.
+
+Il ne faut donc pas afficher de choix « Toutes les pièces / Vue active / Pièces sélectionnées ».
+
+Un filtre métier optionnel par paramètre peut ensuite réduire ce jeu de pièces lorsque l'utilisateur le configure explicitement.
 
 Structure recommandée :
 
 ```text
 ┌───────────────────────────────────────────────┐
-│ CalculsPieces                                │
-│ Calcul des paramètres de pièces               │
+│ Calculs des pièces                            │
+│ Calcul et regroupement des paramètres         │
 ├───────────────────────────────────────────────┤
 │                                               │
-│ PIÈCES                                        │
+│ SOURCE                                        │
+│ Toutes les pièces du projet                   │
 │                                               │
-│ ● Toutes les pièces                           │
-│ ○ Pièces sélectionnées                        │
-│ ○ Pièces de la vue active                     │
+│ FILTRE (optionnel)                            │
+│ Paramètre             [ Aucun filtre ▼ ]      │
+│ Valeur                [ ................. ]   │
 │                                               │
 │ CALCUL                                        │
+│ Regrouper par         [ ............... ▼ ]   │
+│ Additionner           [ ............... ▼ ]   │
+│ Paramètre destination [ ............... ▼ ]   │
 │                                               │
-│ Paramètre source                              │
-│ [ Surface ▼ ]                                 │
-│                                               │
-│ Opération                                     │
-│ [ Somme ▼ ]                                   │
-│                                               │
-│ Paramètre destination                         │
-│ [ Surface totale ▼ ]                          │
+│ UNITÉS                                        │
+│ [ Automatique / unité compatible ▼ ]          │
 │                                               │
 ├───────────────────────────────────────────────┤
-│ 248 pièces seront analysées.                  │
+│ 248 pièces analysées • 12 groupes             │
 ├───────────────────────────────────────────────┤
-│ [Annuler]                          [Calculer]  │
+│ [Fermer]                            [Calculer] │
 └───────────────────────────────────────────────┘
 ```
 
----
+L'information « Toutes les pièces du projet » est informative et ne doit pas être présentée comme une option sélectionnable.
 
 # 85. Thème clair
 

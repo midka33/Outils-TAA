@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Calculs des pièces : le périmètre source est désormais défini comme toutes les pièces du projet ; les choix « vue active / toutes les pièces » ne font pas partie de la cible. Le filtre optionnel par paramètre reste distinct de ce périmètre.
 - Publication de dossier : arborescence reproduite sur disque, sous-dossier par carnet
   pour les formats séparés et chemins partagés entre aperçu et export.
 - Export V1 : retrait de « Publier uniquement les mises en page nouvelles ou modifiées ».
@@ -29,6 +30,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Calculs des pièces : premier moteur métier pur de regroupement/somme dans `lib/calculation`, indépendant de Revit et WPF, avec 6 tests unitaires exécutés hors Revit.
 - Architecture explicite du repository.
 - Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.
 - Structure initiale des modules `Export` et `Calculs`.
