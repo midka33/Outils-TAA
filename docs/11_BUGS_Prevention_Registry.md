@@ -518,6 +518,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** tests statiques imposant la linéarisation avant et après l'offset, l'utilisation de `Line.CreateBound` et le diagnostic d'étape ; revalidation dans Revit 2025.4 sur les trois logements déjà testés.
 
+### BUG-PDV-003 — Capacité non rectangulaire testée sur la mauvaise vue
+
+**Symptôme :** après le correctif de linéarisation, le prototype affiche directement « Cette vue Revit n'autorise pas un crop non rectangulaire » avant même la création de la vue dépendante.
+
+**Cause racine :** `CanHaveShape` était contrôlé pendant le calcul géométrique sur la **vue source**. Cette vue peut être pilotée par un Scope Box ou une autre contrainte de cadrage, alors que la forme finale doit être appliquée à la **nouvelle vue dépendante**. Le test de capacité était donc fait sur le mauvais objet.
+
+**Correction :** séparer la validation géométrique de la capacité de la vue. Le moteur calcule le contour sans exiger `CanHaveShape` sur la source. Après création de la vue dépendante, `apply_to_view` vérifie `CanHaveShape` sur la cible. Si un Scope Box est affecté et que son paramètre est modifiable, il est retiré uniquement sur la nouvelle vue puis la capacité est réévaluée. Si la cible reste incompatible, le rectangle de secours est utilisé avec un avertissement explicite.
+
+**Règle préventive :** toute capacité API liée à l'élément qui recevra une modification doit être évaluée sur l'élément cible final, jamais sur un objet utilisé seulement comme référence de calcul.
+
+**Anti-régression :** test statique garantissant l'absence de `CanHaveShape` dans `build_optimized_crop`, sa présence dans `apply_to_view`, la gestion de `VIEWER_VOLUME_OF_INTEREST_CROP` et la disponibilité d'un fallback rectangulaire.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -567,6 +579,7 @@ BUG-CALCULS-003
 BUG-CALCULS-004
 BUG-PDV-001
 BUG-PDV-002
+BUG-PDV-003
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
