@@ -27,6 +27,14 @@ class Housing(object):
         return len(self.rooms)
 
     @property
+    def room_unique_ids(self):
+        return [
+            room.unique_id
+            for room in self.rooms
+            if getattr(room, "unique_id", None)
+        ]
+
+    @property
     def level_names(self):
         seen = {}
         for room in self.rooms:

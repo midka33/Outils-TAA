@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.2  
+**Version :** 0.3  
 **Statut :** Développement — Étape 01  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1031,3 +1031,82 @@ Points confirmés :
 - aucun effet de bord ni modification de la maquette n'a été constaté sur cette étape en lecture seule.
 
 L'Étape 01 peut servir de base stable pour les prototypes suivants.
+
+
+## Prototype A — Vue dépendante + crop
+
+Implémentation préparée sur la branche `feature/plans-de-vente-proto-views-crop`.
+
+Objectif de ce prototype : vérifier dans Revit 2025.4 qu'une vue principale de plan peut être dupliquée en **vue dépendante**, puis recevoir un crop propre au logement sans casser la relation avec sa vue principale.
+
+### Périmètre actuel
+
+Le prototype :
+
+- fonctionne sur un logement sélectionné ;
+- est volontairement limité aux logements présents sur **un seul niveau** ;
+- propose uniquement les vues plan principales du même niveau ;
+- exclut les gabarits et les vues déjà dépendantes ;
+- vérifie que la vue peut être dupliquée avec `ViewDuplicateOption.AsDependent` ;
+- crée une vraie vue dépendante dans une transaction Revit ;
+- conserve les pièces par `UniqueId` et les résout au moment de l'action ;
+- récupère les `BoundarySegments` des pièces du logement ;
+- calcule une emprise rectangulaire englobante ;
+- ajoute une marge configurable, par défaut **500 mm** ;
+- active le crop de la vue dépendante ;
+- applique le contour avec `ViewCropRegionShapeManager.SetCropShape` ;
+- vérifie après création que `GetPrimaryViewId()` correspond bien à la vue source ;
+- crée un nom unique de type `PDV PROTO - <logement> - <niveau>`.
+
+Ce prototype utilise volontairement un **crop rectangulaire**. L'union géométrique détaillée et le crop polygonal suivront uniquement après validation du comportement des vues dépendantes.
+
+### Limites assumées
+
+Ne sont pas encore traités dans ce prototype :
+
+- logements sur plusieurs niveaux ;
+- choix d'un gabarit de vue ;
+- étiquettes ;
+- cotations ;
+- annotation crop ;
+- plan de repérage ;
+- nomenclatures ;
+- feuilles ;
+- mise à jour d'une vue prototype existante.
+
+Aucun élément existant n'est supprimé.
+
+### Contrôles hors Revit
+
+Les tests préparés pour ce prototype vérifient :
+
+- calcul pur de l'emprise ;
+- marge de crop ;
+- refus des emprises vides ;
+- refus d'une marge négative ;
+- parsing Python ;
+- encodage UTF-8 IronPython ;
+- validité XML du XAML ;
+- présence des handlers WPF ;
+- utilisation de `ViewDuplicateOption.AsDependent` ;
+- utilisation du `UniqueId` des pièces ;
+- raccordement à `GetCropRegionShapeManager` et `SetCropShape`.
+
+Exécution locale avant commit : **6 tests réussis**.
+
+### Validation Revit à effectuer
+
+Le prototype n'est pas considéré validé tant que le scénario suivant n'a pas été exécuté dans Revit 2025.4 :
+
+1. analyser les logements ;
+2. sélectionner un logement sur un seul niveau ;
+3. sélectionner une vue plan principale proposée ;
+4. conserver une marge de 500 mm ;
+5. lancer **Créer le prototype** ;
+6. vérifier qu'une vue `PDV PROTO - ...` est créée ;
+7. vérifier dans l'arborescence Revit qu'elle est réellement dépendante de la vue choisie ;
+8. vérifier que son crop englobe le logement avec la marge demandée ;
+9. modifier le crop de la vue dépendante et confirmer que la vue principale reste intacte ;
+10. vérifier qu'une seconde génération produit un nom unique sans écraser la première.
+
+La suite du développement dépend de ce résultat.

@@ -148,7 +148,7 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Prototypes techniques prioritaires
 
-- [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4.
+- [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4. **Prototype vue dépendante + crop rectangulaire implémenté ; validation Revit requise.**
 - [ ] PROTO-PDV-02 — Cotations : deux dimensions principales, faces finies, suppression des petits décrochements.
 - [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes.
 

@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 
 __title__ = "Plans de\nvente"
 __doc__ = (
-    "Détecte les logements du projet à partir d'un paramètre texte de pièce. "
-    "Étape 01 du module Plans de vente Outils TAA."
+    "Détecte les logements et permet de tester une vue dépendante cadrée "
+    "sur un logement."
 )
 
 import os
@@ -24,8 +24,11 @@ for path in (LIB_DIR, PANEL_DIR, SERVICE_DIR, UI_DIR):
         sys.path.insert(0, path)
 
 from plans_vente.housing_grouper import HousingGrouper
+from crop_geometry_service import CropGeometryService
 from housing_analysis_service import HousingAnalysisService
+from plan_view_service import PlanViewService
 from plans_vente_controller import PlansVenteController
+from prototype_view_service import PrototypeViewService
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
 from plans_vente_window import PlansVenteWindow
@@ -53,7 +56,19 @@ def main():
         parameter_service=parameter_service,
         grouper=HousingGrouper(),
     )
-    controller = PlansVenteController(analysis_service)
+
+    plan_view_service = PlanViewService(document)
+    crop_geometry_service = CropGeometryService(document)
+    prototype_view_service = PrototypeViewService(
+        document=document,
+        plan_view_service=plan_view_service,
+        crop_geometry_service=crop_geometry_service,
+    )
+
+    controller = PlansVenteController(
+        analysis_service=analysis_service,
+        prototype_view_service=prototype_view_service,
+    )
 
     window = PlansVenteWindow(controller)
     window.ShowDialog()

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Fenêtre principale — Étape 01 : détection des logements."""
+"""Fenêtre principale — détection des logements et prototype vue/crop."""
 
 import os
 
@@ -18,9 +18,16 @@ class ParameterChoice(object):
 
 class HousingRow(object):
     def __init__(self, housing):
+        self.Housing = housing
         self.Key = housing.key
         self.RoomCount = housing.room_count
         self.Levels = housing.levels_label
+
+
+class SourceViewChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
 
 
 class PlansVenteWindow(forms.WPFWindow):
@@ -28,6 +35,8 @@ class PlansVenteWindow(forms.WPFWindow):
     def __init__(self, controller):
         self.controller = controller
         self._choices = []
+        self._housing_rows = []
+        self._source_view_choices = []
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "plans_vente.xaml")
@@ -35,6 +44,7 @@ class PlansVenteWindow(forms.WPFWindow):
 
         self._load_theme()
         self._load_context()
+        self._clear_prototype_selection()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -109,18 +119,17 @@ class PlansVenteWindow(forms.WPFWindow):
         self.AnalyzeButton.IsEnabled = False
         try:
             result = self.controller.analyze(descriptor)
-            self.HousingGrid.ItemsSource = [
+            self._housing_rows = [
                 HousingRow(housing)
                 for housing in result.housings
             ]
+            self.HousingGrid.ItemsSource = self._housing_rows
 
             self.HousingCountText.Text = "{} logement(s) détecté(s).".format(
                 result.housing_count
             )
 
-            message = (
-                "{} logement(s), {} pièce(s) affectée(s)."
-            ).format(
+            message = "{} logement(s), {} pièce(s) affectée(s).".format(
                 result.housing_count,
                 result.room_count,
             )
@@ -134,6 +143,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 )
 
             self.StatusText.Text = message
+            self._clear_prototype_selection()
         except Exception as error:
             self.StatusText.Text = "Erreur pendant l'analyse."
             forms.alert(
@@ -143,6 +153,153 @@ class PlansVenteWindow(forms.WPFWindow):
             )
         finally:
             self.AnalyzeButton.IsEnabled = bool(self._choices)
+
+    def HousingSelectionChanged(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        if housing is None:
+            self._clear_prototype_selection()
+            return
+
+        try:
+            candidates = self.controller.source_views_for_housing(housing)
+        except Exception as error:
+            self._clear_prototype_selection()
+            self.PrototypeInfoText.Text = str(error)
+            return
+
+        self._source_view_choices = [
+            SourceViewChoice(candidate)
+            for candidate in candidates
+        ]
+        self.SourceViewCombo.ItemsSource = self._source_view_choices
+        self.SourceViewCombo.SelectedIndex = 0 if self._source_view_choices else -1
+        self.CreatePrototypeButton.IsEnabled = bool(self._source_view_choices)
+
+        if self._source_view_choices:
+            self.PrototypeInfoText.Text = (
+                "Le prototype créera une vue dépendante réelle avec un crop "
+                "rectangulaire autour du logement."
+            )
+        else:
+            self.PrototypeInfoText.Text = (
+                "Aucune vue plan principale duplicable n'a été trouvée pour ce niveau."
+            )
+
+    def SourceViewChanged(self, sender, args):
+        self.CreatePrototypeButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.SourceViewCombo.SelectedItem is not None
+        )
+
+    def CreatePrototype_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        view_item = self.SourceViewCombo.SelectedItem
+        candidate = (
+            getattr(view_item, "Candidate", None)
+            if view_item is not None
+            else None
+        )
+
+        if housing is None or candidate is None:
+            forms.alert(
+                "Sélectionnez un logement et une vue source.",
+                title="Plans de vente — Prototype",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            margin_mm = self._parse_margin_mm()
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Prototype",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer une vue dépendante réelle pour le logement « {} » ?\n\n"
+                "Vue source : {}\n"
+                "Marge de crop : {} mm\n\n"
+                "Cette opération ajoute une vue au projet mais ne supprime rien."
+            ).format(
+                housing.key,
+                candidate.name,
+                self._format_number(margin_mm),
+            ),
+            title="Plans de vente — Prototype vue + crop",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreatePrototypeButton.IsEnabled = False
+        try:
+            result = self.controller.create_view_prototype(
+                housing=housing,
+                source_view_unique_id=candidate.unique_id,
+                margin_mm=margin_mm,
+            )
+            self.StatusText.Text = "Vue prototype créée : {}.".format(
+                result.view_name
+            )
+            forms.alert(
+                (
+                    "Vue dépendante créée avec succès.\n\n"
+                    "Nom : {}\n"
+                    "Vue principale : {}\n"
+                    "Logement : {}"
+                ).format(
+                    result.view_name,
+                    result.source_view_name,
+                    result.housing_key,
+                ),
+                title="Plans de vente — Prototype",
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec du prototype vue + crop."
+            forms.alert(
+                str(error),
+                title="Plans de vente — Prototype",
+                warn_icon=True,
+            )
+        finally:
+            self.CreatePrototypeButton.IsEnabled = (
+                self.HousingGrid.SelectedItem is not None
+                and self.SourceViewCombo.SelectedItem is not None
+            )
+
+    def _clear_prototype_selection(self):
+        self._source_view_choices = []
+        self.SourceViewCombo.ItemsSource = []
+        self.SourceViewCombo.SelectedIndex = -1
+        self.CreatePrototypeButton.IsEnabled = False
+        self.PrototypeInfoText.Text = (
+            "Sélectionnez d'abord un logement dans le tableau."
+        )
+
+    def _parse_margin_mm(self):
+        raw = (self.CropMarginTextBox.Text or "").strip().replace(",", ".")
+        if not raw:
+            raise ValueError("Saisissez une marge de crop.")
+        try:
+            value = float(raw)
+        except Exception:
+            raise ValueError("La marge de crop doit être un nombre.")
+        if value < 0:
+            raise ValueError("La marge de crop ne peut pas être négative.")
+        return value
+
+    @staticmethod
+    def _format_number(value):
+        if float(value).is_integer():
+            return str(int(value))
+        return str(value)
 
     def Close_Click(self, sender, args):
         self.Close()

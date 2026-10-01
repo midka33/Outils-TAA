@@ -15,7 +15,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | 🚧 En développement |
 | **Calculs des pièces** | 🚧 Migration |
-| **Plans de vente** | 🚧 Développement — Étape 01 |
+| **Plans de vente** | 🧪 Prototype vues dépendantes + crop |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
