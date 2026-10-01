@@ -72,6 +72,18 @@ class RoomCalculatorTests(unittest.TestCase):
             [item.reason for item in result.skipped],
         )
 
+    def test_room_with_invalid_source_still_belongs_to_valid_group(self):
+        items = [
+            RoomCalculationItem("r1", "A", 10.0),
+            RoomCalculationItem("r2", "A", None),
+        ]
+
+        result = self.calculator.calculate(items)
+
+        self.assertEqual(10.0, result.get_total("A"))
+        self.assertEqual(["r1", "r2"], result.get_members("A"))
+        self.assertEqual(1, result.skipped_items)
+
     def test_zero_group_and_zero_value_are_valid(self):
         items = [
             RoomCalculationItem("r1", 0, 0),

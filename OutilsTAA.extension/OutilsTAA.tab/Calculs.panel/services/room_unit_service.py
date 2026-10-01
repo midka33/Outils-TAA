@@ -6,14 +6,16 @@ from __future__ import unicode_literals
 from common.unit_utils import (
     convert_from_internal_units,
     convert_to_internal_units,
+    forge_type_id_from_string,
 )
 
 
 class RoomUnitService(object):
     """Convertit uniquement lorsqu'une unité Revit explicite est disponible."""
 
-    def __init__(self, unit_utils=None):
+    def __init__(self, unit_utils=None, forge_type_factory=None):
         self._unit_utils = unit_utils
+        self._forge_type_factory = forge_type_factory
 
     def get_unit_type_id(self, parameter):
         if parameter is None:
@@ -30,6 +32,10 @@ class RoomUnitService(object):
         unit_id = unit_type_id or self.get_unit_type_id(parameter)
         if unit_id is None:
             raise ValueError("Le paramètre ne fournit pas d'unité Revit mesurable.")
+        unit_id = forge_type_id_from_string(
+            unit_id,
+            forge_type_factory=self._forge_type_factory,
+        )
         return convert_from_internal_units(
             value,
             unit_id,
@@ -40,6 +46,10 @@ class RoomUnitService(object):
         unit_id = unit_type_id or self.get_unit_type_id(parameter)
         if unit_id is None:
             raise ValueError("Le paramètre ne fournit pas d'unité Revit mesurable.")
+        unit_id = forge_type_id_from_string(
+            unit_id,
+            forge_type_factory=self._forge_type_factory,
+        )
         return convert_to_internal_units(
             value,
             unit_id,

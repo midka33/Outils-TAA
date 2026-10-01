@@ -38,6 +38,15 @@ class RoomCalculator(object):
                 skipped.append(SkippedRoom(room_key, self.REASON_EMPTY_GROUP))
                 continue
 
+            # Une pièce appartient au groupe dès que sa valeur de groupe est
+            # valide. Même si sa source n'est pas numérique, elle recevra le
+            # total du groupe si au moins une autre pièce permet de le calculer.
+            try:
+                members_by_group.setdefault(group_value, []).append(room_key)
+            except TypeError:
+                skipped.append(SkippedRoom(room_key, self.REASON_INVALID_GROUP))
+                continue
+
             numeric_value = self._get_numeric_value(source_value)
             if numeric_value is None:
                 skipped.append(SkippedRoom(room_key, self.REASON_NON_NUMERIC_SOURCE))
@@ -46,7 +55,6 @@ class RoomCalculator(object):
             try:
                 current_total = totals.get(group_value, 0)
                 totals[group_value] = current_total + numeric_value
-                members_by_group.setdefault(group_value, []).append(room_key)
             except TypeError:
                 skipped.append(SkippedRoom(room_key, self.REASON_INVALID_GROUP))
                 continue
