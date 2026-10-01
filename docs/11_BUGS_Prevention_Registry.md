@@ -506,6 +506,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** test pur d'un `ViewFrame` tourné à 45°, contrôle statique de l'utilisation de `RightDirection` / `UpDirection`, puis validation réelle dans Revit 2025.4 sur une vue orientée.
 
+### BUG-PDV-002 — Contour optimisé rejeté par le crop Revit
+
+**Symptôme :** les trois cas de test du contour logement optimisé basculent en `Rectangle de secours`.
+
+**Cause structurelle identifiée :** le moteur transmettait au `ViewCropRegionShapeManager` une boucle issue directement de l'union géométrique et de `CurveLoop.CreateViaOffset`. Ces boucles peuvent contenir des arcs, courbes tessellées ou autres courbes non linéaires. Or un crop non rectangulaire Revit n'accepte qu'une seule boucle fermée sans auto-intersection composée de **segments droits non nuls** dans un plan parallèle à la vue.
+
+**Correction :** linéariser la boucle extérieure par tessellation puis reconstruction en `Line.CreateBound`, supprimer les doublons / sommets quasi colinéaires, appliquer la marge sur cette boucle droite, puis linéariser une seconde fois avant `IsCropRegionShapeValid`. Ajouter un diagnostic par étape afin qu'un éventuel échec restant indique précisément s'il provient de l'union, de l'extraction, de l'offset ou de la validation Revit.
+
+**Règle préventive :** ne jamais envoyer directement une géométrie de pièce, de face ou un résultat d'offset à `SetCropShape`. Le contrat final doit être normalisé explicitement en boucle de segments droits et contrôlé par `IsCropRegionShapeValid`.
+
+**Anti-régression :** tests statiques imposant la linéarisation avant et après l'offset, l'utilisation de `Line.CreateBound` et le diagnostic d'étape ; revalidation dans Revit 2025.4 sur les trois logements déjà testés.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -554,6 +566,7 @@ BUG-CALCULS-002
 BUG-CALCULS-003
 BUG-CALCULS-004
 BUG-PDV-001
+BUG-PDV-002
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

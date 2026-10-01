@@ -45,3 +45,30 @@ def test_fallback_is_explicit_and_reported():
     assert "warning" in prototype_text
     assert "result.warning" in window_text
     assert "result.crop_mode" in window_text
+
+
+def test_crop_is_linearized_to_straight_segments_before_revit_validation():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _linearize_curve_loop(" in text
+    assert "Tessellate()" in text
+    assert "Line.CreateBound" in text
+    assert "ShortCurveTolerance" in text
+    assert "Linéarisation du contour extérieur" in text
+    assert "Linéarisation finale" in text
+    assert text.index("Linéarisation du contour extérieur") < text.index(
+        "Application de la marge"
+    )
+    assert text.index("Linéarisation finale") < text.index(
+        "Validation du crop Revit"
+    )
+
+
+def test_crop_fallback_reports_exact_failed_stage():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "class CropGeometryStageError" in text
+    assert "Étape en échec" in text
+    assert '"Union géométrique des pièces"' in text
+    assert '"Extraction du contour extérieur"' in text
+    assert '"Validation du crop Revit"' in text

@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.5  
+**Version :** 0.6  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1369,3 +1369,60 @@ Pour chaque cas :
 - vérifier que la vue principale reste inchangée.
 
 Si un cas bascule en `Rectangle de secours`, conserver le texte complet de l'avertissement pour analyse.
+
+
+## Prototype A.3.1 — Correctif de normalisation du crop
+
+Le premier essai du contour optimisé a basculé en `Rectangle de secours` sur les trois logements testés.
+
+Une contrainte importante de l'API Revit 2025 a été identifiée : `ViewCropRegionShapeManager.IsCropRegionShapeValid` et `SetCropShape` exigent une boucle fermée composée uniquement de **segments droits non nuls**.
+
+Le prototype précédent pouvait transmettre une boucle issue de l'union ou de `CreateViaOffset` contenant encore des courbes non linéaires.
+
+### Nouveau pipeline
+
+```text
+Union des pièces
+      ↓
+Boucle extérieure
+      ↓
+Tessellation
+      ↓
+Suppression des doublons
+      ↓
+Suppression des sommets quasi colinéaires
+      ↓
+Reconstruction uniquement en Line
+      ↓
+Offset de marge
+      ↓
+Linéarisation finale
+      ↓
+IsCropRegionShapeValid
+      ↓
+SetCropShape
+```
+
+La tolérance `Application.ShortCurveTolerance` est utilisée pour éviter de produire des segments trop courts.
+
+### Diagnostic
+
+Chaque étape critique est maintenant nommée :
+
+- Lecture des contours de pièces ;
+- Union géométrique des pièces ;
+- Extraction du contour extérieur ;
+- Linéarisation du contour extérieur ;
+- Application de la marge ;
+- Linéarisation finale ;
+- Validation du crop Revit.
+
+Si le moteur doit encore revenir au rectangle de secours, l'avertissement indiquera précisément **l'étape en échec**. Cela permettra de corriger le vrai cas géométrique restant sans masquer la cause.
+
+### Validation à rejouer
+
+Reprendre les trois logements du test précédent.
+
+Résultat attendu : `Contour optimisé`.
+
+Si un logement reste en `Rectangle de secours`, transmettre le texte après `Étape en échec :`.

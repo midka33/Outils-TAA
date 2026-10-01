@@ -29,3 +29,10 @@ Après validation de la détection et des vues dépendantes, le prototype constr
 - fallback rectangulaire explicite si Revit refuse une géométrie.
 
 Validation réelle dans Revit 2025.4 requise avant de généraliser ce moteur.
+
+
+### Correctif crop Revit
+
+Le crop Revit exige une boucle composée uniquement de segments droits. Le contour issu de l'union est désormais tessellé puis reconstruit en lignes, avant et après l'offset de marge.
+
+En cas de fallback, l'interface indique maintenant l'étape géométrique exacte en échec.

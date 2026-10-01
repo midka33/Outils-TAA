@@ -16,6 +16,21 @@ class OptimizedCropResult(object):
         self.warning = warning or ""
 
 
+class CropGeometryStageError(Exception):
+    """Erreur enrichie avec l'étape géométrique ayant échoué."""
+
+    def __init__(self, stage, error):
+        self.stage = stage or "étape inconnue"
+        self.original_error = error
+        Exception.__init__(
+            self,
+            "{} : {}".format(
+                self.stage,
+                error,
+            ),
+        )
+
+
 class CropGeometryService(object):
     """Construit un contour logement réel, avec secours rectangulaire explicite."""
 
@@ -27,17 +42,11 @@ class CropGeometryService(object):
         self.document = document
 
     def build_optimized_crop(self, room_unique_ids, view, margin_mm):
-        """Construit le contour extérieur de l'union des pièces.
+        """Construit un contour extérieur compatible avec les crops Revit.
 
-        Principe :
-        - frontières de pièces au centre des séparations ;
-        - extrusion temporaire de chaque emprise ;
-        - union booléenne des solides ;
-        - récupération de la plus grande boucle extérieure ;
-        - offset du contour avec la marge demandée.
-
-        En cas d'échec géométrique Revit, un rectangle aligné à la vue est
-        utilisé comme secours et le résultat porte un avertissement.
+        Important : ViewCropRegionShapeManager n'accepte que des segments
+        droits pour une forme de crop. Les boucles issues des pièces ou d'une
+        opération booléenne sont donc linéarisées avant validation.
         """
         if view is None:
             raise ValueError("Vue Revit manquante pour calculer le crop.")
@@ -45,26 +54,60 @@ class CropGeometryService(object):
         margin_internal = self._millimeters_to_internal(margin_mm)
 
         try:
-            room_loops, reference_z = self._collect_room_outer_loops(
+            room_loops, reference_z = self._stage(
+                "Lecture des contours de pièces",
+                self._collect_room_outer_loops,
                 room_unique_ids,
                 view,
             )
-            union_solid = self._union_room_solids(room_loops, view)
-            outer_loop = self._extract_outer_union_loop(
+            union_solid = self._stage(
+                "Union géométrique des pièces",
+                self._union_room_solids,
+                room_loops,
+                view,
+            )
+            outer_loop = self._stage(
+                "Extraction du contour extérieur",
+                self._extract_outer_union_loop,
                 union_solid,
                 view,
                 reference_z,
             )
-            final_loop = self._offset_outward(
+
+            straight_outer_loop = self._stage(
+                "Linéarisation du contour extérieur",
+                self._linearize_curve_loop,
                 outer_loop,
+                view,
+            )
+
+            final_loop = self._stage(
+                "Application de la marge",
+                self._offset_outward,
+                straight_outer_loop,
                 margin_internal,
                 view,
             )
-            self._validate_crop_loop(view, final_loop)
+
+            final_loop = self._stage(
+                "Linéarisation finale",
+                self._linearize_curve_loop,
+                final_loop,
+                view,
+            )
+
+            self._stage(
+                "Validation du crop Revit",
+                self._validate_crop_loop,
+                view,
+                final_loop,
+            )
+
             return OptimizedCropResult(
                 curve_loop=final_loop,
                 mode="Contour optimisé",
             )
+
         except Exception as error:
             fallback = self._build_rectangular_fallback(
                 room_unique_ids,
@@ -76,7 +119,8 @@ class CropGeometryService(object):
                 mode="Rectangle de secours",
                 warning=(
                     "Le contour optimisé n'a pas pu être construit. "
-                    "Un rectangle aligné à la vue a été utilisé. Détail : {}"
+                    "Un rectangle aligné à la vue a été utilisé. "
+                    "Étape en échec : {}"
                 ).format(error),
             )
 
@@ -93,6 +137,15 @@ class CropGeometryService(object):
         view.CropBoxActive = True
         view.CropBoxVisible = True
         manager.SetCropShape(crop_result.curve_loop)
+
+    @staticmethod
+    def _stage(stage_name, function, *args):
+        try:
+            return function(*args)
+        except CropGeometryStageError:
+            raise
+        except Exception as error:
+            raise CropGeometryStageError(stage_name, error)
 
     def _collect_room_outer_loops(self, room_unique_ids, view):
         from Autodesk.Revit.DB import (
@@ -247,6 +300,120 @@ class CropGeometryService(object):
         face_candidates.sort(key=lambda item: (item[0], item[1]))
         return face_candidates[0][2]
 
+    def _linearize_curve_loop(self, curve_loop, view):
+        """Convertit arcs/splines en une boucle composée uniquement de Line."""
+        from Autodesk.Revit.DB import CurveLoop, Line
+
+        points = self._tessellated_loop_points(curve_loop)
+        points = self._remove_near_duplicates(points)
+        points = self._simplify_collinear_points(points, view)
+
+        if len(points) < 3:
+            raise ValueError(
+                "Le contour linéarisé contient moins de trois sommets."
+            )
+
+        loop = CurveLoop()
+        count = len(points)
+        for index in range(count):
+            start = points[index]
+            end = points[(index + 1) % count]
+            if start.DistanceTo(end) <= self._short_curve_tolerance():
+                continue
+            loop.Append(Line.CreateBound(start, end))
+
+        if loop.IsOpen():
+            raise ValueError(
+                "Le contour linéarisé n'est pas fermé."
+            )
+
+        return loop
+
+    def _tessellated_loop_points(self, curve_loop):
+        points = []
+
+        for curve in curve_loop:
+            tessellated = list(curve.Tessellate() or [])
+            if not tessellated:
+                continue
+
+            for point in tessellated:
+                if not points or point.DistanceTo(points[-1]) > 1e-9:
+                    points.append(point)
+
+        if len(points) > 1 and points[0].DistanceTo(points[-1]) <= 1e-9:
+            points = points[:-1]
+
+        return points
+
+    def _remove_near_duplicates(self, points):
+        tolerance = max(self._short_curve_tolerance(), 1e-7)
+        cleaned = []
+
+        for point in points or []:
+            if not cleaned or point.DistanceTo(cleaned[-1]) > tolerance:
+                cleaned.append(point)
+
+        if (
+            len(cleaned) > 1
+            and cleaned[0].DistanceTo(cleaned[-1]) <= tolerance
+        ):
+            cleaned = cleaned[:-1]
+
+        return cleaned
+
+    def _simplify_collinear_points(self, points, view):
+        """Retire les sommets quasi colinéaires sans changer la forme visible."""
+        values = list(points or [])
+        if len(values) <= 3:
+            return values
+
+        frame = self._frame_from_view(view)
+        changed = True
+
+        while changed and len(values) > 3:
+            changed = False
+            simplified = []
+            count = len(values)
+
+            for index in range(count):
+                previous = values[(index - 1) % count]
+                current = values[index]
+                following = values[(index + 1) % count]
+
+                p = frame.project((previous.X, previous.Y, previous.Z))
+                c = frame.project((current.X, current.Y, current.Z))
+                n = frame.project((following.X, following.Y, following.Z))
+
+                left = (c[0] - p[0], c[1] - p[1])
+                right = (n[0] - c[0], n[1] - c[1])
+
+                left_length = self._vector_length_2d(left)
+                right_length = self._vector_length_2d(right)
+
+                if left_length <= 1e-9 or right_length <= 1e-9:
+                    changed = True
+                    continue
+
+                cross = abs(
+                    (left[0] * right[1]) - (left[1] * right[0])
+                )
+                sin_angle = cross / (left_length * right_length)
+                dot = (left[0] * right[0]) + (left[1] * right[1])
+
+                if sin_angle <= 1e-6 and dot > 0:
+                    changed = True
+                    continue
+
+                simplified.append(current)
+
+            if len(simplified) < 3:
+                break
+
+            values = simplified
+
+        return values
+
     def _offset_outward(self, curve_loop, margin_internal, view):
         from Autodesk.Revit.DB import CurveLoop
 
@@ -271,7 +438,8 @@ class CropGeometryService(object):
 
         if not candidates:
             raise ValueError(
-                "Revit n'a pas réussi à décaler le contour du logement avec la marge demandée."
+                "Revit n'a pas réussi à décaler le contour du logement "
+                "avec la marge demandée."
             )
 
         candidates.sort(key=lambda item: item[0], reverse=True)
@@ -279,9 +447,17 @@ class CropGeometryService(object):
 
     def _validate_crop_loop(self, view, curve_loop):
         manager = view.GetCropRegionShapeManager()
+
+        if not bool(getattr(manager, "CanHaveShape", False)):
+            raise ValueError(
+                "Cette vue Revit n'autorise pas un crop non rectangulaire."
+            )
+
         if not manager.IsCropRegionShapeValid(curve_loop):
             raise ValueError(
-                "Le contour optimisé n'est pas valide pour cette vue Revit."
+                "Le contour optimisé n'est pas valide pour cette vue Revit. "
+                "Un crop Revit doit être une boucle fermée sans "
+                "auto-intersection et composée uniquement de segments droits."
             )
 
     def _build_rectangular_fallback(self, room_unique_ids, view, margin_mm):
@@ -399,6 +575,21 @@ class CropGeometryService(object):
         dx = float(left[0]) - float(right[0])
         dy = float(left[1]) - float(right[1])
         return (dx * dx + dy * dy) ** 0.5
+
+    @staticmethod
+    def _vector_length_2d(vector):
+        return (
+            (float(vector[0]) * float(vector[0]))
+            + (float(vector[1]) * float(vector[1]))
+        ) ** 0.5
+
+    def _short_curve_tolerance(self):
+        application = getattr(self.document, "Application", None)
+        value = getattr(application, "ShortCurveTolerance", None)
+        try:
+            return float(value)
+        except Exception:
+            return 1e-7
 
     @staticmethod
     def _frame_from_view(view):
