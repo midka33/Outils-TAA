@@ -396,7 +396,17 @@ ne jamais effacer automatiquement les réglages existants pour simuler un hérit
 **Test :** vraie méthode UI exécutée hors WPF, scénario DCE/Plan/A405, sauvegarde et
 relecture du dossier, conservation des descendants ; validation Revit restante.
 
-## 4. Identifiants des bugs
+## 4. Bugs rencontrés sur Calculs des pièces
+
+### BUG-CALCULS-001 — Collision du module générique `models`
+
+**Symptôme :** la suite de tests `tests/calculation` échouait selon l'ordre de chargement avec `ImportError: cannot import name 'RoomCalculationItem' from 'models'`.  
+**Cause :** `lib/calculation/room_calculator.py` et son test importaient `models` comme module top-level alors que `Calculs.panel/models` utilise également ce nom. Le premier module chargé dans `sys.modules` pouvait donc masquer l'autre.  
+**Correction :** le moteur métier utilise désormais l'import explicite `calculation.models` depuis la racine `lib`, et le test suit le même contrat.  
+**Règle :** dans Outils TAA, ne pas importer comme modules top-level des noms génériques présents dans plusieurs chemins Python (`models`, `services`, `settings`, etc.). Préférer un package explicitement qualifié ou un nom de module spécifique.  
+**Anti-régression :** exécuter toute la suite `tests/calculation` dans un même processus afin de détecter les collisions dépendantes de l'ordre d'import.
+
+## 5. Identifiants des bugs
 
 ```text
 BUG-EXPORT-001
@@ -433,6 +443,7 @@ BUG-EXPORT-031
 BUG-EXPORT-032
 BUG-EXPORT-033
 BUG-TEST-002
+BUG-CALCULS-001
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
@@ -440,4 +451,4 @@ BUG-REVIT-001
 BUG-TEST-001
 ```
 
-## 5. Règle obligatoire avant toute modification et tout commit
+## 6. Règle obligatoire avant toute modification et tout commit

@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Moteur métier pur de regroupement et de somme des pièces."""
 
-from models import CalculationResult, SkippedRoom
+from calculation.models import CalculationResult, SkippedRoom
 
 try:
     string_types = (basestring,)

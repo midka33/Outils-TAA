@@ -8,18 +8,17 @@ import sys
 import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-CALCULATION_DIR = os.path.join(
+LIB_DIR = os.path.join(
     ROOT,
     "OutilsTAA.extension",
     "lib",
-    "calculation",
 )
 
-if CALCULATION_DIR not in sys.path:
-    sys.path.insert(0, CALCULATION_DIR)
+if LIB_DIR not in sys.path:
+    sys.path.insert(0, LIB_DIR)
 
-from models import RoomCalculationItem
-from room_calculator import RoomCalculator
+from calculation.models import RoomCalculationItem
+from calculation.room_calculator import RoomCalculator
 
 
 class RoomCalculatorTests(unittest.TestCase):
