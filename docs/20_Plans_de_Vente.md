@@ -1110,3 +1110,26 @@ Le prototype n'est pas considéré validé tant que le scénario suivant n'a pas
 10. vérifier qu'une seconde génération produit un nom unique sans écraser la première.
 
 La suite du développement dépend de ce résultat.
+
+
+### Validation Revit — vue dépendante + crop rectangulaire
+
+Validation utilisateur réalisée le **2026-10-01** dans **Revit 2025.4 / pyRevit 5.x**.
+
+Résultat : **validé pour le principe technique**.
+
+Constats confirmés :
+
+- la vue dépendante est créée correctement ;
+- elle est bien rattachée à la vue principale choisie ;
+- le cadrage global englobe correctement le logement ;
+- la vue principale n'est pas modifiée ;
+- la création d'une vue dépendante avec un crop propre au logement est donc considérée comme techniquement viable pour Outils TAA.
+
+Point restant :
+
+- le cadrage apparaît légèrement incliné par rapport à la géométrie principale du logement dans certains cas ;
+- le prototype actuel utilise volontairement une emprise rectangulaire simple calculée à partir des contours des pièces ;
+- la prochaine itération doit étudier l'orientation dominante du logement / de la vue et préparer un cadrage plus propre et plus proche du contour réel.
+
+Cette validation permet de poursuivre le prototype sans remettre en cause le principe des vues dépendantes.
