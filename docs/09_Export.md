@@ -64,7 +64,7 @@ réintroduisent pas les options différées en V2. Validation graphique et non-r
 
 Le ruban distingue quatre notions qui ne doivent pas être confondues :
 
-- **nom interne de commande** : `Export.pushbutton` ;
+- **nom interne de commande** : `Export` ; le bundle est `Export.smartbutton` uniquement pour disposer du hook pyRevit d'initialisation ;
 - **titre visible du PushButton** : métadonnée `title` de `bundle.yaml` ;
 - **tooltip** : métadonnée `tooltip` de `bundle.yaml` ;
 - **nom du panneau** : dossier `Export.panel`, qui reste affiché « Export ».
@@ -94,8 +94,7 @@ L’icône reste issue d’une source SVG, sans texte, avec :
 - rendus 16 × 16, 32 × 32 et 96 × 96 ;
 - `icon.png` et `icon.dark.png` fournis au bundle.
 
-La validation finale doit être faite dans Revit 2025.4 après rechargement de pyRevit :
-le bouton doit afficher l’icône seule et le panneau doit continuer d’afficher « Export ».
+La validation finale a été confirmée dans Revit 2025.4 le 1er octobre 2026 après rechargement de pyRevit : aucun défaut de chargement, icône seule dans le bouton, panneau « Export » conservé, tooltip fonctionnel et module Export ouvert normalement au clic.
 
 ## 1. Vision
 
