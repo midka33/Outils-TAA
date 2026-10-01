@@ -38,19 +38,19 @@ Aucun changement des moteurs PDF/DWG, de l'héritage ou de la persistance métie
 Ces contrôles ne chargent pas WPF et ne prouvent pas le rendu réel. L'environnement
 Linux utilisé ne permet ni d'exécuter Revit ni de produire une capture WPF authentique.
 
-## Validation dans Revit — à faire avant fusion
+## Validation dans Revit — clôturée le 2026-10-01
 
 | Test | Vérification | État |
 |---|---|---|
-| UI-01 | Ouvrir les cinq fenêtres sans erreur XAML, thèmes et pictogrammes visibles. | À tester |
-| UI-02 | Réduire/agrandir ; vérifier champs, boutons et défilement à 100 %, 125 % et 150 % Windows. | À tester |
-| UI-03 | Parcourir au clavier avec Tab ; activer boutons et cases ; contrôler focus et états désactivés. | À tester |
-| UI-04 | Sélection simple/Ctrl/Maj, drag-and-drop et conservation de l'arbre développé. | À tester |
-| UI-05 | Profils, héritage DCE/Plan/A405 et retour au parent ; contrôler les champs affichés. | À tester |
-| UI-06 | Aperçu, annulation, PDF/DWG combinés et séparés ; rapport et diagnostic d'erreur copiable. | À tester |
+| UI-01 | Ouvrir les cinq fenêtres sans erreur XAML, thèmes et pictogrammes visibles. | OK |
+| UI-02 | Réduire/agrandir ; vérifier champs, boutons et défilement à 100 %, 125 % et 150 % Windows. | OK |
+| UI-03 | Parcourir au clavier avec Tab ; activer boutons et cases ; contrôler focus et états désactivés. | OK |
+| UI-04 | Sélection simple/Ctrl/Maj, drag-and-drop et conservation de l'arbre développé. | OK |
+| UI-05 | Profils, héritage DCE/Plan/A405 et retour au parent ; contrôler les champs affichés. | OK |
+| UI-06 | Aperçu, annulation, PDF/DWG combinés et séparés ; rapport et diagnostic d'erreur copiable. | OK |
 
 Le socle fonctionnel a été validé par l'utilisateur le 2026-09-30 (TEST-44 et profils
-P1–P4 inclus). La V1 reste en finition graphique jusqu'à validation de ces tests UI.
+P1–P4 inclus). La finition graphique et les tests UI ont été validés par l'utilisateur le 2026-10-01.
 Le nettoyage de stage07 reste un travail distinct ; cette refonte ne le réalise pas.
 
 ## Compléments après retour utilisateur — 2026-10-01
@@ -68,12 +68,12 @@ vraies méthodes UI exécutées avec doubles. **173 tests Python réussis hors R
 
 | Test | Vérification dans Revit | État |
 |---|---|---|
-| UI-07 | Menu Dossier absent ; déplacement par glisser-déposer disponible. | À tester |
-| UI-08 | Ctrl/Maj puis Supprimer : plusieurs carnets et dossiers, annulation, dossier non vide, Général, session et navigation clavier. | À tester |
-| UI-09 | Modifier PDF/DWG au parent puis surcharger/revenir à l'héritage ; icônes des feuilles actualisées sans replier l'arbre. | À tester |
-| UI-10 | Recharger pyRevit : pictogramme orange du bouton Export en thème clair et sombre. | À tester |
-| UI-11 | Résumé pour dossier imbriqué, carnet, feuille, formats mixtes et désactivés ; fenêtre réduite. | À tester |
-| UI-12 | Qualité 144/600 DPI, sauvegarde/réouverture/profil/héritage ; exporter combiné puis séparé. | À tester |
+| UI-07 | Menu Dossier absent ; déplacement par glisser-déposer disponible. | OK |
+| UI-08 | Ctrl/Maj puis Supprimer : plusieurs carnets et dossiers, annulation, dossier non vide, Général, session et navigation clavier. | OK |
+| UI-09 | Modifier PDF/DWG au parent puis surcharger/revenir à l'héritage ; icônes des feuilles actualisées sans replier l'arbre. | OK |
+| UI-10 | Recharger pyRevit : pictogramme orange du bouton Export en thème clair et sombre. | OK |
+| UI-11 | Résumé pour dossier imbriqué, carnet, feuille, formats mixtes et désactivés ; fenêtre réduite. | OK |
+| UI-12 | Qualité 144/600 DPI, sauvegarde/réouverture/profil/héritage ; exporter combiné puis séparé. | OK |
 
 Référence packaging : https://docs.pyrevitlabs.io/reference/pyrevit/extensions/
 Les captures fournies guident les icônes et le résumé ; le poids estimé et les
@@ -83,6 +83,12 @@ champs non disponibles dans le modèle V1 ne sont pas simulés.
 
 Le suivi courant est dans `19_Export_UI_Compacte_PDF.md` : réglages compacts,
 héritage sur une ligne, dialogue PDF, icônes corrigées et 195 tests Python réussis.
-Les validations Full HD à 100 % / 125 % restent à exécuter sous Windows/Revit.
+Les validations visuelles et fonctionnelles ont été confirmées dans Revit 2025.4 le 2026-10-01.
 Les étapes précédentes sont conservées ci-dessus comme historique, sans les
 présenter comme des validations graphiques effectuées.
+
+## Clôture de la passe nommage — 2026-10-01
+
+Le sélecteur filtrable des paramètres de feuilles et des **Informations sur le projet**
+a été testé dans Revit 2025.4 et confirmé fonctionnel par l'utilisateur.
+La branche peut être fusionnée dans `main`.

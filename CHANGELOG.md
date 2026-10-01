@@ -8,7 +8,9 @@ Le format suit les principes de *Keep a Changelog*.
 
 ### Changed
 - Charte TAA appliquée aux cinq fenêtres Export : thème partagé, orange pastel,
-  Segoe UI, pictogrammes vectoriels, tableaux et champs adaptables. Validation WPF/Revit restante.
+  Segoe UI, pictogrammes vectoriels, tableaux et champs adaptables. Validation Revit 2025.4 confirmée le 2026-10-01.
+- Calculs des pièces : migration fonctionnelle prête pour validation Revit 2025.4 ; collecte projet entière, workflow READ → DATA → CALCULATE → VALIDATE → WRITE et suppression définitive du choix de périmètre Vue active / Toutes les pièces.
+- Calculs des pièces : le périmètre source est désormais défini comme toutes les pièces du projet ; les choix « vue active / toutes les pièces » ne font pas partie de la cible. Le filtre optionnel par paramètre reste distinct de ce périmètre.
 - Publication de dossier : arborescence reproduite sur disque, sous-dossier par carnet
   pour les formats séparés et chemins partagés entre aperçu et export.
 - Export V1 : retrait de « Publier uniquement les mises en page nouvelles ou modifiées ».
@@ -16,6 +18,8 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Calculs des pièces : correction du masquage du package métier `calculation` par le dossier de tests et sécurisation de la syntaxe générée des fichiers WPF/workflow.
+- Calculs des pièces : correction de la collision Python du module générique `models` et agrégation de l'état readonly avant filtrage des destinations écrivable.
 - Sous-dossiers : bouton de retour à l’héritage du parent, origine des réglages
   nommée et libellé lisible dans la liste des dossiers.
 - Héritage des sous-dossiers : résolution récursive et affichage des valeurs effectives.
@@ -33,7 +37,11 @@ Le format suit les principes de *Keep a Changelog*.
 ### Added
 - Nommage Export : recherche et insertion des paramètres des feuilles et des
   informations sur le projet, sources distinctes et gestion des homonymes.
-  Anciens modèles `{parametre:...}` conservés ; validation Revit restante.
+  Anciens modèles `{parametre:...}` conservés ; sélecteur validé dans Revit 2025.4.
+- Calculs des pièces : écriture contrôlée, transaction avec rollback, rapport d'exécution, persistance Outils TAA, migration des réglages RoomTools, interface WPF, thème TAA partagé, bouton pyRevit et CI dédiée ; 71 tests hors Revit réussis avant campagne réelle.
+- Calculs des pièces : descripteurs de paramètres sérialisables, identités GUID / ForgeTypeId / définition avec fallback contrôlé par nom, validation source/destination et gestion commune des unités Revit.
+- Calculs des pièces : premier moteur métier pur de regroupement/somme dans `lib/calculation`, indépendant de Revit et WPF, avec 6 tests unitaires exécutés hors Revit.
+- Calculs des pièces : collecte du document entier sans filtre de vue, filtre métier optionnel, première lecture typée des paramètres et 14 tests unitaires cumulés exécutés hors Revit.
 - Architecture explicite du repository.
 - Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.
 - Structure initiale des modules `Export` et `Calculs`.
@@ -129,7 +137,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Suppression multiple des carnets/dossiers avec confirmation et protections.
 - Pictogrammes PDF/DWG hérités, résumé de périmètre et icône Export du ruban.
 - Qualité PDF persistée/héritée (300 DPI par défaut), profils et deux modes raccordés.
-- 173 tests hors Revit ; validation WPF/Revit UI-07 à UI-12 restante.
+- 173 tests hors Revit ; contrôles UI/Revit validés ensuite le 2026-10-01.
 
 ## 2026-10-01 — Interface compacte et paramètres PDF
 
@@ -141,5 +149,4 @@ Le format suit les principes de *Keep a Changelog*.
 - Sous-dossier du carnet optionnel en séparé ; défaut et mode combiné conservés.
 - Destination saisie au clavier sauvegardée à la perte de focus.
 - Icônes PDF/DWG à libellé interne ; icône Export agrandie, source SVG et PNG multi-tailles.
-- 195 tests Python réussis hors Revit. Rendu Full HD 100/125 % et exports natifs à
-  valider dans Revit ; détails et liste de fichiers dans docs/19_Export_UI_Compacte_PDF.md.
+- 205 tests Python réussis hors Revit après le sélecteur de paramètres ; rendu et workflow validés dans Revit 2025.4 le 2026-10-01. Détails : docs/19_Export_UI_Compacte_PDF.md.

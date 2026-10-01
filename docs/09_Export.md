@@ -58,8 +58,7 @@ Les fenêtres de publication, ajout des carnets, consultation des feuilles, aper
 rapport utilisent le thème commun `resources/ui/Theme.xaml` : Segoe UI, fonds clairs,
 accent orange pastel, sélection pêche et pictogrammes vectoriels.
 Les actions et le périmètre fonctionnel restent ceux de la V1 ; les maquettes ne
-réintroduisent pas les options différées en V2. Validation graphique et non-régression
-Revit encore requises : voir `docs/18_Export_Charte_UI_V1.md`.
+réintroduisent pas les options différées en V2. Validation graphique et non-régression Revit 2025.4 confirmées le 2026-10-01 ; voir `docs/18_Export_Charte_UI_V1.md`.
 
 ## 1. Vision
 
@@ -696,14 +695,13 @@ Le catalogue et la lecture appartiennent à `services/naming_parameters.py` ;
 PDF/DWG. La recherche et l'insertion sont des handlers canoniques d'`ExportWindow`,
 sans injection de doublons par la couche de prévisualisation.
 
-Validation hors Revit : 205 tests Python exécutés avec succès, dont 10 cas ajoutés
+Validation hors Revit : **205 tests Python exécutés avec succès**, dont 10 cas ajoutés
 pour le catalogue, les sources, les homonymes, les identités durables, les accents,
-les valeurs typées/vides et l'insertion au curseur. Contrôle fonctionnel restant :
-ouvrir Options avancées dans Revit 2025.4, chercher un paramètre de feuille puis
-un paramètre des informations sur le projet, insérer les deux, comparer l'aperçu
-et les fichiers PDF/DWG séparés, puis le PDF combiné. Vérifier également un modèle
-historique `{parametre:...}` et un paramètre vide. Aucun test WPF/Revit réel n'a été
-exécuté dans l'environnement Linux de développement.
+les valeurs typées/vides et l'insertion au curseur.
+
+**Validation Revit 2025.4 : confirmée par l'utilisateur le 2026-10-01.**
+Le sélecteur a été testé avec les paramètres de feuille et les Informations sur le projet,
+ainsi que le workflow de nommage/export associé. Les anciens modèles restent compatibles.
 
 ### 9.3 Éditeur
 

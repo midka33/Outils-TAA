@@ -59,9 +59,9 @@
 - [x] Socle fonctionnel validé par l'utilisateur le 2026-09-30, TEST-44 et profils P1–P4 compris.
 - [x] Thème commun orange pastel, typographie, contrôles, tableaux et pictogrammes.
 - [x] Application aux cinq fenêtres Export et adaptation des champs au redimensionnement.
-- [ ] Valider le rendu réel, clavier et DPI dans Revit (UI-01 à UI-03).
-- [ ] Rejouer la non-régression après refonte (UI-04 à UI-06).
-- [ ] Finaliser la V1 après acceptation graphique ; ne pas confondre fin des tests fonctionnels et sortie.
+- [x] Valider le rendu réel, clavier et DPI dans Revit 2025.4.
+- [x] Rejouer la non-régression après refonte dans Revit 2025.4.
+- [x] Accepter la finition graphique et le sélecteur de paramètres après validation utilisateur le 2026-10-01.
 
 Voir `docs/18_Export_Charte_UI_V1.md` pour les contrôles réalisés et ceux restant dans Revit.
 
@@ -119,9 +119,17 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 3 — Calculs des pièces
 
-- [ ] Formaliser le modèle métier.
-- [ ] Migrer les fonctionnalités existantes dans l'architecture commune.
-- [ ] Ajouter UI, services et tests.
+- [x] Formaliser le modèle métier du regroupement et de la somme.
+- [x] Ajouter le moteur métier pur indépendant de Revit/WPF.
+- [x] Migrer la collecte de toutes les pièces du projet et le filtre métier optionnel par paramètre.
+- [x] Finaliser l'identité/validation des paramètres et la gestion des unités.
+- [x] Implémenter l'écriture contrôlée et le workflow transactionnel.
+- [x] Ajouter la persistance Outils TAA et la migration des anciens réglages.
+- [x] Ajouter l'interface WPF et le rapport.
+- [x] Raccorder le bouton pyRevit.
+- [x] Exécuter la CI hors Revit : 71 tests réussis.
+- [x] Valider la campagne `docs/18_Calculs_Pieces_Tests_Revit.md` dans Revit 2025.4 / pyRevit 5.x.
+- [x] Revalider le correctif visuel final (icône + fenêtre compacte) et autoriser la fusion dans `main`.
 
 ## Phase 4 — Industrialisation
 

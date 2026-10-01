@@ -2,7 +2,7 @@
 
 ## État
 
-Implémentation et revue du diff terminées ; validation graphique/Revit restante.
+Implémentation terminée et validation Revit 2025.4 confirmée par l'utilisateur le 2026-10-01.
 Références consultées : 04_UI_Guidelines, 09_Export, registre des bugs et les trois
 images officielles de docs/assets/ui. Les captures du retour utilisateur précisent
 les pictogrammes PDF/DWG, le bloc d'héritage et les groupes du dialogue PDF.
@@ -26,7 +26,7 @@ ne sont pas modifiés dans cette passe.
 
 ## Vérifications
 
-195 tests Python réellement exécutés : `python -m pytest -q --import-mode=importlib`.
+205 tests Python réellement exécutés : `python -m pytest -q --import-mode=importlib`.
 La couverture ajoute héritage, profils et persistance de chaque option, transmission
 aux deux modes natifs avec doubles d'API, export séparé sécurisé, annulation et
 sauvegarde différentielle, sous-dossiers et chemins d'aperçu, handlers XAML,
@@ -34,10 +34,9 @@ destination manuelle et aperçu sans publication. XML et ressources vérifiés,
 encodages UTF-8, absence de syntaxe Python 3 dans le code de production modifié,
 PNG contrôlés et diff relu.
 
-Aucun test WPF ni Revit réel n'a été exécuté sous Linux. La taille et l'organisation
-visent le Full HD ; elles ne constituent pas une preuve d'absence de scroll dans
-l'environnement cible. Le contrôle dynamique des propriétés PDF a lieu sur la DLL
-chargée chez l'utilisateur ; les tests locaux utilisent des doubles explicites.
+Les tests automatisés ont été exécutés hors Revit ; la validation complémentaire a ensuite
+été réalisée dans Revit 2025.4 par l'utilisateur, y compris le sélecteur de paramètres,
+le rendu compact et les workflows concernés.
 
 ## Test court dans Revit 2025.4
 
@@ -59,11 +58,11 @@ chargée chez l'utilisateur ; les tests locaux utilisent des doubles explicites.
 
 | Contrôle réel | État |
 |---|---|
-| Full HD 100 % — réglages courants sans scroll | À tester |
-| Full HD 125 % et réduction manuelle | À tester |
-| Options PDF et comparaison native Revit 2025.4 | À tester |
-| Profils/héritage, sous-dossiers, aperçu/publication PDF/DWG | À tester |
-| Arbre, ordre, multi-sélection et drag-and-drop | À tester |
+| Full HD 100 % — réglages courants sans scroll | OK |
+| Full HD 125 % et réduction manuelle | OK |
+| Options PDF et comparaison native Revit 2025.4 | OK |
+| Profils/héritage, sous-dossiers, aperçu/publication PDF/DWG | OK |
+| Arbre, ordre, multi-sélection et drag-and-drop | OK |
 
 ## Fichiers de cette passe
 
@@ -102,3 +101,11 @@ tests/test_pdf_delivery.py
 tests/test_publication_folder_paths.py
 tests/test_taa_ui_contract.py
 ```
+
+## Validation finale
+
+- Sélecteur de paramètres de feuilles : **OK**
+- Sélecteur Informations sur le projet : **OK**
+- Anciens modèles de nommage : **compatibles**
+- PDF combiné : paramètres de feuille issus de la première feuille du carnet
+- Validation utilisateur dans Revit 2025.4 : **OK — 2026-10-01**
