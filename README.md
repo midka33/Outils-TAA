@@ -15,6 +15,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | 🚧 En développement |
 | **Calculs des pièces** | 🚧 Migration |
+| **Plans de vente** | 📝 Spécification / conception |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
@@ -54,6 +55,8 @@ Toute IA, tout agent de code ou assistant intervenant sur le repository doit com
 Ce fichier définit notamment le workflow obligatoire avant modification et avant commit, ainsi que la procédure de capitalisation des bugs dans `docs/11_BUGS_Prevention_Registry.md`.
 
 La spécification de référence du module **Export** est disponible dans `docs/09_Export.md`.
+
+La spécification de référence du module **Plans de vente** est disponible dans `docs/20_Plans_de_Vente.md`.
 
 ## Règle obligatoire de synchronisation du projet
 

@@ -131,7 +131,48 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 - [x] Valider la campagne `docs/18_Calculs_Pieces_Tests_Revit.md` dans Revit 2025.4 / pyRevit 5.x.
 - [x] Revalider le correctif visuel final (icône + fenêtre compacte) et autoriser la fusion dans `main`.
 
-## Phase 4 — Industrialisation
+## Phase 4 — Plans de vente
+
+**Statut : spécification / conception.**  
+Spécification de référence : `docs/20_Plans_de_Vente.md`.
+
+### Conception
+
+- [x] Analyser fonctionnellement un plugin Plans de vente existant comme référence de workflow, sans réutilisation de code propriétaire.
+- [x] Définir le besoin métier TAA : pièces de la maquette principale, 1 ou 2 vues, plan de repérage, nomenclatures intérieure/extérieure, légende et cartouche.
+- [x] Définir le principe du **Modèle de plan de vente** configurable.
+- [x] Définir la règle des deux cotations principales par pièce sur dimensions intérieures finies.
+- [x] Définir la sélection du type d'étiquette et des gabarits de vues.
+- [x] Définir l'objectif de mise à jour durable des plans déjà générés.
+- [ ] Valider le périmètre final de la V1 avant création du bundle pyRevit.
+
+### Prototypes techniques prioritaires
+
+- [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4.
+- [ ] PROTO-PDV-02 — Cotations : deux dimensions principales, faces finies, suppression des petits décrochements.
+- [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes.
+
+### Développement V1
+
+- [ ] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
+- [ ] Collecter et regrouper les pièces par paramètre logement.
+- [ ] Implémenter le modèle de configuration de plan de vente.
+- [ ] Générer une ou deux vues par logement selon la configuration.
+- [ ] Appliquer les gabarits sélectionnés.
+- [ ] Implémenter le crop automatique.
+- [ ] Générer les étiquettes avec placement contrôlé.
+- [ ] Générer les deux cotations principales par pièce.
+- [ ] Dupliquer, filtrer et placer les nomenclatures intérieure et extérieure.
+- [ ] Générer le plan de repérage.
+- [ ] Assembler la feuille à partir du modèle.
+- [ ] Implémenter le mapping des paramètres de feuille.
+- [ ] Implémenter nommage et contrôle des collisions.
+- [ ] Ajouter prévisualisation et rapport.
+- [ ] Implémenter l'identification durable et la mise à jour des plans existants.
+- [ ] Appliquer le Design System Outils TAA.
+- [ ] Créer la campagne de tests Revit 2025.4.
+
+## Phase 5 — Industrialisation
 
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.
 - [ ] Ajouter tests d'intégration Revit.

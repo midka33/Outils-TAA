@@ -1,0 +1,962 @@
+# Outils TAA — Plans de vente
+
+## Spécification fonctionnelle et technique
+
+**Version :** 0.1  
+**Statut :** Spécification / conception  
+**Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
+**Interface :** WPF — Design System Outils TAA  
+**Langue :** Français  
+**Date :** 2026-10-01
+
+---
+
+# 1. Objet
+
+Le module **Plans de vente** doit automatiser la production, la mise à jour et l'assemblage des plans de vente à partir de la maquette Revit.
+
+L'objectif n'est pas de créer un générateur opaque. Le module doit appliquer des règles de présentation choisies par l'agence, tout en laissant à l'utilisateur le contrôle sur les gabarits, annotations, cotations, nomenclatures et éléments de mise en page.
+
+Le module doit s'intégrer à **Outils TAA** et respecter :
+
+- Revit 2025.4 ;
+- pyRevit 5.x ;
+- les standards de développement du repository ;
+- le Design System défini dans `docs/04_UI_Guidelines.md` ;
+- les règles de séparation UI / métier / services Revit ;
+- les principes de persistance et d'identification durable déjà retenus dans Outils TAA.
+
+---
+
+# 2. Sources de conception
+
+La conception du module repose sur deux sources principales.
+
+## 2.1 Besoin métier TAA
+
+Le besoin défini pour Outils TAA est le suivant :
+
+- les pièces sont, pour la V1, dans la **maquette principale** ;
+- un logement est identifié par une valeur commune portée par les pièces ;
+- une feuille de plan de vente comporte **une ou deux vues de plan** suivant le logement ;
+- une vue de **plan de repérage** est créée ;
+- une nomenclature des **pièces intérieures** est créée ;
+- une nomenclature des **pièces / surfaces extérieures** est créée ;
+- une légende peut être placée sur la feuille ou être intégrée au cartouche ;
+- le module crée les vues et les nomenclatures nécessaires ;
+- lorsque plusieurs vues de logement sont issues du même niveau, l'utilisation de **vues dépendantes** doit être étudiée et privilégiée lorsque cela est fiable ;
+- l'utilisateur choisit le **gabarit de vue** à appliquer pour chaque type de vue créé ;
+- l'utilisateur choisit le **type de cote** ;
+- l'objectif est d'obtenir **deux dimensions principales par pièce** ;
+- les dimensions sont des **dimensions intérieures finies** ;
+- les dimensions générales sont prioritaires ;
+- les petits décrochements ne doivent pas générer des cotes parasites ;
+- l'utilisateur choisit le **type d'étiquette de pièce** ;
+- l'étiquette est placée au centre de la pièce autant que possible ;
+- l'étiquette ne doit pas entrer en conflit avec les cotations.
+
+## 2.2 Analyse fonctionnelle d'un plugin tiers
+
+Un installateur du plugin **E&A Plans de vente** a été analysé comme référence fonctionnelle.
+
+Cette analyse a permis d'identifier plusieurs principes utiles :
+
+- regroupement des pièces par logement ;
+- création de vues dédiées ;
+- calcul du contour d'un logement ;
+- application d'un cadrage ;
+- duplication et filtrage de nomenclatures ;
+- création d'un plan de repérage ;
+- assemblage d'une feuille à partir d'un modèle ;
+- copie de paramètres de feuille ;
+- ajustement possible de l'échelle ;
+- gestion d'annotations et de cotations.
+
+Cette référence est utilisée **uniquement pour comprendre les principes fonctionnels**.
+
+Aucun code propriétaire, aucune DLL, aucune ressource protégée et aucun système de licence du plugin tiers ne doivent être copiés ou intégrés dans Outils TAA.
+
+Le module Outils TAA doit être une implémentation indépendante.
+
+---
+
+# 3. Principe directeur
+
+Le module doit être construit autour d'un **Modèle de plan de vente**.
+
+Ce modèle définit la règle de production à appliquer aux logements.
+
+Exemple :
+
+```text
+Modèle de plan de vente
+│
+├── Paramètre identifiant le logement
+├── Feuille modèle
+├── Type de cartouche
+│
+├── Vue principale
+│   ├── Gabarit
+│   ├── Échelle
+│   └── Emplacement sur feuille
+│
+├── Deuxième vue éventuelle
+│   ├── Gabarit
+│   ├── Échelle
+│   └── Emplacement sur feuille
+│
+├── Plan de repérage
+│   ├── Gabarit
+│   ├── style graphique
+│   └── emplacement
+│
+├── Nomenclature intérieure
+├── Nomenclature extérieure
+├── Type d'étiquette de pièce
+├── Type de cote
+├── Légende(s)
+├── Règles de nommage
+└── Mapping des paramètres de feuille
+```
+
+Une fois ce modèle configuré, l'utilisateur doit pouvoir générer plusieurs logements avec une présentation homogène.
+
+---
+
+# 4. Parcours utilisateur cible
+
+Le parcours principal doit rester court.
+
+```text
+Ouvrir Plans de vente
+        ↓
+Choisir / charger un modèle de plan de vente
+        ↓
+Choisir le paramètre identifiant les logements
+        ↓
+Prévisualiser les logements détectés
+        ↓
+Choisir les logements à générer / mettre à jour
+        ↓
+Vérifier les vues, gabarits, cotes et nomenclatures
+        ↓
+Prévisualiser les opérations
+        ↓
+Générer / mettre à jour
+        ↓
+Rapport de résultat
+```
+
+La fenêtre principale doit suivre le Design System Outils TAA et privilégier une interface dense, claire et adaptée à un écran Full HD.
+
+---
+
+# 5. Identification des logements
+
+## 5.1 Source de vérité
+
+La V1 ne doit pas essayer de deviner automatiquement quels locaux constituent un logement.
+
+La **source de vérité** est un paramètre Revit texte présent sur les pièces.
+
+Exemple :
+
+```text
+Paramètre : Numéro logement
+
+Séjour       → A101
+Cuisine      → A101
+Chambre 01   → A101
+Salle de bain→ A101
+```
+
+Toutes les pièces ayant la même valeur appartiennent au même logement.
+
+## 5.2 V1
+
+Pour la V1 :
+
+- les pièces sont issues de la maquette principale ;
+- les pièces sans valeur d'identification sont ignorées et signalées ;
+- les doublons ou valeurs incohérentes sont signalés dans la prévisualisation.
+
+## 5.3 Évolution future
+
+Le support complet des pièces provenant de fichiers Revit liés pourra être étudié ultérieurement.
+
+Il ne doit pas bloquer la V1.
+
+---
+
+# 6. Analyse d'un logement
+
+Pour chaque logement, le module construit un modèle métier contenant au minimum :
+
+```text
+Housing
+├── key
+├── rooms
+├── levels
+├── bounding geometry
+├── interior rooms
+├── exterior rooms / annexes
+├── generated views
+├── generated schedules
+└── generated sheet
+```
+
+Le modèle doit être indépendant de l'interface WPF.
+
+---
+
+# 7. Création des vues
+
+## 7.1 Nombre de vues
+
+Un plan de vente doit pouvoir contenir :
+
+- **une vue principale** ;
+- ou **deux vues principales** lorsque le logement nécessite de représenter deux niveaux ou deux parties distinctes.
+
+Le moteur ne doit donc pas être limité à une seule vue par logement.
+
+## 7.2 Vue principale et vues dépendantes
+
+Lorsque plusieurs logements utilisent le même niveau, le module doit étudier l'utilisation de vues dépendantes afin de conserver une logique Revit propre.
+
+Principe visé :
+
+```text
+Vue principale du niveau
+│
+├── Vue dépendante — logement A101
+├── Vue dépendante — logement A102
+└── Vue dépendante — logement A103
+```
+
+Ce comportement doit être validé par prototype dans Revit 2025.4 avant d'être considéré comme architecture définitive.
+
+Le prototype doit vérifier :
+
+- cadrage indépendant ;
+- annotations ;
+- étiquettes ;
+- cotations ;
+- gabarits ;
+- comportement lors de la mise à jour.
+
+## 7.3 Gabarits
+
+L'utilisateur doit pouvoir choisir explicitement un gabarit pour chaque type de vue généré.
+
+Exemple :
+
+```text
+Vue principale        [ PDV - Plan logement ▼ ]
+Deuxième vue          [ PDV - Plan logement ▼ ]
+Plan de repérage      [ PDV - Repérage ▼ ]
+```
+
+Aucun nom de gabarit ne doit être codé en dur.
+
+---
+
+# 8. Contour et cadrage automatique
+
+Le module doit calculer l'emprise générale du logement à partir des pièces qui le composent.
+
+Pipeline cible :
+
+```text
+Pièces
+   ↓
+Contours / BoundarySegments
+   ↓
+Normalisation géométrique
+   ↓
+Union des contours
+   ↓
+Suppression des micro-segments
+   ↓
+Simplification
+   ↓
+Ajout d'une marge
+   ↓
+CropShape de la vue
+```
+
+Le service responsable doit rester indépendant de la couche UI.
+
+Nom de service suggéré :
+
+```text
+CropGeometryService
+```
+
+La géométrie doit être suffisamment robuste pour gérer :
+
+- pièces non rectangulaires ;
+- décrochements ;
+- séparateurs de pièces ;
+- gaines ;
+- logements composés de plusieurs pièces ;
+- contours comprenant des arcs lorsque Revit le permet.
+
+---
+
+# 9. Cotations automatiques
+
+La cotation automatique est un point critique du module.
+
+## 9.1 Règle métier
+
+Pour chaque pièce, l'objectif est de créer **deux cotes principales** :
+
+- longueur intérieure finie ;
+- largeur intérieure finie.
+
+Ces deux cotes doivent représenter les dimensions générales de la pièce.
+
+## 9.2 Priorité aux dimensions générales
+
+Le moteur ne doit pas coter mécaniquement tous les segments du contour.
+
+Il doit privilégier :
+
+- les axes principaux de la pièce ;
+- les faces finies opposées ;
+- les longueurs les plus représentatives.
+
+Les petits décrochements, niches ou retours doivent être ignorés lorsqu'ils ne décrivent pas la dimension générale.
+
+## 9.3 Pipeline cible
+
+```text
+Contour fini de la pièce
+        ↓
+Analyse des segments
+        ↓
+Filtrage des petits décrochements
+        ↓
+Détermination des directions dominantes
+        ↓
+Recherche des deux dimensions principales
+        ↓
+Recherche des références Revit fiables
+        ↓
+Création des deux cotes
+```
+
+## 9.4 Type de cote
+
+Le type de cote n'est jamais imposé par le code.
+
+L'utilisateur choisit :
+
+```text
+Type de cote
+[ PDV - Cotes intérieures ▼ ]
+```
+
+## 9.5 Prototype obligatoire
+
+Avant le développement complet, tester :
+
+- pièce rectangulaire ;
+- pièce en L ;
+- pièce avec petit décrochement ;
+- murs composés ;
+- cloison ;
+- murs non orthogonaux ;
+- références sur faces finies.
+
+Le prototype doit prouver que les dimensions créées sont associatives et stables.
+
+---
+
+# 10. Étiquettes de pièces
+
+L'utilisateur choisit le type d'étiquette.
+
+Le moteur doit :
+
+1. calculer un point représentatif de la pièce ;
+2. vérifier que ce point est réellement intérieur à la pièce ;
+3. placer l'étiquette ;
+4. vérifier les collisions avec les zones de cotation ;
+5. rechercher une position alternative si nécessaire.
+
+Pipeline :
+
+```text
+Centre géométrique
+       ↓
+Point intérieur ?
+       ├── Oui → tester collision
+       └── Non → chercher un point intérieur alternatif
+                          ↓
+                   tester collision
+                          ↓
+                     placer tag
+```
+
+L'étiquette doit rester dans la pièce autant que possible.
+
+---
+
+# 11. Nomenclatures
+
+Chaque plan de vente doit pouvoir comporter au minimum :
+
+- une nomenclature des pièces intérieures ;
+- une nomenclature des pièces ou surfaces extérieures.
+
+## 11.1 Principe
+
+Les nomenclatures peuvent être basées sur des nomenclatures modèles configurées par l'agence.
+
+Le module :
+
+1. récupère la nomenclature modèle ;
+2. la duplique ;
+3. identifie le filtre lié au paramètre logement ;
+4. applique la valeur du logement ;
+5. place la nomenclature sur la feuille.
+
+Exemple :
+
+```text
+Nomenclature modèle
+Filtre : Numéro logement = <VALEUR>
+
+        ↓ duplication
+
+PDV_A101_Interieur
+Filtre : Numéro logement = A101
+```
+
+## 11.2 Ancrage
+
+Le placement doit permettre un point d'ancrage stable lorsque la hauteur de la nomenclature varie.
+
+Options envisagées :
+
+- haut ;
+- centre ;
+- bas.
+
+---
+
+# 12. Plan de repérage
+
+Chaque plan de vente doit comporter un plan de repérage.
+
+Le plan de repérage doit permettre d'identifier immédiatement la position du logement dans le bâtiment.
+
+Principe :
+
+```text
+Vue de repérage
+        +
+Contour du logement
+        ↓
+Zone remplie / surbrillance
+        ↓
+Placement sur la feuille
+```
+
+Le style graphique ou le type de zone remplie doit être configurable.
+
+Le gabarit du plan de repérage doit également être sélectionnable.
+
+---
+
+# 13. Feuille modèle et assemblage
+
+La feuille modèle sert de référence de composition.
+
+Elle peut définir :
+
+- type de cartouche ;
+- emplacements des vues ;
+- emplacements des nomenclatures ;
+- emplacement du plan de repérage ;
+- légendes ;
+- annotations fixes ;
+- images éventuelles ;
+- paramètres de feuille à reprendre.
+
+Le module doit éviter de dépendre uniquement d'une détection implicite fragile.
+
+Le **Modèle de plan de vente** doit mémoriser explicitement le rôle des éléments de la feuille.
+
+---
+
+# 14. Légendes
+
+Une légende peut être :
+
+- placée directement sur la feuille ;
+- ou déjà intégrée au cartouche.
+
+Le modèle doit pouvoir gérer les deux cas.
+
+Une légende déjà intégrée au cartouche ne doit évidemment pas être dupliquée.
+
+---
+
+# 15. Échelle et optimisation de la vue
+
+Deux stratégies doivent être possibles :
+
+```text
+Échelle
+● Imposée                       [1:50 ▼]
+○ Ajuster automatiquement si nécessaire
+```
+
+L'ajustement automatique doit rester une option.
+
+Il ne doit jamais changer silencieusement l'échelle définie par l'utilisateur sans que cette règle soit activée.
+
+Le moteur d'optimisation doit comparer :
+
+- l'emprise de la vue ;
+- la zone disponible sur la feuille ;
+- les échelles Revit autorisées.
+
+---
+
+# 16. Paramètres du cartouche et de la feuille
+
+Le module doit utiliser un système de mapping configurable.
+
+Exemple :
+
+| Paramètre feuille | Source |
+|---|---|
+| Numéro logement | Paramètre logement |
+| Typologie | Paramètre de pièce / valeur calculée |
+| Niveau | Niveau du logement |
+| Bâtiment | Paramètre projet |
+| Phase | Paramètre projet |
+
+Les noms de paramètres métier ne doivent pas être codés en dur lorsque cela peut être configuré.
+
+---
+
+# 17. Nommage
+
+Le module doit permettre de définir des règles de nommage pour :
+
+- vues ;
+- nomenclatures ;
+- feuilles.
+
+Exemple :
+
+```text
+Vue        : PDV_{logement}_{niveau}
+Feuille    : PDV_{logement}
+Nomenclature intérieure : PDV_{logement}_INT
+Nomenclature extérieure : PDV_{logement}_EXT
+```
+
+Les collisions doivent être détectées avant création.
+
+---
+
+# 18. Mise à jour des plans existants
+
+Le module ne doit pas être limité à une logique « supprimer puis recréer ».
+
+Une génération doit pouvoir être identifiée durablement.
+
+Principe :
+
+```text
+Logement A101
+      ↓
+Éléments Plans de vente existants ?
+      │
+      ├── Non → Créer
+      │
+      └── Oui → Mettre à jour
+```
+
+Les éléments générés doivent pouvoir être reliés à une identité métier stable, par exemple :
+
+```text
+GeneratedBy = OutilsTAA.PlansVente
+HousingKey = A101
+TemplateId = ...
+Role = MainView / LocationView / InteriorSchedule / Sheet
+```
+
+L'implémentation technique pourra s'appuyer sur une persistance projet adaptée, par exemple Extensible Storage ou un mécanisme équivalent compatible avec les standards Outils TAA.
+
+Ne pas persister uniquement des `ElementId` si une référence plus durable est nécessaire.
+
+---
+
+# 19. Prévisualisation avant génération
+
+Avant toute création ou mise à jour importante, afficher une prévisualisation.
+
+Exemple :
+
+```text
+12 logements sélectionnés
+
+À créer
+  8 feuilles
+  16 vues
+  16 nomenclatures
+
+À mettre à jour
+  4 feuilles
+
+Avertissements
+  A207 — aucune pièce extérieure
+  A304 — deuxième niveau détecté
+```
+
+L'utilisateur doit comprendre ce qui va être créé ou modifié avant validation.
+
+---
+
+# 20. Transactions et sécurité
+
+Le module doit éviter une transaction globale incontrôlable.
+
+Le contrôleur doit séparer clairement :
+
+- analyse ;
+- prévalidation ;
+- génération ;
+- rapport.
+
+Les transactions Revit doivent être structurées pour permettre :
+
+- rollback en cas d'erreur bloquante ;
+- rapport précis du logement en erreur ;
+- absence de modèle partiellement corrompu.
+
+Une erreur sur un logement ne doit pas nécessairement empêcher le diagnostic des autres logements.
+
+---
+
+# 21. Architecture logicielle cible
+
+Architecture proposée :
+
+```text
+OutilsTAA.extension/
+└── OutilsTAA.tab/
+    └── PlansDeVente.panel/
+        └── PlansDeVente.pushbutton/
+            ├── script.py
+            ├── bundle.yaml
+            ├── icon.png
+            │
+            ├── models/
+            │   ├── housing.py
+            │   ├── plan_template.py
+            │   ├── generation_plan.py
+            │   └── generation_result.py
+            │
+            ├── services/
+            │   ├── housing_collector.py
+            │   ├── template_analyzer.py
+            │   ├── crop_geometry_service.py
+            │   ├── view_generator.py
+            │   ├── tagging_service.py
+            │   ├── dimension_service.py
+            │   ├── schedule_service.py
+            │   ├── location_plan_service.py
+            │   ├── sheet_service.py
+            │   ├── persistence_service.py
+            │   └── generation_controller.py
+            │
+            └── ui/
+                ├── plans_vente.xaml
+                └── plans_vente_window.py
+```
+
+Cette structure pourra évoluer pendant les prototypes.
+
+Le principe obligatoire est la séparation entre :
+
+- UI ;
+- modèle métier ;
+- logique géométrique ;
+- opérations Revit ;
+- persistance.
+
+---
+
+# 22. Interface utilisateur
+
+L'interface doit utiliser le design system officiel :
+
+- `docs/04_UI_Guidelines.md` ;
+- `docs/assets/ui/UI_Design_System_TAA.jpg` ;
+- `docs/assets/ui/UI_Suite_Outils_TAA_Orange.jpg`.
+
+Principes :
+
+- thème clair ;
+- orange pastel TAA comme accent ;
+- Segoe UI ;
+- interface compacte ;
+- sections lisibles ;
+- options avancées repliables ;
+- une action principale clairement identifiable ;
+- prévisualisation avant génération ;
+- aucun grand panneau vide ;
+- pas de logique métier importante dans le code-behind.
+
+Exemple d'organisation :
+
+```text
+┌───────────────────────────────────────────────────────┐
+│ TAA   Plans de vente                                  │
+│       Génération et mise à jour                       │
+├───────────────────────┬───────────────────────────────┤
+│ Logements détectés    │ Modèle de plan de vente      │
+│                       │                               │
+│ A101                  │ Paramètre logement            │
+│ A102                  │ Gabarits                      │
+│ A103                  │ Étiquettes                    │
+│ ...                   │ Cotations                     │
+│                       │ Nomenclatures                 │
+│                       │ Repérage                      │
+├───────────────────────┴───────────────────────────────┤
+│ Résumé                 [Aperçu] [Générer / Mettre à jour] │
+└───────────────────────────────────────────────────────┘
+```
+
+---
+
+# 23. Fonctions à ne pas reproduire du plugin étudié
+
+Outils TAA ne doit pas reprendre :
+
+- authentification distante ;
+- système de crédits ;
+- facturation ;
+- licence serveur ;
+- détection automatique complexe de logements lorsque le paramètre logement existe ;
+- dépendances techniques du plugin tiers ;
+- code ou ressources propriétaires.
+
+---
+
+# 24. Prototypes techniques obligatoires
+
+Avant le développement complet, trois prototypes doivent être réalisés.
+
+## Prototype A — Vues dépendantes
+
+Valider dans Revit 2025.4 :
+
+- création d'une vue dépendante ;
+- crop propre au logement ;
+- gabarit ;
+- étiquettes ;
+- cotations ;
+- placement sur feuille ;
+- mise à jour.
+
+## Prototype B — Cotations intérieures finies
+
+Tester au minimum :
+
+- pièce rectangulaire ;
+- pièce en L ;
+- petit décrochement ;
+- murs composés ;
+- cloisons ;
+- murs non orthogonaux.
+
+Critère :
+
+> obtenir deux cotes principales fiables et associatives.
+
+## Prototype C — Crop logement
+
+Tester :
+
+- logement simple ;
+- logement avec plusieurs pièces ;
+- logement concave ;
+- logement comprenant plusieurs niveaux ;
+- contours avec arcs ou géométries irrégulières.
+
+---
+
+# 25. Découpage de développement proposé
+
+## Étape 01 — Socle
+
+- créer le bundle pyRevit ;
+- créer les modèles métier ;
+- créer l'interface minimale ;
+- collecter les pièces ;
+- regrouper par paramètre logement.
+
+## Étape 02 — Modèle de plan de vente
+
+- sélection de la feuille modèle ;
+- sélection des gabarits ;
+- choix des types d'étiquette et de cote ;
+- choix des nomenclatures ;
+- persistance de la configuration.
+
+## Étape 03 — Vues et crop
+
+- génération des vues ;
+- validation des vues dépendantes ;
+- crop automatique ;
+- échelle.
+
+## Étape 04 — Nomenclatures et repérage
+
+- nomenclature intérieure ;
+- nomenclature extérieure ;
+- plan de repérage ;
+- placement sur feuille.
+
+## Étape 05 — Étiquettes
+
+- placement automatique ;
+- recherche de point intérieur ;
+- anti-collision de base.
+
+## Étape 06 — Cotations
+
+- deux cotes principales par pièce ;
+- faces finies ;
+- filtrage des décrochements ;
+- type de cote configurable.
+
+## Étape 07 — Assemblage feuille
+
+- cartouche ;
+- vues ;
+- nomenclatures ;
+- repérage ;
+- légendes ;
+- paramètres ;
+- nommage.
+
+## Étape 08 — Mise à jour
+
+- identification durable ;
+- détection des éléments existants ;
+- création / mise à jour ;
+- rapport des changements.
+
+## Étape 09 — Stabilisation
+
+- tests Revit ;
+- tests multi-logements ;
+- erreurs ;
+- performance ;
+- documentation ;
+- non-régression.
+
+---
+
+# 26. Critères de validation V1
+
+La V1 sera considérée comme fonctionnelle lorsque les points suivants seront validés dans Revit 2025.4 :
+
+```text
+☐ Les logements sont détectés à partir d'un paramètre choisi.
+
+☐ L'utilisateur peut sélectionner plusieurs logements.
+
+☐ Une ou deux vues peuvent être générées selon le logement.
+
+☐ Le gabarit de chaque type de vue est configurable.
+
+☐ Le crop du logement est généré automatiquement.
+
+☐ Les étiquettes sont créées avec le type choisi.
+
+☐ Les étiquettes restent dans la pièce autant que possible.
+
+☐ Deux dimensions principales sont générées par pièce.
+
+☐ Les dimensions utilisent les références intérieures finies.
+
+☐ Les petits décrochements ne génèrent pas de cotations parasites.
+
+☐ Une nomenclature intérieure est générée et filtrée par logement.
+
+☐ Une nomenclature extérieure est générée et filtrée par logement.
+
+☐ Un plan de repérage est généré.
+
+☐ Le cartouche et les éléments fixes sont correctement repris.
+
+☐ Les vues et nomenclatures sont correctement placées sur la feuille.
+
+☐ Une légende peut être placée ou laissée dans le cartouche.
+
+☐ Les paramètres de feuille configurés sont renseignés.
+
+☐ Les règles de nommage sont appliquées.
+
+☐ Les collisions de noms sont contrôlées.
+
+☐ Une prévisualisation présente les opérations avant modification.
+
+☐ Un logement déjà généré peut être mis à jour sans recréation aveugle.
+
+☐ Un rapport final distingue succès, avertissements et erreurs.
+
+☐ L'interface respecte le Design System Outils TAA.
+
+☐ Le module reste compatible Revit 2025.4 / pyRevit 5.x.
+```
+
+---
+
+# 27. Évolutions possibles après V1
+
+À étudier après stabilisation :
+
+- support complet des pièces de liens Revit ;
+- rotation automatique des vues ;
+- synchronisation d'une rose des vents ;
+- règles avancées d'optimisation de l'échelle ;
+- amélioration de l'anti-collision des annotations ;
+- recalcul intelligent uniquement des logements modifiés ;
+- gestion de plusieurs modèles de plans de vente par projet ;
+- publication directe via le module Export Outils TAA.
+
+---
+
+# 28. Règle de développement
+
+Le module Plans de vente doit rester un outil métier Outils TAA et non une copie du plugin analysé.
+
+Les principes à conserver sont :
+
+```text
+Modèle configurable
++
+Automatisation contrôlée
++
+Prévisualisation
++
+Génération reproductible
++
+Mise à jour fiable
++
+Interface cohérente
+```
+
+La priorité doit rester la fiabilité des résultats Revit avant l'automatisation maximale.
