@@ -35,7 +35,7 @@ Sont désormais présents :
 La CI hors Revit valide actuellement :
 
 ```text
-68 passed
+71 passed
 ```
 
 Le module doit maintenant être **validé dans Revit 2025.4 réel** avant fusion dans `main`.

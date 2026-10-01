@@ -33,7 +33,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
-- Calculs des pièces : écriture contrôlée, transaction avec rollback, rapport d'exécution, persistance Outils TAA, migration des réglages RoomTools, interface WPF, thème TAA partagé, bouton pyRevit et CI dédiée ; 68 tests hors Revit réussis avant campagne réelle.
+- Calculs des pièces : écriture contrôlée, transaction avec rollback, rapport d'exécution, persistance Outils TAA, migration des réglages RoomTools, interface WPF, thème TAA partagé, bouton pyRevit et CI dédiée ; 71 tests hors Revit réussis avant campagne réelle.
 - Calculs des pièces : descripteurs de paramètres sérialisables, identités GUID / ForgeTypeId / définition avec fallback contrôlé par nom, validation source/destination et gestion commune des unités Revit.
 - Calculs des pièces : premier moteur métier pur de regroupement/somme dans `lib/calculation`, indépendant de Revit et WPF, avec 6 tests unitaires exécutés hors Revit.
 - Calculs des pièces : collecte du document entier sans filtre de vue, filtre métier optionnel, première lecture typée des paramètres et 14 tests unitaires cumulés exécutés hors Revit.

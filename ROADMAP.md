@@ -116,7 +116,7 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 - [x] Ajouter la persistance Outils TAA et la migration des anciens réglages.
 - [x] Ajouter l'interface WPF et le rapport.
 - [x] Raccorder le bouton pyRevit.
-- [x] Exécuter la CI hors Revit : 68 tests réussis.
+- [x] Exécuter la CI hors Revit : 71 tests réussis.
 - [ ] Valider la campagne `docs/18_Calculs_Pieces_Tests_Revit.md` dans Revit 2025.4 / pyRevit 5.x.
 - [ ] Corriger les éventuelles anomalies Revit, rejouer la campagne et fusionner la PR.
 

@@ -20,7 +20,7 @@ Cette campagne valide les comportements impossibles à certifier hors Revit :
 - transaction / Undo ;
 - persistance.
 
-La CI hors Revit a déjà validé **68 tests**. Le 1er octobre 2026, l'utilisateur a confirmé que les tests fonctionnels Revit étaient OK avant le correctif visuel demandé (icône du ruban + compacité de la fenêtre).
+La CI hors Revit a déjà validé **71 tests**. Le 1er octobre 2026, l'utilisateur a confirmé que les tests fonctionnels Revit étaient OK avant le correctif visuel demandé (icône du ruban + compacité de la fenêtre).
 
 ---
 

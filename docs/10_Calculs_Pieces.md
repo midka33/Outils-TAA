@@ -354,7 +354,7 @@ python -m pytest tests/calculation -q
 Dernière exécution validée avant la campagne Revit :
 
 ```text
-68 passed
+71 passed
 ```
 
 Les tests couvrent notamment :
@@ -414,7 +414,7 @@ Bugs spécifiques actuellement capitalisés :
 - interface WPF ;
 - rapport ;
 - bouton pyRevit ;
-- CI hors Revit : **68 tests réussis**.
+- CI hors Revit : **71 tests réussis**.
 
 ### À valider dans Revit 2025.4
 
