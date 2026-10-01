@@ -478,6 +478,14 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 **Test :** test_manual_destination_saves_only_destination_at_active_level vérifie
  le raccordement XAML et les deux niveaux ; saisie réelle à contrôler dans Revit.
 
+### BUG-EXPORT-038 — Libellé « Export » affiché deux fois dans le ruban
+
+**Symptôme :** « Export » apparaît sous l’icône du bouton puis une seconde fois comme nom du panneau.  
+**Cause racine :** le bouton n’avait pas de `bundle.yaml` définissant son titre ; pyRevit utilisait donc le nom du bundle `Export.pushbutton` comme titre visible du PushButton. Le panneau `Export.panel` génère indépendamment le titre « Export » en bas du ruban.  
+**Correction :** ajout d’un `bundle.yaml` au PushButton avec un titre techniquement non vide mais visuellement vide (`title: " "`), tooltip explicite, sans renommer la commande ni le panneau. L’icône SVG est également rééquilibrée et régénérée en plusieurs tailles depuis la source vectorielle.  
+**Règle préventive :** toujours distinguer nom interne du bundle, titre visible du bouton, tooltip et nom du panneau. Ne jamais renommer un bundle ou un panneau uniquement pour masquer un texte de ruban. Un titre YAML réellement vide est à éviter car pyRevit peut retomber sur le nom du bundle.  
+**Anti-régression :** `tests/test_export_ribbon_contract.py` vérifie noms internes, métadonnée visuellement vide, tooltip, tailles PNG et absence de texte dans le SVG. Validation finale obligatoire dans Revit 2025.4 après rechargement pyRevit.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -515,6 +523,7 @@ BUG-EXPORT-031
 BUG-EXPORT-032
 BUG-EXPORT-033
 BUG-EXPORT-037
+BUG-EXPORT-038
 BUG-EXPORT-036
 BUG-EXPORT-035
 BUG-EXPORT-034

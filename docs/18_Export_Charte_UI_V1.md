@@ -92,3 +92,11 @@ présenter comme des validations graphiques effectuées.
 Le sélecteur filtrable des paramètres de feuilles et des **Informations sur le projet**
 a été testé dans Revit 2025.4 et confirmé fonctionnel par l'utilisateur.
 La branche peut être fusionnée dans `main`.
+## Correctif ruban Export — validation ciblée
+
+| Test | Vérification dans Revit 2025.4 | État |
+|---|---|---|
+| UI-13 | Recharger pyRevit : icône Export visible, aucun texte sous l’icône, panneau « Export » conservé, tooltip fonctionnel, clic ouvrant le module. | À tester |
+
+Le correctif ne renomme ni `Export.pushbutton` ni `Export.panel`. La validation réelle du ruban reste obligatoire avant fusion dans `main`.
+

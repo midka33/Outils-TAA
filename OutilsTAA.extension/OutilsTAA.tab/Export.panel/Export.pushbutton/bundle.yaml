@@ -1,0 +1,4 @@
+# Le titre contient volontairement un seul espace.
+# pyRevit utilise sinon le nom du bundle "Export" comme libellé visible.
+title: " "
+tooltip: "Entry point for the Export module."

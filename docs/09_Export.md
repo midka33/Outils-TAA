@@ -60,6 +60,35 @@ accent orange pastel, sélection pêche et pictogrammes vectoriels.
 Les actions et le périmètre fonctionnel restent ceux de la V1 ; les maquettes ne
 réintroduisent pas les options différées en V2. Validation graphique et non-régression Revit 2025.4 confirmées le 2026-10-01 ; voir `docs/18_Export_Charte_UI_V1.md`.
 
+## Ruban Revit — bouton Export graphique seul
+
+Le ruban distingue quatre notions qui ne doivent pas être confondues :
+
+- **nom interne de commande** : `Export.pushbutton` ;
+- **titre visible du PushButton** : métadonnée `title` de `bundle.yaml` ;
+- **tooltip** : métadonnée `tooltip` de `bundle.yaml` ;
+- **nom du panneau** : dossier `Export.panel`, qui reste affiché « Export ».
+
+Sans métadonnée spécifique, pyRevit dérive le titre visible du bouton du nom du bundle
+`Export.pushbutton`. Le panneau est lui aussi nommé `Export`, d’où le double affichage.
+
+Le correctif conserve les noms internes et le panneau. Le `bundle.yaml` du bouton définit
+volontairement un titre constitué d'un **espace simple entre guillemets**. Un titre vide
+n'est pas utilisé car les versions récentes du parseur pyRevit retombent sur le nom du
+bundle lorsqu'un titre est vide ; l'espace reste non vide techniquement mais ne produit
+aucun glyphe visible dans le ruban. Le tooltip reste explicite et indépendant.
+
+L’icône reste issue d’une source SVG, sans texte, avec :
+
+- orange de marque `#FA641F` ;
+- pictogramme blanc ;
+- symbole d’export agrandi dans le canevas ;
+- rendus 16 × 16, 32 × 32 et 96 × 96 ;
+- `icon.png` et `icon.dark.png` fournis au bundle.
+
+La validation finale doit être faite dans Revit 2025.4 après rechargement de pyRevit :
+le bouton doit afficher l’icône seule et le panneau doit continuer d’afficher « Export ».
+
 ## 1. Vision
 
 **Export** est le gestionnaire de publications des **Outils TAA**.

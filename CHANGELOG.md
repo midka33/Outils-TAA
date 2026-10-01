@@ -18,6 +18,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Ruban Export : le libellé du PushButton est désormais visuellement masqué sans renommer la commande ni le panneau ; le panneau conserve « Export » et l’icône vectorielle est agrandie dans son canevas.
 - Calculs des pièces : correction du masquage du package métier `calculation` par le dossier de tests et sécurisation de la syntaxe générée des fichiers WPF/workflow.
 - Calculs des pièces : correction de la collision Python du module générique `models` et agrégation de l'état readonly avant filtrage des destinations écrivable.
 - Sous-dossiers : bouton de retour à l’héritage du parent, origine des réglages
