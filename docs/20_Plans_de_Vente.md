@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.7  
+**Version :** 0.8  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1474,3 +1474,75 @@ Le comportement attendu est maintenant :
 2. aucune erreur bloquante « Cette vue Revit n'autorise pas... » ne doit apparaître avant création ;
 3. si la vue dépendante accepte la forme après création, le résultat doit indiquer `Contour optimisé` ;
 4. si elle reste incompatible, le résultat doit indiquer `Rectangle de secours` avec la raison précise liée à la vue cible / au Scope Box.
+
+
+## Prototype A.3.3 — Marge géométrique robuste
+
+Le test Revit a permis d'isoler précisément le problème de marge :
+
+- **20 mm : contour optimisé fonctionnel** ;
+- **25 mm et plus : fallback rectangle** ;
+- étape en échec : `Application de la marge`.
+
+Ce comportement montre que l'union des pièces et l'extraction du contour sont correctes. Le point faible était `CurveLoop.CreateViaOffset`.
+
+### Pourquoi l'offset échoue
+
+Sur un contour concave, certains petits décrochements ou retours deviennent incompatibles lorsque la distance d'offset dépasse leur taille locale. Revit doit décaler puis retailler les arêtes pour reconstituer une boucle continue ; cette opération peut échouer brutalement lorsque la topologie doit changer.
+
+La marge d'un plan de vente pouvant atteindre plusieurs centaines de millimètres, cette dépendance n'est pas suffisamment robuste.
+
+### Nouveau principe
+
+`CreateViaOffset` est retiré du moteur de marge.
+
+Le contour est dilaté par géométrie booléenne :
+
+```text
+Contour extérieur du logement
+           ↓
+Solide de base
+           +
+Bandes autour de chaque arête
+largeur = 2 × marge
+           +
+Raccord octogonal autour
+de chaque sommet
+           ↓
+Union booléenne
+           ↓
+Boucle extérieure
+           ↓
+Linéarisation
+           ↓
+Crop Revit
+```
+
+Les bandes garantissent la marge perpendiculairement aux façades du contour.
+
+Les raccords octogonaux absorbent les changements de topologie dans les angles et les petits décrochements. Leur rayon est ajusté pour que l'apothème corresponde à la marge demandée : le crop ne doit donc jamais être inférieur à la marge saisie.
+
+### Conséquence visuelle
+
+La marge est très proche d'un buffer arrondi mais reste constituée uniquement de segments droits, ce qui reste compatible avec le crop Revit.
+
+Aux raccords, l'écart peut être légèrement supérieur à la marge demandée, mais jamais inférieur.
+
+### Validation Revit
+
+Rejouer un logement irrégulier avec :
+
+- 20 mm ;
+- 25 mm ;
+- 100 mm ;
+- 500 mm.
+
+Le résultat attendu est `Contour optimisé` pour chaque valeur.
+
+Ensuite refaire au minimum :
+
+- un logement presque rectangulaire ;
+- un logement en L ;
+- un logement irrégulier.
+
+La vue principale doit rester inchangée.
