@@ -3,6 +3,12 @@ from __future__ import unicode_literals
 
 """Point d'entrée pyRevit de Calculs des pièces."""
 
+__title__ = "Calculs\ndes pièces"
+__doc__ = (
+    "Regroupe les pièces du projet, additionne un paramètre et écrit "
+    "le total dans un paramètre de destination."
+)
+
 import os
 import sys
 
