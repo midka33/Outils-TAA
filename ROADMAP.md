@@ -54,6 +54,17 @@
 - [ ] Terminer les tests V1, dont TEST-44 et profils P1 à P4, puis la non-régression.
 - [ ] Finaliser et sortir Export V1 avant de reprendre les fonctionnalités V2.
 
+### V1 — Finition graphique TAA
+
+- [x] Socle fonctionnel validé par l'utilisateur le 2026-09-30, TEST-44 et profils P1–P4 compris.
+- [x] Thème commun orange pastel, typographie, contrôles, tableaux et pictogrammes.
+- [x] Application aux cinq fenêtres Export et adaptation des champs au redimensionnement.
+- [x] Valider le rendu réel, clavier et DPI dans Revit 2025.4.
+- [x] Rejouer la non-régression après refonte dans Revit 2025.4.
+- [x] Accepter la finition graphique et le sélecteur de paramètres après validation utilisateur le 2026-10-01.
+
+Voir `docs/18_Export_Charte_UI_V1.md` pour les contrôles réalisés et ceux restant dans Revit.
+
 ### V2 — Réévaluer la publication des seules mises en page nouvelles ou modifiées
 
 **Reportée après finalisation et sortie de la V1 ; réintroduction à décider.**
@@ -126,3 +137,9 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 - [ ] Ajouter tests d'intégration Revit.
 - [ ] Ajouter validation de structure du dépôt.
 - [ ] Documenter les procédures de release.
+
+### Export — après stabilisation V1
+
+- Étudier l'export PDF en arrière-plan : suivi des tâches Revit, annulation, rapport
+  différé et livraison/renommage sécurisés après achèvement. La case reste désactivée
+  dans la V1 synchrone ; ne pas l'activer uniquement via SetExportInBackground(True).

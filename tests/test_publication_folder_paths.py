@@ -51,7 +51,8 @@ def test_preview_matches_export_and_creates_only_needed_folders(tmp_path, pdf_co
             path.write_text('export simulé')
             delivered.append(str(path))
             return True
-        def export_named_separate(self, ids, directory, filenames):
+        def export_named_separate(self, ids, directory, filenames, export_quality=300, settings=None):
+            assert export_quality == 300
             paths = []
             for filename in filenames:
                 path = Path(directory) / filename

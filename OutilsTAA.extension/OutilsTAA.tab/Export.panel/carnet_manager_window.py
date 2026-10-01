@@ -3,6 +3,7 @@
 
 import os
 from pyrevit import forms
+from taa_ui_theme import apply_theme
 from System.Windows import Visibility
 
 
@@ -17,6 +18,7 @@ class CarnetManagerWindow(forms.WPFWindow):
         self.rows = []
         xaml_path = os.path.join(os.path.dirname(__file__), "carnet_manager.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
+        apply_theme(self)
         if owner is not None:
             self.Owner = owner
         self._load_parameters()

@@ -1,24 +1,138 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Export" Height="850" Width="1220" MinHeight="700" MinWidth="1000" WindowStartupLocation="CenterScreen">
-<Grid Margin="16"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-<TextBlock Grid.Row="0" Text="Export" FontSize="24" FontWeight="Bold" Margin="0,0,0,12"/>
-<Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="2.2*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-<Border Grid.Column="0" BorderBrush="#D0D0D0" BorderThickness="1" Padding="10" Margin="0,0,8,0"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-<DockPanel Grid.Row="0" Margin="0,0,0,8"><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><Button Content="Nouveau dossier" Click="NewFolder_Click" MinWidth="110" Margin="4,0"/><Button Content="Ajouter / gérer…" Click="OpenCarnetManager_Click" MinWidth="130" Margin="4,0"/></StackPanel><StackPanel><TextBlock Text="Arborescence de publication" FontSize="16" FontWeight="Bold"/><TextBlock Text="Sélectionnez un dossier, un carnet ou une mise en page." Margin="0,3,0,0" TextWrapping="Wrap"/></StackPanel></DockPanel>
-<TreeView x:Name="PublicationTree" Grid.Row="1" AllowDrop="True" SelectedItemChanged="Tree_SelectedItemChanged" MouseDoubleClick="Tree_MouseDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-<StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0"><Button Content="Supprimer" Click="DeleteNode_Click" MinWidth="90"/></StackPanel></Grid></Border>
-<Border Grid.Column="1" BorderBrush="#D0D0D0" BorderThickness="1" Padding="12" Margin="8,0,0,0"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-<TextBlock Grid.Row="0" Text="Réglages de publication" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
-<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="SettingsPanel">
-<TextBlock x:Name="SelectedNodeText" Text="Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence." TextWrapping="Wrap" Margin="0,0,0,12"/>
-<StackPanel Orientation="Horizontal" Margin="0,0,0,10"><TextBlock Text="Profil :" VerticalAlignment="Center"/><ComboBox x:Name="ProfileCombo" Width="210" Margin="8,0,0,0" SelectionChanged="ProfileChanged"/><Button Content="Enregistrer…" Click="SaveProfile_Click" Width="95" Margin="6,0,0,0"/><Button Content="Supprimer" Click="DeleteProfile_Click" Width="80" Margin="6,0,0,0"/></StackPanel>
-<TextBlock x:Name="ProfileInfoText" Text="Les profils mémorisent les réglages PDF/DWG." FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-<StackPanel Orientation="Horizontal" Margin="0,0,0,8"><TextBlock Text="Dossier :" VerticalAlignment="Center"/><ComboBox x:Name="FolderCombo" DisplayMemberPath="name" Width="210" Margin="8,0,0,0" SelectionChanged="FolderChanged"/></StackPanel>
-<Border BorderBrush="#E0E0E0" BorderThickness="1" Padding="7" Margin="0,0,0,8"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" x:Name="InheritanceInfoText" Text="" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/><Button Grid.Column="1" x:Name="RevertInheritanceButton" Content="Revenir à l’héritage du dossier" Click="RevertInheritance_Click" MinWidth="190" IsEnabled="False" Margin="8,0,0,0"/></Grid></Border>
-<GroupBox Header="PDF" Padding="8" Margin="0,0,0,8"><StackPanel><CheckBox x:Name="PdfCheckBox" Content="Publier en PDF" Checked="SettingsChanged" Unchecked="SettingsChanged"/><StackPanel Orientation="Horizontal" Margin="18,8,0,0"><RadioButton x:Name="PdfCombinedRadio" Content="Combiné" GroupName="PdfMode" IsChecked="True" Checked="SettingsChanged"/><RadioButton x:Name="PdfSeparateRadio" Content="Séparé" GroupName="PdfMode" Margin="15,0,0,0" Checked="SettingsChanged"/></StackPanel></StackPanel></GroupBox>
-<GroupBox Header="DWG" Padding="8" Margin="0,0,0,8"><StackPanel><CheckBox x:Name="DwgCheckBox" Content="Publier en DWG" Checked="SettingsChanged" Unchecked="SettingsChanged"/><StackPanel Orientation="Horizontal" Margin="18,8,0,0"><RadioButton x:Name="DwgCombinedRadio" Content="Combiné" GroupName="DwgMode" Checked="SettingsChanged"/><RadioButton x:Name="DwgSeparateRadio" Content="Séparé" GroupName="DwgMode" IsChecked="True" Margin="15,0,0,0" Checked="SettingsChanged"/></StackPanel><StackPanel Orientation="Horizontal" Margin="18,8,0,0"><TextBlock Text="Configuration :" VerticalAlignment="Center"/><ComboBox x:Name="DwgSetupCombo" Width="180" Margin="8,0,0,0" SelectionChanged="SettingsChanged"/><CheckBox x:Name="DwgTrueColorCheckBox" Content="Couleur vraie" IsChecked="True" Margin="12,0,0,0" Checked="SettingsChanged" Unchecked="SettingsChanged"/></StackPanel></StackPanel></GroupBox>
-<GroupBox Header="Destination et nommage" Padding="8"><StackPanel><TextBlock Text="Dossier de publication"/><StackPanel Orientation="Horizontal" Margin="0,5,0,8"><TextBox x:Name="OutputDirectoryTextBox" Height="28" HorizontalAlignment="Stretch" Width="250"/><Button Content="Parcourir…" Click="BrowseOutput_Click" Width="85" Margin="6,0,0,0"/></StackPanel><TextBlock Text="Modèle de nommage"/><StackPanel Orientation="Horizontal" Margin="0,5,0,0"><TextBox x:Name="FilenameTemplateTextBox" Height="28" Width="250" TextChanged="SettingsChanged"/><ComboBox x:Name="FilenameTokenCombo" Width="135" Margin="6,0,0,0" SelectionChanged="FilenameTokenChanged"/><Button Content="Insérer" Click="InsertFilenameToken_Click" Width="70" Margin="6,0,0,0"/></StackPanel><TextBlock Text="Variables : {carnet}, {numero}, {nom}, {nom_complet}, {projet}, {date}, {indice}, {dossier}, {parametre:Nom}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/><TextBlock Text="Aperçu du nom" Margin="0,8,0,0"/><TextBlock x:Name="FilenamePreviewText" Text="—" FontWeight="Bold" TextWrapping="Wrap" Margin="0,3,0,0"/></StackPanel></GroupBox>
-</StackPanel></ScrollViewer>
-<TextBlock Grid.Row="2" x:Name="SelectionInfo" Text="Sélectionnez un dossier, un carnet ou une mise en page." TextWrapping="Wrap" Margin="0,10,0,0"/>
-</Grid></Border></Grid>
-<GroupBox Grid.Row="2" Header="Publication" Padding="8" Margin="0,12,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="La sélection dans l'arborescence détermine le périmètre publié." VerticalAlignment="Center"/><Button Grid.Column="1" x:Name="PublishButton" Content="Publier…" Click="Publish_Click" MinHeight="38" MinWidth="230" IsEnabled="False"/></Grid></GroupBox>
-</Grid></Window>
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Export — Outils TAA" Height="760" Width="1320" MinHeight="620" MinWidth="1060" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource TaaBackground}" Foreground="{DynamicResource TaaText}" UseLayoutRounding="True">
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+      <Border Width="40" Height="40" CornerRadius="4" Background="{DynamicResource TaaBrand}" Margin="0,0,12,0" DockPanel.Dock="Left">
+        <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="Export" FontSize="20" FontWeight="SemiBold" Margin="0" />
+        <TextBlock Text="Publication PDF et DWG · Outils TAA" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
+      </StackPanel>
+    </DockPanel>
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1*" />
+        <ColumnDefinition Width="1.25*" />
+      </Grid.ColumnDefinitions>
+      <Border Grid.Column="0" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="10" Margin="0,0,8,0" Style="{DynamicResource TaaCard}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <StackPanel>
+              <TextBlock Text="Arborescence de publication" FontSize="16" FontWeight="Bold" />
+              <TextBlock Text="Sélectionnez un dossier, un carnet ou une mise en page." Margin="0,3,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
+              <Button Content="Nouveau dossier" Click="NewFolder_Click" MinWidth="110" Margin="4,0" ToolTip="Nouveau dossier" />
+              <Button Content="Ajouter / gérer…" Click="OpenCarnetManager_Click" MinWidth="130" Margin="4,0" ToolTip="Ajouter / gérer…" />
+            </StackPanel>
+          </StackPanel>
+          <TreeView x:Name="PublicationTree" Grid.Row="1" AllowDrop="True" SelectedItemChanged="Tree_SelectedItemChanged" MouseDoubleClick="Tree_MouseDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,4,0,0" />
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Content="Supprimer" Click="DeleteNode_Click" MinWidth="90" ToolTip="Supprimer les éléments sélectionnés (Ctrl / Maj). Les feuilles Revit sont conservées." />
+          </StackPanel>
+        </Grid>
+      </Border>
+      <Border Grid.Column="1" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="12" Margin="8,0,0,0" Style="{DynamicResource TaaCard}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <TextBlock Grid.Row="0" Text="Réglages de publication" FontSize="16" FontWeight="Bold" Margin="0,0,0,10" />
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="SettingsPanel">
+              <TextBlock x:Name="SelectedNodeText" Text="Sélectionnez une publication." TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="Profil" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox x:Name="ProfileCombo" Grid.Column="1" MinHeight="28" Padding="6,2" SelectionChanged="ProfileChanged" ToolTip="{Binding Text, ElementName=ProfileInfoText}"/>
+                <Button Grid.Column="2" Content="Enregistrer…" Click="SaveProfile_Click" MinHeight="28" Padding="8,3" Margin="6,0,0,0" ToolTip="Enregistrer les réglages comme profil"/>
+                <Button Grid.Column="3" Content="Supprimer" Click="DeleteProfile_Click" MinHeight="28" Padding="8,3" Margin="6,0,0,0" ToolTip="Supprimer le profil sélectionné"/>
+              </Grid>
+              <TextBlock x:Name="ProfileInfoText" Text="" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TaaSecondary}" Margin="0,0,0,4" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+              <Grid x:Name="InheritanceRow" Margin="0,0,0,8" Visibility="Collapsed">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock x:Name="InheritanceInfoText" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{DynamicResource TaaSecondary}" Margin="0,0,8,0"/>
+                <Button x:Name="RevertInheritanceButton" Grid.Column="1" Content="Revenir à l'héritage" Click="RevertInheritance_Click" MinHeight="30" Padding="8,3" IsEnabled="False" ToolTip="Effacer les surcharges de ce niveau uniquement"/>
+              </Grid>
+              <TextBlock Text="PDF" FontWeight="SemiBold" Margin="0,0,0,4"/>
+              <WrapPanel Margin="0,0,0,10">
+                <CheckBox x:Name="PdfCheckBox" Content="Publier" Checked="SettingsChanged" Unchecked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,12,4"/>
+                <RadioButton x:Name="PdfCombinedRadio" Content="Combiné" GroupName="PdfMode" IsChecked="True" Checked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                <RadioButton x:Name="PdfSeparateRadio" Content="Séparé" GroupName="PdfMode" Checked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,12,4"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
+                  <TextBlock Text="Qualité" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <ComboBox x:Name="PdfQualityCombo" Width="76" MinHeight="28" Padding="6,2" SelectionChanged="SettingsChanged" ToolTip="Résolution PDF en DPI"/>
+                  <TextBlock Text="DPI" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+                <Button x:Name="PdfSettingsButton" Click="PdfSettings_Click" Width="30" MinHeight="28" Padding="5" Margin="0,0,0,4" ToolTip="Paramètres PDF" AutomationProperties.Name="Paramètres PDF">
+                  <Path Data="{DynamicResource TaaSettingsIcon}" Width="16" Height="16" Stretch="Uniform" Stroke="{DynamicResource TaaAccentPressed}" StrokeThickness="1.7"/>
+                </Button>
+              </WrapPanel>
+              <TextBlock Text="DWG" FontWeight="SemiBold" Margin="0,0,0,4"/>
+              <WrapPanel Margin="0,0,0,10">
+                <CheckBox x:Name="DwgCheckBox" Content="Publier" Checked="SettingsChanged" Unchecked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,12,4"/>
+                <RadioButton x:Name="DwgCombinedRadio" Content="Combiné" GroupName="DwgMode" Checked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                <RadioButton x:Name="DwgSeparateRadio" Content="Séparé" GroupName="DwgMode" IsChecked="True" Checked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,12,4"/>
+                <ComboBox x:Name="DwgSetupCombo" Width="150" MinHeight="28" Padding="6,2" Margin="0,0,12,4" SelectionChanged="SettingsChanged" ToolTip="Configuration DWG Revit"/>
+                <CheckBox x:Name="DwgTrueColorCheckBox" Content="Couleur vraie" IsChecked="True" Checked="SettingsChanged" Unchecked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,0,4"/>
+              </WrapPanel>
+              <TextBlock Text="Destination et nommage" FontWeight="SemiBold" Margin="0,0,0,8"/>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="Destination" VerticalAlignment="Center"/>
+                <TextBox x:Name="OutputDirectoryTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" LostFocus="SettingsChanged" ToolTip="Dossier de publication"/>
+                <Button Grid.Column="2" Click="BrowseOutput_Click" Width="30" MinHeight="28" Padding="5" Margin="6,0,0,0" ToolTip="Choisir le dossier de publication" AutomationProperties.Name="Choisir le dossier de publication">
+                  <Path Data="{DynamicResource TaaFolderIcon}" Width="18" Height="16" Stretch="Uniform" Stroke="{DynamicResource TaaAccentPressed}" StrokeThickness="1.5"/>
+                </Button>
+              </Grid>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock Text="Nom du fichier" VerticalAlignment="Center"/>
+                <TextBox x:Name="FilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Modèle de nommage. Les variables sont disponibles dans Options avancées."/>
+              </Grid>
+              <TextBlock x:Name="FilenamePreviewText" Text="—" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Margin="100,0,0,8" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+              <CheckBox x:Name="CarnetSubfolderCheckBox" Content="Créer un sous-dossier pour ce carnet" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,10" ToolTip="Exports séparés uniquement. Par défaut, les feuilles sont regroupées dans un dossier au nom du carnet. Les exports combinés restent dans le dossier parent."/>
+              <Expander x:Name="AdvancedOptions" Header="Options avancées" IsExpanded="False">
+                <Grid Margin="0,8,0,0">
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBox x:Name="FilenameVariableSearch" MinHeight="28" Padding="6,3" Margin="0,0,0,6" TextChanged="FilenameVariableSearchChanged" ToolTip="Rechercher une variable, un paramètre de feuille ou des informations sur le projet"/>
+                  <DockPanel Grid.Row="1">
+                    <Button Content="Insérer" Click="InsertFilenameToken_Click" MinHeight="28" Padding="8,3" Margin="6,0,0,0" DockPanel.Dock="Right"/>
+                    <ComboBox x:Name="FilenameTokenCombo" MinHeight="28" Padding="6,2" DisplayMemberPath="Label" MaxDropDownHeight="280" ToolTip="Choisir un paramètre puis cliquer sur Insérer"/>
+                  </DockPanel>
+                  <TextBlock Grid.Row="2" Text="Rechercher ci-dessus, choisir une variable puis Insérer. Feuille : paramètres de la feuille exportée (première feuille pour un PDF combiné). Informations sur le projet : paramètres communs au projet." FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource TaaSecondary}"/>
+                </Grid>
+              </Expander>
+            </StackPanel>
+          </ScrollViewer>
+          <TextBlock Grid.Row="2" x:Name="SelectionInfo" Visibility="Collapsed" Text="Sélectionnez un dossier, un carnet ou une mise en page." TextWrapping="Wrap" Margin="0,10,0,0" />
+        </Grid>
+      </Border>
+    </Grid>
+    <GroupBox Grid.Row="2" Header="Résumé de la publication" Padding="8" Margin="0,12,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock x:Name="PublicationSummaryText" Grid.Column="0" Text="Aucune publication sélectionnée." TextWrapping="Wrap" Margin="0,0,16,0" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <Button Content="Aperçu…" Click="Preview_Click" Margin="0,0,8,0" IsEnabled="{Binding IsEnabled, ElementName=PublishButton}" ToolTip="Consulter les livrables sans lancer la publication"/>
+        <Button x:Name="PublishButton" Content="Publier…" Click="Publish_Click" MinHeight="40" MinWidth="180" IsEnabled="False" Style="{DynamicResource TaaPrimaryButton}" ToolTip="Publier…" />
+        </StackPanel>
+      </Grid>
+    </GroupBox>
+  </Grid>
+</Window>

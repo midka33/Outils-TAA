@@ -114,7 +114,7 @@ def test_starred_sheet_number_matches_sanitized_native_output(tmp_path, monkeypa
             return SimpleNamespace(SheetNumber='PC 09*' if element_id == 1 else 'PC 10')
     service = PdfExportService(Document())
     calls = []
-    def export(ids, directory, quality, use_sheet_numbers):
+    def export(ids, directory, quality, use_sheet_numbers, settings=None):
         calls.append(ids)
         assert use_sheet_numbers
         Path(directory, 'taa_PC 10.pdf').write_bytes(b'10')
@@ -169,7 +169,8 @@ def test_orchestrator_and_preview_use_the_same_effective_names(tmp_path):
             return SimpleNamespace(Id=value, CanBePrinted=True)
     service = PublicationService(Document())
     native_calls = []
-    def export(ids, directory, names):
+    def export(ids, directory, names, export_quality=300, settings=None):
+        assert export_quality == 300
         native_calls.append((ids, names))
         paths = []
         for name in names:

@@ -5,6 +5,7 @@ import os
 import subprocess
 
 from pyrevit import forms
+from taa_ui_theme import apply_theme
 
 
 class PublicationPreviewWindow(forms.WPFWindow):
@@ -15,6 +16,7 @@ class PublicationPreviewWindow(forms.WPFWindow):
         self.confirmed = False
         xaml_path = os.path.join(os.path.dirname(__file__), "publication_preview.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
+        apply_theme(self)
         self._set_owner(owner)
         self._load()
 

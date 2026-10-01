@@ -430,6 +430,54 @@ relecture du dossier, conservation des descendants ; validation Revit restante.
 **Règle :** un dossier de tests ne doit pas porter le même nom de package importable qu'un package métier lorsque sa présence dans `sys.path` peut créer un masquage.  
 **Anti-régression :** exécuter `python -m pytest tests/calculation -q` dans un environnement vierge et vérifier que les imports `calculation.*` résolvent le package sous `OutilsTAA.extension/lib`.
 
+### BUG-EXPORT-034 — Champs de réglages comprimés par des largeurs fixes
+
+**Symptôme :** les rangées de profil et de nommage peuvent dépasser la colonne de
+réglages lors d'une réduction de fenêtre ; le bloc héritage laisse trop peu de place au texte.
+**Cause :** somme des largeurs fixes dans des StackPanel horizontaux sans retour à la ligne.
+**Correction :** rangées souples DockPanel/Grid, variables sur une seconde ligne,
+profils/configuration en WrapPanel et action d'héritage sous la description.
+**Règle préventive :** tester les largeurs minimales et les DPI réels ; ne pas assimiler
+la validité XML à une validation WPF. Préserver les noms, événements et bindings.
+**Contrôle :** contrats XAML conservés ; tests UI-01 à UI-06 à exécuter dans Revit.
+
+### BUG-EXPORT-035 — Suppression ignorant la sélection Ctrl/Maj
+
+**Symptôme :** plusieurs lignes sélectionnées mais une seule supprimée.
+**Cause :** handler limité à TreeView.SelectedItem, distinct de la sélection du
+ gestionnaire de glisser-déposer.
+**Correction :** instantané des tags sélectionnés, confirmation nominative commune,
+ enfants sélectionnés avant parents, protection Général et dossiers non vides,
+ prise en compte des carnets de session. Navigation clavier efface la sélection
+ multiple périmée ; un clic sur un élément non sélectionnable l'efface aussi.
+**Règle préventive :** les actions groupées doivent utiliser la même sélection que
+ l'affichage et ne jamais supprimer implicitement des enfants non sélectionnés.
+**Tests :** `test_export_ui_completion.py` couvre suppression, annulation,
+ sélection, sessions et protections ; UI-08 reste à valider dans Revit.
+
+### BUG-EXPORT-036 — Formats et périmètre absents de la présentation principale
+
+**Symptôme :** icônes génériques de feuilles et pied de fenêtre statique.
+**Cause :** absence de raccordement des en-têtes et du résumé aux réglages résolus.
+**Correction :** calcul à partir des mêmes cibles et du même SettingsResolver que
+ la publication ; actualisation après sélection, modification, profil et héritage.
+**Règle préventive :** afficher les valeurs effectives sans les enregistrer comme
+ surcharges ; distinguer résumé prévu et validation par l'aperçu.
+**Tests :** `test_export_ui_completion.py` couvre formats mixtes, ancêtres,
+ feuille seule et actualisation des vraies méthodes ; UI-09/UI-11 à valider dans Revit.
+
+### BUG-EXPORT-037 — Destination saisie au clavier non enregistrée
+
+**Symptôme reproductible dans le XAML :** le chemin tapé dans la destination ne
+ déclenche aucun enregistrement, contrairement au bouton Parcourir.
+**Cause :** OutputDirectoryTextBox n'avait ni TextChanged ni LostFocus raccordé.
+**Correction :** LostFocus appelle le handler canonique SettingsChanged, qui
+ sauvegarde uniquement output_directory au niveau actif.
+**Règle préventive :** tester aussi la saisie directe d'un champ possédant un
+ sélecteur externe ; ne pas transformer tous les champs hérités en surcharges.
+**Test :** test_manual_destination_saves_only_destination_at_active_level vérifie
+ le raccordement XAML et les deux niveaux ; saisie réelle à contrôler dans Revit.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -466,6 +514,10 @@ BUG-EXPORT-030
 BUG-EXPORT-031
 BUG-EXPORT-032
 BUG-EXPORT-033
+BUG-EXPORT-037
+BUG-EXPORT-036
+BUG-EXPORT-035
+BUG-EXPORT-034
 BUG-TEST-002
 BUG-CALCULS-001
 BUG-CALCULS-002

@@ -3,6 +3,7 @@
 
 import json
 import os
+from pdf_options import defaults as pdf_defaults
 
 
 class PublicationProfileService(object):
@@ -68,14 +69,20 @@ class PublicationProfileService(object):
     @staticmethod
     def _settings_to_dict(settings):
         """Un profil stocke des valeurs concrètes, jamais None pour les booléens/modes."""
-        return {
+        result = {
             "pdf_enabled": True if settings.pdf_enabled is None else bool(settings.pdf_enabled),
             "pdf_mode": settings.pdf_mode or "COMBINED",
+            "pdf_quality": getattr(settings, "pdf_quality", None) or 300,
             "dwg_enabled": True if settings.dwg_enabled is None else bool(settings.dwg_enabled),
             "dwg_mode": settings.dwg_mode or "SEPARATE",
             "dwg_setup_name": settings.dwg_setup_name,
             "dwg_true_color": True if settings.dwg_true_color is None else bool(settings.dwg_true_color)
         }
+
+        for field, default in pdf_defaults().items():
+            value = getattr(settings, field, None)
+            result[field] = default if value is None else bool(value)
+        return result
 
     def _read(self):
         if not os.path.exists(self.storage_path):

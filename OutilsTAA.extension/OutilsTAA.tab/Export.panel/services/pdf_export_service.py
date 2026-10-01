@@ -5,6 +5,7 @@ import os
 from pdf_file_delivery import (deliver_named_pdfs, validate_names,
                                validate_native_keys, reconcile_native_pdfs)
 from filename_service import FilenameService
+from pdf_options import apply_options
 
 
 class PdfExportService(object):
@@ -73,7 +74,7 @@ class PdfExportService(object):
         return quality_map[numeric_quality]
 
     def export_combined(self, sheet_ids, output_directory, filename,
-                        export_quality=300):
+                        export_quality=300, settings=None):
         """Exporte toutes les feuilles dans un PDF unique."""
         from Autodesk.Revit.DB import PDFExportOptions
 
@@ -85,6 +86,7 @@ class PdfExportService(object):
         options.Combine = True
         options.FileName = filename
         options.ExportQuality = self._to_export_quality(export_quality)
+        apply_options(options, settings)
 
         return self.document.Export(
             output_directory,
@@ -93,7 +95,7 @@ class PdfExportService(object):
         )
 
     def export_named_separate(self, sheet_ids, output_directory, filenames,
-                              export_quality=300):
+                              export_quality=300, settings=None):
         """Associe chaque PDF à son numéro de feuille, puis applique le modèle TAA."""
         self._validate(sheet_ids, output_directory)
         sheet_ids = list(sheet_ids)
@@ -111,7 +113,7 @@ class PdfExportService(object):
 
         def export_and_match(directory):
             success = self.export_separate(
-                sheet_ids, directory, export_quality, use_sheet_numbers=True)
+                sheet_ids, directory, export_quality, use_sheet_numbers=True, settings=settings)
             if success:
                 reconcile_native_pdfs(directory, source_names)
             return success
@@ -120,7 +122,7 @@ class PdfExportService(object):
             output_directory, source_names, filenames, export_and_match)
 
     def export_separate(self, sheet_ids, output_directory,
-                        export_quality=300, use_sheet_numbers=False):
+                        export_quality=300, use_sheet_numbers=False, settings=None):
         """Exporte chaque feuille dans son propre PDF.
 
         Le nom de chaque fichier est alors généré par Revit selon sa règle de
@@ -147,6 +149,7 @@ class PdfExportService(object):
             rule.Add(field)
             options.SetNamingRule(rule)
         options.ExportQuality = self._to_export_quality(export_quality)
+        apply_options(options, settings)
 
         return self.document.Export(
             output_directory,
@@ -155,18 +158,18 @@ class PdfExportService(object):
         )
 
     def export(self, sheet_ids, output_directory, filename=None,
-               combined=True, export_quality=300):
+               combined=True, export_quality=300, settings=None):
         """Point d'entrée compatible pour les deux modes PDF."""
         if combined:
             return self.export_combined(
                 sheet_ids,
                 output_directory,
                 filename,
-                export_quality
+                export_quality, settings=settings
             )
 
         return self.export_separate(
             sheet_ids,
             output_directory,
-            export_quality
+            export_quality, settings=settings
         )

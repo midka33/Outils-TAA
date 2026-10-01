@@ -4,6 +4,7 @@
 import os
 
 from pyrevit import forms
+from taa_ui_theme import apply_theme
 
 
 class PublicationReportRow(object):
@@ -36,6 +37,7 @@ class PublicationReportWindow(forms.WPFWindow):
             "publication_report.xaml"
         )
         forms.WPFWindow.__init__(self, xaml_path)
+        apply_theme(self)
 
         if owner is not None:
             self.Owner = owner
