@@ -12,7 +12,8 @@ PANEL_DIR = os.path.join(
     "OutilsTAA.tab",
     "Export.panel",
 )
-BUTTON_DIR = os.path.join(PANEL_DIR, "Export.pushbutton")
+BUTTON_DIR = os.path.join(PANEL_DIR, "Export.smartbutton")
+OLD_BUTTON_DIR = os.path.join(PANEL_DIR, "Export.pushbutton")
 ICON_DIR = os.path.join(
     ROOT,
     "OutilsTAA.extension",
@@ -34,18 +35,24 @@ def _png_size(path):
     return struct.unpack(">II", header[16:24])
 
 
-def test_export_button_keeps_internal_bundle_and_panel_names():
-    assert os.path.basename(BUTTON_DIR) == "Export.pushbutton"
+def test_export_button_keeps_export_identity_and_panel_name():
+    assert os.path.basename(BUTTON_DIR).split(".")[0] == "Export"
     assert os.path.basename(PANEL_DIR) == "Export.panel"
     assert os.path.exists(os.path.join(BUTTON_DIR, "script.py"))
+    assert not os.path.exists(OLD_BUTTON_DIR)
 
 
-def test_export_button_uses_visually_empty_bundle_title():
+def test_export_button_keeps_nonempty_api_title_and_hides_only_visual_text():
     metadata = _read(os.path.join(BUTTON_DIR, "bundle.yaml"))
-    lines = [line.rstrip("\r\n") for line in metadata.splitlines()]
-    assert 'title: " "' in lines
-    assert any(line.startswith("tooltip:") for line in lines)
-    assert 'title: ""' not in lines
+    script = _read(os.path.join(BUTTON_DIR, "script.py"))
+
+    assert "title: Export" in metadata
+    assert 'title: " "' not in metadata
+    assert 'title: ""' not in metadata
+    assert any(line.startswith("tooltip:") for line in metadata.splitlines())
+    assert "def __selfinit__(" in script
+    assert "ShowText = False" in script
+    assert "ShowImage = True" in script
 
 
 def test_export_ribbon_icons_are_vector_derived_and_text_free():

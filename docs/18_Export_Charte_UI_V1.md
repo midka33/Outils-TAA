@@ -96,7 +96,7 @@ La branche peut être fusionnée dans `main`.
 
 | Test | Vérification dans Revit 2025.4 | État |
 |---|---|---|
-| UI-13 | Recharger pyRevit : icône Export visible, aucun texte sous l’icône, panneau « Export » conservé, tooltip fonctionnel, clic ouvrant le module. | À tester |
+| UI-13 | Recharger pyRevit sans erreur : icône Export visible, aucun texte sous l’icône, panneau « Export » conservé, tooltip fonctionnel, clic ouvrant le module. | À retester après correction du titre vide |
 
-Le correctif ne renomme ni `Export.pushbutton` ni `Export.panel`. La validation réelle du ruban reste obligatoire avant fusion dans `main`.
+Le correctif conserve le nom de commande `Export` et `Export.panel`. Le type de bundle passe de `.pushbutton` à `.smartbutton` uniquement pour exécuter `__selfinit__` après création et appliquer `ShowText = False`. La validation réelle du ruban reste obligatoire avant fusion dans `main`.
 

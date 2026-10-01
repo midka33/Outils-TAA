@@ -69,14 +69,22 @@ Le ruban distingue quatre notions qui ne doivent pas être confondues :
 - **tooltip** : métadonnée `tooltip` de `bundle.yaml` ;
 - **nom du panneau** : dossier `Export.panel`, qui reste affiché « Export ».
 
-Sans métadonnée spécifique, pyRevit dérive le titre visible du bouton du nom du bundle
-`Export.pushbutton`. Le panneau est lui aussi nommé `Export`, d’où le double affichage.
+Sans métadonnée spécifique, pyRevit dérivait le titre visible du bouton du nom `Export`.
+Le panneau est lui aussi nommé `Export`, d’où le double affichage.
 
-Le correctif conserve les noms internes et le panneau. Le `bundle.yaml` du bouton définit
-volontairement un titre constitué d'un **espace simple entre guillemets**. Un titre vide
-n'est pas utilisé car les versions récentes du parseur pyRevit retombent sur le nom du
-bundle lorsqu'un titre est vide ; l'espace reste non vide techniquement mais ne produit
-aucun glyphe visible dans le ruban. Le tooltip reste explicite et indépendant.
+Une première tentative avec `title: " "` a été rejetée au rechargement par Revit
+(`The value cannot be empty. Parameter name: text`) : pyRevit/Revit normalise cette
+valeur comme un texte vide lors de la création du `PushButtonData`.
+
+Le correctif final conserve donc un vrai titre API `Export` et masque uniquement son
+rendu visuel après création du bouton. Pour disposer du hook pyRevit prévu à cet effet,
+le bundle devient `Export.smartbutton` tout en conservant le même nom de commande
+`Export`, le même script métier et le même panneau. Son `__selfinit__` récupère le
+`RibbonButton` Autodesk.Windows et applique `ShowText = False` ; `ShowImage` reste actif.
+
+Ce changement de type de bundle n'est pas un renommage fonctionnel : le basename
+`Export` reste inchangé et le script exécuté au clic reste le même. Le tooltip est
+conservé dans `bundle.yaml`.
 
 L’icône reste issue d’une source SVG, sans texte, avec :
 
