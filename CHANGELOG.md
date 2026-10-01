@@ -15,6 +15,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Calculs des pièces : correction de la collision Python du module générique `models` et agrégation de l'état readonly avant filtrage des destinations écrivable.
 - Sous-dossiers : bouton de retour à l’héritage du parent, origine des réglages
   nommée et libellé lisible dans la liste des dossiers.
 - Héritage des sous-dossiers : résolution récursive et affichage des valeurs effectives.
@@ -30,6 +31,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Calculs des pièces : descripteurs de paramètres sérialisables, identités GUID / ForgeTypeId / définition avec fallback contrôlé par nom, validation source/destination et gestion commune des unités Revit.
 - Calculs des pièces : premier moteur métier pur de regroupement/somme dans `lib/calculation`, indépendant de Revit et WPF, avec 6 tests unitaires exécutés hors Revit.
 - Calculs des pièces : collecte du document entier sans filtre de vue, filtre métier optionnel, première lecture typée des paramètres et 14 tests unitaires cumulés exécutés hors Revit.
 - Architecture explicite du repository.

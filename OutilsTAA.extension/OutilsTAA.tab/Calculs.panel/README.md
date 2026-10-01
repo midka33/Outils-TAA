@@ -16,4 +16,4 @@ La migration depuis l'ancien module RoomTools est en cours sur la branche `featu
 
 Le moteur métier pur de regroupement/somme est maintenant isolé dans `OutilsTAA.extension/lib/calculation/`.
 
-La collecte complète du document, le filtre métier optionnel et la première lecture typée des paramètres sont maintenant préparés. L'identité stable des paramètres, les unités, l'écriture, la persistance et l'interface WPF restent à réaliser et à valider dans Revit 2025.4.
+La collecte complète du document, le filtre métier optionnel, l'identité des paramètres, leur validation et la gestion commune des unités sont maintenant préparés et testés hors Revit. L'écriture, la persistance et l'interface WPF restent à réaliser ; tous les accès Revit doivent encore être validés dans Revit 2025.4.

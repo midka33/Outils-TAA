@@ -1,6 +1,6 @@
 # Calculs des pièces
 
-**Statut :** Migration en cours — Blocs 1 et 2 implémentés hors Revit  
+**Statut :** Migration en cours — Blocs 1 à 3 implémentés hors Revit  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`
 
@@ -209,41 +209,105 @@ Cette première implémentation reste à compléter par l'identité stable des p
 
 ---
 
-## 7. Paramètres Revit — cible du prochain bloc
+## 7. Bloc 3 — identité, validation et unités
 
-La couche Revit devra distinguer :
+Le troisième bloc fiabilise les paramètres avant toute écriture dans Revit.
 
-- identité du paramètre ;
-- nom affiché ;
-- type de stockage ;
-- type de donnée Revit ;
-- lecture possible ;
-- écriture possible ;
-- `IsReadOnly` ;
-- valeur vide ;
-- compatibilité d'unité.
+### 7.1 Descripteur de paramètre
 
-Lorsque disponible, une identité stable doit être préférée à une recherche fragile uniquement par nom :
+Le modèle `calculation.parameter_descriptor.RoomParameterDescriptor` conserve :
 
-- `BuiltInParameter` ;
+```text
+nom affiché
+identité technique
+StorageType
+DataType Revit
+unité Revit
+état writable
+```
+
+L'identité est choisie dans cet ordre :
+
+1. GUID pour un paramètre partagé ;
+2. identifiant ForgeTypeId pour un paramètre Revit intégré ;
+3. identifiant de définition Revit ;
+4. nom uniquement en dernier recours.
+
+Deux paramètres portant le même nom mais ayant deux identités différentes ne sont donc plus fusionnés silencieusement.
+
+Lorsqu'un simple nom est le seul identifiant disponible et que plusieurs paramètres portent ce nom, la résolution est considérée ambiguë et doit être bloquée.
+
+### 7.2 Agrégation de l'état d'écriture
+
+Pour une destination présente sur plusieurs pièces, l'état `writable` est agrégé sur toutes les occurrences observées.
+
+Si une seule occurrence du même paramètre est en lecture seule, le descripteur agrégé n'est pas considéré comme une destination sûre dans un filtre `writable_only`.
+
+### 7.3 Type de donnée Revit
+
+Le service lit le type de donnée de la définition via l'API Revit moderne et le conserve sous forme d'identifiant sérialisable.
+
+Pour deux paramètres `Double`, une différence connue de type de donnée est bloquante avant écriture.
+
+Exemple :
+
+```text
+Surface → Surface = compatible
+Surface → Volume  = incompatible
+```
+
+### 7.4 Validation de la destination
+
+`RoomParameterValidator` vérifie actuellement :
+
+- source numérique ;
+- destination prise en charge ;
+- destination non readonly ;
+- compatibilité des types de donnée pour une écriture `Double → Double` ;
+- avertissement pour `Double → Integer` ;
+- avertissement pour une destination texte ;
+- rejet d'une destination `ElementId`.
+
+Ces règles sont préparatoires au futur `RoomWriter`.
+
+### 7.5 Unités
+
+Le nouveau module commun :
+
+```text
+lib/common/unit_utils.py
+```
+
+centralise :
+
+- conversion depuis les unités internes Revit ;
+- conversion vers les unités internes Revit ;
+- comparaison des types de donnée normalisés.
+
+Principe retenu :
+
+> les valeurs `Double` utilisées par le moteur de calcul restent en unités internes Revit.
+
+Les conversions ne doivent intervenir que lorsqu'une entrée ou un affichage exige une unité explicite.
+
+Le service `RoomUnitService` utilise l'unité fournie par le paramètre Revit lorsqu'elle existe.
+
+Aucun facteur manuel basé sur le nom « surface », « volume », « longueur », etc. n'est repris de l'ancien module.
+
+### 7.6 Compatibilité API à valider dans Revit
+
+Le raccordement réel devra être vérifié dans Revit 2025.4 pour :
+
 - GUID de paramètre partagé ;
-- identifiant de définition approprié.
-
-Le nom affiché reste utilisable dans l'interface.
-
----
-
-## 8. Unités — cible du prochain bloc
-
-Les calculs doivent travailler autant que possible sur des valeurs normalisées issues de Revit.
-
-Les conversions doivent être centralisées et utiliser les API d'unités Revit prévues par Outils TAA.
-
-Les facteurs de conversion dispersés et la détection d'un type d'unité à partir du nom du paramètre ne doivent pas être migrés comme solution finale.
+- `ForgeTypeId` d'un paramètre intégré ;
+- identité de définition des paramètres projet ;
+- type de donnée de la définition ;
+- unité du paramètre ;
+- résolution de paramètres homonymes.
 
 ---
 
-## 9. Transactions et écriture
+## 8. Transactions et écriture
 
 Le workflow cible reste :
 
@@ -265,7 +329,7 @@ La transaction Revit n'est ouverte qu'au moment de l'écriture des résultats va
 
 ---
 
-## 10. Interface cible
+## 9. Interface cible
 
 L'interface suit `docs/04_UI_Guidelines.md`.
 
@@ -282,26 +346,31 @@ Principes spécifiques :
 
 ---
 
-## 11. Tests
+## 10. Tests
 
-Les Blocs 1 et 2 possèdent actuellement **14 tests unitaires hors Revit**, exécutés avec succès pendant la migration.
+Les Blocs 1 à 3 possèdent actuellement **34 tests unitaires hors Revit**, exécutés avec succès dans l'environnement de travail.
 
 Ils couvrent notamment :
 
-- somme par groupe ;
-- entrée vide ;
-- groupe vide ;
-- source non numérique ;
-- groupe zéro et valeur zéro ;
+- regroupement et somme ;
+- cas vide, zéro et valeurs non numériques ;
 - progression ;
-- protection du dictionnaire de résultats ;
-- absence de filtre ;
-- filtre optionnel par paramètre ;
-- collecte de toutes les pièces du document ;
-- conservation d'une pièce à surface nulle dans le périmètre de collecte ;
-- découverte de paramètres ;
+- filtre métier optionnel ;
+- collecte de toutes les pièces du projet sans filtre de vue ;
+- conservation d'une pièce à surface nulle dans le périmètre source ;
 - lecture String / Integer / Double / ElementId ;
-- état lecture seule.
+- identité par GUID partagé ;
+- identité de paramètre intégré ;
+- identité de définition ;
+- paramètres homonymes distincts ;
+- refus d'un fallback par nom ambigu ;
+- sérialisation du descripteur ;
+- agrégation readonly sur plusieurs pièces ;
+- compatibilité / incompatibilité de types de donnée ;
+- avertissements de conversion de type ;
+- conversions d'unités via un adaptateur UnitUtils ;
+- rejet d'un paramètre non mesurable lorsque l'unité est requise ;
+- non-régression de la collision Python entre modules génériques.
 
 Les blocs suivants devront ajouter les tests sur :
 
@@ -318,7 +387,7 @@ Les blocs suivants devront ajouter les tests sur :
 
 ---
 
-## 12. État d'implémentation
+## 11. État d'implémentation
 
 ### Implémenté et testé hors Revit
 
@@ -329,14 +398,16 @@ Les blocs suivants devront ajouter les tests sur :
 - tests unitaires du moteur ;
 - collecte complète du projet sans filtre de vue ;
 - filtre métier optionnel par paramètre ;
-- première lecture normalisée des paramètres Revit.
+- première lecture normalisée des paramètres Revit ;
+- descripteurs sérialisables avec identité stable lorsque disponible ;
+- détection des homonymes ;
+- métadonnées DataType / unité ;
+- validation source / destination ;
+- utilitaires communs d'unités ;
+- agrégation conservative de l'état writable.
 
 ### À implémenter
 
-- identité stable des paramètres ;
-- type de donnée Revit / compatibilité d'unité ;
-- unités communes ;
-- validation du paramètre de destination ;
 - écriture Revit ;
 - persistance Outils TAA ;
 - UI WPF ;
@@ -356,7 +427,7 @@ Tout comportement dépendant de :
 
 ---
 
-## 13. Règles non négociables
+## 12. Règles non négociables
 
 1. Le périmètre source est toujours toutes les pièces du projet actif.
 2. Le filtre par paramètre est un filtre métier optionnel appliqué après cette collecte.
