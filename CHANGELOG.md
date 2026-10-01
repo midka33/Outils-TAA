@@ -31,6 +31,7 @@ Le format suit les principes de *Keep a Changelog*.
 
 ### Added
 - Calculs des pièces : premier moteur métier pur de regroupement/somme dans `lib/calculation`, indépendant de Revit et WPF, avec 6 tests unitaires exécutés hors Revit.
+- Calculs des pièces : collecte du document entier sans filtre de vue, filtre métier optionnel, première lecture typée des paramètres et 14 tests unitaires cumulés exécutés hors Revit.
 - Architecture explicite du repository.
 - Contrat d'architecture entre UI, métier, API Revit et infrastructure commune.
 - Structure initiale des modules `Export` et `Calculs`.

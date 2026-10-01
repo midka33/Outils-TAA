@@ -1,6 +1,6 @@
 # Calculs des pièces
 
-**Statut :** Migration en cours — Bloc 1 implémenté hors Revit  
+**Statut :** Migration en cours — Blocs 1 et 2 implémentés hors Revit  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`
 
@@ -159,7 +159,57 @@ Les futurs adaptateurs Revit doivent transformer les paramètres Revit en ces do
 
 ---
 
-## 6. Paramètres Revit — cible du prochain bloc
+## 6. Bloc 2 — collecte, filtre et lecture de paramètres
+
+Le deuxième bloc ajoute :
+
+```text
+Calculs.panel/services/
+├── room_collector_service.py
+└── room_parameter_service.py
+
+lib/calculation/
+└── room_filter.py
+```
+
+### 6.1 Collecte
+
+`RoomCollectorService.collect_all_rooms()` collecte les éléments de la catégorie des pièces dans le document entier.
+
+Règles implémentées :
+
+- aucun filtre de vue ;
+- aucun recours à `ActiveView` ;
+- aucune exclusion implicite basée sur `Area == 0` ;
+- la collecte renvoie le jeu complet des pièces, la validation intervenant ensuite.
+
+Ce comportement traduit directement la décision utilisateur de toujours partir de toutes les pièces du projet.
+
+### 6.2 Filtre métier optionnel
+
+`RoomFilter` applique éventuellement un filtre par paramètre et valeur.
+
+Sans paramètre ou sans valeur de filtre, toutes les pièces collectées sont conservées.
+
+Le filtre est indépendant du périmètre de collecte.
+
+### 6.3 Lecture des paramètres
+
+`RoomParameterService` fournit actuellement :
+
+- découverte des noms de paramètres ;
+- possibilité de limiter la liste aux paramètres numériques ;
+- lecture `String` ;
+- lecture `Integer` ;
+- lecture `Double` ;
+- lecture `ElementId` ;
+- détection explicite de l'état lecture seule.
+
+Cette première implémentation reste à compléter par l'identité stable des paramètres et leur type de donnée Revit avant raccordement final de l'UI et de la persistance.
+
+---
+
+## 7. Paramètres Revit — cible du prochain bloc
 
 La couche Revit devra distinguer :
 
@@ -183,7 +233,7 @@ Le nom affiché reste utilisable dans l'interface.
 
 ---
 
-## 7. Unités — cible du prochain bloc
+## 8. Unités — cible du prochain bloc
 
 Les calculs doivent travailler autant que possible sur des valeurs normalisées issues de Revit.
 
@@ -193,7 +243,7 @@ Les facteurs de conversion dispersés et la détection d'un type d'unité à par
 
 ---
 
-## 8. Transactions et écriture
+## 9. Transactions et écriture
 
 Le workflow cible reste :
 
@@ -215,7 +265,7 @@ La transaction Revit n'est ouverte qu'au moment de l'écriture des résultats va
 
 ---
 
-## 9. Interface cible
+## 10. Interface cible
 
 L'interface suit `docs/04_UI_Guidelines.md`.
 
@@ -232,9 +282,11 @@ Principes spécifiques :
 
 ---
 
-## 10. Tests
+## 11. Tests
 
-Le moteur métier du Bloc 1 possède actuellement 6 tests unitaires hors Revit :
+Les Blocs 1 et 2 possèdent actuellement **14 tests unitaires hors Revit**, exécutés avec succès pendant la migration.
+
+Ils couvrent notamment :
 
 - somme par groupe ;
 - entrée vide ;
@@ -242,14 +294,17 @@ Le moteur métier du Bloc 1 possède actuellement 6 tests unitaires hors Revit :
 - source non numérique ;
 - groupe zéro et valeur zéro ;
 - progression ;
-- protection du dictionnaire de résultats contre une modification externe.
-
-Ils ont été exécutés pendant la migration avec succès.
+- protection du dictionnaire de résultats ;
+- absence de filtre ;
+- filtre optionnel par paramètre ;
+- collecte de toutes les pièces du document ;
+- conservation d'une pièce à surface nulle dans le périmètre de collecte ;
+- découverte de paramètres ;
+- lecture String / Integer / Double / ElementId ;
+- état lecture seule.
 
 Les blocs suivants devront ajouter les tests sur :
 
-- collecte de toutes les pièces du document ;
-- filtre optionnel par paramètre ;
 - paramètres absents ;
 - paramètres homonymes et identités stables lorsque pertinentes ;
 - String / Integer / Double / ElementId ;
@@ -263,7 +318,7 @@ Les blocs suivants devront ajouter les tests sur :
 
 ---
 
-## 11. État d'implémentation
+## 12. État d'implémentation
 
 ### Implémenté et testé hors Revit
 
@@ -271,13 +326,15 @@ Les blocs suivants devront ajouter les tests sur :
 - moteur de regroupement/somme ;
 - diagnostics simples des entrées ignorées ;
 - callback de progression ;
-- tests unitaires du moteur.
+- tests unitaires du moteur ;
+- collecte complète du projet sans filtre de vue ;
+- filtre métier optionnel par paramètre ;
+- première lecture normalisée des paramètres Revit.
 
 ### À implémenter
 
-- collecte de toutes les pièces du projet ;
-- filtre métier optionnel par paramètre ;
-- service de paramètres Revit ;
+- identité stable des paramètres ;
+- type de donnée Revit / compatibilité d'unité ;
 - unités communes ;
 - validation du paramètre de destination ;
 - écriture Revit ;
@@ -299,7 +356,7 @@ Tout comportement dépendant de :
 
 ---
 
-## 12. Règles non négociables
+## 13. Règles non négociables
 
 1. Le périmètre source est toujours toutes les pièces du projet actif.
 2. Le filtre par paramètre est un filtre métier optionnel appliqué après cette collecte.
