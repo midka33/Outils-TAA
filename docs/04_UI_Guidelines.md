@@ -2,7 +2,7 @@
 
 ## Chapitre 04 — UI Guidelines
 
-**Version :** 1.2  
+**Version :** 1.3  
 **Statut :** Référence  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF  
@@ -1256,6 +1256,14 @@ Le défilement doit être réservé aux contenus qui peuvent réellement devenir
 
 Ne pas utiliser un ScrollViewer pour masquer un mauvais dimensionnement initial.
 
+Pour les fenêtres de réglages courants, le ScrollViewer doit rester une **sécurité** lorsque :
+
+- la fenêtre est fortement réduite ;
+- la résolution disponible est insuffisante ;
+- le scaling Windows réduit fortement l'espace disponible.
+
+Il ne doit pas être nécessaire dans l'usage normal prévu par l'outil.
+
 ---
 
 # 69. Responsive WPF
@@ -1552,41 +1560,49 @@ L'objectif visuel est une interface sobre, dense mais respirante, proche d'un ou
 
 ---
 
-# 84. Interface de CalculsPieces
+# 84. Interface de Calculs des pièces
+
+Le périmètre n'est pas un choix utilisateur : le module travaille toujours à partir de **toutes les pièces du projet Revit actif**.
+
+Il ne faut donc pas afficher de choix « Toutes les pièces / Vue active / Pièces sélectionnées ».
+
+Un filtre métier optionnel par paramètre peut ensuite réduire ce jeu de pièces lorsque l'utilisateur le configure explicitement.
+
+La fenêtre doit être **compacte en hauteur**. Sur un écran **1920 × 1080**, tous les réglages courants doivent être accessibles sans défilement vertical.
 
 Structure recommandée :
 
 ```text
-┌───────────────────────────────────────────────┐
-│ CalculsPieces                                │
-│ Calcul des paramètres de pièces               │
-├───────────────────────────────────────────────┤
-│                                               │
-│ PIÈCES                                        │
-│                                               │
-│ ● Toutes les pièces                           │
-│ ○ Pièces sélectionnées                        │
-│ ○ Pièces de la vue active                     │
-│                                               │
-│ CALCUL                                        │
-│                                               │
-│ Paramètre source                              │
-│ [ Surface ▼ ]                                 │
-│                                               │
-│ Opération                                     │
-│ [ Somme ▼ ]                                   │
-│                                               │
-│ Paramètre destination                         │
-│ [ Surface totale ▼ ]                          │
-│                                               │
-├───────────────────────────────────────────────┤
-│ 248 pièces seront analysées.                  │
-├───────────────────────────────────────────────┤
-│ [Annuler]                          [Calculer]  │
-└───────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ Calculs des pièces                                                   │
+├──────────────────────────────────────────────────────────────────────┤
+│ SOURCE                                      248 pièces trouvées      │
+│ Toutes les pièces du projet                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ FILTRE (optionnel)                                                   │
+│ Paramètre [ Aucun filtre ▼ ]      Valeur exacte [ ............... ] │
+├──────────────────────────────────────────────────────────────────────┤
+│ CALCUL                                                               │
+│ Regrouper par [ ... ▼ ]  Additionner [ ... ▼ ]  Destination [ ... ] │
+├──────────────────────────────────────────────────────────────────────┤
+│ UNITÉ DE SORTIE                  [ Automatique / unité compatible ▼ ]│
+├──────────────────────────────────────────────────────────────────────┤
+│ ÉTAT   Prêt.                                                         │
+│ ──────────────────────────────────────────────────────────────────── │
+├──────────────────────────────────────────────────────────────────────┤
+│                                         [Fermer]        [Calculer]   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
----
+Règles spécifiques :
+
+- l'information « Toutes les pièces du projet » est informative et non sélectionnable ;
+- les contrôles du filtre sont disposés sur une même ligne lorsque la largeur le permet ;
+- Regrouper par, Additionner et Paramètre destination sont disposés sur une même ligne ;
+- les textes explicatifs permanents non indispensables deviennent des **ToolTips** ;
+- la compacité est obtenue en réduisant marges verticales, paddings inutiles, hauteurs fixes et espaces entre sections ;
+- la typographie définie par ce guide est conservée : ne pas compenser en réduisant fortement la taille des textes ;
+- le ScrollViewer vertical reste présent uniquement comme sécurité lors d'un fort redimensionnement ou d'un espace écran insuffisant.
 
 # 85. Thème clair
 
@@ -1900,6 +1916,21 @@ doit principalement être utilisé :
 # 101. Résolutions d'écran
 
 Les interfaces doivent rester utilisables sur les configurations courantes de l'agence.
+
+La référence minimale de conception pour les réglages courants est un écran **1920 × 1080**.
+
+À cette résolution, les réglages courants d'une fenêtre doivent être accessibles **sans défilement vertical obligatoire**.
+
+Lorsqu'une fenêtre dépasse inutilement cette hauteur, corriger en priorité :
+
+- les marges verticales ;
+- les paddings inutiles ;
+- les hauteurs fixes excessives ;
+- les espaces entre sections ;
+- les textes explicatifs permanents pouvant devenir des ToolTips ;
+- les conteneurs qui occupent inutilement toute la hauteur disponible.
+
+Ne pas résoudre le problème en réduisant fortement la taille de la typographie.
 
 Éviter les fenêtres nécessitant obligatoirement de très grandes résolutions.
 

@@ -1,0 +1,240 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Calculs des pièces"
+    Height="560"
+    Width="860"
+    MinHeight="480"
+    MinWidth="760"
+    WindowStartupLocation="CenterScreen"
+    Background="#F7F7F7"
+    FontFamily="Segoe UI">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Calculs des pièces"
+                   FontSize="22"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,10"
+                   ToolTip="Regrouper les pièces du projet, additionner une valeur et écrire le total dans un paramètre de destination."/>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1"
+                        Padding="10"
+                        Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="2"
+                                   Text="SOURCE"
+                                   Margin="0,0,0,4"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   x:Name="SourceScopeText"
+                                   Text="Toutes les pièces du projet"
+                                   FontWeight="SemiBold"
+                                   ToolTip="Le périmètre source est toujours l'ensemble des pièces du projet Revit actif."/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   x:Name="SourceCountText"
+                                   Margin="20,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Style="{DynamicResource TAASecondaryText}"/>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1"
+                        Padding="10"
+                        Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="3"
+                                   Text="FILTRE (OPTIONNEL)"
+                                   Margin="0,0,0,4"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0">
+                            <TextBlock Text="Paramètre" Margin="0,0,0,4"/>
+                            <ComboBox x:Name="FilterParameterCombo"
+                                      DisplayMemberPath="label"
+                                      SelectionChanged="FilterParameterChanged"
+                                      Style="{DynamicResource TAAComboBox}"
+                                      ToolTip="Choisir Aucun filtre pour conserver toutes les pièces."/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Text="Valeur exacte" Margin="0,0,0,4"/>
+                            <TextBox x:Name="FilterValueTextBox"
+                                     IsEnabled="False"
+                                     Style="{DynamicResource TAATextBox}"
+                                     ToolTip="Valeur exacte à conserver pour le paramètre de filtre sélectionné."/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1"
+                        Padding="10"
+                        Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="5"
+                                   Text="CALCUL"
+                                   Margin="0,0,0,4"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0">
+                            <TextBlock Text="Regrouper par" Margin="0,0,0,4"/>
+                            <ComboBox x:Name="GroupParameterCombo"
+                                      DisplayMemberPath="label"
+                                      Style="{DynamicResource TAAComboBox}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="2">
+                            <TextBlock Text="Additionner" Margin="0,0,0,4"/>
+                            <ComboBox x:Name="SourceParameterCombo"
+                                      DisplayMemberPath="label"
+                                      SelectionChanged="SourceParameterChanged"
+                                      Style="{DynamicResource TAAComboBox}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="4">
+                            <TextBlock Text="Paramètre destination" Margin="0,0,0,4"/>
+                            <ComboBox x:Name="TargetParameterCombo"
+                                      DisplayMemberPath="label"
+                                      SelectionChanged="TargetParameterChanged"
+                                      Style="{DynamicResource TAAComboBox}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1"
+                        Padding="10"
+                        Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="UNITÉ DE SORTIE"
+                                   VerticalAlignment="Center"
+                                   Margin="0"
+                                   Style="{DynamicResource TAASectionTitle}"
+                                   ToolTip="Disponible uniquement lorsqu'une conversion explicite est pertinente."/>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="UnitCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1"
+                        Padding="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="ÉTAT"
+                                   Margin="0"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="1"
+                                   x:Name="StatusText"
+                                   Text="Prêt."
+                                   Margin="14,0,0,0"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"/>
+                        <ProgressBar Grid.Row="1"
+                                     Grid.ColumnSpan="2"
+                                     x:Name="ProgressBar"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Height="6"
+                                     Margin="0,6,0,0"
+                                     Value="0"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="1"
+                    Content="Fermer"
+                    Click="Close_Click"
+                    MinWidth="100"
+                    Margin="0,0,8,0"
+                    Style="{DynamicResource TAASecondaryButton}"/>
+
+            <Button Grid.Column="2"
+                    x:Name="CalculateButton"
+                    Content="Calculer"
+                    Click="Calculate_Click"
+                    MinWidth="130"
+                    Style="{DynamicResource TAAPrimaryButton}"
+                    ToolTip="Valide les résultats, demande confirmation puis ouvre une transaction Revit uniquement pour l'écriture."/>
+        </Grid>
+    </Grid>
+</Window>
