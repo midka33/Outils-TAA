@@ -530,6 +530,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** test statique garantissant l'absence de `CanHaveShape` dans `build_optimized_crop`, sa présence dans `apply_to_view`, la gestion de `VIEWER_VOLUME_OF_INTEREST_CROP` et la disponibilité d'un fallback rectangulaire.
 
+### BUG-PDV-004 — `CreateViaOffset` échoue au-delà d'une petite marge
+
+**Symptôme :** sur les logements testés, le contour optimisé fonctionne avec une marge de **20 mm**, mais bascule en rectangle de secours à partir d'environ **25 mm**. Le diagnostic indique : `Application de la marge : Revit n'a pas réussi à décaler le contour du logement avec la marge demandée.`
+
+**Cause :** `CurveLoop.CreateViaOffset` doit décaler chaque arête puis retailler les courbes adjacentes pour reconstruire une boucle continue. Sur un contour concave comportant de petits décrochements, une augmentation de la marge peut provoquer des intersections / inversions locales que Revit ne sait pas résoudre. L'échec dépend donc de la géométrie et peut apparaître brutalement à quelques millimètres près. L'API documente qu'un `InvalidOperationException` est levé lorsque la boucle ne peut pas être offsetée.
+
+**Correction :** ne plus utiliser `CurveLoop.CreateViaOffset` pour la marge du plan de vente. Construire une dilatation géométrique robuste par union booléenne : surface du logement + bandes rectangulaires de largeur `2 × marge` autour des arêtes + raccords octogonaux autour des sommets. L'octogone est circonscrit au rayon demandé afin de garantir au moins la marge souhaitée. La boucle extérieure de l'union devient ensuite le crop.
+
+**Règle préventive :** une fonction d'offset topologique Revit ne doit pas être le mécanisme unique pour une marge importante sur un polygone concave métier. Préférer un buffer géométrique robuste dont les changements de topologie sont absorbés par une union booléenne.
+
+**Anti-régression :** vérifier que le service n'utilise plus `CreateViaOffset`, qu'il construit bandes + raccords, puis tester dans Revit 2025.4 des marges 20, 25, 100 et 500 mm sur logements rectangulaire, en L et irrégulier.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -580,6 +592,7 @@ BUG-CALCULS-004
 BUG-PDV-001
 BUG-PDV-002
 BUG-PDV-003
+BUG-PDV-004
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
