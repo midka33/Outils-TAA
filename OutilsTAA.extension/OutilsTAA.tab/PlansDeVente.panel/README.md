@@ -36,3 +36,10 @@ Validation réelle dans Revit 2025.4 requise avant de généraliser ce moteur.
 Le crop Revit exige une boucle composée uniquement de segments droits. Le contour issu de l'union est désormais tessellé puis reconstruit en lignes, avant et après l'offset de marge.
 
 En cas de fallback, l'interface indique maintenant l'étape géométrique exacte en échec.
+
+
+### Marge robuste
+
+Le prototype ne dépend plus de `CurveLoop.CreateViaOffset`, qui échouait dès 25 mm sur certains contours concaves.
+
+La marge est maintenant construite par union booléenne de bandes le long des arêtes et de raccords octogonaux aux sommets. Cette stratégie accepte les changements de topologie dus aux grandes marges.
