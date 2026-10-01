@@ -6,9 +6,9 @@ import os
 from pyrevit import forms
 from taa_ui_theme import apply_theme
 from System import Guid
-from System.Windows import FontWeights, Thickness, VerticalAlignment
+from System.Windows import FontWeights, Thickness, VerticalAlignment, HorizontalAlignment, Visibility
 from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation, Grid
-from System.Windows.Media import Brushes
+from System.Windows.Media import Stretch
 from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
@@ -16,6 +16,8 @@ from carnet_sheets_window import CarnetSheetsWindow
 from carnet_manager_window import CarnetManagerWindow
 from publication_folder import PublicationFolder, _folder_targets
 from publication_overview import formats_for, summarize_publication
+from pdf_settings_window import PdfSettingsWindow
+from pdf_options import PDF_OPTIONS, defaults as pdf_defaults
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from filename_service import FilenameService
@@ -159,12 +161,13 @@ class ExportWindow(forms.WPFWindow):
             return panel
         panel = StackPanel(Orientation=Orientation.Horizontal)
         for name in formats:
-            color = Brushes.Firebrick if name == "PDF" else Brushes.DodgerBlue
-            badge = Grid(Width=25, Height=27, Margin=Thickness(0, 0, 5, 0))
-            icon = IconPath(Data=self.FindResource("TaaSheetIcon"), Stroke=color,
-                            StrokeThickness=1.4, Width=20, Height=22)
+            color = self.FindResource("TaaPdf" if name == "PDF" else "TaaDwg")
+            badge = Grid(Width=24, Height=28, Margin=Thickness(0, 0, 6, 0))
+            icon = IconPath(Data=self.FindResource("TaaFormatSheetIcon"), Stroke=color,
+                            StrokeThickness=1.5, Width=24, Height=28, Stretch=Stretch.Uniform)
             label = TextBlock(Text=name, FontSize=7, FontWeight=FontWeights.Bold,
-                              Foreground=color, VerticalAlignment=VerticalAlignment.Bottom)
+                              Foreground=color, VerticalAlignment=VerticalAlignment.Center,
+                              HorizontalAlignment=HorizontalAlignment.Center, Margin=Thickness(0, 11, 0, 0))
             badge.Children.Add(icon)
             badge.Children.Add(label)
             panel.Children.Add(badge)
@@ -274,9 +277,10 @@ class ExportWindow(forms.WPFWindow):
         try:
             if self._selected_kind == "SHEET":
                 item = self._selected_item
-                self.SelectedNodeText.Text = "Mise en page : {0} — {1}\nPublication : cette mise en page uniquement.".format(item.sheet_number or "", item.sheet_name or "")
+                self.SelectedNodeText.Text = "Mise en page : {0} — {1}".format(item.sheet_number or "", item.sheet_name or "")
             else:
-                self.SelectedNodeText.Text = "{0} • {1} mise(s) en page\nPublication : carnet entier.".format(self._selected_set.name, len(self._selected_set.items or []))
+                self.SelectedNodeText.Text = "{0} • {1} mise(s) en page".format(self._selected_set.name, len(self._selected_set.items or []))
+            self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
             self.PdfQualityCombo.SelectedItem = effective.pdf_quality
             self.PdfCheckBox.IsChecked = effective.pdf_enabled
             self.PdfCombinedRadio.IsChecked = effective.pdf_mode == "COMBINED"
@@ -304,7 +308,8 @@ class ExportWindow(forms.WPFWindow):
         self._loading_settings = True
         self._loading_profile = True
         try:
-            self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les sous-dossiers et les carnets.".format(folder.name)
+            self.SelectedNodeText.Text = "Dossier : {0}".format(folder.name)
+            self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
@@ -342,24 +347,31 @@ class ExportWindow(forms.WPFWindow):
         settings = folder.publication_settings
         local = settings is not None and any(
             getattr(settings, field, None) is not None for field in self.INHERITABLE_FIELDS)
-        self.RevertInheritanceButton.Content = "Revenir à l'héritage du parent"
+        self.InheritanceRow.Visibility = Visibility.Visible
+        self.RevertInheritanceButton.Content = "Revenir à l'héritage"
         self.RevertInheritanceButton.IsEnabled = bool(folder.parent_id and local)
-        self.InheritanceInfoText.Text = self._inheritance_description(None, folder)
+        self.InheritanceInfoText.Text = "Dossier « {0} » • {1}".format(folder.name, "réglages locaux" if local else "réglages hérités")
+        self.InheritanceInfoText.ToolTip = self._inheritance_description(None, folder)
 
     def _update_inheritance_info(self, publication_set):
         sources = dict((field, self._setting_source(publication_set, field)) for field in self.INHERITABLE_FIELDS)
         self._set_inheritance_ui(True, sources)
-        self.InheritanceInfoText.Text = self._inheritance_description(
-            publication_set, self._folder_for_set(publication_set))
+        folder = self._folder_for_set(publication_set)
+        local = any(value == "Carnet" for value in sources.values())
+        self.InheritanceInfoText.Text = "Réglages locaux + héritage" if local else "Hérité du dossier : {0}".format(getattr(folder, "name", "Général"))
+        self.InheritanceInfoText.ToolTip = self._inheritance_description(publication_set, folder)
 
     def _set_inheritance_ui(self, enabled, sources):
+        self.InheritanceRow.Visibility = Visibility.Visible if enabled else Visibility.Collapsed
         self.InheritanceInfoText.Text = ""
-        self.RevertInheritanceButton.Content = "Revenir à l’héritage du dossier"
+        self.RevertInheritanceButton.Content = "Revenir à l'héritage"
         self.RevertInheritanceButton.IsEnabled = enabled and self._selected_set is not None and any(sources.get(field) == "Carnet" for field in self.INHERITABLE_FIELDS)
 
     @staticmethod
     def _field_label(field):
         labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_mode": "mode DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "output_directory": "destination", "filename_template": "nommage"}
+        labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
+        labels["separate_carnet_subfolder"] = "sous-dossier du carnet"
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
@@ -387,6 +399,7 @@ class ExportWindow(forms.WPFWindow):
     def _control_value(self, field):
         values = {
             "pdf_quality": int(self.PdfQualityCombo.SelectedItem or 300),
+            "separate_carnet_subfolder": bool(self.CarnetSubfolderCheckBox.IsChecked),
             "pdf_enabled": bool(self.PdfCheckBox.IsChecked),
             "pdf_mode": "COMBINED" if self.PdfCombinedRadio.IsChecked else "SEPARATE",
             "dwg_enabled": bool(self.DwgCheckBox.IsChecked),
@@ -432,6 +445,8 @@ class ExportWindow(forms.WPFWindow):
         settings = self._selected_set.publication_settings or PublicationSettings()
         settings.pdf_enabled = bool(values.get("pdf_enabled", True))
         settings.pdf_quality = values.get("pdf_quality") or 300
+        for field, default in pdf_defaults().items():
+            setattr(settings, field, values.get(field, default))
         settings.pdf_mode = values.get("pdf_mode", "COMBINED")
         settings.dwg_enabled = bool(values.get("dwg_enabled", True))
         settings.dwg_mode = values.get("dwg_mode", "SEPARATE")
@@ -440,6 +455,7 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.publication_settings = settings
         self._loading_settings = True
         try:
+            self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
@@ -481,11 +497,51 @@ class ExportWindow(forms.WPFWindow):
         self.FilenameTemplateTextBox.Text = text + token
         self._save_selected_field("filename_template")
 
+    def Preview_Click(self, sender, args):
+        # Réutilise le constructeur d'aperçu actif, y compris le raccordement Stage 07.
+        import publication_preview_integration as preview_flow
+        if self._selected_kind == "FOLDER":
+            targets = _folder_targets(self, self._selected_folder)
+        elif self._selected_kind == "SHEET" and self._selected_item is not None:
+            targets = [self._make_sheet_target()]
+        else:
+            targets = [self._selected_set] if self._selected_set is not None else []
+        if not targets:
+            return
+        dialog = preview_flow.PublicationPreviewWindow(preview_flow._build_preview(self, targets), owner=self)
+        dialog.ConfirmButton.Visibility = Visibility.Collapsed
+        dialog.ConfirmButton.IsDefault = False
+        dialog.CancelButton.Content = "Fermer"
+        dialog.ShowDialog()
+
+    def PdfSettings_Click(self, sender, args):
+        target = self._selected_folder if self._selected_kind == "FOLDER" else self._selected_set
+        if target is None:
+            return
+        effective = (self.settings_resolver.resolve(None, folder=target, folders=self._folders)
+                     if self._selected_kind == "FOLDER" else self._resolve_settings(target))
+        dialog = PdfSettingsWindow(effective, owner=self)
+        dialog.ShowDialog()
+        if not dialog.result:
+            return
+        settings = target.publication_settings or PublicationSettings()
+        for field, value in dialog.result.items():
+            setattr(settings, field, value)
+        target.publication_settings = settings
+        if self._selected_kind == "FOLDER":
+            self.controller.save_folder(target)
+            self._load_folder_settings()
+        else:
+            if target.persistent:
+                self.controller.save_persistent(target)
+            self._load_selected_settings()
+
     def SettingsChanged(self, sender, args):
         if self._loading_settings:
             return
         mapping = {
             "PdfQualityCombo": "pdf_quality",
+            "CarnetSubfolderCheckBox": "separate_carnet_subfolder",
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
             "DwgCheckBox": "dwg_enabled", "DwgCombinedRadio": "dwg_mode", "DwgSeparateRadio": "dwg_mode",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",

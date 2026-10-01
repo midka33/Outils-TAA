@@ -69,7 +69,7 @@ class PublicationPreviewService(object):
         generated_paths = {}
 
         def add_row(fmt, mode, item, filename, unknown):
-            row_directory = publication_directory(publication_set, directory, mode == "COMBINED") if directory else ""
+            row_directory = publication_directory(publication_set, directory, mode == "COMBINED", settings=settings) if directory else ""
             path = os.path.join(row_directory, filename) if row_directory else filename
             normalized = os.path.normcase(os.path.abspath(path)) if directory else os.path.normcase(filename)
             duplicate = normalized in generated_paths

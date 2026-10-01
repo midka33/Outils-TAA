@@ -167,7 +167,7 @@ class PublicationService(object):
                 try:
                     success = self.pdf_service.export(view_ids, pdf_directory,
                                                        os.path.splitext(filename)[0], combined=True,
-                                                       export_quality=quality)
+                                                       export_quality=quality, settings=publication_set.publication_settings)
                 except Exception as exc:
                     errors.append("PDF combiné — erreur Revit : {}".format(
                         self._revit_exception_message(exc)))
@@ -206,7 +206,7 @@ class PublicationService(object):
                 if separate_ids:
                     try:
                         paths = self.pdf_service.export_named_separate(
-                            separate_ids, pdf_directory, filenames, export_quality=quality)
+                            separate_ids, pdf_directory, filenames, export_quality=quality, settings=publication_set.publication_settings)
                     except Exception as exc:
                         errors.append("PDF séparé — erreur : {}".format(
                             self._revit_exception_message(exc)))

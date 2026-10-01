@@ -13,6 +13,7 @@ from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from settings_resolver import SettingsResolver
 from carnet_repository import CarnetRepository
+from pdf_options import PDF_OPTIONS
 
 
 def ui_class():
@@ -22,7 +23,7 @@ def ui_class():
              'RevertInheritance_Click', '_set_inheritance_ui', '_update_inheritance_info')
     nodes = [n for n in original.body if isinstance(n, ast.FunctionDef) and n.name in names]
     cls = ast.ClassDef(name='Window', bases=[], keywords=[], body=nodes, decorator_list=[])
-    namespace = {}
+    namespace = {"PDF_OPTIONS":PDF_OPTIONS,"Visibility":SimpleNamespace(Visible=1,Collapsed=0)}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[])), 'export_window.py', 'exec'), namespace)
     return namespace['Window']
 
@@ -46,6 +47,7 @@ def test_intermediate_folder_reverts_and_persists_without_touching_children(tmp_
     window._selected_folder = child
     window.RevertInheritanceButton = SimpleNamespace()
     window.InheritanceInfoText = SimpleNamespace()
+    window.InheritanceRow = SimpleNamespace()
     window.controller = SimpleNamespace(save_folder=repo.save_folder)
     window._load_folder_settings = lambda: window._update_folder_inheritance_info(child)
     window._load_folder_settings()
@@ -53,7 +55,7 @@ def test_intermediate_folder_reverts_and_persists_without_touching_children(tmp_
     assert 'Plan' in window.InheritanceInfoText.Text
     window.RevertInheritance_Click(None, None)
     assert not window.RevertInheritanceButton.IsEnabled
-    assert 'DCE' in window.InheritanceInfoText.Text
+    assert 'DCE' in window.InheritanceInfoText.ToolTip
     effective = resolver.resolve(carnet, child, folders=folders)
     assert (effective.pdf_mode, effective.output_directory) == ('SEPARATE', 'Pictures')
     reloaded = next(f for f in repo.list_folders() if f.id == 'child')

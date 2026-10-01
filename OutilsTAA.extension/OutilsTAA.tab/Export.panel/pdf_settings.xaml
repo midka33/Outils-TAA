@@ -1,0 +1,33 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Paramètres PDF — Outils TAA" Width="820" Height="460" MinWidth="720" MinHeight="400" WindowStartupLocation="CenterOwner" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource TaaBackground}" Foreground="{DynamicResource TaaText}" UseLayoutRounding="True">
+  <Grid Margin="16">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <TextBlock Text="Paramètres PDF" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <GroupBox Header="Options" Padding="12" Margin="0,0,0,12">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <StackPanel x:Name="LeftOptions"/>
+            <StackPanel Grid.Column="1">
+              <StackPanel x:Name="RightOptions"/>
+              <CheckBox Content="Exporter en arrière-plan" IsEnabled="False" ToolTipService.ShowOnDisabled="True" ToolTip="Indisponible en V1 : la publication attend la fin des exports pour vérifier et renommer les fichiers."/>
+              <TextBlock Text="En V1, la publication attend la fin des PDF pour vérifier leur livraison." FontSize="12" Foreground="{DynamicResource TaaSecondary}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+        <GroupBox Header="Créer une sortie à l'aide de" Padding="12">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="VectorRadio" Content="Traitement vectoriel" GroupName="Processing" Checked="ProcessingChanged" ToolTip="Revit utilise le vectoriel autant que possible ; certaines vues restent raster."/>
+            <RadioButton x:Name="RasterRadio" Content="Traitement raster" GroupName="Processing" Checked="ProcessingChanged" Margin="20,0,0,0"/>
+          </StackPanel>
+        </GroupBox>
+      </StackPanel>
+    </ScrollViewer>
+    <DockPanel Grid.Row="2" Margin="0,12,0,0">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button Content="Annuler" Click="Cancel_Click" IsCancel="True" Margin="0,0,8,0"/>
+        <Button x:Name="ApplyButton" Content="Appliquer" Click="Apply_Click" IsDefault="True" Style="{DynamicResource TaaPrimaryButton}"/>
+      </StackPanel>
+      <Button Content="Rétablir les valeurs par défaut" Click="Defaults_Click" HorizontalAlignment="Left"/>
+    </DockPanel>
+  </Grid>
+</Window>

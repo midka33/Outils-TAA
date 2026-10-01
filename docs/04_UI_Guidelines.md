@@ -2551,3 +2551,17 @@ L'objectif final n'est pas simplement de créer de belles fenêtres.
 L'objectif est de créer des outils :
 
 > **rapides à comprendre, simples à utiliser et cohérents entre eux.**
+## Panneaux de réglages denses — complément 2026-10-01
+
+Pour une fenêtre métier destinée au Full HD, conserver le texte courant de 13 px
+et réduire d'abord les conteneurs et espaces : contrôles de 28–32 px, marges de
+4–8 px, rangées Grid Auto/* et WrapPanel pour les groupes courts. La colonne de
+réglages peut être plus large que l'arbre. Les détails de provenance vont en
+infobulle ; un état ou une erreur doit rester lisible, même si son texte complet
+est accessible au survol. Une ligne d'héritage ne réserve aucune hauteur vide.
+Les aides secondaires sont repliées dans un Expander par défaut. Les options
+techniques nombreuses ont un dialogue dédié avec Annuler/Appliquer.
+
+Le pied d'actions reste hors du ScrollViewer. Celui-ci est conservé comme secours.
+La mesure WPF dépend des DPI et des thèmes Windows : un budget de hauteur ou un
+XML valide ne remplace jamais le contrôle réel à 1920 × 1080, 100 % et 125 %.

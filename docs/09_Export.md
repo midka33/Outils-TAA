@@ -1508,3 +1508,70 @@ Cette section doit être maintenue à jour à chaque changement de comportement 
 Les services `publication_overview.py` et `publication_tree_delete.py` portent les
 calculs de résumé et la suppression sans dépendance WPF. L'intégration conserve
 le handler canonique de suppression ; `ExportWindow` assure le rendu et son actualisation.
+
+## Interface compacte et paramètres PDF — 2026-10-01
+
+La fenêtre s'ouvre en 1320 × 760 unités WPF (minimum 1060 × 620), en conservant
+Segoe UI 13 px. Profil et héritage sont compacts, la provenance complète des champs
+reste en infobulle. PDF et DWG utilisent des rangées avec retour à la ligne ; modes
+combiné/séparé et True Color sont conservés. Destination et modèle de nommage sont
+accessibles directement. Les variables se trouvent dans « Options avancées »,
+replié initialement. Le défilement reste un secours. Le résumé, Aperçu et Publier
+restent fixes. Aperçu ouvre le contrôle des livrables sans bouton de confirmation ;
+Publier conserve le passage par l'aperçu puis la confirmation existante.
+
+La destination saisie au clavier est maintenant enregistrée à la perte de focus,
+comme la destination choisie par Parcourir. Aucun autre réglage n'est enregistré
+comme surcharge lors de cette action.
+
+La case « Créer un sous-dossier pour ce carnet » pilote le regroupement des exports
+**séparés** (`separate_carnet_subfolder`, héritable, True par défaut). Les réglages
+anciens conservent donc les chemins validés. False retire seulement le dossier du
+carnet pour le format séparé : les sous-dossiers de l'arborescence restent conservés.
+Le mode combiné reste dans le dossier parent. Le calcul est partagé par l'aperçu
+et les exports ; les collisions continuent d'être contrôlées. Cette préférence de
+destination n'est pas incluse dans les profils techniques PDF/DWG.
+
+Le bouton de configuration PDF ouvre « Paramètres PDF », organisé en Options et
+Traitement vectoriel/raster. Les huit champs booléens du contrat `pdf_options.py`
+sont héritables, persistants et inclus dans les profils personnalisés. Les anciens
+profils appliquent les valeurs par défaut TAA pour ces nouveaux champs. Le dialogue
+ne sauvegarde que les champs réellement modifiés après Appliquer ; Annuler ou fermer
+ne modifie rien. Rétablir les valeurs par défaut prépare une saisie, sans sauvegarde
+avant Appliquer. Le vectoriel reste le défaut ; il n'empêche pas Revit de rastériser
+les vues qui l'exigent. La qualité DPI principale reste raccordée à ExportQuality.
+
+| Option | Propriété publique PDFExportOptions | Défaut TAA |
+|---|---|---|
+| Liens en bleu | ViewLinksInBlue | False |
+| Masquer plans de référence/construction | HideReferencePlane | True |
+| Masquer étiquettes non référencées | HideUnreferencedViewTags | False |
+| Bords masquant les lignes coïncidentes | MaskCoincidentLines | False |
+| Masquer zones de définition | HideScopeBoxes | True |
+| Masquer limites de cadrage | HideCropBoundaries | True |
+| Demi-teinte par lignes fines | ReplaceHalftoneWithThinLines | False |
+| Traitement raster forcé | AlwaysUseRaster | False |
+
+La présence de chaque propriété est contrôlée sur l'API réellement chargée avant
+l'affichage du dialogue. Un contrôle indisponible est désactivé ; aucun substitut
+fictif n'est envoyé à l'exporteur. Une valeur non prise en charge différente du défaut produit une
+erreur explicite. Le masquage des lignes coïncidentes est désactivé dans le dialogue
+en traitement raster, tout en conservant sa valeur pour un retour au vectoriel.
+
+**Arrière-plan : limitation V1 d'intégration, pas absence de l'API.**
+`SetExportInBackground` existe dans l'API native, mais le flux TAA actuel attend les
+PDF pour les vérifier, les renommer et les livrer. La case est donc désactivée et
+expliquée. L'exporteur demande explicitement un traitement synchrone lorsqu'il
+dispose de la méthode. Activer l'arrière-plan nécessite un suivi de fin des tâches,
+un rapport différé et une livraison sécurisée adaptés ; ce travail est reporté.
+
+Les pictogrammes PDF/DWG ont le libellé dans la feuille à coin plié. L'icône Export
+est redessinée depuis le SVG en orange UI, plus grande dans son carré transparent,
+sans texte dessiné. PNG 16/32/96 px fournis, bundle pyRevit en 96 px clair/sombre.
+Le nom du bouton reste affiché par pyRevit ; le nom du panneau Export est distinct.
+
+Référence des membres publics : documentation Autodesk PDFExportOptions,
+https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/e4236fc8-f8e7-fc74-1b81-9e3a4d9e966b.htm
+Cette référence publiée décrit l'API 2026 ; le contrôle de présence est donc aussi
+réalisé à l'exécution sur Revit 2025.4. L'environnement de développement ne contient
+pas sa DLL et ne permet pas de certifier l'exécution réelle des membres.

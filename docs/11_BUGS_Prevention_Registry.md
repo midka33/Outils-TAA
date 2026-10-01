@@ -432,6 +432,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 **Tests :** `test_export_ui_completion.py` couvre formats mixtes, ancêtres,
  feuille seule et actualisation des vraies méthodes ; UI-09/UI-11 à valider dans Revit.
 
+### BUG-EXPORT-037 — Destination saisie au clavier non enregistrée
+
+**Symptôme reproductible dans le XAML :** le chemin tapé dans la destination ne
+ déclenche aucun enregistrement, contrairement au bouton Parcourir.
+**Cause :** OutputDirectoryTextBox n'avait ni TextChanged ni LostFocus raccordé.
+**Correction :** LostFocus appelle le handler canonique SettingsChanged, qui
+ sauvegarde uniquement output_directory au niveau actif.
+**Règle préventive :** tester aussi la saisie directe d'un champ possédant un
+ sélecteur externe ; ne pas transformer tous les champs hérités en surcharges.
+**Test :** test_manual_destination_saves_only_destination_at_active_level vérifie
+ le raccordement XAML et les deux niveaux ; saisie réelle à contrôler dans Revit.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -471,6 +483,7 @@ BUG-EXPORT-033
 BUG-EXPORT-034
 BUG-EXPORT-035
 BUG-EXPORT-036
+BUG-EXPORT-037
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

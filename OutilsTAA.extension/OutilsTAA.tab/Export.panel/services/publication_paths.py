@@ -15,14 +15,16 @@ def safe_directory_name(name):
     return value
 
 
-def publication_directory(target, destination, combined):
+def publication_directory(target, destination, combined, settings=None):
     """Décline la destination effective sans créer de dossier pendant l'aperçu.
 
     Les cibles de dossier portent leur chemin relatif. Le mode séparé ajoute
-    toujours le nom du carnet, même lors de sa publication directe.
+    le nom du carnet par défaut, sauf désactivation explicite de cette option.
     """
     parts = getattr(target, "publication_folder_parts", ())
     names = [safe_directory_name(part) for part in parts]
-    if not combined:
+    settings = settings or getattr(target, "publication_settings", None)
+    create_subfolder = getattr(settings, "separate_carnet_subfolder", None) is not False
+    if not combined and create_subfolder:
         names.append(safe_directory_name(target.name))
     return os.path.join(destination, *names) if names else destination

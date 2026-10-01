@@ -129,3 +129,9 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 - [ ] Ajouter tests d'intégration Revit.
 - [ ] Ajouter validation de structure du dépôt.
 - [ ] Documenter les procédures de release.
+
+### Export — après stabilisation V1
+
+- Étudier l'export PDF en arrière-plan : suivi des tâches Revit, annulation, rapport
+  différé et livraison/renommage sécurisés après achèvement. La case reste désactivée
+  dans la V1 synchrone ; ne pas l'activer uniquement via SetExportInBackground(True).

@@ -51,9 +51,9 @@ def test_quality_reaches_pdf_exporter(tmp_path, combined, quality):
     target = PublicationSet('Plans', [item], publication_settings=settings)
     service = PublicationService(SimpleNamespace(GetElement=lambda key: SimpleNamespace(Id=1, CanBePrinted=True)))
     calls = []
-    def export(ids, directory, filename, combined, export_quality):
+    def export(ids, directory, filename, combined, export_quality, settings=None):
         calls.append(export_quality); return True
-    def separate(ids, directory, filenames, export_quality):
+    def separate(ids, directory, filenames, export_quality, settings=None):
         calls.append(export_quality); return [str(Path(directory)/n) for n in filenames]
     service.pdf_service = SimpleNamespace(export=export, export_named_separate=separate)
     result = service.publish(target, str(tmp_path), export_pdf=True, export_dwg=False, pdf_combined=combined)

@@ -127,3 +127,16 @@ Le format suit les principes de *Keep a Changelog*.
 - Pictogrammes PDF/DWG hérités, résumé de périmètre et icône Export du ruban.
 - Qualité PDF persistée/héritée (300 DPI par défaut), profils et deux modes raccordés.
 - 173 tests hors Revit ; validation WPF/Revit UI-07 à UI-12 restante.
+
+## 2026-10-01 — Interface compacte et paramètres PDF
+
+- Réglages courants plus denses, héritage sur une ligne avec détails au survol,
+  variables dans Options avancées, pied fixe avec aperçu de consultation.
+- Dialogue Paramètres PDF, huit options héritables et enregistrées dans les profils,
+  annulation sans effet et défauts rétablis uniquement après application.
+- Arrière-plan explicitement désactivé en V1 : préserve le contrôle de livraison.
+- Sous-dossier du carnet optionnel en séparé ; défaut et mode combiné conservés.
+- Destination saisie au clavier sauvegardée à la perte de focus.
+- Icônes PDF/DWG à libellé interne ; icône Export agrandie, source SVG et PNG multi-tailles.
+- 195 tests Python réussis hors Revit. Rendu Full HD 100/125 % et exports natifs à
+  valider dans Revit ; détails et liste de fichiers dans docs/19_Export_UI_Compacte_PDF.md.

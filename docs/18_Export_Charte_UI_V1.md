@@ -78,3 +78,11 @@ vraies méthodes UI exécutées avec doubles. **173 tests Python réussis hors R
 Référence packaging : https://docs.pyrevitlabs.io/reference/pyrevit/extensions/
 Les captures fournies guident les icônes et le résumé ; le poids estimé et les
 champs non disponibles dans le modèle V1 ne sont pas simulés.
+
+## Passe compacte — 2026-10-01
+
+Le suivi courant est dans `19_Export_UI_Compacte_PDF.md` : réglages compacts,
+héritage sur une ligne, dialogue PDF, icônes corrigées et 195 tests Python réussis.
+Les validations Full HD à 100 % / 125 % restent à exécuter sous Windows/Revit.
+Les étapes précédentes sont conservées ci-dessus comme historique, sans les
+présenter comme des validations graphiques effectuées.

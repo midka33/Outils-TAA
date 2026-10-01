@@ -15,7 +15,7 @@ X = '{http://schemas.microsoft.com/winfx/2006/xaml}'
 
 @pytest.mark.parametrize('filename,primary', [('ui.xaml','PublishButton'),
     ('carnet_manager.xaml','AddButton'), ('publication_preview.xaml','ConfirmButton'),
-    ('carnet_sheets_window.xaml',None), ('publication_report.xaml',None)])
+    ('carnet_sheets_window.xaml',None), ('publication_report.xaml',None), ('pdf_settings.xaml','ApplyButton')])
 def test_window_resources_and_primary_action(filename, primary):
     root = ET.parse(PANEL / filename).getroot()
     theme = ET.parse(THEME).getroot()
