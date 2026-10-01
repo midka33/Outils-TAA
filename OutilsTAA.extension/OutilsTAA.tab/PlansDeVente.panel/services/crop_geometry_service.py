@@ -94,8 +94,8 @@ class CropGeometryService(object):
             )
 
             final_loop = self._stage(
-                "Application de la marge",
-                self._offset_outward,
+                "Construction de la marge robuste",
+                self._buffer_outward,
                 straight_outer_loop,
                 margin_internal,
                 view,
@@ -452,36 +452,165 @@ class CropGeometryService(object):
 
         return values
 
-    def _offset_outward(self, curve_loop, margin_internal, view):
-        from Autodesk.Revit.DB import CurveLoop
+    def _buffer_outward(self, curve_loop, margin_internal, view):
+        """Dilate le contour sans dépendre de CurveLoop.CreateViaOffset.
 
+        CreateViaOffset peut échouer brutalement quand une concavité ou un
+        petit décrochement devient plus petit que la marge. Le buffer robuste
+        construit à la place l'union de :
+        - la surface du logement ;
+        - une bande rectangulaire de largeur 2 x marge autour de chaque arête ;
+        - un octogone de raccord autour de chaque sommet.
+
+        L'octogone est circonscrit au cercle de rayon demandé afin de garantir
+        au moins la marge souhaitée dans toutes les directions.
+        """
         if margin_internal <= 1e-9:
             return curve_loop
 
-        base_area = abs(self._curve_loop_area(curve_loop, view))
-        candidates = []
+        from Autodesk.Revit.DB import (
+            BooleanOperationsType,
+            BooleanOperationsUtils,
+            CurveLoop,
+            GeometryCreationUtilities,
+            Line,
+        )
+        from System.Collections.Generic import List
+        import math
 
-        for distance in (margin_internal, -margin_internal):
-            try:
-                candidate = CurveLoop.CreateViaOffset(
-                    curve_loop,
-                    distance,
-                    view.ViewDirection,
-                )
-                area = abs(self._curve_loop_area(candidate, view))
-                if area > base_area + 1e-9:
-                    candidates.append((area, candidate))
-            except Exception:
-                continue
+        straight_loop = self._linearize_curve_loop(curve_loop, view)
+        base_solid = self._solid_from_loop(straight_loop, view)
+        result_solid = base_solid
 
-        if not candidates:
+        curves = list(straight_loop)
+        if len(curves) < 3:
             raise ValueError(
-                "Revit n'a pas réussi à décaler le contour du logement "
-                "avec la marge demandée."
+                "Le contour ne contient pas assez de segments pour construire la marge."
             )
 
-        candidates.sort(key=lambda item: item[0], reverse=True)
-        return candidates[0][1]
+        tolerance = max(self._short_curve_tolerance(), 1e-7)
+
+        # 1. Bandes autour de chaque arête.
+        vertices = []
+        for curve in curves:
+            start = curve.GetEndPoint(0)
+            end = curve.GetEndPoint(1)
+            if start.DistanceTo(end) <= tolerance:
+                continue
+
+            if not vertices or start.DistanceTo(vertices[-1]) > tolerance:
+                vertices.append(start)
+
+            tangent = end.Subtract(start).Normalize()
+            perpendicular = view.ViewDirection.CrossProduct(tangent).Normalize()
+            delta = perpendicular.Multiply(margin_internal)
+
+            p1 = start.Add(delta)
+            p2 = end.Add(delta)
+            p3 = end.Subtract(delta)
+            p4 = start.Subtract(delta)
+
+            strip_loop = self._curve_loop_from_points(
+                (p1, p2, p3, p4),
+                tolerance,
+            )
+            strip_solid = self._solid_from_loop(strip_loop, view)
+            result_solid = BooleanOperationsUtils.ExecuteBooleanOperation(
+                result_solid,
+                strip_solid,
+                BooleanOperationsType.Union,
+            )
+
+        if not vertices:
+            raise ValueError(
+                "Aucun sommet exploitable n'a été trouvé pour construire la marge."
+            )
+
+        # 2. Raccords polygonaux autour des sommets.
+        #
+        # Pour un octogone régulier, le rayon des sommets est augmenté de
+        # 1/cos(pi/8) afin que l'apothème soit exactement la marge demandée.
+        sides = 8
+        cap_radius = margin_internal / math.cos(math.pi / float(sides))
+        right = view.RightDirection.Normalize()
+        up = view.UpDirection.Normalize()
+
+        for vertex in vertices:
+            cap_points = []
+            for index in range(sides):
+                angle = (2.0 * math.pi * float(index)) / float(sides)
+                offset = right.Multiply(math.cos(angle) * cap_radius).Add(
+                    up.Multiply(math.sin(angle) * cap_radius)
+                )
+                cap_points.append(vertex.Add(offset))
+
+            cap_loop = self._curve_loop_from_points(
+                cap_points,
+                tolerance,
+            )
+            cap_solid = self._solid_from_loop(cap_loop, view)
+            result_solid = BooleanOperationsUtils.ExecuteBooleanOperation(
+                result_solid,
+                cap_solid,
+                BooleanOperationsType.Union,
+            )
+
+        reference_z = self._curve_loop_average_z(straight_loop)
+        buffered_loop = self._extract_outer_union_loop(
+            result_solid,
+            view,
+            reference_z,
+        )
+
+        return self._linearize_curve_loop(
+            buffered_loop,
+            view,
+        )
+
+    def _solid_from_loop(self, curve_loop, view):
+        from Autodesk.Revit.DB import CurveLoop, GeometryCreationUtilities
+        from System.Collections.Generic import List
+
+        loops = List[CurveLoop]()
+        loops.Add(curve_loop)
+
+        solid = GeometryCreationUtilities.CreateExtrusionGeometry(
+            loops,
+            view.ViewDirection,
+            self.BOOLEAN_EXTRUSION_HEIGHT,
+        )
+        if solid is None or solid.Volume <= 1e-9:
+            raise ValueError(
+                "Impossible de créer le solide temporaire utilisé pour la marge."
+            )
+        return solid
+
+    @staticmethod
+    def _curve_loop_from_points(points, tolerance):
+        from Autodesk.Revit.DB import CurveLoop, Line
+
+        values = list(points or [])
+        if len(values) < 3:
+            raise ValueError("Au moins trois points sont requis.")
+
+        loop = CurveLoop()
+        count = len(values)
+        added = 0
+
+        for index in range(count):
+            start = values[index]
+            end = values[(index + 1) % count]
+            if start.DistanceTo(end) <= tolerance:
+                continue
+            loop.Append(Line.CreateBound(start, end))
+            added += 1
+
+        if added < 3 or loop.IsOpen():
+            raise ValueError(
+                "Impossible de construire une boucle fermée à partir des points."
+            )
+
+        return loop
 
     def _validate_crop_geometry(self, view, curve_loop):
         """Valide uniquement la géométrie, indépendamment de la capacité cible."""
