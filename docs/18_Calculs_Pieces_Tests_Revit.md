@@ -1,6 +1,6 @@
 # Calculs des pièces — Campagne de validation Revit 2025.4
 
-**Statut :** Fonctionnel validé — revalidation visuelle du patch UI/icône requise  
+**Statut :** Validé — campagne clôturée  
 **Branche :** `feature/calculs-pieces-migration`  
 **Environnement :** Revit 2025.4 / pyRevit 5.x  
 **Prérequis :** travailler sur une copie d'un projet ou une maquette de test.
@@ -20,7 +20,7 @@ Cette campagne valide les comportements impossibles à certifier hors Revit :
 - transaction / Undo ;
 - persistance.
 
-La CI hors Revit a déjà validé **71 tests**. Le 1er octobre 2026, l'utilisateur a confirmé que les tests fonctionnels Revit étaient OK avant le correctif visuel demandé (icône du ruban + compacité de la fenêtre).
+La CI hors Revit a validé **71 tests**. Le 1er octobre 2026, l'utilisateur a confirmé que les tests fonctionnels Revit ainsi que la revalidation visuelle finale étaient OK.
 
 ---
 
@@ -395,7 +395,7 @@ Observation / capture / erreur éventuelle
 
 ## 24. Revalidation après correctif visuel du 1er octobre 2026
 
-Les tests fonctionnels ont été déclarés OK avant ce correctif.
+Les tests fonctionnels avaient été déclarés OK avant ce correctif. La revalidation visuelle finale a ensuite été confirmée OK par l'utilisateur le 1er octobre 2026.
 
 Après mise à jour de la branche, il suffit de rejouer prioritairement :
 
@@ -412,4 +412,14 @@ Après mise à jour de la branche, il suffit de rejouer prioritairement :
 - vérifier que la taille des textes reste confortable ;
 - réduire fortement la hauteur de la fenêtre et vérifier que le ScrollViewer prend alors le relais.
 
-Si ces deux contrôles sont OK et qu'aucune régression fonctionnelle n'est constatée, la campagne peut être considérée close.
+Les deux contrôles ont été confirmés OK. La campagne est considérée close.
+
+
+---
+
+## 25. Clôture
+
+**Date :** 1er octobre 2026  
+**Résultat :** VALIDÉ
+
+Le module Calculs des pièces est validé dans Revit 2025.4 / pyRevit 5.x et peut être intégré dans `main`.

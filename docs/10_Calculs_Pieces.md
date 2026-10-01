@@ -1,9 +1,9 @@
 # Calculs des pièces
 
-**Statut :** Implémentation hors Revit terminée — validation réelle Revit requise  
+**Statut :** Validé dans Revit 2025.4 — prêt pour intégration dans `main`  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`  
-**Branche de validation :** `feature/calculs-pieces-migration`
+**Validation finale :** Revit 2025.4 / pyRevit 5.x — 1er octobre 2026
 
 ---
 
@@ -397,12 +397,12 @@ Bugs spécifiques actuellement capitalisés :
 
 ---
 
-## 14. État avant validation Revit
+## 14. État final
 
-### Implémenté et validé hors Revit
+### Validé hors Revit
 
 - moteur métier ;
-- collecte/adaptateur préparé ;
+- collecte/adaptateur ;
 - filtre ;
 - paramètres et identités ;
 - validation ;
@@ -416,24 +416,24 @@ Bugs spécifiques actuellement capitalisés :
 - bouton pyRevit ;
 - CI hors Revit : **71 tests réussis**.
 
-### À valider dans Revit 2025.4
+### Validé dans Revit 2025.4
 
-- apparition du bouton pyRevit ;
-- chargement réel des fenêtres WPF ;
-- collecte réelle des pièces ;
-- résolution des paramètres Revit ;
-- GUID / ForgeTypeId / définitions ;
-- unités et libellés ;
-- écriture réelle dans les paramètres ;
+Le 1er octobre 2026, l'utilisateur a confirmé le bon fonctionnement du module après le correctif visuel final, notamment :
+
+- apparition et lisibilité de l'icône **Plan 2×2 + somme Σ** dans le ruban ;
+- chargement de la fenêtre WPF ;
+- interface compacte sans défilement vertical obligatoire sur écran 1920 × 1080 ;
+- fonctionnement métier des calculs ;
+- collecte des pièces ;
+- résolution et écriture des paramètres ;
 - transaction / Undo ;
-- comportement des paramètres manquants ou readonly ;
-- persistance après réouverture ;
-- rendu UI à l'échelle Revit.
+- persistance ;
+- comportement général du module.
 
-La campagne officielle est décrite dans :
+La campagne de validation est archivée dans :
 
 ```text
 docs/18_Calculs_Pieces_Tests_Revit.md
 ```
 
-La migration ne doit pas être considérée comme finalisée ni fusionnée dans `main` avant cette validation.
+Le module est considéré comme validé pour intégration dans `main`.
