@@ -157,6 +157,7 @@ class PublicationService(object):
         view_ids = self._current_view_ids(publication_set, items)
 
         if export_pdf:
+            quality = getattr(getattr(publication_set, "publication_settings", None), "pdf_quality", None) or 300
             pdf_directory = self._prepare_output_directory(
                 publication_directory(publication_set, output_directory, pdf_combined))
             if pdf_combined:
@@ -165,7 +166,8 @@ class PublicationService(object):
                     warnings.append("Variables non résolues dans le nom PDF : {}.".format(", ".join(unknown)))
                 try:
                     success = self.pdf_service.export(view_ids, pdf_directory,
-                                                       os.path.splitext(filename)[0], combined=True)
+                                                       os.path.splitext(filename)[0], combined=True,
+                                                       export_quality=quality)
                 except Exception as exc:
                     errors.append("PDF combiné — erreur Revit : {}".format(
                         self._revit_exception_message(exc)))
@@ -204,7 +206,7 @@ class PublicationService(object):
                 if separate_ids:
                     try:
                         paths = self.pdf_service.export_named_separate(
-                            separate_ids, pdf_directory, filenames)
+                            separate_ids, pdf_directory, filenames, export_quality=quality)
                     except Exception as exc:
                         errors.append("PDF séparé — erreur : {}".format(
                             self._revit_exception_message(exc)))

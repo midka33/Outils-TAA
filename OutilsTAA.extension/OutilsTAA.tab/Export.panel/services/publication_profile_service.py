@@ -71,6 +71,7 @@ class PublicationProfileService(object):
         return {
             "pdf_enabled": True if settings.pdf_enabled is None else bool(settings.pdf_enabled),
             "pdf_mode": settings.pdf_mode or "COMBINED",
+            "pdf_quality": getattr(settings, "pdf_quality", None) or 300,
             "dwg_enabled": True if settings.dwg_enabled is None else bool(settings.dwg_enabled),
             "dwg_mode": settings.dwg_mode or "SEPARATE",
             "dwg_setup_name": settings.dwg_setup_name,

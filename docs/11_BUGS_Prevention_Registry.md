@@ -407,6 +407,31 @@ profils/configuration en WrapPanel et action d'héritage sous la description.
 la validité XML à une validation WPF. Préserver les noms, événements et bindings.
 **Contrôle :** contrats XAML conservés ; tests UI-01 à UI-06 à exécuter dans Revit.
 
+### BUG-EXPORT-035 — Suppression ignorant la sélection Ctrl/Maj
+
+**Symptôme :** plusieurs lignes sélectionnées mais une seule supprimée.
+**Cause :** handler limité à TreeView.SelectedItem, distinct de la sélection du
+ gestionnaire de glisser-déposer.
+**Correction :** instantané des tags sélectionnés, confirmation nominative commune,
+ enfants sélectionnés avant parents, protection Général et dossiers non vides,
+ prise en compte des carnets de session. Navigation clavier efface la sélection
+ multiple périmée ; un clic sur un élément non sélectionnable l'efface aussi.
+**Règle préventive :** les actions groupées doivent utiliser la même sélection que
+ l'affichage et ne jamais supprimer implicitement des enfants non sélectionnés.
+**Tests :** `test_export_ui_completion.py` couvre suppression, annulation,
+ sélection, sessions et protections ; UI-08 reste à valider dans Revit.
+
+### BUG-EXPORT-036 — Formats et périmètre absents de la présentation principale
+
+**Symptôme :** icônes génériques de feuilles et pied de fenêtre statique.
+**Cause :** absence de raccordement des en-têtes et du résumé aux réglages résolus.
+**Correction :** calcul à partir des mêmes cibles et du même SettingsResolver que
+ la publication ; actualisation après sélection, modification, profil et héritage.
+**Règle préventive :** afficher les valeurs effectives sans les enregistrer comme
+ surcharges ; distinguer résumé prévu et validation par l'aperçu.
+**Tests :** `test_export_ui_completion.py` couvre formats mixtes, ancêtres,
+ feuille seule et actualisation des vraies méthodes ; UI-09/UI-11 à valider dans Revit.
+
 ## 4. Identifiants des bugs
 
 ```text
@@ -444,6 +469,8 @@ BUG-EXPORT-031
 BUG-EXPORT-032
 BUG-EXPORT-033
 BUG-EXPORT-034
+BUG-EXPORT-035
+BUG-EXPORT-036
 BUG-TEST-002
 BUG-ROOMCALC-001
 BUG-COMMON-001

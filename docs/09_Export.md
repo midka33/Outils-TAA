@@ -1475,3 +1475,36 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 ```
 
 Cette section doit être maintenue à jour à chaque changement de comportement significatif du module Export.
+
+## Compléments de la fenêtre principale — 2026-10-01
+
+- Le menu « Dossier » du panneau de réglages est retiré. Il déplaçait un carnet ;
+  cette opération reste disponible par glisser-déposer dans l'arborescence.
+- Ctrl / Maj permettent de sélectionner plusieurs carnets ou dossiers puis de
+  les supprimer avec une confirmation commune listant les noms. Les carnets de
+  session sont aussi sélectionnables. Les dossiers sont supprimés du plus profond
+  au parent, seulement s'ils sont vides ; les contenus non sélectionnés et Général
+  sont conservés. Un bilan indique les éléments conservés ou en erreur. La commande
+  ne supprime jamais de feuilles Revit. Les feuilles du carnet ne sont pas des cibles
+  de cette commande. La sélection multiple ne change pas le périmètre de publication.
+- Les mises en page affichent une feuille PDF rouge, DWG bleue ou les deux selon
+  les réglages effectifs du carnet, y compris l'héritage de tous ses parents.
+  Sans format actif, une feuille neutre avec infobulle reste visible.
+- Le pied de fenêtre indique dossier, carnet, périmètre, nombre d'occurrences de
+  mises en page prévues, formats et résolutions PDF. Le dossier inclut ses descendants ;
+  une feuille seule compte pour une occurrence. Les éléments sans format sont
+  signalés à part. L'aperçu reste responsable de valider disponibilité et exportabilité.
+  Aucune taille de fichier n'est estimée. Les profils étant des préréglages copiés,
+  le résumé n'annonce pas de lien permanent avec un profil.
+- La qualité PDF propose 72, 144, 300, 600, 1200, 2400, 3600 ou 4000 DPI, avec
+  300 par défaut. Le champ `pdf_quality` est héritable, surchargeable et enregistré
+  dans les carnets, dossiers et profils ; les anciens documents héritent du défaut.
+  Il est transmis au convertisseur existant `PDFExportQualityType` pour les exports
+  combinés et séparés. Il règle la résolution, sans forcer la rastérisation.
+- Le bouton Export du ruban reçoit l'icône orange feuille/export de la charte,
+  livrée dans `icon.png` et `icon.dark.png`, avec source SVG dans les ressources.
+  Recharger pyRevit après mise à jour pour reconstruire le ruban.
+
+Les services `publication_overview.py` et `publication_tree_delete.py` portent les
+calculs de résumé et la suppression sans dépendance WPF. L'intégration conserve
+le handler canonique de suppression ; `ExportWindow` assure le rendu et son actualisation.

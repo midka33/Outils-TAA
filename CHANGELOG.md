@@ -119,3 +119,11 @@ Le format suit les principes de *Keep a Changelog*.
 - Transmission des réglages hérités sur une copie de publication.
 - Suppression de deux abonnements redondants au glisser-déposer.
 - Tests et documentation synchronisés ; validation Revit 2025.4 encore requise.
+
+## 2026-10-01 — Compléments de la fenêtre Export
+
+- Menu Dossier des réglages retiré ; déplacement conservé dans l'arborescence.
+- Suppression multiple des carnets/dossiers avec confirmation et protections.
+- Pictogrammes PDF/DWG hérités, résumé de périmètre et icône Export du ruban.
+- Qualité PDF persistée/héritée (300 DPI par défaut), profils et deux modes raccordés.
+- 173 tests hors Revit ; validation WPF/Revit UI-07 à UI-12 restante.

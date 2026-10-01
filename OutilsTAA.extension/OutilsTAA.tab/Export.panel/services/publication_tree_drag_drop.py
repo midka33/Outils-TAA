@@ -22,9 +22,14 @@ class PublicationTreeDragDrop(object):
         tree.AllowDrop = True
         tree.PreviewMouseLeftButtonDown += self._mouse_down
         tree.PreviewMouseMove += self._mouse_move
+        tree.PreviewKeyDown += self._key_down
         tree.DragOver += self._drag_over
         tree.DragLeave += self._drag_leave
         tree.Drop += self._drop
+
+    def _key_down(self, sender, args):
+        if args.Key in (Key.Up, Key.Down, Key.Left, Key.Right, Key.Home, Key.End):
+            self._select([])
 
     def _item(self, source):
         current = source
@@ -92,10 +97,6 @@ class PublicationTreeDragDrop(object):
             return None
         if tag[0] == "FOLDER" and (not getattr(tag[1], "persistent", False) or str(tag[1].id) == "default"):
             return None
-        if tag[0] == "CARNET" and not getattr(tag[1], "persistent", False):
-            return None
-        if tag[0] == "SHEET" and not getattr(tag[2], "persistent", False):
-            return None
         return self._key(tag)
 
     def _select(self, keys):
@@ -105,7 +106,7 @@ class PublicationTreeDragDrop(object):
                 self.selected.append(key)
         selected = set(self.selected)
         for kind in ("FOLDER", "CARNET", "SHEET"):
-            for node in self._nodes(kind):
+            for node in self._selection_nodes(kind):
                 if self._key(node.Tag) in selected:
                     node.Background = self.SELECTED_BRUSH
                     node.Foreground = self.selected_foreground
@@ -113,10 +114,23 @@ class PublicationTreeDragDrop(object):
                     node.ClearValue(TreeViewItem.BackgroundProperty)
                     node.ClearValue(TreeViewItem.ForegroundProperty)
 
+    def selected_tags(self):
+        """Utilise la sélection Ctrl/Maj ; repli sur la sélection native au clavier."""
+        tags = [node.Tag for node in self._all()
+                if getattr(node, "Tag", None) and self._key(node.Tag) in self.selected]
+        if tags:
+            return tags
+        node = self.window.PublicationTree.SelectedItem
+        return [node.Tag] if node is not None and getattr(node, "Tag", None) else []
+
+    def _selection_nodes(self, kind):
+        return [node for node in self._all() if getattr(node, "Tag", None)
+                and node.Tag[0] == kind and self._valid_key(node)]
+
     def _ordered(self, node):
         tag = node.Tag
         if tag[0] in ("FOLDER", "CARNET"):
-            return [self._key(n.Tag) for n in self._nodes(tag[0])]
+            return [self._key(n.Tag) for n in self._selection_nodes(tag[0])]
         parent = getattr(node, "Parent", None)
         if parent is None:
             return []
@@ -129,8 +143,7 @@ class PublicationTreeDragDrop(object):
         self.drag_started = False
         key = self._valid_key(node) if node is not None else None
         if key is None:
-            if node is None:
-                self._select([])
+            self._select([])
             return
         modifiers = Keyboard.Modifiers
         if modifiers & ModifierKeys.Shift and self.selected:
@@ -168,7 +181,10 @@ class PublicationTreeDragDrop(object):
         if not self.selected:
             self._select([self._key(tag)])
         kind = tag[0]
-        items = [key for key in self.selected if key.startswith(kind + ":")]
+        movable = set(self._key(n.Tag) for n in self._nodes(kind))
+        if self._key(tag) not in movable:
+            return
+        items = [key for key in self.selected if key in movable]
         if not items:
             return
         self.drag_started = True

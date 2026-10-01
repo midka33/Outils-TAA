@@ -11,18 +11,21 @@ class PublicationSettings(object):
     """
 
     FIELDS = (
-        "pdf_enabled", "pdf_mode", "dwg_enabled", "dwg_mode",
+        "pdf_enabled", "pdf_mode", "pdf_quality", "dwg_enabled", "dwg_mode",
         "dwg_setup_name", "dwg_true_color", "output_directory",
         "filename_template"
     )
 
+    PDF_QUALITIES = (72, 144, 300, 600, 1200, 2400, 3600, 4000)
+
     def __init__(self, output_directory=None, pdf_enabled=None,
                  pdf_mode=None, dwg_enabled=None, dwg_mode=None,
                  dwg_setup_name=None, dwg_true_color=None,
-                 filename_template=None, modified_only=None):
+                 filename_template=None, modified_only=None, pdf_quality=None):
         self.output_directory = output_directory
         self.pdf_enabled = pdf_enabled
         self.pdf_mode = pdf_mode
+        self.pdf_quality = pdf_quality
         self.dwg_enabled = dwg_enabled
         self.dwg_mode = dwg_mode
         self.dwg_setup_name = dwg_setup_name
@@ -41,7 +44,7 @@ class PublicationSettings(object):
                    pdf_mode="COMBINED", dwg_enabled=True,
                    dwg_mode="SEPARATE", dwg_setup_name=None,
                    dwg_true_color=True, filename_template="{carnet}",
-                   modified_only=False)
+                   modified_only=False, pdf_quality=300)
 
     def copy(self):
         return self.__class__(**dict((field, getattr(self, field))
@@ -57,6 +60,8 @@ class PublicationSettings(object):
             errors.append("Le mode DWG est invalide.")
         if self.pdf_enabled is None or self.dwg_enabled is None:
             errors.append("Les réglages PDF/DWG n'ont pas été résolus.")
+        if self.pdf_enabled and self.pdf_quality not in self.PDF_QUALITIES:
+            errors.append("La qualité PDF est invalide.")
         return errors
 
     def to_dict(self):
@@ -70,6 +75,7 @@ class PublicationSettings(object):
         return cls(
             output_directory=value.get("output_directory"),
             pdf_enabled=value.get("pdf_enabled", None),
+            pdf_quality=value.get("pdf_quality"),
             pdf_mode=value.get("pdf_mode", None),
             dwg_enabled=value.get("dwg_enabled", None),
             dwg_mode=value.get("dwg_mode", None),

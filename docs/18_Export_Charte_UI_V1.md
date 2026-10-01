@@ -52,3 +52,29 @@ Linux utilisé ne permet ni d'exécuter Revit ni de produire une capture WPF aut
 Le socle fonctionnel a été validé par l'utilisateur le 2026-09-30 (TEST-44 et profils
 P1–P4 inclus). La V1 reste en finition graphique jusqu'à validation de ces tests UI.
 Le nettoyage de stage07 reste un travail distinct ; cette refonte ne le réalise pas.
+
+## Compléments après retour utilisateur — 2026-10-01
+
+Les six points de la fenêtre principale sont implémentés : retrait du déplacement
+par menu Dossier, suppression multiple de conteneurs, pictogrammes PDF/DWG effectifs,
+icône Export du ruban, résumé de périmètre, qualité PDF héritée et persistée.
+Le détail fonctionnel est dans `09_Export.md`. Cette seconde passe touche aussi
+le modèle de réglages, les profils et la transmission de la qualité au moteur PDF.
+
+Contrôles supplémentaires : héritage/profils/anciens réglages de qualité ; huit
+résolutions dans les deux modes PDF ; suppression groupée, annulation, protection
+des dossiers et carnets de session ; actualisation des icônes et du résumé sur les
+vraies méthodes UI exécutées avec doubles. **173 tests Python réussis hors Revit.**
+
+| Test | Vérification dans Revit | État |
+|---|---|---|
+| UI-07 | Menu Dossier absent ; déplacement par glisser-déposer disponible. | À tester |
+| UI-08 | Ctrl/Maj puis Supprimer : plusieurs carnets et dossiers, annulation, dossier non vide, Général, session et navigation clavier. | À tester |
+| UI-09 | Modifier PDF/DWG au parent puis surcharger/revenir à l'héritage ; icônes des feuilles actualisées sans replier l'arbre. | À tester |
+| UI-10 | Recharger pyRevit : pictogramme orange du bouton Export en thème clair et sombre. | À tester |
+| UI-11 | Résumé pour dossier imbriqué, carnet, feuille, formats mixtes et désactivés ; fenêtre réduite. | À tester |
+| UI-12 | Qualité 144/600 DPI, sauvegarde/réouverture/profil/héritage ; exporter combiné puis séparé. | À tester |
+
+Référence packaging : https://docs.pyrevitlabs.io/reference/pyrevit/extensions/
+Les captures fournies guident les icônes et le résumé ; le poids estimé et les
+champs non disponibles dans le modèle V1 ne sont pas simulés.

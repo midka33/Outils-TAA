@@ -169,7 +169,8 @@ def test_orchestrator_and_preview_use_the_same_effective_names(tmp_path):
             return SimpleNamespace(Id=value, CanBePrinted=True)
     service = PublicationService(Document())
     native_calls = []
-    def export(ids, directory, names):
+    def export(ids, directory, names, export_quality=300):
+        assert export_quality == 300
         native_calls.append((ids, names))
         paths = []
         for name in names:

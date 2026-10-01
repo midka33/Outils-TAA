@@ -38,7 +38,7 @@
           </StackPanel>
           <TreeView x:Name="PublicationTree" Grid.Row="1" AllowDrop="True" SelectedItemChanged="Tree_SelectedItemChanged" MouseDoubleClick="Tree_MouseDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,4,0,0" />
           <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-            <Button Content="Supprimer" Click="DeleteNode_Click" MinWidth="90" ToolTip="Supprimer" />
+            <Button Content="Supprimer" Click="DeleteNode_Click" MinWidth="90" ToolTip="Supprimer les éléments sélectionnés (Ctrl / Maj). Les feuilles Revit sont conservées." />
           </StackPanel>
         </Grid>
       </Border>
@@ -60,10 +60,6 @@
                 <Button Content="Supprimer" Click="DeleteProfile_Click" Width="80" Margin="6,0,0,0" ToolTip="Supprimer" />
               </WrapPanel>
               <TextBlock x:Name="ProfileInfoText" Text="Les profils mémorisent les réglages PDF/DWG." FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TaaSecondary}" />
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBlock Text="Dossier :" VerticalAlignment="Center" />
-                <ComboBox x:Name="FolderCombo" DisplayMemberPath="name" Width="210" Margin="8,0,0,0" SelectionChanged="FolderChanged" />
-              </StackPanel>
               <Border BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="7" Margin="0,0,0,8" Style="{DynamicResource TaaCard}">
                 <StackPanel>
                   <TextBlock x:Name="InheritanceInfoText" Text="" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource TaaSecondary}" />
@@ -77,6 +73,10 @@
                     <RadioButton x:Name="PdfCombinedRadio" Content="Combiné" GroupName="PdfMode" IsChecked="True" Checked="SettingsChanged" />
                     <RadioButton x:Name="PdfSeparateRadio" Content="Séparé" GroupName="PdfMode" Margin="15,0,0,0" Checked="SettingsChanged" />
                   </StackPanel>
+                  <WrapPanel Margin="18,10,0,0">
+                    <TextBlock Text="Qualité (DPI) :" VerticalAlignment="Center" />
+                    <ComboBox x:Name="PdfQualityCombo" Width="100" Margin="8,0,0,0" SelectionChanged="SettingsChanged" ToolTip="Résolution des éléments raster du PDF ; 300 DPI par défaut." />
+                  </WrapPanel>
                 </StackPanel>
               </GroupBox>
               <GroupBox Header="DWG" Padding="8" Margin="0,0,0,8">
@@ -123,13 +123,13 @@
         </Grid>
       </Border>
     </Grid>
-    <GroupBox Grid.Row="2" Header="Publication" Padding="8" Margin="0,12,0,0">
+    <GroupBox Grid.Row="2" Header="Résumé de la publication" Padding="8" Margin="0,12,0,0">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="La sélection dans l'arborescence détermine le périmètre publié." VerticalAlignment="Center" />
+        <TextBlock x:Name="PublicationSummaryText" Grid.Column="0" Text="Aucune publication sélectionnée." TextWrapping="Wrap" Margin="0,0,16,0" VerticalAlignment="Center" />
         <Button Grid.Column="1" x:Name="PublishButton" Content="Publier…" Click="Publish_Click" MinHeight="40" MinWidth="230" IsEnabled="False" Style="{DynamicResource TaaPrimaryButton}" ToolTip="Publier…" />
       </Grid>
     </GroupBox>

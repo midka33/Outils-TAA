@@ -15,6 +15,7 @@ from carnet_manager_window import CarnetManagerWindow
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from publication_folder import PublicationFolder, _folder_targets
+from publication_tree_delete import deletion_targets, delete_selected
 
 
 def install_preview_on_export_window(export_window_class):
@@ -133,14 +134,6 @@ def install_preview_on_export_window(export_window_class):
         self.controller.save_folder(folder)
         self._refresh_tree()
 
-    def folder_changed(self, sender, args):
-        if self._loading_settings or self._selected_set is None or self.FolderCombo.SelectedItem is None:
-            return
-        self._selected_set.folder_id = self.FolderCombo.SelectedItem.id
-        if self._selected_set.persistent:
-            self.controller.save_persistent(self._selected_set)
-        self._refresh_tree()
-
     def browse_output_click(self, sender, args):
         folder = forms.pick_folder(title="Choisir le dossier de publication")
         if not folder:
@@ -152,35 +145,27 @@ def install_preview_on_export_window(export_window_class):
             self._save_selected_field("output_directory")
 
     def delete_node_click(self, sender, args):
-        node = self.PublicationTree.SelectedItem
-        if node is None or not getattr(node, "Tag", None):
+        manager = self._drag_drop_manager
+        tags = manager.selected_tags()
+        targets = deletion_targets(tags)
+        if not targets:
+            forms.alert("Sélectionnez des carnets ou dossiers (Ctrl / Maj). Les mises en page restent gérées dans le carnet.", title="Export")
             return
-        tag = node.Tag
-        kind, value = tag[0], tag[1]
-        if kind == "CARNET":
-            if not forms.alert("Supprimer le carnet « {0} » ?".format(value.name), title="Export", yes=True, no=True):
-                return
-            if value.persistent:
-                self.repository.delete(value.id)
-            else:
-                self.session_carnets = [c for c in self.session_carnets if c.id != value.id]
-        elif kind == "FOLDER":
-            if value.id == "default":
-                forms.alert("Le dossier Général ne peut pas être supprimé.", title="Export")
-                return
-            if not forms.alert("Supprimer le dossier « {0} » ? Il doit être vide.".format(value.name), title="Export", yes=True, no=True):
-                return
-            if not self.controller.delete_folder(value.id):
-                forms.alert("Le dossier n'est pas vide ou ne peut pas être supprimé.", title="Export")
-                return
-        else:
+        names = "\n".join("• " + tag[1].name for tag in targets)
+        message = "Supprimer ces {0} élément(s) ?\n{1}\n\nLes dossiers doivent être vides après suppression des carnets sélectionnés. Les feuilles Revit sont conservées.".format(len(targets), names)
+        if not forms.alert(message, title="Export", yes=True, no=True):
             return
+        self.session_carnets, blocked = delete_selected(
+            targets, self.controller, self.repository, self.session_carnets, self._folders)
+        manager._select([])
         self._selected_set = None
         self._selected_item = None
         self._selected_kind = None
         self._selected_folder = None
         self._refresh_tree()
         self._update_selection_info()
+        if blocked:
+            forms.alert("Éléments conservés :\n" + "\n".join(blocked), title="Export")
 
     def make_sheet_target(self):
         parent = self._selected_set
@@ -234,7 +219,7 @@ def install_preview_on_export_window(export_window_class):
             return
         try:
             if self._selected_kind == "FOLDER":
-                source = self._selected_folder.publication_settings or PublicationSettings.defaults()
+                source = self.settings_resolver.resolve(None, folder=self._selected_folder, folders=self._folders)
             else:
                 source = self._resolve_settings(self._selected_set)
             self.profile_service.save(name.strip(), source)
@@ -305,8 +290,6 @@ def install_preview_on_export_window(export_window_class):
         export_window_class.OpenCarnetManager_Click = manager_click_with_folder
     if not hasattr(export_window_class, "NewFolder_Click"):
         export_window_class.NewFolder_Click = new_folder_click
-    if not hasattr(export_window_class, "FolderChanged"):
-        export_window_class.FolderChanged = folder_changed
     if not hasattr(export_window_class, "BrowseOutput_Click"):
         export_window_class.BrowseOutput_Click = browse_output_click
     if not hasattr(export_window_class, "DeleteNode_Click"):

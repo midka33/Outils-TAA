@@ -7,13 +7,15 @@ from pyrevit import forms
 from taa_ui_theme import apply_theme
 from System import Guid
 from System.Windows import FontWeights, Thickness, VerticalAlignment
-from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation
+from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation, Grid
+from System.Windows.Media import Brushes
 from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
 from carnet_sheets_window import CarnetSheetsWindow
 from carnet_manager_window import CarnetManagerWindow
-from publication_folder import PublicationFolder
+from publication_folder import PublicationFolder, _folder_targets
+from publication_overview import formats_for, summarize_publication
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
 from filename_service import FilenameService
@@ -52,6 +54,7 @@ class ExportWindow(forms.WPFWindow):
     def _load_context(self):
         sheets = self.controller.export_service.get_sheets()
         self.current_project_unique_ids = set(sheet.UniqueId for sheet in sheets if sheet is not None and getattr(sheet, "UniqueId", None))
+        self.PdfQualityCombo.ItemsSource = list(PublicationSettings.PDF_QUALITIES)
         self._load_dwg_setups()
         self._load_profiles()
         self.FilenameTokenCombo.ItemsSource = ["{carnet}", "{numero}", "{nom}", "{nom_complet}", "{projet}", "{date}", "{indice}", "{dossier}", "{parametre:Nom}"]
@@ -76,6 +79,7 @@ class ExportWindow(forms.WPFWindow):
         for c in self.session_carnets:
             if self._belongs_to_current_project(c):
                 self._carnets.append(c)
+        self._folders_by_id = dict((f.id, f) for f in self._folders)
         self.PublicationTree.Items.Clear()
         folder_items = {}
         for folder in self._folders:
@@ -141,9 +145,59 @@ class ExportWindow(forms.WPFWindow):
             child = TreeViewItem()
             child.AllowDrop = True
             child.Tag = ("SHEET", item, carnet)
-            child.Header = self._node_header("{0} — {1}".format(item.sheet_number or "", item.sheet_name or ""), "TaaSheetIcon")
+            child.Header = self._sheet_header(item, self._resolve_settings(carnet))
             node.Items.Add(child)
         return node
+
+    def _sheet_header(self, item, settings):
+        """Affiche les formats effectifs sur des pictogrammes de feuille."""
+        text = "{0} — {1}".format(item.sheet_number or "", item.sheet_name or "")
+        formats = formats_for(settings)
+        if not formats:
+            panel = self._node_header(text, "TaaSheetIcon")
+            panel.ToolTip = "Aucun format activé"
+            return panel
+        panel = StackPanel(Orientation=Orientation.Horizontal)
+        for name in formats:
+            color = Brushes.Firebrick if name == "PDF" else Brushes.DodgerBlue
+            badge = Grid(Width=25, Height=27, Margin=Thickness(0, 0, 5, 0))
+            icon = IconPath(Data=self.FindResource("TaaSheetIcon"), Stroke=color,
+                            StrokeThickness=1.4, Width=20, Height=22)
+            label = TextBlock(Text=name, FontSize=7, FontWeight=FontWeights.Bold,
+                              Foreground=color, VerticalAlignment=VerticalAlignment.Bottom)
+            badge.Children.Add(icon)
+            badge.Children.Add(label)
+            panel.Children.Add(badge)
+        panel.Children.Add(TextBlock(Text=text, VerticalAlignment=VerticalAlignment.Center))
+        panel.ToolTip = " + ".join(formats)
+        return panel
+
+    def _update_publication_overview(self):
+        """Actualise les formats et le périmètre sans reconstruire la sélection."""
+        def refresh(nodes):
+            for node in nodes:
+                tag = node.Tag
+                if tag and tag[0] == "SHEET":
+                    node.Header = self._sheet_header(tag[1], self._resolve_settings(tag[2]))
+                refresh(node.Items)
+        refresh(self.PublicationTree.Items)
+        targets = []
+        context = "Aucune publication sélectionnée."
+        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
+            targets = _folder_targets(self, self._selected_folder)
+            context = "Dossier : {0} | Périmètre : dossier et sous-dossiers".format(self._selected_folder.name)
+        elif self._selected_set is not None:
+            targets = [self._selected_set]
+            folder = self._folder_for_set(self._selected_set)
+            chain = self.settings_resolver.folder_chain(folder, self._folders)
+            path = " / ".join(f.name for f in reversed(chain))
+            scope = "cette mise en page" if self._selected_kind == "SHEET" else "tout le carnet"
+            context = "Dossier : {0} | Carnet : {1} | Périmètre : {2}".format(path, self._selected_set.name, scope)
+        self.PublicationSummaryText.Text = context
+        if targets:
+            self.PublicationSummaryText.Text += "\n" + summarize_publication(
+                targets, self._resolve_settings,
+                self._selected_item if self._selected_kind == "SHEET" else None)
 
     def _belongs_to_current_project(self, publication_set):
         return publication_set is not None and any(item is not None and item.unique_id in self.current_project_unique_ids for item in (publication_set.items or []))
@@ -188,6 +242,7 @@ class ExportWindow(forms.WPFWindow):
     def _set_no_selection(self):
         self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
+        self.PublicationSummaryText.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
         self.PublishButton.IsEnabled = False
         self.FilenamePreviewText.Text = "—"
@@ -222,12 +277,7 @@ class ExportWindow(forms.WPFWindow):
                 self.SelectedNodeText.Text = "Mise en page : {0} — {1}\nPublication : cette mise en page uniquement.".format(item.sheet_number or "", item.sheet_name or "")
             else:
                 self.SelectedNodeText.Text = "{0} • {1} mise(s) en page\nPublication : carnet entier.".format(self._selected_set.name, len(self._selected_set.items or []))
-            self.FolderCombo.ItemsSource = self._folders
-            self.FolderCombo.SelectedIndex = -1
-            for index, value in enumerate(self._folders):
-                if value.id == self._selected_set.folder_id:
-                    self.FolderCombo.SelectedIndex = index
-                    break
+            self.PdfQualityCombo.SelectedItem = effective.pdf_quality
             self.PdfCheckBox.IsChecked = effective.pdf_enabled
             self.PdfCombinedRadio.IsChecked = effective.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = effective.pdf_mode == "SEPARATE"
@@ -244,6 +294,7 @@ class ExportWindow(forms.WPFWindow):
             self._loading_profile = False
             self._loading_settings = False
         self._update_filename_preview(effective)
+        self._update_publication_overview()
 
     def _load_folder_settings(self):
         folder = self._selected_folder
@@ -254,8 +305,7 @@ class ExportWindow(forms.WPFWindow):
         self._loading_profile = True
         try:
             self.SelectedNodeText.Text = "Dossier : {0}\nLes réglages définis ici sont hérités par les sous-dossiers et les carnets.".format(folder.name)
-            self.FolderCombo.ItemsSource = self._folders
-            self.FolderCombo.SelectedIndex = -1
+            self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = settings.pdf_mode == "SEPARATE"
@@ -273,6 +323,7 @@ class ExportWindow(forms.WPFWindow):
             self._loading_profile = False
             self._loading_settings = False
         self._update_filename_preview(settings)
+        self._update_publication_overview()
 
     def _inheritance_description(self, publication_set, folder):
         groups = []
@@ -308,7 +359,7 @@ class ExportWindow(forms.WPFWindow):
 
     @staticmethod
     def _field_label(field):
-        labels = {"pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_mode": "mode DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "output_directory": "destination", "filename_template": "nommage"}
+        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_mode": "mode DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "output_directory": "destination", "filename_template": "nommage"}
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
@@ -335,6 +386,7 @@ class ExportWindow(forms.WPFWindow):
 
     def _control_value(self, field):
         values = {
+            "pdf_quality": int(self.PdfQualityCombo.SelectedItem or 300),
             "pdf_enabled": bool(self.PdfCheckBox.IsChecked),
             "pdf_mode": "COMBINED" if self.PdfCombinedRadio.IsChecked else "SEPARATE",
             "dwg_enabled": bool(self.DwgCheckBox.IsChecked),
@@ -357,6 +409,7 @@ class ExportWindow(forms.WPFWindow):
             self.controller.save_persistent(self._selected_set)
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
+        self._update_publication_overview()
 
     def _save_selected_settings(self):
         return
@@ -378,6 +431,7 @@ class ExportWindow(forms.WPFWindow):
             return
         settings = self._selected_set.publication_settings or PublicationSettings()
         settings.pdf_enabled = bool(values.get("pdf_enabled", True))
+        settings.pdf_quality = values.get("pdf_quality") or 300
         settings.pdf_mode = values.get("pdf_mode", "COMBINED")
         settings.dwg_enabled = bool(values.get("dwg_enabled", True))
         settings.dwg_mode = values.get("dwg_mode", "SEPARATE")
@@ -386,6 +440,7 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.publication_settings = settings
         self._loading_settings = True
         try:
+            self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = settings.pdf_mode == "SEPARATE"
@@ -400,6 +455,7 @@ class ExportWindow(forms.WPFWindow):
             self.controller.save_persistent(self._selected_set)
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
+        self._update_publication_overview()
 
     def _update_filename_preview(self, settings):
         try:
@@ -429,6 +485,7 @@ class ExportWindow(forms.WPFWindow):
         if self._loading_settings:
             return
         mapping = {
+            "PdfQualityCombo": "pdf_quality",
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
             "DwgCheckBox": "dwg_enabled", "DwgCombinedRadio": "dwg_mode", "DwgSeparateRadio": "dwg_mode",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
