@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.6  
+**Version :** 0.7  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1426,3 +1426,51 @@ Reprendre les trois logements du test précédent.
 Résultat attendu : `Contour optimisé`.
 
 Si un logement reste en `Rectangle de secours`, transmettre le texte après `Étape en échec :`.
+
+
+## Prototype A.3.2 — Capacité testée sur la vue cible
+
+Le test Revit suivant a remonté :
+
+```text
+Cette vue Revit n'autorise pas un crop non rectangulaire.
+```
+
+La cause n'était pas le contour lui-même mais le moment où la capacité `CanHaveShape` était vérifiée.
+
+Le prototype contrôlait cette propriété sur la **vue source** avant création de la vue dépendante. Une vue source pilotée par un Scope Box peut interdire l'édition libre du crop, alors que la cible à modifier est la nouvelle vue dépendante.
+
+### Nouveau comportement
+
+```text
+Vue source
+   ↓
+Calcul géométrique uniquement
+   ↓
+Création de la vue dépendante
+   ↓
+Contrôle CanHaveShape sur la VUE CIBLE
+   ↓
+Scope Box sur la cible ?
+   ├─ Oui et modifiable → le retirer sur la vue créée uniquement
+   └─ Non / lecture seule → conserver
+   ↓
+Recontrôle CanHaveShape
+   ├─ Oui → appliquer le contour optimisé
+   └─ Non → appliquer le rectangle de secours + avertissement
+```
+
+La vue principale n'est jamais modifiée par cette logique.
+
+Le Scope Box est identifié via le paramètre Revit `VIEWER_VOLUME_OF_INTEREST_CROP`.
+
+### Test à rejouer
+
+Reprendre un des trois logements testés précédemment.
+
+Le comportement attendu est maintenant :
+
+1. la vue dépendante est créée ;
+2. aucune erreur bloquante « Cette vue Revit n'autorise pas... » ne doit apparaître avant création ;
+3. si la vue dépendante accepte la forme après création, le résultat doit indiquer `Contour optimisé` ;
+4. si elle reste incompatible, le résultat doit indiquer `Rectangle de secours` avec la raison précise liée à la vue cible / au Scope Box.
