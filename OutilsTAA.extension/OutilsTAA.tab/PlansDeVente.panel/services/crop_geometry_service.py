@@ -1,22 +1,291 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Extraction des contours de pièces et crop rectangulaire aligné à la vue."""
+"""Construction d'un contour de crop optimisé à partir des pièces du logement."""
 
 from plans_vente.crop_bounds import CropBounds
 from plans_vente.view_frame import ViewFrame
 
 
+class OptimizedCropResult(object):
+    """Résultat du calcul de crop avant application à la vue."""
+
+    def __init__(self, curve_loop, mode, warning=None):
+        self.curve_loop = curve_loop
+        self.mode = mode or ""
+        self.warning = warning or ""
+
+
 class CropGeometryService(object):
+    """Construit un contour logement réel, avec secours rectangulaire explicite."""
+
+    BOOLEAN_EXTRUSION_HEIGHT = 1.0
+
     def __init__(self, document):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
 
-    def build_view_aligned_corners(self, room_unique_ids, view, margin_mm):
-        """Retourne quatre coins monde alignés sur les axes écran de la vue."""
+    def build_optimized_crop(self, room_unique_ids, view, margin_mm):
+        """Construit le contour extérieur de l'union des pièces.
+
+        Principe :
+        - frontières de pièces au centre des séparations ;
+        - extrusion temporaire de chaque emprise ;
+        - union booléenne des solides ;
+        - récupération de la plus grande boucle extérieure ;
+        - offset du contour avec la marge demandée.
+
+        En cas d'échec géométrique Revit, un rectangle aligné à la vue est
+        utilisé comme secours et le résultat porte un avertissement.
+        """
         if view is None:
             raise ValueError("Vue Revit manquante pour calculer le crop.")
+
+        margin_internal = self._millimeters_to_internal(margin_mm)
+
+        try:
+            room_loops, reference_z = self._collect_room_outer_loops(
+                room_unique_ids,
+                view,
+            )
+            union_solid = self._union_room_solids(room_loops, view)
+            outer_loop = self._extract_outer_union_loop(
+                union_solid,
+                view,
+                reference_z,
+            )
+            final_loop = self._offset_outward(
+                outer_loop,
+                margin_internal,
+                view,
+            )
+            self._validate_crop_loop(view, final_loop)
+            return OptimizedCropResult(
+                curve_loop=final_loop,
+                mode="Contour optimisé",
+            )
+        except Exception as error:
+            fallback = self._build_rectangular_fallback(
+                room_unique_ids,
+                view,
+                margin_mm,
+            )
+            return OptimizedCropResult(
+                curve_loop=fallback,
+                mode="Rectangle de secours",
+                warning=(
+                    "Le contour optimisé n'a pas pu être construit. "
+                    "Un rectangle aligné à la vue a été utilisé. Détail : {}"
+                ).format(error),
+            )
+
+    def apply_to_view(self, view, crop_result):
+        if crop_result is None or crop_result.curve_loop is None:
+            raise ValueError("Contour de crop manquant.")
+
+        manager = view.GetCropRegionShapeManager()
+        if not manager.IsCropRegionShapeValid(crop_result.curve_loop):
+            raise ValueError(
+                "Le contour calculé n'est pas accepté par Revit comme crop."
+            )
+
+        view.CropBoxActive = True
+        view.CropBoxVisible = True
+        manager.SetCropShape(crop_result.curve_loop)
+
+    def _collect_room_outer_loops(self, room_unique_ids, view):
+        from Autodesk.Revit.DB import (
+            CurveLoop,
+            SpatialElementBoundaryLocation,
+            SpatialElementBoundaryOptions,
+        )
+
+        options = SpatialElementBoundaryOptions()
+        options.SpatialElementBoundaryLocation = (
+            SpatialElementBoundaryLocation.Center
+        )
+
+        room_loops = []
+        reference_z_values = []
+
+        for unique_id in room_unique_ids or []:
+            room = self.document.GetElement(unique_id)
+            if room is None:
+                continue
+
+            try:
+                boundary_loops = room.GetBoundarySegments(options)
+            except Exception:
+                boundary_loops = None
+
+            candidates = []
+            for segment_loop in boundary_loops or []:
+                curve_loop = CurveLoop()
+                for segment in segment_loop or []:
+                    curve = segment.GetCurve()
+                    if curve is not None:
+                        curve_loop.Append(curve)
+
+                if curve_loop.IsOpen():
+                    continue
+
+                area = abs(self._curve_loop_area(curve_loop, view))
+                if area > 1e-9:
+                    candidates.append((area, curve_loop))
+
+            if not candidates:
+                continue
+
+            candidates.sort(key=lambda item: item[0], reverse=True)
+            outer_loop = candidates[0][1]
+            room_loops.append(outer_loop)
+
+            for curve in outer_loop:
+                point = curve.GetEndPoint(0)
+                reference_z_values.append(point.Z)
+                break
+
+        if not room_loops:
+            raise ValueError(
+                "Aucun contour fermé exploitable n'a été trouvé pour les pièces."
+            )
+
+        reference_z = (
+            sum(reference_z_values) / float(len(reference_z_values))
+            if reference_z_values
+            else 0.0
+        )
+
+        return room_loops, reference_z
+
+    def _union_room_solids(self, room_loops, view):
+        from Autodesk.Revit.DB import (
+            BooleanOperationsType,
+            BooleanOperationsUtils,
+            CurveLoop,
+            GeometryCreationUtilities,
+        )
+        from System.Collections.Generic import List
+
+        direction = getattr(view, "ViewDirection", None)
+        if direction is None:
+            raise ValueError("La vue ne fournit pas de direction exploitable.")
+
+        solids = []
+        for curve_loop in room_loops:
+            loops = List[CurveLoop]()
+            loops.Add(curve_loop)
+            solid = GeometryCreationUtilities.CreateExtrusionGeometry(
+                loops,
+                direction,
+                self.BOOLEAN_EXTRUSION_HEIGHT,
+            )
+            if solid is not None and solid.Volume > 1e-9:
+                solids.append(solid)
+
+        if not solids:
+            raise ValueError("Impossible de créer les solides temporaires des pièces.")
+
+        union_solid = solids[0]
+        for solid in solids[1:]:
+            union_solid = BooleanOperationsUtils.ExecuteBooleanOperation(
+                union_solid,
+                solid,
+                BooleanOperationsType.Union,
+            )
+
+        if union_solid is None or union_solid.Volume <= 1e-9:
+            raise ValueError("L'union géométrique des pièces est vide.")
+
+        return union_solid
+
+    def _extract_outer_union_loop(self, solid, view, reference_z):
+        from Autodesk.Revit.DB import PlanarFace
+
+        view_direction = view.ViewDirection
+        face_candidates = []
+
+        for face in solid.Faces:
+            if not isinstance(face, PlanarFace):
+                continue
+
+            normal = face.FaceNormal
+            parallel = abs(abs(normal.DotProduct(view_direction)) - 1.0)
+            if parallel > 1e-6:
+                continue
+
+            loops = list(face.GetEdgesAsCurveLoops() or [])
+            if not loops:
+                continue
+
+            loop_data = []
+            for curve_loop in loops:
+                area = abs(self._curve_loop_area(curve_loop, view))
+                if area > 1e-9:
+                    loop_data.append((area, curve_loop))
+
+            if not loop_data:
+                continue
+
+            loop_data.sort(key=lambda item: item[0], reverse=True)
+            outer_area, outer_loop = loop_data[0]
+            face_z = self._curve_loop_average_z(outer_loop)
+            face_candidates.append(
+                (
+                    abs(face_z - reference_z),
+                    -outer_area,
+                    outer_loop,
+                )
+            )
+
+        if not face_candidates:
+            raise ValueError(
+                "Aucune face plane de l'union n'est exploitable pour le crop."
+            )
+
+        face_candidates.sort(key=lambda item: (item[0], item[1]))
+        return face_candidates[0][2]
+
+    def _offset_outward(self, curve_loop, margin_internal, view):
+        from Autodesk.Revit.DB import CurveLoop
+
+        if margin_internal <= 1e-9:
+            return curve_loop
+
+        base_area = abs(self._curve_loop_area(curve_loop, view))
+        candidates = []
+
+        for distance in (margin_internal, -margin_internal):
+            try:
+                candidate = CurveLoop.CreateViaOffset(
+                    curve_loop,
+                    distance,
+                    view.ViewDirection,
+                )
+                area = abs(self._curve_loop_area(candidate, view))
+                if area > base_area + 1e-9:
+                    candidates.append((area, candidate))
+            except Exception:
+                continue
+
+        if not candidates:
+            raise ValueError(
+                "Revit n'a pas réussi à décaler le contour du logement avec la marge demandée."
+            )
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1]
+
+    def _validate_crop_loop(self, view, curve_loop):
+        manager = view.GetCropRegionShapeManager()
+        if not manager.IsCropRegionShapeValid(curve_loop):
+            raise ValueError(
+                "Le contour optimisé n'est pas valide pour cette vue Revit."
+            )
+
+    def _build_rectangular_fallback(self, room_unique_ids, view, margin_mm):
+        from Autodesk.Revit.DB import CurveLoop, Line, XYZ
 
         points = self._collect_boundary_points(room_unique_ids)
         frame = self._frame_from_view(view)
@@ -29,19 +298,12 @@ class CropGeometryService(object):
         bounds = CropBounds.from_points(projected)
         bounds = bounds.expanded(self._millimeters_to_internal(margin_mm))
 
-        return [
+        corners = [
             frame.to_world(bounds.min_x, bounds.min_y),
             frame.to_world(bounds.max_x, bounds.min_y),
             frame.to_world(bounds.max_x, bounds.max_y),
             frame.to_world(bounds.min_x, bounds.max_y),
         ]
-
-    def apply_to_view(self, view, world_corners):
-        from Autodesk.Revit.DB import CurveLoop, Line, XYZ
-
-        corners = list(world_corners or [])
-        if len(corners) != 4:
-            raise ValueError("Quatre coins sont requis pour le crop rectangulaire.")
 
         xyz_points = [
             XYZ(float(point[0]), float(point[1]), float(point[2]))
@@ -49,24 +311,16 @@ class CropGeometryService(object):
         ]
 
         loop = CurveLoop()
-        pairs = (
+        for start, end in (
             (xyz_points[0], xyz_points[1]),
             (xyz_points[1], xyz_points[2]),
             (xyz_points[2], xyz_points[3]),
             (xyz_points[3], xyz_points[0]),
-        )
-        for start, end in pairs:
+        ):
             loop.Append(Line.CreateBound(start, end))
 
-        manager = view.GetCropRegionShapeManager()
-        if not manager.IsCropRegionShapeValid(loop):
-            raise ValueError(
-                "Le contour aligné à la vue n'est pas accepté par Revit comme crop."
-            )
-
-        view.CropBoxActive = True
-        view.CropBoxVisible = True
-        manager.SetCropShape(loop)
+        self._validate_crop_loop(view, loop)
+        return loop
 
     def _collect_boundary_points(self, room_unique_ids):
         from Autodesk.Revit.DB import SpatialElementBoundaryOptions
@@ -99,6 +353,52 @@ class CropGeometryService(object):
             )
 
         return points
+
+    def _curve_loop_area(self, curve_loop, view):
+        frame = self._frame_from_view(view)
+        points = []
+
+        for curve in curve_loop:
+            tessellated = list(curve.Tessellate() or [])
+            if not tessellated:
+                continue
+
+            for point in tessellated:
+                uv = frame.project((point.X, point.Y, point.Z))
+                if not points or self._distance_2d(points[-1], uv) > 1e-9:
+                    points.append(uv)
+
+        if len(points) < 3:
+            return 0.0
+
+        if self._distance_2d(points[0], points[-1]) <= 1e-9:
+            points = points[:-1]
+
+        area = 0.0
+        count = len(points)
+        for index in range(count):
+            x1, y1 = points[index]
+            x2, y2 = points[(index + 1) % count]
+            area += (x1 * y2) - (x2 * y1)
+
+        return area * 0.5
+
+    @staticmethod
+    def _curve_loop_average_z(curve_loop):
+        values = []
+        for curve in curve_loop:
+            try:
+                point = curve.GetEndPoint(0)
+                values.append(point.Z)
+            except Exception:
+                continue
+        return sum(values) / float(len(values)) if values else 0.0
+
+    @staticmethod
+    def _distance_2d(left, right):
+        dx = float(left[0]) - float(right[0])
+        dy = float(left[1]) - float(right[1])
+        return (dx * dx + dy * dy) ** 0.5
 
     @staticmethod
     def _frame_from_view(view):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Fenêtre principale — détection des logements et prototype vue/crop."""
+"""Fenêtre principale — détection des logements et prototype de contour optimisé."""
 
 import os
 
@@ -178,8 +178,8 @@ class PlansVenteWindow(forms.WPFWindow):
 
         if self._source_view_choices:
             self.PrototypeInfoText.Text = (
-                "Le prototype créera une vue dépendante réelle avec un crop "
-                "rectangulaire autour du logement."
+                "Le prototype crée une vue dépendante avec un contour optimisé "
+                "à partir de l'union réelle des pièces du logement."
             )
         else:
             self.PrototypeInfoText.Text = (
@@ -224,14 +224,15 @@ class PlansVenteWindow(forms.WPFWindow):
             (
                 "Créer une vue dépendante réelle pour le logement « {} » ?\n\n"
                 "Vue source : {}\n"
-                "Marge de crop : {} mm\n\n"
+                "Marge de crop : {} mm\n"
+                "Contour : union optimisée des pièces\n\n"
                 "Cette opération ajoute une vue au projet mais ne supprime rien."
             ).format(
                 housing.key,
                 candidate.name,
                 self._format_number(margin_mm),
             ),
-            title="Plans de vente — Prototype vue + crop",
+            title="Plans de vente — Prototype contour optimisé",
             yes=True,
             no=True,
         )
@@ -245,24 +246,38 @@ class PlansVenteWindow(forms.WPFWindow):
                 source_view_unique_id=candidate.unique_id,
                 margin_mm=margin_mm,
             )
-            self.StatusText.Text = "Vue prototype créée : {}.".format(
-                result.view_name
+
+            status = "Vue prototype créée : {} — {}.".format(
+                result.view_name,
+                result.crop_mode,
             )
+            if result.warning:
+                status += " Avertissement : {}".format(result.warning)
+            self.StatusText.Text = status
+
+            message = (
+                "Vue dépendante créée avec succès.\n\n"
+                "Nom : {}\n"
+                "Vue principale : {}\n"
+                "Logement : {}\n"
+                "Crop : {}"
+            ).format(
+                result.view_name,
+                result.source_view_name,
+                result.housing_key,
+                result.crop_mode,
+            )
+
+            if result.warning:
+                message += "\n\nAvertissement :\n{}".format(result.warning)
+
             forms.alert(
-                (
-                    "Vue dépendante créée avec succès.\n\n"
-                    "Nom : {}\n"
-                    "Vue principale : {}\n"
-                    "Logement : {}"
-                ).format(
-                    result.view_name,
-                    result.source_view_name,
-                    result.housing_key,
-                ),
+                message,
                 title="Plans de vente — Prototype",
+                warn_icon=bool(result.warning),
             )
         except Exception as error:
-            self.StatusText.Text = "Échec du prototype vue + crop."
+            self.StatusText.Text = "Échec du prototype contour optimisé."
             forms.alert(
                 str(error),
                 title="Plans de vente — Prototype",

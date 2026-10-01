@@ -54,16 +54,19 @@ def test_prototype_service_uses_dependent_view_and_unique_ids():
     assert "SetCropShape" in geometry_text
 
 
-def test_crop_is_computed_in_view_coordinate_system():
-    service_text = (PANEL / "services" / "crop_geometry_service.py").read_text(
+def test_crop_uses_view_coordinate_system_and_true_room_union():
+    geometry_text = (PANEL / "services" / "crop_geometry_service.py").read_text(
         encoding="utf-8"
     )
     prototype_text = (PANEL / "services" / "prototype_view_service.py").read_text(
         encoding="utf-8"
     )
 
-    assert "RightDirection" in service_text
-    assert "UpDirection" in service_text
-    assert "ViewFrame" in service_text
-    assert "build_view_aligned_corners" in service_text
-    assert "build_view_aligned_corners" in prototype_text
+    assert "RightDirection" in geometry_text
+    assert "UpDirection" in geometry_text
+    assert "ViewFrame" in geometry_text
+    assert "SpatialElementBoundaryLocation.Center" in geometry_text
+    assert "CreateExtrusionGeometry" in geometry_text
+    assert "BooleanOperationsUtils.ExecuteBooleanOperation" in geometry_text
+    assert "CurveLoop.CreateViaOffset" in geometry_text
+    assert "build_optimized_crop" in prototype_text

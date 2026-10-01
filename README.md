@@ -15,7 +15,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | 🚧 En développement |
 | **Calculs des pièces** | 🚧 Migration |
-| **Plans de vente** | 🧪 Prototype crop aligné à la vue |
+| **Plans de vente** | 🧪 Prototype contour logement optimisé |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |

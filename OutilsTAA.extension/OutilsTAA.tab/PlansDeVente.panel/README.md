@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Étape 01
+## État actuel — Prototype contour optimisé
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -16,3 +16,16 @@ Le premier incrément est volontairement en lecture seule :
 Aucune vue, cote, nomenclature ou feuille n'est créée à cette étape.
 
 Référence fonctionnelle : `docs/20_Plans_de_Vente.md`.
+
+
+## Prototype géométrique en cours
+
+Après validation de la détection et des vues dépendantes, le prototype construit maintenant le crop à partir de l'union géométrique des pièces du logement :
+
+- frontières de pièces au centre des séparations ;
+- union de solides temporaires Revit ;
+- extraction de la boucle extérieure ;
+- marge par offset du contour ;
+- fallback rectangulaire explicite si Revit refuse une géométrie.
+
+Validation réelle dans Revit 2025.4 requise avant de généraliser ce moteur.

@@ -2,8 +2,8 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.4  
-**Statut :** Développement — Étape 01  
+**Version :** 0.5  
+**Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
@@ -1234,3 +1234,138 @@ Les tests couvrent notamment :
 6. confirmer que la vue principale n'est toujours pas modifiée.
 
 Cette étape ne modifie pas encore le contour pour suivre précisément la forme du logement. Le crop polygonal éventuel sera étudié séparément après validation du repère de vue.
+
+
+## Prototype A.3 — Contour logement optimisé
+
+Le prototype passe du rectangle englobant à un **contour réellement dérivé des pièces du logement**.
+
+### Objectif
+
+Réduire les zones vides autour des logements en L, irréguliers ou présentant des retraits, tout en conservant une marge de présentation configurable.
+
+Le crop final reste une seule boucle extérieure compatible avec `ViewCropRegionShapeManager.SetCropShape`.
+
+### Principe géométrique
+
+Les frontières des pièces sont lues avec :
+
+```text
+SpatialElementBoundaryLocation.Center
+```
+
+Ce choix est volontaire : deux pièces séparées par une même paroi partagent ainsi la même limite centrale, ce qui facilite leur union géométrique.
+
+Pipeline :
+
+```text
+Pièces du logement
+        ↓
+BoundarySegments au centre des séparations
+        ↓
+Boucle extérieure de chaque pièce
+        ↓
+Extrusion temporaire en solides Revit
+        ↓
+BooleanOperationsUtils — Union
+        ↓
+Face plane correspondant au niveau
+        ↓
+Plus grande boucle extérieure
+        ↓
+CurveLoop.CreateViaOffset
+        ↓
+Marge utilisateur
+        ↓
+Validation IsCropRegionShapeValid
+        ↓
+SetCropShape
+```
+
+### Gestion des trous
+
+L'union peut contenir plusieurs boucles, par exemple autour d'une gaine ou d'un vide intérieur.
+
+Pour un crop de plan de vente, ces trous ne doivent pas devenir des trous dans le cadrage.
+
+Le service sélectionne donc la **plus grande boucle extérieure** et ignore les boucles intérieures.
+
+### Marge
+
+La marge utilisateur est appliquée sur le contour extérieur avec `CurveLoop.CreateViaOffset`.
+
+Le service teste les deux signes de décalage et retient le contour dont l'aire est supérieure à celle du contour de base. Cela évite de dépendre du sens horaire ou antihoraire de la boucle renvoyée par Revit.
+
+### Sécurité et fallback
+
+Les opérations booléennes et les offsets Revit peuvent échouer sur certaines géométries très complexes ou non contiguës.
+
+Le prototype ne masque pas ce cas.
+
+Si le contour optimisé ne peut pas être produit :
+
+- la vue est créée avec le rectangle aligné à la vue déjà validé ;
+- le résultat indique explicitement `Rectangle de secours` ;
+- la fenêtre affiche l'avertissement et la cause remontée par Revit.
+
+Le fallback évite de bloquer le test tout en permettant d'identifier les cas que le moteur optimisé devra encore couvrir.
+
+### UI
+
+Le panneau prototype indique désormais :
+
+```text
+Prototype — contour logement optimisé
+```
+
+et le résultat précise le mode réellement utilisé :
+
+```text
+Contour optimisé
+```
+
+ou :
+
+```text
+Rectangle de secours
+```
+
+Aucun fallback n'est donc silencieux.
+
+### Tests hors Revit
+
+Des tests ont été ajoutés pour contrôler :
+
+- la présence du calcul par frontières centrales ;
+- la création d'extrusions temporaires ;
+- l'union booléenne des solides ;
+- l'extraction des boucles de face ;
+- l'offset du contour ;
+- la conservation du fallback explicite ;
+- la remontée du mode et des avertissements vers l'interface ;
+- le parsing Python et l'encodage UTF-8 des fichiers concernés.
+
+Une suite ciblée de géométrie et de contrats a été exécutée dans l'environnement disponible : **10 tests réussis**.
+
+La validation réelle de `GeometryCreationUtilities`, des opérations booléennes et de `CurveLoop.CreateViaOffset` reste obligatoirement à faire dans Revit 2025.4.
+
+### Validation Revit demandée
+
+Tester au minimum trois logements :
+
+1. un logement presque rectangulaire ;
+2. un logement en L ou avec un retrait important ;
+3. le logement irrégulier déjà utilisé pour les prototypes précédents.
+
+Pour chaque cas :
+
+- créer le prototype avec une marge de 500 mm ;
+- vérifier le message final ;
+- confirmer que le mode est `Contour optimisé` et non `Rectangle de secours` ;
+- vérifier que le crop suit la forme générale du logement ;
+- vérifier que les retraits importants réduisent réellement les zones vides ;
+- vérifier que les gaines ou trous intérieurs ne créent pas de trou dans le crop ;
+- vérifier que la marge reste extérieure au logement ;
+- vérifier que la vue principale reste inchangée.
+
+Si un cas bascule en `Rectangle de secours`, conserver le texte complet de l'avertissement pour analyse.

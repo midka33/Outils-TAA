@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Détection des logements · Prototype vue dépendante + crop"
+                <TextBlock Text="Détection des logements · Prototype contour optimisé"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -131,7 +131,7 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Prototype — vue dépendante + crop"
+                            <TextBlock Text="Prototype — contour logement optimisé"
                                        Style="{DynamicResource TAASectionTitle}"/>
                             <TextBlock x:Name="PrototypeInfoText"
                                        Style="{DynamicResource TAASecondaryText}"
@@ -162,7 +162,7 @@
                         </StackPanel>
 
                         <Button x:Name="CreatePrototypeButton" Grid.Column="2"
-                                Content="Créer le prototype"
+                                Content="Créer le contour optimisé"
                                 VerticalAlignment="Bottom"
                                 Style="{DynamicResource TAAPrimaryButton}"
                                 Click="CreatePrototype_Click"/>

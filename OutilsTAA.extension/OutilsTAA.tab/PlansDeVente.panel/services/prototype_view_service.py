@@ -1,17 +1,27 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Prototype contrôlé : vue dépendante + crop logement aligné à la vue."""
+"""Prototype contrôlé : vue dépendante + contour logement optimisé."""
 
 from common.transaction import RevitTransaction
 
 
 class PrototypeViewResult(object):
-    def __init__(self, view_name, view_unique_id, source_view_name, housing_key):
+    def __init__(
+        self,
+        view_name,
+        view_unique_id,
+        source_view_name,
+        housing_key,
+        crop_mode="",
+        warning="",
+    ):
         self.view_name = view_name or ""
         self.view_unique_id = view_unique_id or ""
         self.source_view_name = source_view_name or ""
         self.housing_key = housing_key or ""
+        self.crop_mode = crop_mode or ""
+        self.warning = warning or ""
 
 
 class PrototypeViewService(object):
@@ -48,7 +58,7 @@ class PrototypeViewService(object):
         if not source_view.CanViewBeDuplicated(ViewDuplicateOption.AsDependent):
             raise ValueError("Cette vue ne peut pas être dupliquée comme vue dépendante.")
 
-        world_corners = self.crop_geometry_service.build_view_aligned_corners(
+        crop_result = self.crop_geometry_service.build_optimized_crop(
             housing.room_unique_ids,
             source_view,
             margin_mm,
@@ -57,7 +67,7 @@ class PrototypeViewService(object):
         created_view = None
         with RevitTransaction(
             self.document,
-            "Plans de vente - Prototype vue dépendante",
+            "Plans de vente - Prototype contour optimisé",
         ):
             new_view_id = source_view.Duplicate(ViewDuplicateOption.AsDependent)
             created_view = self.document.GetElement(new_view_id)
@@ -69,7 +79,7 @@ class PrototypeViewService(object):
             )
             self.crop_geometry_service.apply_to_view(
                 created_view,
-                world_corners,
+                crop_result,
             )
 
             primary_id = created_view.GetPrimaryViewId()
@@ -83,6 +93,8 @@ class PrototypeViewService(object):
             view_unique_id=str(getattr(created_view, "UniqueId", "") or ""),
             source_view_name=str(getattr(source_view, "Name", "") or ""),
             housing_key=housing.key,
+            crop_mode=crop_result.mode,
+            warning=crop_result.warning,
         )
 
     @staticmethod
