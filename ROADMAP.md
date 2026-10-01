@@ -154,8 +154,8 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Développement V1
 
-- [ ] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
-- [ ] Collecter et regrouper les pièces par paramètre logement.
+- [x] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
+- [x] Collecter et regrouper les pièces par paramètre logement.
 - [ ] Implémenter le modèle de configuration de plan de vente.
 - [ ] Générer une ou deux vues par logement selon la configuration.
 - [ ] Appliquer les gabarits sélectionnés.

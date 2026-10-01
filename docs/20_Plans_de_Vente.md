@@ -2,8 +2,8 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.1  
-**Statut :** Spécification / conception  
+**Version :** 0.2  
+**Statut :** Développement — Étape 01  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
@@ -960,3 +960,54 @@ Interface cohérente
 ```
 
 La priorité doit rester la fiabilité des résultats Revit avant l'automatisation maximale.
+
+
+---
+
+# 29. État du développement
+
+## Étape 01 — Détection des logements
+
+Premier incrément implémenté sur la branche `feature/plans-de-vente-stage01`.
+
+Le module est volontairement **en lecture seule** à ce stade.
+
+Fonctions implémentées :
+
+- bouton pyRevit `Plans de vente` ;
+- fenêtre WPF utilisant le thème commun Outils TAA ;
+- collecte de toutes les pièces du document actif, indépendamment de la vue ;
+- découverte des paramètres texte portés par les pièces ;
+- sélection du paramètre identifiant le logement ;
+- identité de paramètre basée, lorsque disponible, sur GUID partagé, ForgeTypeId Revit ou identifiant de définition plutôt que sur le seul nom ;
+- création de snapshots métier conservant le `UniqueId` Revit des pièces ;
+- regroupement pur et testable des pièces par valeur logement ;
+- exclusion et comptage des valeurs vides ;
+- affichage des logements détectés, du nombre de pièces et des niveaux concernés.
+
+Aucune modification du modèle Revit n'est réalisée pendant cette étape :
+
+- aucune vue créée ;
+- aucune feuille créée ;
+- aucune nomenclature créée ;
+- aucune étiquette créée ;
+- aucune cote créée.
+
+Cette séparation permet de valider d'abord la détection et les données métier avant d'introduire des transactions Revit.
+
+## Tests Étape 01
+
+Tests hors Revit préparés et exécutés avant commit :
+
+- regroupement des pièces ;
+- normalisation des valeurs logement ;
+- comptage des valeurs vides ;
+- agrégation des niveaux ;
+- validité XML du XAML ;
+- présence des handlers WPF ;
+- en-tête UTF-8 obligatoire des fichiers Python ;
+- titre pyRevit non vide.
+
+Résultat local avant commit : **6 tests réussis**.
+
+La validation du chargement de la fenêtre et de la lecture réelle des paramètres reste à effectuer dans **Revit 2025.4 / pyRevit 5.x**.
