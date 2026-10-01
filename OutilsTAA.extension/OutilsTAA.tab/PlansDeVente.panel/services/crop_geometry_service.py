@@ -10,10 +10,17 @@ from plans_vente.view_frame import ViewFrame
 class OptimizedCropResult(object):
     """Résultat du calcul de crop avant application à la vue."""
 
-    def __init__(self, curve_loop, mode, warning=None):
+    def __init__(
+        self,
+        curve_loop,
+        mode,
+        warning=None,
+        fallback_curve_loop=None,
+    ):
         self.curve_loop = curve_loop
         self.mode = mode or ""
         self.warning = warning or ""
+        self.fallback_curve_loop = fallback_curve_loop
 
 
 class CropGeometryStageError(Exception):
@@ -52,6 +59,11 @@ class CropGeometryService(object):
             raise ValueError("Vue Revit manquante pour calculer le crop.")
 
         margin_internal = self._millimeters_to_internal(margin_mm)
+        fallback_loop = self._build_rectangular_fallback(
+            room_unique_ids,
+            view,
+            margin_mm,
+        )
 
         try:
             room_loops, reference_z = self._stage(
@@ -97,8 +109,8 @@ class CropGeometryService(object):
             )
 
             self._stage(
-                "Validation du crop Revit",
-                self._validate_crop_loop,
+                "Validation géométrique du crop",
+                self._validate_crop_geometry,
                 view,
                 final_loop,
             )
@@ -106,17 +118,14 @@ class CropGeometryService(object):
             return OptimizedCropResult(
                 curve_loop=final_loop,
                 mode="Contour optimisé",
+                fallback_curve_loop=fallback_loop,
             )
 
         except Exception as error:
-            fallback = self._build_rectangular_fallback(
-                room_unique_ids,
-                view,
-                margin_mm,
-            )
             return OptimizedCropResult(
-                curve_loop=fallback,
+                curve_loop=fallback_loop,
                 mode="Rectangle de secours",
+                fallback_curve_loop=fallback_loop,
                 warning=(
                     "Le contour optimisé n'a pas pu être construit. "
                     "Un rectangle aligné à la vue a été utilisé. "
@@ -125,18 +134,54 @@ class CropGeometryService(object):
             )
 
     def apply_to_view(self, view, crop_result):
+        """Applique le crop sur la vue cible créée.
+
+        La capacité à recevoir une forme non rectangulaire doit être testée sur
+        la VUE CIBLE, pas sur la vue source utilisée pour le calcul géométrique.
+        """
         if crop_result is None or crop_result.curve_loop is None:
             raise ValueError("Contour de crop manquant.")
 
         manager = view.GetCropRegionShapeManager()
-        if not manager.IsCropRegionShapeValid(crop_result.curve_loop):
+        selected_loop = crop_result.curve_loop
+        mode = crop_result.mode
+        warning = crop_result.warning or ""
+
+        if mode == "Contour optimisé" and not bool(manager.CanHaveShape):
+            released, detail = self._try_release_scope_box(view)
+            if released:
+                self.document.Regenerate()
+                manager = view.GetCropRegionShapeManager()
+
+            if not bool(manager.CanHaveShape):
+                fallback = crop_result.fallback_curve_loop
+                if fallback is None:
+                    raise ValueError(
+                        "La vue dépendante créée n'autorise pas un crop "
+                        "non rectangulaire. {}".format(detail or "")
+                    )
+
+                selected_loop = fallback
+                mode = "Rectangle de secours"
+                warning = (
+                    "La vue dépendante créée n'autorise pas un crop "
+                    "non rectangulaire. {} Un rectangle aligné à la vue "
+                    "a été appliqué."
+                ).format(detail or "").strip()
+
+        if not manager.IsCropRegionShapeValid(selected_loop):
             raise ValueError(
                 "Le contour calculé n'est pas accepté par Revit comme crop."
             )
 
         view.CropBoxActive = True
         view.CropBoxVisible = True
-        manager.SetCropShape(crop_result.curve_loop)
+        manager.SetCropShape(selected_loop)
+
+        crop_result.curve_loop = selected_loop
+        crop_result.mode = mode
+        crop_result.warning = warning
+        return crop_result
 
     @staticmethod
     def _stage(stage_name, function, *args):
@@ -445,20 +490,42 @@ class CropGeometryService(object):
         candidates.sort(key=lambda item: item[0], reverse=True)
         return candidates[0][1]
 
-    def _validate_crop_loop(self, view, curve_loop):
+    def _validate_crop_geometry(self, view, curve_loop):
+        """Valide uniquement la géométrie, indépendamment de la capacité cible."""
         manager = view.GetCropRegionShapeManager()
-
-        if not bool(getattr(manager, "CanHaveShape", False)):
-            raise ValueError(
-                "Cette vue Revit n'autorise pas un crop non rectangulaire."
-            )
 
         if not manager.IsCropRegionShapeValid(curve_loop):
             raise ValueError(
-                "Le contour optimisé n'est pas valide pour cette vue Revit. "
-                "Un crop Revit doit être une boucle fermée sans "
-                "auto-intersection et composée uniquement de segments droits."
+                "Le contour optimisé n'est pas géométriquement valide pour "
+                "un crop Revit. Il doit être fermé, sans auto-intersection "
+                "et composé uniquement de segments droits non nuls."
             )
+
+    def _try_release_scope_box(self, view):
+        """Retire le Scope Box uniquement sur la nouvelle vue si c'est possible."""
+        try:
+            from Autodesk.Revit.DB import BuiltInParameter, ElementId
+
+            parameter = view.get_Parameter(
+                BuiltInParameter.VIEWER_VOLUME_OF_INTEREST_CROP
+            )
+            if parameter is None:
+                return False, "Aucun paramètre Scope Box n'est disponible."
+
+            scope_box_id = parameter.AsElementId()
+            if scope_box_id is None or scope_box_id == ElementId.InvalidElementId:
+                return False, "Aucun Scope Box n'est affecté à la vue."
+
+            if bool(parameter.IsReadOnly):
+                return (
+                    False,
+                    "Le Scope Box hérité est en lecture seule sur cette vue.",
+                )
+
+            parameter.Set(ElementId.InvalidElementId)
+            return True, "Le Scope Box de la vue créée a été retiré."
+        except Exception as error:
+            return False, "Impossible de retirer le Scope Box : {}.".format(error)
 
     def _build_rectangular_fallback(self, room_unique_ids, view, margin_mm):
         from Autodesk.Revit.DB import CurveLoop, Line, XYZ
@@ -495,7 +562,7 @@ class CropGeometryService(object):
         ):
             loop.Append(Line.CreateBound(start, end))
 
-        self._validate_crop_loop(view, loop)
+        self._validate_crop_geometry(view, loop)
         return loop
 
     def _collect_boundary_points(self, room_unique_ids):
