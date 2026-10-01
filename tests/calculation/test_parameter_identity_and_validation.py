@@ -323,6 +323,15 @@ class ParameterValidationTests(unittest.TestCase):
         self.assertTrue(result.is_valid)
         self.assertTrue(result.warnings)
 
+    def test_integer_to_double_is_allowed_with_warning(self):
+        source = self.descriptor("Source", "Integer")
+        target = self.descriptor("Cible", "Double", "number")
+
+        result = self.validator.validate_pair(source, target)
+
+        self.assertTrue(result.is_valid)
+        self.assertTrue(result.warnings)
+
     def test_string_target_is_allowed_with_warning(self):
         source = self.descriptor("Source", "Integer")
         target = self.descriptor("Cible", "String")

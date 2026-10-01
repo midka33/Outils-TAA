@@ -99,3 +99,27 @@ def test_shared_theme_exists_and_uses_taa_orange():
     assert "#FA641F" in text
     assert "TAAPrimaryButton" in text
     assert "TAASecondaryButton" in text
+
+
+def test_python_ui_files_are_syntax_valid():
+    for filename in (
+        "calculs_window.py",
+        "calculation_report_window.py",
+    ):
+        ast.parse(_read(os.path.join(UI_DIR, filename)))
+
+    ast.parse(_read(os.path.join(
+        PANEL,
+        "services",
+        "room_calculation_workflow.py",
+    )))
+
+
+def test_unit_selector_is_contextual_and_warnings_are_shown_before_write():
+    window_path = os.path.join(UI_DIR, "calculs_window.py")
+    text = _read(window_path)
+
+    assert "TargetParameterChanged" in text
+    assert 'target.storage_type in ("Integer", "String")' in text
+    assert "if prepared.warnings:" in text
+    assert "Avertissements :" in text

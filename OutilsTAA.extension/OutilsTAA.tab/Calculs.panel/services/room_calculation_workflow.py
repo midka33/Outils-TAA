@@ -66,8 +66,7 @@ class RoomCalculationWorkflow(object):
             request.target_parameter,
         )
         if not validation.is_valid:
-            raise ValidationError("
-".join(validation.errors))
+            raise ValidationError("\n".join(validation.errors))
 
         rooms = self.collector_service.collect_all_rooms()
         filtered = self.room_filter.apply(
@@ -208,9 +207,7 @@ class RoomCalculationWorkflow(object):
 
             successful = temporary_success
         except Exception as error:
-            rollback_message = (
-                "Transaction annulée : {}.".format(error)
-            )
+            rollback_message = "Transaction annulée : {}.".format(error)
             for item in temporary_success:
                 failed.append(
                     WriteResult(

@@ -82,6 +82,14 @@ class RoomParameterValidator(object):
                 )
             )
 
+        if source.storage_type == "Integer" and target.storage_type == "Double":
+            warnings.append(
+                "Une valeur entière sera écrite dans le paramètre décimal '{}'. "
+                "Vérifiez que sa signification métier est compatible.".format(
+                    target.name
+                )
+            )
+
         if target.storage_type == "String":
             warnings.append(
                 "Le résultat numérique sera écrit comme texte dans '{}'.".format(

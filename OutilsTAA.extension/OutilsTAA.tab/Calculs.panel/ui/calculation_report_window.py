@@ -85,8 +85,7 @@ class CalculationReportWindow(forms.WPFWindow):
         if not lines:
             lines.append("Aucune anomalie détectée.")
 
-        self.DetailsText.Text = "
-".join(lines)
+        self.DetailsText.Text = "\n".join(lines)
 
     def Close_Click(self, sender, args):
         self.Close()

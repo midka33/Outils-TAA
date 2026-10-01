@@ -37,6 +37,7 @@ class CalculsWindow(forms.WPFWindow):
         self._restore_settings()
         self._loading = False
         self._update_filter_state()
+        self._update_unit_state()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -137,6 +138,7 @@ class CalculsWindow(forms.WPFWindow):
         self._refresh_unit_options(
             selected_type_id=data.get("output_unit_type_id")
         )
+        self._update_unit_state()
 
     def _select_saved(self, combo, choices, saved_data):
         descriptors = [
@@ -248,22 +250,25 @@ class CalculsWindow(forms.WPFWindow):
                 return
 
             message = (
-                "{0} pièce(s) analysée(s)
-"
-                "{1} pièce(s) après filtre
-"
-                "{2} groupe(s)
-"
-                "{3} écriture(s) prévues
-
-"
-                "Écrire ces résultats dans « {4} » ?"
+                "{0} pièce(s) analysée(s)\n"
+                "{1} pièce(s) après filtre\n"
+                "{2} groupe(s)\n"
+                "{3} écriture(s) prévues\n\n"
             ).format(
                 prepared.total_rooms,
                 prepared.filtered_rooms,
                 prepared.result.group_count,
                 len(prepared.operations),
-                request.target_parameter.name,
+            )
+
+            if prepared.warnings:
+                message += "Avertissements :\n"
+                for warning in prepared.warnings:
+                    message += "- {}\n".format(warning)
+                message += "\n"
+
+            message += "Écrire ces résultats dans « {} » ?".format(
+                request.target_parameter.name
             )
 
             confirmed = forms.alert(
@@ -346,6 +351,27 @@ class CalculsWindow(forms.WPFWindow):
         if self._loading:
             return
         self._refresh_unit_options()
+        self._update_unit_state()
+
+    def TargetParameterChanged(self, sender, args):
+        if self._loading:
+            return
+        self._update_unit_state()
+
+    def _update_unit_state(self):
+        source = self._selected_descriptor(self.SourceParameterCombo)
+        target = self._selected_descriptor(self.TargetParameterCombo)
+
+        manual_units_are_useful = (
+            source is not None
+            and source.storage_type == "Double"
+            and target is not None
+            and target.storage_type in ("Integer", "String")
+        )
+
+        self.UnitCombo.IsEnabled = manual_units_are_useful
+        if not manual_units_are_useful and self.UnitCombo.Items.Count:
+            self.UnitCombo.SelectedIndex = 0
 
     def Close_Click(self, sender, args):
         self.Close()

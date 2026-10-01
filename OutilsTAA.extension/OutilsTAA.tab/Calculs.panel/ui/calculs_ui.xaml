@@ -107,6 +107,7 @@
                         <ComboBox Grid.Row="3" Grid.Column="1"
                                   x:Name="TargetParameterCombo"
                                   DisplayMemberPath="label"
+                                  SelectionChanged="TargetParameterChanged"
                                   Style="{DynamicResource TAAComboBox}"/>
                     </Grid>
                 </Border>

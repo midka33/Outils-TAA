@@ -124,22 +124,18 @@ class RoomParameterService(object):
     def read_parameter(self, parameter, default=None):
         storage_type = self.get_storage_type_name(parameter)
 
-        try:
-            if storage_type == "String":
-                value = parameter.AsString()
-                return default if value is None else value
-            if storage_type == "Integer":
-                return parameter.AsInteger()
-            if storage_type == "Double":
-                return parameter.AsDouble()
-            if storage_type == "ElementId":
-                element_id = parameter.AsElementId()
-                return self._element_id_value(element_id, default)
-
-            value = parameter.AsValueString()
+        if storage_type == "String":
+            value = parameter.AsString()
             return default if value is None else value
-        except Exception:
-            return default
+        if storage_type == "Integer":
+            return parameter.AsInteger()
+        if storage_type == "Double":
+            return parameter.AsDouble()
+        if storage_type == "ElementId":
+            element_id = parameter.AsElementId()
+            return self._element_id_value(element_id, default)
+
+        return default
 
     @staticmethod
     def get_storage_type_name(parameter):
