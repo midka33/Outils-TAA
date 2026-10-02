@@ -477,28 +477,18 @@ class CropGeometryService(object):
         max_depth_internal,
         max_fill_area_internal,
     ):
-        """Ferme les petites poches concaves assimilables à des gaines.
+        """Ferme uniquement des poches orthogonales clairement identifiées.
 
-        La première version ne testait que les sommets détectés comme concaves.
-        Or, selon l'orientation de la boucle et la forme exacte d'une gaine,
-        les deux points formant sa "bouche" ne sont pas nécessairement tous les
-        deux classés concaves.
-
-        Cette version teste donc les paires de sommets non adjacents et ne
-        conserve qu'un pont qui :
-        - reste court ;
-        - ne coupe aucune autre arête ;
-        - traverse réellement une zone EXTERIEURE au polygone ;
-        - augmente légèrement l'aire du logement ;
-        - remplit une poche de faible profondeur et faible surface.
-
-        Ainsi le nettoyage devient indépendant de la marge de crop : une gaine
-        jugée négligeable à 500 mm l'est aussi à 20 mm.
+        La version précédente testait toutes les paires de sommets et pouvait
+        fabriquer un contour invalide. Cette version est volontairement plus
+        conservatrice : elle cherche une séquence locale en forme de poche
+        (entrée -> fond -> sortie) et ne remplace la chaîne que si le pont
+        direct est sûr et le polygone résultant reste simple.
         """
         frame = self._frame_from_view(view)
         xyz_points = self._tessellated_loop_points(curve_loop)
         xyz_points = self._remove_near_duplicates(xyz_points)
-        if len(xyz_points) < 4:
+        if len(xyz_points) < 5:
             return curve_loop
 
         uv_points = [
@@ -506,28 +496,44 @@ class CropGeometryService(object):
             for point in xyz_points
         ]
 
-        safety = 0
         changed = True
-        while changed and len(uv_points) >= 4 and safety < 50:
-            safety += 1
+        safety = 0
+
+        while changed and len(uv_points) >= 5 and safety < 50:
             changed = False
+            safety += 1
             count = len(uv_points)
             original_area = abs(self._polygon_signed_area(uv_points))
+            orientation = self._polygon_signed_area(uv_points)
+            if abs(orientation) <= 1e-12:
+                break
+
             best = None
 
-            for i in range(count):
-                for j in range(i + 1, count):
+            # Une gaine / poche typique est délimitée localement par deux
+            # sommets concaves séparés de quelques sommets seulement.
+            concave = self._concave_vertex_indices(
+                uv_points,
+                orientation,
+            )
+
+            for left_pos in range(len(concave)):
+                for right_pos in range(left_pos + 1, len(concave)):
+                    i = concave[left_pos]
+                    j = concave[right_pos]
+
                     if self._vertices_are_adjacent(i, j, count):
                         continue
 
-                    bridge_length = self._distance_2d(
+                    chain = self._forward_chain_indices(i, j, count)
+                    if len(chain) > 7:
+                        continue
+
+                    mouth = self._distance_2d(
                         uv_points[i],
                         uv_points[j],
                     )
-                    if (
-                        bridge_length <= 1e-9
-                        or bridge_length > max_mouth_internal
-                    ):
+                    if mouth <= 1e-9 or mouth > max_mouth_internal:
                         continue
 
                     if self._bridge_intersects_polygon(
@@ -542,48 +548,44 @@ class CropGeometryService(object):
                         (uv_points[i][1] + uv_points[j][1]) * 0.5,
                     )
                     if self._point_in_polygon(midpoint, uv_points):
-                        # Le pont traverse l'intérieur du logement : ce n'est
-                        # pas une gaine / poche extérieure à combler.
                         continue
 
-                    candidates = self._bridge_candidate_polygons(
+                    removed_chain = [
+                        uv_points[index]
+                        for index in chain
+                    ]
+                    depth = self._max_chain_distance_to_bridge(
+                        removed_chain,
+                        uv_points[i],
+                        uv_points[j],
+                    )
+                    if depth > max_depth_internal:
+                        continue
+
+                    candidate = self._replace_chain_with_bridge(
                         uv_points,
                         i,
                         j,
                     )
+                    if len(candidate) < 3:
+                        continue
 
-                    for candidate, removed_chain in candidates:
-                        if len(candidate) < 3:
-                            continue
+                    if not self._is_simple_polygon(candidate):
+                        continue
 
-                        candidate_area = abs(
-                            self._polygon_signed_area(candidate)
-                        )
-                        fill_area = candidate_area - original_area
-                        if (
-                            fill_area <= 1e-9
-                            or fill_area > max_fill_area_internal
-                        ):
-                            continue
+                    candidate_area = abs(
+                        self._polygon_signed_area(candidate)
+                    )
+                    fill_area = candidate_area - original_area
+                    if (
+                        fill_area <= 1e-9
+                        or fill_area > max_fill_area_internal
+                    ):
+                        continue
 
-                        depth = self._max_chain_distance_to_bridge(
-                            removed_chain,
-                            uv_points[i],
-                            uv_points[j],
-                        )
-                        if depth > max_depth_internal:
-                            continue
-
-                        # Priorité à la poche de plus petite surface ; à aire
-                        # égale, privilégier la bouche et la profondeur les
-                        # plus faibles.
-                        score = (
-                            fill_area,
-                            bridge_length,
-                            depth,
-                        )
-                        if best is None or score < best[0]:
-                            best = (score, candidate)
+                    score = (fill_area, mouth, depth)
+                    if best is None or score < best[0]:
+                        best = (score, candidate)
 
             if best is not None:
                 uv_points = best[1]
@@ -600,63 +602,64 @@ class CropGeometryService(object):
             for point in world_points
         ]
 
-        return self._curve_loop_from_points(
+        result = self._curve_loop_from_points(
             xyz_result,
             max(self._short_curve_tolerance(), 1e-7),
         )
 
-    @staticmethod
-    def _vertices_are_adjacent(i, j, count):
-        if i == j:
-            return True
-        if abs(i - j) == 1:
-            return True
-        return {i, j} == {0, count - 1}
+        # Sécurité finale : si le nettoyage produit malgré tout une boucle
+        # géométriquement douteuse, on revient au contour d'origine plutôt que
+        # de faire échouer tout le crop optimisé.
+        if not self._is_simple_polygon(uv_points):
+            return curve_loop
+
+        return result
 
     @staticmethod
-    def _point_in_polygon(point, polygon):
-        """Ray casting 2D. Les points sur bord sont considérés intérieurs."""
-        x, y = point
-        values = list(polygon or [])
+    def _forward_chain_indices(i, j, count):
+        values = [i]
+        index = i
+        while index != j:
+            index = (index + 1) % count
+            values.append(index)
+            if len(values) > count + 1:
+                break
+        return values
+
+    @staticmethod
+    def _replace_chain_with_bridge(points, i, j):
+        values = list(points or [])
+        count = len(values)
+        if i > j:
+            i, j = j, i
+        return values[:i + 1] + values[j:]
+
+    @classmethod
+    def _is_simple_polygon(cls, points):
+        values = list(points or [])
         count = len(values)
         if count < 3:
             return False
 
-        inside = False
-        epsilon = 1e-9
+        for i in range(count):
+            a = values[i]
+            b = values[(i + 1) % count]
 
-        for index in range(count):
-            x1, y1 = values[index]
-            x2, y2 = values[(index + 1) % count]
+            for j in range(i + 1, count):
+                c_index = j
+                d_index = (j + 1) % count
 
-            # Point sur le segment.
-            cross = (
-                (x - x1) * (y2 - y1)
-                - (y - y1) * (x2 - x1)
-            )
-            if abs(cross) <= epsilon:
-                min_x = min(x1, x2) - epsilon
-                max_x = max(x1, x2) + epsilon
-                min_y = min(y1, y2) - epsilon
-                max_y = max(y1, y2) + epsilon
-                if min_x <= x <= max_x and min_y <= y <= max_y:
-                    return True
+                if i == c_index or i == d_index:
+                    continue
+                if (i + 1) % count == c_index or (i + 1) % count == d_index:
+                    continue
 
-            intersects = (
-                ((y1 > y) != (y2 > y))
-                and (
-                    x
-                    < (
-                        ((x2 - x1) * (y - y1))
-                        / ((y2 - y1) if abs(y2 - y1) > epsilon else epsilon)
-                    )
-                    + x1
-                )
-            )
-            if intersects:
-                inside = not inside
+                c = values[c_index]
+                d = values[d_index]
+                if cls._segments_intersect_2d(a, b, c, d):
+                    return False
 
-        return inside
+        return True
 
     def _polygon_signed_area(points):
         values = list(points or [])
