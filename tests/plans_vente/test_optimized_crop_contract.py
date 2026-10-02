@@ -136,9 +136,9 @@ def test_shaft_detection_is_independent_from_crop_margin():
 
     assert "def _point_in_polygon(" in text
     assert "def _vertices_are_adjacent(" in text
-    assert "SHAFT_MAX_MOUTH_MM = 2000.0" in text
+    assert "SHAFT_MAX_MOUTH_MM = 3500.0" in text
     assert "SHAFT_MAX_DEPTH_MM = 2000.0" in text
-    assert "SHAFT_MAX_FILL_AREA_M2 = 3.0" in text
+    assert "SHAFT_MAX_FILL_AREA_M2 = 5.0" in text
     assert "for i in range(count):" in text
     assert "for j in range(i + 1, count):" in text
     assert "if self._point_in_polygon(midpoint, uv_points):" in text
@@ -196,3 +196,10 @@ def test_shaft_cleaner_tests_all_non_adjacent_vertices_safely():
     assert "if self._point_in_polygon(midpoint, uv_points):" in text
     assert "if not self._is_simple_polygon(candidate):" in text
     assert "fill_area = candidate_area - original_area" in text
+
+
+def test_shaft_cleanup_reports_how_many_pockets_were_closed():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "_last_closed_recess_count" in text
+    assert "gaine(s)/retrait(s) comblé(s)" in text
