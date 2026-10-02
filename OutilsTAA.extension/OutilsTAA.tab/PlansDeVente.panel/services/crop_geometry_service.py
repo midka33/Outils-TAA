@@ -846,6 +846,47 @@ class CropGeometryService(object):
 
         return maximum
 
+    def _try_native_offset_outward(self, curve_loop, margin_internal, view):
+        """Essaie d'abord l'offset natif sur le contour DEJA nettoyé.
+
+        L'ancien échec de CreateViaOffset venait du contour brut avec ses
+        micro-concavités. Après fermeture des petites gaines, la géométrie est
+        plus simple et l'offset natif redevient une excellente solution :
+        pas de booléens 3D, pas de faces coplanaires, angles propres.
+        """
+        from Autodesk.Revit.DB import CurveLoop
+
+        if margin_internal <= 1e-9:
+            return curve_loop
+
+        base_area = abs(self._curve_loop_area(curve_loop, view))
+        candidates = []
+
+        for distance in (margin_internal, -margin_internal):
+            try:
+                candidate = CurveLoop.CreateViaOffset(
+                    curve_loop,
+                    distance,
+                    view.ViewDirection,
+                )
+                candidate = self._linearize_curve_loop(
+                    candidate,
+                    view,
+                )
+                if not candidate.IsOpen():
+                    area = abs(self._curve_loop_area(candidate, view))
+                    if area > base_area + 1e-9:
+                        candidates.append((area, candidate))
+            except Exception:
+                continue
+
+        if not candidates:
+            return None
+
+        # Retenir l'expansion valide la plus compacte.
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1]
+
     def _buffer_outward(self, curve_loop, margin_internal, view):
         """Dilate le contour sans dépendre de CurveLoop.CreateViaOffset.
 
@@ -871,6 +912,28 @@ class CropGeometryService(object):
         )
         from System.Collections.Generic import List
         straight_loop = self._linearize_curve_loop(curve_loop, view)
+
+        # 1. Priorité à l'offset natif APRÈS nettoyage des gaines.
+        # Il évite les erreurs BooleanOperationsUtils liées aux faces
+        # coïncidentes des bandes/caps 3D.
+        native_offset = self._try_native_offset_outward(
+            straight_loop,
+            margin_internal,
+            view,
+        )
+        if native_offset is not None:
+            cleanup_internal = self._millimeters_to_internal(
+                self._detail_cleanup_mm(
+                    self._internal_to_millimeters(margin_internal)
+                )
+            )
+            return self._cleanup_small_notches(
+                native_offset,
+                view,
+                cleanup_internal,
+            )
+
+        # 2. Secours : buffer par union booléenne 3D.
         base_solid = self._solid_from_loop(straight_loop, view)
         result_solid = base_solid
 
