@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.11  
+**Version :** 1.12  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -2057,3 +2057,57 @@ Sur A003 :
 4. vérifier que les gaines en façade sont absorbées par l'enveloppe ;
 5. vérifier que le contour suit le chant extérieur du mur sélectionné ;
 6. vérifier qu'il ne s'étend pas sur un logement voisin.
+
+
+## Prototype A.3.17 — Mur périphérique proche, pas nécessairement limite de Room
+
+Le test Revit suivant a retourné :
+
+```text
+Murs périphériques utilisés : 0
+Aucun mur droit du type périphérique sélectionné ne borde les pièces de ce logement.
+```
+
+### Cause
+
+La première version du sélecteur de type imposait encore une relation
+topologique trop stricte : le mur choisi devait être directement le
+`BoundarySegment.ElementId` d'une Room.
+
+Dans un projet réel, un mur extérieur peut être séparé de la Room par :
+
+- un doublage intérieur ;
+- une contre-cloison ;
+- une autre paroi room-bounding ;
+- une limite de pièce distincte.
+
+Le type sélectionné est donc bien le mur architectural recherché sans être
+l'élément qui génère directement le contour bleu des pièces.
+
+### Correction
+
+Le moteur construit d'abord l'enveloppe extérieure des Rooms seules, puis
+cherche dans le projet les instances du **type de mur sélectionné** situées à
+proximité de cette enveloppe.
+
+Critères actuels :
+
+- même tranche verticale que le niveau du logement ;
+- distance maximale au contour : **1 000 mm** ;
+- mur et arête de contour sensiblement parallèles ;
+- uniquement la portion du mur réellement en vis-à-vis du logement ;
+- extension longitudinale maximale : **600 mm**.
+
+La bande créée atteint le contour des Rooms du côté logement afin de franchir
+un doublage éventuel, tout en conservant le chant opposé du mur comme limite
+extérieure.
+
+Cette recherche est linéaire sur les murs du type choisi et les arêtes du
+contour. Elle ne réactive pas la recherche combinatoire des 50 poches.
+
+### Validation A003
+
+Sélectionner à nouveau le même type de mur périphérique. Le résultat attendu
+est désormais un diagnostic avec `Murs périphériques utilisés : N`, avec
+`N > 0`, puis un calcul nettement plus court que l'ancienne fermeture
+automatique.

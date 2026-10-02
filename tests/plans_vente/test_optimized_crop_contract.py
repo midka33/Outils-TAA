@@ -271,3 +271,19 @@ def test_selected_peripheral_wall_type_uses_fast_wall_strip_union():
     assert "clean_outer_loop = straight_outer_loop" in text
     assert "_last_peripheral_wall_count" in text
     assert "Murs périphériques utilisés" in text
+
+    # Le type choisi est recherché près du contour extérieur des Rooms :
+    # il n'a plus besoin d'être directement BoundarySegment.ElementId.
+    collector_start = text.index("def _collect_peripheral_wall_strip_loops(")
+    collector_end = text.index(
+        "def _collect_opposite_wall_face_guides(",
+        collector_start,
+    )
+    collector = text[collector_start:collector_end]
+
+    assert "FilteredElementCollector(self.document)" in collector
+    assert "PERIPHERAL_WALL_SEARCH_MM = 1000.0" in text
+    assert "PERIPHERAL_WALL_PARALLEL_SIN" in text
+    assert "def _segment_distance_2d(" in text
+    assert "segment.ElementId" not in collector
+    assert "room_outer_loop" in collector

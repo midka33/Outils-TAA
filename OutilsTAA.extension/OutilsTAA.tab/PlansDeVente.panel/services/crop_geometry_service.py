@@ -48,6 +48,8 @@ class CropGeometryService(object):
     SHAFT_MAX_DEPTH_MM = 2000.0
     SHAFT_MAX_FILL_AREA_M2 = 5.0
     WALL_GUIDE_EXTENSION_MM = 600.0
+    PERIPHERAL_WALL_SEARCH_MM = 1000.0
+    PERIPHERAL_WALL_PARALLEL_SIN = 0.2588190451
 
     def __init__(self, document):
         if document is None:
@@ -90,41 +92,65 @@ class CropGeometryService(object):
                 room_unique_ids,
                 view,
             )
-            peripheral_wall_loops = []
+            # Première enveloppe : uniquement les Rooms. Elle sert de
+            # référence spatiale pour chercher les murs périphériques proches,
+            # même lorsqu'un doublage ou une autre limite de pièce se trouve
+            # entre la Room et le mur sélectionné.
+            room_union_solid = self._stage(
+                "Union géométrique des pièces",
+                self._union_room_solids,
+                room_loops,
+                view,
+            )
+            room_outer_loop = self._stage(
+                "Extraction du contour extérieur",
+                self._extract_outer_union_loop,
+                room_union_solid,
+                view,
+                reference_z,
+            )
+            straight_room_outer_loop = self._stage(
+                "Linéarisation du contour extérieur",
+                self._linearize_curve_loop,
+                room_outer_loop,
+                view,
+            )
+
+            straight_outer_loop = straight_room_outer_loop
+
             if peripheral_wall_type_unique_id:
                 (
                     peripheral_wall_loops,
                     self._last_peripheral_wall_count,
                 ) = self._stage(
-                    "Lecture du type de mur périphérique",
+                    "Recherche des murs périphériques proches",
                     self._collect_peripheral_wall_strip_loops,
-                    room_unique_ids,
+                    straight_room_outer_loop,
                     view,
                     reference_z,
                     peripheral_wall_type_unique_id,
                 )
 
-            union_solid = self._stage(
-                "Union géométrique des pièces",
-                self._union_room_solids,
-                room_loops,
-                view,
-                peripheral_wall_loops,
-            )
-            outer_loop = self._stage(
-                "Extraction du contour extérieur",
-                self._extract_outer_union_loop,
-                union_solid,
-                view,
-                reference_z,
-            )
-
-            straight_outer_loop = self._stage(
-                "Linéarisation du contour extérieur",
-                self._linearize_curve_loop,
-                outer_loop,
-                view,
-            )
+                union_solid = self._stage(
+                    "Union des pièces et murs périphériques",
+                    self._union_room_solids,
+                    room_loops,
+                    view,
+                    peripheral_wall_loops,
+                )
+                outer_loop = self._stage(
+                    "Extraction du contour pièces + murs",
+                    self._extract_outer_union_loop,
+                    union_solid,
+                    view,
+                    reference_z,
+                )
+                straight_outer_loop = self._stage(
+                    "Linéarisation du contour pièces + murs",
+                    self._linearize_curve_loop,
+                    outer_loop,
+                    view,
+                )
 
             if peripheral_wall_type_unique_id:
                 # Le type périphérique explicite remplace la recherche
@@ -329,17 +355,28 @@ class CropGeometryService(object):
 
     def _collect_peripheral_wall_strip_loops(
         self,
-        room_unique_ids,
+        room_outer_loop,
         view,
         reference_z,
         peripheral_wall_type_unique_id,
     ):
-        """Construit des bandes 2D pour le type de mur périphérique choisi."""
+        """Trouve les murs du type choisi proches de l'enveloppe des Rooms.
+
+        Le mur sélectionné n'a pas besoin d'être l'élément qui porte
+        directement la limite de Room : un doublage, une cloison ou une autre
+        limite peut se trouver entre les deux.
+
+        La recherche reste locale et rapide :
+        - uniquement les instances du type choisi ;
+        - uniquement les murs au niveau vertical du contour ;
+        - uniquement les murs proches et parallèles à une arête extérieure ;
+        - seule la portion du mur en vis-à-vis du logement est transformée en
+          bande 2D, avec une extension longitudinale bornée.
+        """
         from Autodesk.Revit.DB import (
             CurveLoop,
+            FilteredElementCollector,
             Line,
-            SpatialElementBoundaryLocation,
-            SpatialElementBoundaryOptions,
             Wall,
             XYZ,
         )
@@ -348,160 +385,309 @@ class CropGeometryService(object):
         if not selected_unique_id:
             return [], 0
 
-        options = SpatialElementBoundaryOptions()
-        options.SpatialElementBoundaryLocation = (
-            SpatialElementBoundaryLocation.Center
+        frame = self._frame_from_view(view)
+        contour_xyz = self._tessellated_loop_points(room_outer_loop)
+        contour_xyz = self._remove_near_duplicates(contour_xyz)
+        if len(contour_xyz) < 3:
+            raise ValueError(
+                "Le contour extérieur des pièces est insuffisant pour "
+                "chercher les murs périphériques."
+            )
+
+        contour_uv = [
+            frame.project((point.X, point.Y, point.Z))
+            for point in contour_xyz
+        ]
+        contour_edges = []
+        count = len(contour_uv)
+        for index in range(count):
+            start = contour_uv[index]
+            end = contour_uv[(index + 1) % count]
+            vector = (
+                end[0] - start[0],
+                end[1] - start[1],
+            )
+            length = self._vector_length_2d(vector)
+            if length > 1e-9:
+                contour_edges.append((start, end, vector, length))
+
+        if not contour_edges:
+            raise ValueError(
+                "Aucune arête extérieure exploitable n'a été trouvée."
+            )
+
+        search_distance = self._millimeters_to_internal(
+            self.PERIPHERAL_WALL_SEARCH_MM
         )
         extension = self._millimeters_to_internal(
             self.WALL_GUIDE_EXTENSION_MM
         )
+        z_tolerance = search_distance
         tolerance = max(self._short_curve_tolerance(), 1e-7)
+
+        min_u = min(point[0] for point in contour_uv) - search_distance
+        max_u = max(point[0] for point in contour_uv) + search_distance
+        min_v = min(point[1] for point in contour_uv) - search_distance
+        max_v = max(point[1] for point in contour_uv) + search_distance
 
         loops = []
         used_walls = set()
-        seen_segments = set()
 
-        for unique_id in room_unique_ids or []:
-            room = self.document.GetElement(unique_id)
-            if room is None:
+        walls = (
+            FilteredElementCollector(self.document)
+            .OfClass(Wall)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        )
+
+        for wall in walls:
+            wall_type = getattr(wall, "WallType", None)
+            wall_type_unique_id = str(
+                getattr(wall_type, "UniqueId", "") or ""
+            )
+            if wall_type_unique_id != selected_unique_id:
+                continue
+
+            location = getattr(wall, "Location", None)
+            wall_curve = getattr(location, "Curve", None)
+            if wall_curve is None or not isinstance(wall_curve, Line):
                 continue
 
             try:
-                boundary_loops = room.GetBoundarySegments(options)
+                wall_start = wall_curve.GetEndPoint(0)
+                wall_end = wall_curve.GetEndPoint(1)
+                width = float(wall.Width)
+                orientation = wall.Orientation
             except Exception:
-                boundary_loops = None
+                continue
 
-            for segment_loop in boundary_loops or []:
-                for segment in segment_loop or []:
-                    try:
-                        wall = self.document.GetElement(segment.ElementId)
-                        boundary_curve = segment.GetCurve()
-                    except Exception:
-                        continue
+            if width <= tolerance or orientation is None:
+                continue
 
-                    if (
-                        wall is None
-                        or not isinstance(wall, Wall)
-                        or boundary_curve is None
-                        or not isinstance(boundary_curve, Line)
-                    ):
-                        continue
+            try:
+                bbox = wall.get_BoundingBox(None)
+            except Exception:
+                bbox = None
+            if bbox is not None:
+                if (
+                    reference_z < bbox.Min.Z - z_tolerance
+                    or reference_z > bbox.Max.Z + z_tolerance
+                ):
+                    continue
 
-                    wall_type = getattr(wall, "WallType", None)
-                    wall_type_unique_id = str(
-                        getattr(wall_type, "UniqueId", "") or ""
+            start_uv = frame.project(
+                (wall_start.X, wall_start.Y, reference_z)
+            )
+            end_uv = frame.project(
+                (wall_end.X, wall_end.Y, reference_z)
+            )
+            wall_vector_uv = (
+                end_uv[0] - start_uv[0],
+                end_uv[1] - start_uv[1],
+            )
+            wall_length_uv = self._vector_length_2d(wall_vector_uv)
+            if wall_length_uv <= tolerance:
+                continue
+
+            wall_min_u = min(start_uv[0], end_uv[0]) - width
+            wall_max_u = max(start_uv[0], end_uv[0]) + width
+            wall_min_v = min(start_uv[1], end_uv[1]) - width
+            wall_max_v = max(start_uv[1], end_uv[1]) + width
+            if (
+                wall_max_u < min_u
+                or wall_min_u > max_u
+                or wall_max_v < min_v
+                or wall_min_v > max_v
+            ):
+                continue
+
+            unit_uv = (
+                wall_vector_uv[0] / wall_length_uv,
+                wall_vector_uv[1] / wall_length_uv,
+            )
+
+            overlap_values = []
+            room_side_samples = []
+
+            for edge_start, edge_end, edge_vector, edge_length in contour_edges:
+                parallel_sin = abs(
+                    (wall_vector_uv[0] * edge_vector[1])
+                    - (wall_vector_uv[1] * edge_vector[0])
+                ) / (wall_length_uv * edge_length)
+                if parallel_sin > self.PERIPHERAL_WALL_PARALLEL_SIN:
+                    continue
+
+                distance = self._segment_distance_2d(
+                    start_uv,
+                    end_uv,
+                    edge_start,
+                    edge_end,
+                )
+                if distance > search_distance + (width * 0.5):
+                    continue
+
+                for point in (edge_start, edge_end):
+                    scalar = (
+                        ((point[0] - start_uv[0]) * unit_uv[0])
+                        + ((point[1] - start_uv[1]) * unit_uv[1])
                     )
-                    if wall_type_unique_id != selected_unique_id:
-                        continue
+                    overlap_values.append(scalar)
 
-                    location = getattr(wall, "Location", None)
-                    wall_curve = getattr(location, "Curve", None)
-                    if wall_curve is None or not isinstance(wall_curve, Line):
-                        continue
-
-                    try:
-                        width = float(wall.Width)
-                        orientation = wall.Orientation
-                        boundary_start = boundary_curve.GetEndPoint(0)
-                        boundary_end = boundary_curve.GetEndPoint(1)
-                        wall_start = wall_curve.GetEndPoint(0)
-                        wall_end = wall_curve.GetEndPoint(1)
-                    except Exception:
-                        continue
-
-                    if width <= tolerance or orientation is None:
-                        continue
-
-                    wall_vector = wall_end.Subtract(wall_start)
-                    wall_length = wall_vector.GetLength()
-                    if wall_length <= tolerance:
-                        continue
-                    wall_direction = wall_vector.Normalize()
-
-                    start_scalar = boundary_start.Subtract(
-                        wall_start
-                    ).DotProduct(wall_direction)
-                    end_scalar = boundary_end.Subtract(
-                        wall_start
-                    ).DotProduct(wall_direction)
-                    minimum = max(
-                        0.0,
-                        min(start_scalar, end_scalar) - extension,
+                midpoint = (
+                    (edge_start[0] + edge_end[0]) * 0.5,
+                    (edge_start[1] + edge_end[1]) * 0.5,
+                )
+                wall_midpoint = (
+                    (start_uv[0] + end_uv[0]) * 0.5,
+                    (start_uv[1] + end_uv[1]) * 0.5,
+                )
+                room_side_samples.append(
+                    (
+                        midpoint[0] - wall_midpoint[0],
+                        midpoint[1] - wall_midpoint[1],
                     )
-                    maximum = min(
-                        wall_length,
-                        max(start_scalar, end_scalar) + extension,
-                    )
-                    if maximum - minimum <= tolerance:
-                        continue
+                )
 
-                    center_start = wall_start.Add(
-                        wall_direction.Multiply(minimum)
-                    )
-                    center_end = wall_start.Add(
-                        wall_direction.Multiply(maximum)
-                    )
-                    center_start = XYZ(
-                        center_start.X,
-                        center_start.Y,
+            if not overlap_values:
+                continue
+
+            minimum = max(
+                0.0,
+                min(overlap_values) - extension,
+            )
+            maximum = min(
+                wall_length_uv,
+                max(overlap_values) + extension,
+            )
+            if maximum - minimum <= tolerance:
+                continue
+
+            wall_vector_xyz = wall_end.Subtract(wall_start)
+            wall_length_xyz = wall_vector_xyz.GetLength()
+            if wall_length_xyz <= tolerance:
+                continue
+            wall_direction_xyz = wall_vector_xyz.Normalize()
+
+            ratio_start = minimum / wall_length_uv
+            ratio_end = maximum / wall_length_uv
+            center_start = wall_start.Add(
+                wall_direction_xyz.Multiply(
+                    wall_length_xyz * ratio_start
+                )
+            )
+            center_end = wall_start.Add(
+                wall_direction_xyz.Multiply(
+                    wall_length_xyz * ratio_end
+                )
+            )
+            center_start = XYZ(
+                center_start.X,
+                center_start.Y,
+                reference_z,
+            )
+            center_end = XYZ(
+                center_end.X,
+                center_end.Y,
+                reference_z,
+            )
+
+            normal_xyz = XYZ(
+                orientation.X,
+                orientation.Y,
+                0.0,
+            )
+            if normal_xyz.GetLength() <= tolerance:
+                continue
+            normal_xyz = normal_xyz.Normalize()
+
+            # Étendre la bande jusqu'au contour des Rooms du côté logement
+            # pour garantir une union même si un doublage sépare la Room du
+            # mur porteur sélectionné. Le côté opposé reste au chant du mur.
+            room_side_sign = 0.0
+            if room_side_samples:
+                normal_uv_end_world = XYZ(
+                    center_start.X + normal_xyz.X,
+                    center_start.Y + normal_xyz.Y,
+                    reference_z,
+                )
+                normal_start_uv = frame.project(
+                    (center_start.X, center_start.Y, reference_z)
+                )
+                normal_end_uv = frame.project(
+                    (
+                        normal_uv_end_world.X,
+                        normal_uv_end_world.Y,
                         reference_z,
                     )
-                    center_end = XYZ(
-                        center_end.X,
-                        center_end.Y,
-                        reference_z,
-                    )
+                )
+                normal_uv = (
+                    normal_end_uv[0] - normal_start_uv[0],
+                    normal_end_uv[1] - normal_start_uv[1],
+                )
+                average_dot = sum(
+                    (sample[0] * normal_uv[0])
+                    + (sample[1] * normal_uv[1])
+                    for sample in room_side_samples
+                ) / float(len(room_side_samples))
+                room_side_sign = 1.0 if average_dot >= 0.0 else -1.0
 
-                    normal = XYZ(
-                        orientation.X,
-                        orientation.Y,
-                        0.0,
-                    )
-                    if normal.GetLength() <= tolerance:
-                        continue
-                    normal = normal.Normalize()
-                    shift = normal.Multiply(width * 0.5)
+            half_width = width * 0.5
+            room_reach = search_distance + half_width
+            if room_side_sign >= 0.0:
+                positive_reach = room_reach
+                negative_reach = half_width
+            else:
+                positive_reach = half_width
+                negative_reach = room_reach
 
-                    points = [
-                        center_start.Add(shift),
-                        center_end.Add(shift),
-                        center_end.Subtract(shift),
-                        center_start.Subtract(shift),
-                    ]
+            positive = normal_xyz.Multiply(positive_reach)
+            negative = normal_xyz.Multiply(-negative_reach)
 
-                    wall_uid = str(getattr(wall, "UniqueId", "") or "")
-                    segment_key = (
-                        wall_uid,
-                        round(minimum, 6),
-                        round(maximum, 6),
-                    )
-                    if segment_key in seen_segments:
-                        continue
+            points = [
+                center_start.Add(positive),
+                center_end.Add(positive),
+                center_end.Add(negative),
+                center_start.Add(negative),
+            ]
 
-                    curve_loop = CurveLoop()
-                    valid = True
-                    for index in range(4):
-                        start = points[index]
-                        end = points[(index + 1) % 4]
-                        if start.DistanceTo(end) <= tolerance:
-                            valid = False
-                            break
-                        curve_loop.Append(Line.CreateBound(start, end))
+            curve_loop = CurveLoop()
+            valid = True
+            for index in range(4):
+                start = points[index]
+                end = points[(index + 1) % 4]
+                if start.DistanceTo(end) <= tolerance:
+                    valid = False
+                    break
+                curve_loop.Append(Line.CreateBound(start, end))
 
-                    if not valid or curve_loop.IsOpen():
-                        continue
+            if not valid or curve_loop.IsOpen():
+                continue
 
-                    seen_segments.add(segment_key)
-                    used_walls.add(wall_uid)
-                    loops.append(curve_loop)
+            loops.append(curve_loop)
+            used_walls.add(
+                str(getattr(wall, "UniqueId", "") or "")
+            )
 
         if not loops:
             raise ValueError(
-                "Aucun mur droit du type périphérique sélectionné ne borde "
-                "les pièces de ce logement."
+                "Aucun mur droit du type périphérique sélectionné n'a été "
+                "trouvé à moins de {} mm du contour extérieur des pièces."
+                .format(int(self.PERIPHERAL_WALL_SEARCH_MM))
             )
 
         return loops, len(used_walls)
+
+    @staticmethod
+    def _segment_distance_2d(a, b, c, d):
+        if CropGeometryService._segments_intersect_2d(a, b, c, d):
+            return 0.0
+
+        return min(
+            CropGeometryService._point_distance_to_segment(a, c, d),
+            CropGeometryService._point_distance_to_segment(b, c, d),
+            CropGeometryService._point_distance_to_segment(c, a, b),
+            CropGeometryService._point_distance_to_segment(d, a, b),
+        )
 
     def _collect_opposite_wall_face_guides(self, room_unique_ids, view):
         """Collecte les faces de murs opposées aux pièces comme guides 2D.

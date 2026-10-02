@@ -788,6 +788,33 @@ l'enveloppe.
 de `_close_small_recesses` dans le chemin explicite ; validation Revit A003
 sur le temps de calcul et le contour obtenu.
 
+### BUG-PDV-017 — Le mur périphérique choisi n'est pas la limite directe de Room
+
+**Symptôme :** le type de mur périphérique est bien sélectionné mais le
+diagnostic retourne `Murs périphériques utilisés : 0` et
+`Aucun mur droit du type périphérique sélectionné ne borde les pièces`.
+
+**Cause :** la première implémentation ne considérait que
+`BoundarySegment.ElementId`. Elle supposait donc que le mur périphérique
+sélectionné était directement room-bounding. Cette hypothèse est fausse dès
+qu'un doublage, une contre-cloison ou une autre limite de pièce se trouve entre
+la Room et le mur extérieur.
+
+**Correction :** calculer d'abord le contour extérieur des Rooms puis rechercher
+toutes les instances du type choisi à proximité de ce contour. Les candidats
+doivent être proches et sensiblement parallèles à une arête extérieure. Seule
+la portion en vis-à-vis du logement est transformée en bande, étendue côté
+Room pour franchir un doublage et côté opposé jusqu'au mur.
+
+**Règle préventive :** distinguer proximité architecturale et relation
+topologique Revit. Un élément métier « périphérique » ne doit pas être supposé
+être l'élément qui porte directement le `BoundarySegment` d'une Room.
+
+**Anti-régression :** test de contrat garantissant que le collecteur explicite
+utilise `FilteredElementCollector` + proximité au `room_outer_loop` et ne
+dépend plus de `segment.ElementId`; validation Revit sur A003 avec le même
+type de mur.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -853,6 +880,7 @@ BUG-PDV-013
 BUG-PDV-014
 BUG-PDV-015
 BUG-PDV-016
+BUG-PDV-017
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
