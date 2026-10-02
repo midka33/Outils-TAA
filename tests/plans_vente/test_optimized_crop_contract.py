@@ -145,3 +145,13 @@ def test_shaft_detection_is_independent_from_crop_margin():
     assert text.index("Fermeture des petites gaines et retraits") < text.index(
         "Construction de la marge robuste"
     )
+
+
+def test_shaft_cleanup_is_conservative_and_reversible():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _is_simple_polygon(" in text
+    assert "def _forward_chain_indices(" in text
+    assert "def _replace_chain_with_bridge(" in text
+    assert "if not self._is_simple_polygon(candidate):" in text
+    assert "return curve_loop" in text
