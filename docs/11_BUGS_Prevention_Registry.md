@@ -716,6 +716,26 @@ corde brute entre les points.
 `mouth_vector / parallel_sin` dans `_wall_aligned_bridge_paths`, présence
 des projections sur le mur et validation Revit sur A003.
 
+### BUG-TEST-003 — Workflow Plans de vente sans PYTHONPATH
+
+**Symptôme :** le premier run GitHub Actions du module Plans de vente échoue
+pendant la collecte avec `ModuleNotFoundError: No module named 'plans_vente'`
+sur les tests purs `crop_bounds`, `housing_grouper` et `view_frame`.
+
+**Cause :** les modules métier du plugin résident dans
+`OutilsTAA.extension/lib`, mais le nouveau workflow lançait pytest sans ajouter
+ce répertoire au chemin d'import Python.
+
+**Correction :** définir `PYTHONPATH=${{ github.workspace }}/OutilsTAA.extension/lib`
+sur l'étape pytest du workflow Plans de vente.
+
+**Règle préventive :** tout workflow pytest d'un module pyRevit dont les tests
+importent les bibliothèques de `OutilsTAA.extension/lib` doit reproduire
+explicitement ce chemin d'import.
+
+**Anti-régression :** exécution réelle du workflow
+`Plans de vente — tests hors Revit` après le correctif.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -759,6 +779,7 @@ BUG-EXPORT-036
 BUG-EXPORT-035
 BUG-EXPORT-034
 BUG-TEST-002
+BUG-TEST-003
 BUG-CALCULS-001
 BUG-CALCULS-002
 BUG-CALCULS-003
