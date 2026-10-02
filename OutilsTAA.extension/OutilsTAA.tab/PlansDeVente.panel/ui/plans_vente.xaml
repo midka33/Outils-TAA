@@ -138,6 +138,11 @@
                                        Margin="0,0,0,10"/>
 
                             <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="120"/>
                                     <ColumnDefinition Width="*"/>
@@ -146,18 +151,31 @@
                                     <ColumnDefinition Width="90"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Column="0" Text="Vue source"
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Vue source"
                                            VerticalAlignment="Center"/>
-                                <ComboBox x:Name="SourceViewCombo" Grid.Column="1"
+                                <ComboBox x:Name="SourceViewCombo"
+                                          Grid.Row="0" Grid.Column="1"
                                           DisplayMemberPath="Label"
                                           SelectionChanged="SourceViewChanged"
                                           Style="{DynamicResource TAAComboBox}"/>
 
-                                <TextBlock Grid.Column="3" Text="Marge crop (mm)"
+                                <TextBlock Grid.Row="0" Grid.Column="3"
+                                           Text="Marge crop (mm)"
                                            VerticalAlignment="Center"/>
-                                <TextBox x:Name="CropMarginTextBox" Grid.Column="4"
+                                <TextBox x:Name="CropMarginTextBox"
+                                         Grid.Row="0" Grid.Column="4"
                                          Text="500"
                                          Style="{DynamicResource TAATextBox}"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                           Text="Mur périphérique"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="PeripheralWallTypeCombo"
+                                          Grid.Row="2" Grid.Column="1"
+                                          Grid.ColumnSpan="4"
+                                          DisplayMemberPath="label"
+                                          SelectionChanged="PeripheralWallTypeChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
                             </Grid>
                         </StackPanel>
 

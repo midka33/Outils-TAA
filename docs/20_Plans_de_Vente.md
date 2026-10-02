@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.10  
+**Version :** 1.11  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1989,3 +1989,71 @@ sans créer de diagonale libre.
 Le message de fallback indique aussi désormais combien de poches avaient été
 fermées avant l'échec, dont combien avec un guide mural. Ce diagnostic permet
 de distinguer immédiatement un problème de détection d'un problème d'offset.
+
+
+## Prototype A.3.16 — Type de mur périphérique explicite
+
+Le test A003 a montré deux limites de la détection automatique :
+
+- le moteur pouvait annoncer jusqu'à **50 poches fermées**, ce qui indique que
+  la recherche combinatoire essayait de simplifier beaucoup trop de couples de
+  sommets ;
+- le calcul devenait sensiblement long avant de finir malgré tout en rectangle
+  de secours.
+
+### Choix utilisateur
+
+Le prototype demande désormais un **type de mur périphérique** avant de créer
+le contour.
+
+La liste contient les types de murs réellement utilisés dans le projet. Pour
+cette étape du prototype, un seul type est sélectionné. Une sélection multiple
+pourra être ajoutée plus tard dans le modèle de plan de vente.
+
+### Nouveau pipeline rapide
+
+```text
+Rooms du logement
+      ↓
+frontières de Rooms
+      ↓
+segments portés par le type de mur périphérique choisi
+      ↓
+bandes 2D représentant toute l'épaisseur de ces murs
+      ↓
+union Rooms + bandes périphériques
+      ↓
+contour extérieur
+      ↓
+marge
+      ↓
+crop
+```
+
+Les bandes ne prennent pas la longueur complète d'un mur partagé avec d'autres
+logements. Elles partent du segment qui borde réellement une Room du logement
+et peuvent s'étendre de 600 mm au maximum, sans dépasser les extrémités réelles
+du mur. Cette extension sert à franchir une petite interruption créée par une
+gaine sans étendre le crop sur un logement voisin.
+
+### Effet sur les performances
+
+Quand un type périphérique est fourni, la recherche générale de toutes les
+paires de sommets n'est plus exécutée. Le contour est construit directement
+par l'union géométrique des pièces et des bandes de murs sélectionnées.
+
+Le diagnostic de résultat indique le nombre de murs périphériques effectivement
+utilisés. En cas d'échec, le message indique également ce nombre afin de
+vérifier immédiatement que le type choisi a bien été rencontré autour du
+logement.
+
+### Validation demandée
+
+Sur A003 :
+
+1. sélectionner le type de mur de façade / périphérique réellement utilisé ;
+2. conserver la même marge que lors du test précédent ;
+3. vérifier que le calcul est nettement plus rapide ;
+4. vérifier que les gaines en façade sont absorbées par l'enveloppe ;
+5. vérifier que le contour suit le chant extérieur du mur sélectionné ;
+6. vérifier qu'il ne s'étend pas sur un logement voisin.

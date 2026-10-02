@@ -18,9 +18,19 @@ class PlansVenteController(object):
     def source_views_for_housing(self, housing):
         return self.prototype_view_service.source_views_for_housing(housing)
 
-    def create_view_prototype(self, housing, source_view_unique_id, margin_mm):
+    def peripheral_wall_types(self):
+        return self.prototype_view_service.list_peripheral_wall_types()
+
+    def create_view_prototype(
+        self,
+        housing,
+        source_view_unique_id,
+        margin_mm,
+        peripheral_wall_type_unique_id,
+    ):
         return self.prototype_view_service.create_dependent_crop_view(
             housing,
             source_view_unique_id,
             margin_mm,
+            peripheral_wall_type_unique_id,
         )

@@ -24,6 +24,17 @@ class PrototypeViewResult(object):
         self.warning = warning or ""
 
 
+class PeripheralWallTypeCandidate(object):
+    def __init__(self, unique_id, name, family_name=""):
+        self.unique_id = unique_id or ""
+        self.name = name or ""
+        self.family_name = family_name or ""
+        if self.family_name and self.family_name != self.name:
+            self.label = "{} — {}".format(self.family_name, self.name)
+        else:
+            self.label = self.name
+
+
 class PrototypeViewService(object):
     def __init__(self, document, plan_view_service, crop_geometry_service):
         if document is None:
@@ -36,12 +47,53 @@ class PrototypeViewService(object):
         level_name = self._single_level_name(housing)
         return self.plan_view_service.list_primary_floor_plans(level_name)
 
-    def create_dependent_crop_view(self, housing, source_view_unique_id, margin_mm=500.0):
+    def list_peripheral_wall_types(self):
+        from Autodesk.Revit.DB import FilteredElementCollector, Wall
+
+        candidates = {}
+        walls = (
+            FilteredElementCollector(self.document)
+            .OfClass(Wall)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        )
+        for wall in walls:
+            wall_type = getattr(wall, "WallType", None)
+            if wall_type is None:
+                continue
+            unique_id = str(getattr(wall_type, "UniqueId", "") or "")
+            if not unique_id or unique_id in candidates:
+                continue
+            name = self._element_type_name(wall_type)
+            if not name:
+                continue
+            family_name = str(
+                getattr(wall_type, "FamilyName", "") or ""
+            )
+            candidates[unique_id] = PeripheralWallTypeCandidate(
+                unique_id,
+                name,
+                family_name,
+            )
+
+        values = list(candidates.values())
+        values.sort(key=lambda item: item.label.lower())
+        return values
+
+    def create_dependent_crop_view(
+        self,
+        housing,
+        source_view_unique_id,
+        margin_mm=500.0,
+        peripheral_wall_type_unique_id=None,
+    ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
         level_name = self._single_level_name(housing)
         if not source_view_unique_id:
             raise ValueError("Sélectionnez une vue source.")
+        if not peripheral_wall_type_unique_id:
+            raise ValueError("Sélectionnez le type de mur périphérique.")
 
         source_view = self.document.GetElement(source_view_unique_id)
         if source_view is None:
@@ -62,6 +114,7 @@ class PrototypeViewService(object):
             housing.room_unique_ids,
             source_view,
             margin_mm,
+            peripheral_wall_type_unique_id,
         )
 
         created_view = None
@@ -96,6 +149,28 @@ class PrototypeViewService(object):
             crop_mode=crop_result.mode,
             warning=crop_result.warning,
         )
+
+    @staticmethod
+    def _element_type_name(element_type):
+        try:
+            value = getattr(element_type, "Name", None)
+            if value:
+                return str(value)
+        except Exception:
+            pass
+
+        try:
+            from Autodesk.Revit.DB import BuiltInParameter
+            parameter = element_type.get_Parameter(
+                BuiltInParameter.SYMBOL_NAME_PARAM
+            )
+            if parameter is not None:
+                value = parameter.AsString()
+                if value:
+                    return str(value)
+        except Exception:
+            pass
+        return ""
 
     @staticmethod
     def _single_level_name(housing):

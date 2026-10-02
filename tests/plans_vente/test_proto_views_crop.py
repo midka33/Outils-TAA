@@ -35,6 +35,7 @@ def test_xaml_handlers_for_prototype_exist():
     for handler in (
         "HousingSelectionChanged",
         "SourceViewChanged",
+        "PeripheralWallTypeChanged",
         "CreatePrototype_Click",
     ):
         assert "def {}(".format(handler) in python_text
@@ -70,3 +71,24 @@ def test_crop_uses_view_coordinate_system_and_true_room_union():
     assert "BooleanOperationsUtils.ExecuteBooleanOperation" in geometry_text
     assert "CurveLoop.CreateViaOffset" in geometry_text
     assert "build_optimized_crop" in prototype_text
+
+
+def test_prototype_requires_explicit_peripheral_wall_type():
+    xaml_text = (PANEL / "ui" / "plans_vente.xaml").read_text(encoding="utf-8")
+    window_text = (PANEL / "ui" / "plans_vente_window.py").read_text(
+        encoding="utf-8"
+    )
+    controller_text = (
+        PANEL / "services" / "plans_vente_controller.py"
+    ).read_text(encoding="utf-8")
+    prototype_text = (
+        PANEL / "services" / "prototype_view_service.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'x:Name="PeripheralWallTypeCombo"' in xaml_text
+    assert 'DisplayMemberPath="label"' in xaml_text
+    assert "def PeripheralWallTypeChanged(" in window_text
+    assert "def peripheral_wall_types(" in controller_text
+    assert "def list_peripheral_wall_types(" in prototype_text
+    assert "Sélectionnez le type de mur périphérique." in prototype_text
+    assert "peripheral_wall_type_unique_id" in prototype_text

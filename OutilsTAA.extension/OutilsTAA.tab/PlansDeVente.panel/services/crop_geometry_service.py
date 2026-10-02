@@ -55,8 +55,15 @@ class CropGeometryService(object):
         self.document = document
         self._last_closed_recess_count = 0
         self._last_wall_aligned_recess_count = 0
+        self._last_peripheral_wall_count = 0
 
-    def build_optimized_crop(self, room_unique_ids, view, margin_mm):
+    def build_optimized_crop(
+        self,
+        room_unique_ids,
+        view,
+        margin_mm,
+        peripheral_wall_type_unique_id=None,
+    ):
         """Construit un contour extérieur compatible avec les crops Revit.
 
         Important : ViewCropRegionShapeManager n'accepte que des segments
@@ -69,6 +76,7 @@ class CropGeometryService(object):
         margin_internal = self._millimeters_to_internal(margin_mm)
         self._last_closed_recess_count = 0
         self._last_wall_aligned_recess_count = 0
+        self._last_peripheral_wall_count = 0
         fallback_loop = self._build_rectangular_fallback(
             room_unique_ids,
             view,
@@ -82,11 +90,26 @@ class CropGeometryService(object):
                 room_unique_ids,
                 view,
             )
+            peripheral_wall_loops = []
+            if peripheral_wall_type_unique_id:
+                (
+                    peripheral_wall_loops,
+                    self._last_peripheral_wall_count,
+                ) = self._stage(
+                    "Lecture du type de mur périphérique",
+                    self._collect_peripheral_wall_strip_loops,
+                    room_unique_ids,
+                    view,
+                    reference_z,
+                    peripheral_wall_type_unique_id,
+                )
+
             union_solid = self._stage(
                 "Union géométrique des pièces",
                 self._union_room_solids,
                 room_loops,
                 view,
+                peripheral_wall_loops,
             )
             outer_loop = self._stage(
                 "Extraction du contour extérieur",
@@ -103,23 +126,28 @@ class CropGeometryService(object):
                 view,
             )
 
-            wall_guides = self._collect_opposite_wall_face_guides(
-                room_unique_ids,
-                view,
-            )
-
-            clean_outer_loop = self._stage(
-                "Fermeture des petites gaines et retraits",
-                self._close_small_recesses,
-                straight_outer_loop,
-                view,
-                self._millimeters_to_internal(self.SHAFT_MAX_MOUTH_MM),
-                self._millimeters_to_internal(self.SHAFT_MAX_DEPTH_MM),
-                self._square_meters_to_internal_area(
-                    self.SHAFT_MAX_FILL_AREA_M2
-                ),
-                wall_guides,
-            )
+            if peripheral_wall_type_unique_id:
+                # Le type périphérique explicite remplace la recherche
+                # combinatoire de poches. Les bandes de mur sont déjà unies
+                # aux Rooms : on évite les dizaines de fermetures candidates.
+                clean_outer_loop = straight_outer_loop
+            else:
+                wall_guides = self._collect_opposite_wall_face_guides(
+                    room_unique_ids,
+                    view,
+                )
+                clean_outer_loop = self._stage(
+                    "Fermeture des petites gaines et retraits",
+                    self._close_small_recesses,
+                    straight_outer_loop,
+                    view,
+                    self._millimeters_to_internal(self.SHAFT_MAX_MOUTH_MM),
+                    self._millimeters_to_internal(self.SHAFT_MAX_DEPTH_MM),
+                    self._square_meters_to_internal_area(
+                        self.SHAFT_MAX_FILL_AREA_M2
+                    ),
+                    wall_guides,
+                )
 
             final_loop = self._stage(
                 "Construction de la marge robuste",
@@ -137,6 +165,10 @@ class CropGeometryService(object):
             )
 
             mode = "Contour optimisé"
+            if self._last_peripheral_wall_count:
+                mode += " — {} mur(s) périphérique(s)".format(
+                    self._last_peripheral_wall_count
+                )
             if self._last_closed_recess_count:
                 mode += " — {} gaine(s)/retrait(s) comblé(s)".format(
                     self._last_closed_recess_count
@@ -160,9 +192,11 @@ class CropGeometryService(object):
                 warning=(
                     "Le contour optimisé n'a pas pu être construit. "
                     "Un rectangle aligné à la vue a été utilisé. "
-                    "Nettoyage avant échec : {} poche(s), dont {} "
+                    "Murs périphériques utilisés : {}. "
+                    "Nettoyage automatique avant échec : {} poche(s), dont {} "
                     "alignée(s) sur mur. Étape en échec : {}"
                 ).format(
+                    self._last_peripheral_wall_count,
                     self._last_closed_recess_count,
                     self._last_wall_aligned_recess_count,
                     error,
@@ -293,6 +327,182 @@ class CropGeometryService(object):
 
         return room_loops, reference_z
 
+    def _collect_peripheral_wall_strip_loops(
+        self,
+        room_unique_ids,
+        view,
+        reference_z,
+        peripheral_wall_type_unique_id,
+    ):
+        """Construit des bandes 2D pour le type de mur périphérique choisi."""
+        from Autodesk.Revit.DB import (
+            CurveLoop,
+            Line,
+            SpatialElementBoundaryLocation,
+            SpatialElementBoundaryOptions,
+            Wall,
+            XYZ,
+        )
+
+        selected_unique_id = str(peripheral_wall_type_unique_id or "")
+        if not selected_unique_id:
+            return [], 0
+
+        options = SpatialElementBoundaryOptions()
+        options.SpatialElementBoundaryLocation = (
+            SpatialElementBoundaryLocation.Center
+        )
+        extension = self._millimeters_to_internal(
+            self.WALL_GUIDE_EXTENSION_MM
+        )
+        tolerance = max(self._short_curve_tolerance(), 1e-7)
+
+        loops = []
+        used_walls = set()
+        seen_segments = set()
+
+        for unique_id in room_unique_ids or []:
+            room = self.document.GetElement(unique_id)
+            if room is None:
+                continue
+
+            try:
+                boundary_loops = room.GetBoundarySegments(options)
+            except Exception:
+                boundary_loops = None
+
+            for segment_loop in boundary_loops or []:
+                for segment in segment_loop or []:
+                    try:
+                        wall = self.document.GetElement(segment.ElementId)
+                        boundary_curve = segment.GetCurve()
+                    except Exception:
+                        continue
+
+                    if (
+                        wall is None
+                        or not isinstance(wall, Wall)
+                        or boundary_curve is None
+                        or not isinstance(boundary_curve, Line)
+                    ):
+                        continue
+
+                    wall_type = getattr(wall, "WallType", None)
+                    wall_type_unique_id = str(
+                        getattr(wall_type, "UniqueId", "") or ""
+                    )
+                    if wall_type_unique_id != selected_unique_id:
+                        continue
+
+                    location = getattr(wall, "Location", None)
+                    wall_curve = getattr(location, "Curve", None)
+                    if wall_curve is None or not isinstance(wall_curve, Line):
+                        continue
+
+                    try:
+                        width = float(wall.Width)
+                        orientation = wall.Orientation
+                        boundary_start = boundary_curve.GetEndPoint(0)
+                        boundary_end = boundary_curve.GetEndPoint(1)
+                        wall_start = wall_curve.GetEndPoint(0)
+                        wall_end = wall_curve.GetEndPoint(1)
+                    except Exception:
+                        continue
+
+                    if width <= tolerance or orientation is None:
+                        continue
+
+                    wall_vector = wall_end.Subtract(wall_start)
+                    wall_length = wall_vector.GetLength()
+                    if wall_length <= tolerance:
+                        continue
+                    wall_direction = wall_vector.Normalize()
+
+                    start_scalar = boundary_start.Subtract(
+                        wall_start
+                    ).DotProduct(wall_direction)
+                    end_scalar = boundary_end.Subtract(
+                        wall_start
+                    ).DotProduct(wall_direction)
+                    minimum = max(
+                        0.0,
+                        min(start_scalar, end_scalar) - extension,
+                    )
+                    maximum = min(
+                        wall_length,
+                        max(start_scalar, end_scalar) + extension,
+                    )
+                    if maximum - minimum <= tolerance:
+                        continue
+
+                    center_start = wall_start.Add(
+                        wall_direction.Multiply(minimum)
+                    )
+                    center_end = wall_start.Add(
+                        wall_direction.Multiply(maximum)
+                    )
+                    center_start = XYZ(
+                        center_start.X,
+                        center_start.Y,
+                        reference_z,
+                    )
+                    center_end = XYZ(
+                        center_end.X,
+                        center_end.Y,
+                        reference_z,
+                    )
+
+                    normal = XYZ(
+                        orientation.X,
+                        orientation.Y,
+                        0.0,
+                    )
+                    if normal.GetLength() <= tolerance:
+                        continue
+                    normal = normal.Normalize()
+                    shift = normal.Multiply(width * 0.5)
+
+                    points = [
+                        center_start.Add(shift),
+                        center_end.Add(shift),
+                        center_end.Subtract(shift),
+                        center_start.Subtract(shift),
+                    ]
+
+                    wall_uid = str(getattr(wall, "UniqueId", "") or "")
+                    segment_key = (
+                        wall_uid,
+                        round(minimum, 6),
+                        round(maximum, 6),
+                    )
+                    if segment_key in seen_segments:
+                        continue
+
+                    curve_loop = CurveLoop()
+                    valid = True
+                    for index in range(4):
+                        start = points[index]
+                        end = points[(index + 1) % 4]
+                        if start.DistanceTo(end) <= tolerance:
+                            valid = False
+                            break
+                        curve_loop.Append(Line.CreateBound(start, end))
+
+                    if not valid or curve_loop.IsOpen():
+                        continue
+
+                    seen_segments.add(segment_key)
+                    used_walls.add(wall_uid)
+                    loops.append(curve_loop)
+
+        if not loops:
+            raise ValueError(
+                "Aucun mur droit du type périphérique sélectionné ne borde "
+                "les pièces de ce logement."
+            )
+
+        return loops, len(used_walls)
+
     def _collect_opposite_wall_face_guides(self, room_unique_ids, view):
         """Collecte les faces de murs opposées aux pièces comme guides 2D.
 
@@ -418,7 +628,12 @@ class CropGeometryService(object):
 
         return guides
 
-    def _union_room_solids(self, room_loops, view):
+    def _union_room_solids(
+        self,
+        room_loops,
+        view,
+        supplemental_loops=None,
+    ):
         from Autodesk.Revit.DB import (
             BooleanOperationsType,
             BooleanOperationsUtils,
@@ -432,7 +647,8 @@ class CropGeometryService(object):
             raise ValueError("La vue ne fournit pas de direction exploitable.")
 
         solids = []
-        for curve_loop in room_loops:
+        all_loops = list(room_loops or []) + list(supplemental_loops or [])
+        for curve_loop in all_loops:
             loops = List[CurveLoop]()
             loops.Add(curve_loop)
             solid = GeometryCreationUtilities.CreateExtrusionGeometry(

@@ -257,3 +257,17 @@ def test_fallback_reports_wall_guided_cleanup_counts():
     assert "Nettoyage avant échec" in text
     assert "_last_closed_recess_count" in text
     assert "_last_wall_aligned_recess_count" in text
+
+
+def test_selected_peripheral_wall_type_uses_fast_wall_strip_union():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "peripheral_wall_type_unique_id=None" in text
+    assert "def _collect_peripheral_wall_strip_loops(" in text
+    assert "wall_type_unique_id != selected_unique_id" in text
+    assert "supplemental_loops=None" in text
+    assert "list(room_loops or []) + list(supplemental_loops or [])" in text
+    assert "if peripheral_wall_type_unique_id:" in text
+    assert "clean_outer_loop = straight_outer_loop" in text
+    assert "_last_peripheral_wall_count" in text
+    assert "Murs périphériques utilisés" in text

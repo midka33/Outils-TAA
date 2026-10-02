@@ -759,6 +759,35 @@ documentaire avec un appel de code.
 **Anti-régression :** exécution complète de `python -m pytest tests/plans_vente -q`
 dans GitHub Actions.
 
+### BUG-PDV-016 — Détection automatique trop large : 50 fermetures et calcul lent
+
+**Symptôme :** sur A003, la fenêtre de diagnostic indique
+`50 poche(s), dont 50 alignée(s) sur mur` avant un échec de marge. Le calcul
+est sensiblement long.
+
+**Cause :** la fermeture automatique parcourt les paires de sommets du contour
+et les compare aux guides de murs. Sur un logement complexe, beaucoup de
+couples peuvent satisfaire les garde-fous successifs. La boucle de sécurité
+atteint alors sa limite de 50 modifications, avec un coût combinatoire élevé,
+sans garantir une enveloppe architecturale plus pertinente.
+
+**Correction :** permettre à l'utilisateur de choisir explicitement le type de
+mur périphérique. Pour ce chemin, les segments de ce type qui bordent les
+Rooms sont convertis en bandes 2D de largeur égale à l'épaisseur du mur puis
+unis aux Rooms avant extraction du contour. La recherche combinatoire des
+poches est entièrement ignorée lorsque ce type explicite est fourni.
+
+**Règle préventive :** lorsqu'une information métier fiable est disponible
+(type de mur périphérique), la privilégier à une inférence géométrique globale
+coûteuse. Une optimisation ne doit pas parcourir tout le graphe des sommets si
+un sous-ensemble architectural explicite permet de construire directement
+l'enveloppe.
+
+**Anti-régression :** tests de contrat sur le sélecteur WPF, la transmission du
+`UniqueId` du type, l'union des bandes de murs aux Rooms et le contournement
+de `_close_small_recesses` dans le chemin explicite ; validation Revit A003
+sur le temps de calcul et le contour obtenu.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -823,6 +852,7 @@ BUG-PDV-012
 BUG-PDV-013
 BUG-PDV-014
 BUG-PDV-015
+BUG-PDV-016
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
