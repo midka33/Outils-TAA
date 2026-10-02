@@ -542,6 +542,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** vérifier que le service n'utilise plus `CreateViaOffset`, qu'il construit bandes + raccords, puis tester dans Revit 2025.4 des marges 20, 25, 100 et 500 mm sur logements rectangulaire, en L et irrégulier.
 
+### BUG-PDV-005 — Artefacts de marge et décrochements dus aux gaines sans pièce
+
+**Symptôme :** le contour optimisé fonctionne à 20, 50, 200 et 500 mm, mais des facettes / renflements apparaissent dans les angles aux grandes marges. Le contour suit également certains petits retraits liés à des gaines techniques dépourvues de pièce, ce qui donne une enveloppe graphiquement trop détaillée pour un plan de vente.
+
+**Cause :** les raccords octogonaux utilisés pour simuler la dilatation deviennent visuellement perceptibles quand la marge augmente. Par ailleurs, l'union exacte des pièces considère comme significatif tout décrochement de l'enveloppe, même lorsqu'il provient d'un vide technique non destiné à structurer le cadrage graphique.
+
+**Correction :** remplacer les raccords octogonaux par des carrés alignés sur le repère de la vue afin d'obtenir des angles francs. Ajouter ensuite une passe de nettoyage des petits détours rectangulaires en U. La tolérance graphique est bornée entre 300 et 600 mm et varie avec la marge afin de gommer les petites gaines / retraits sans aplatir les grandes formes en L.
+
+**Règle préventive :** distinguer le contour géométrique exact d'un logement de son enveloppe graphique de cadrage. Pour un plan de vente, la seconde doit pouvoir simplifier de petits accidents qui n'apportent aucune information de composition.
+
+**Anti-régression :** tests statiques sur raccords carrés, suppression des petits U et bornes de nettoyage ; validation Revit 2025.4 sur le même logement aux marges 20, 50, 200 et 500 mm.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -593,6 +605,7 @@ BUG-PDV-001
 BUG-PDV-002
 BUG-PDV-003
 BUG-PDV-004
+BUG-PDV-005
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
