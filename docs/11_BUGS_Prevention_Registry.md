@@ -840,6 +840,30 @@ doivent conserver l'identité de leur document source.
 des murs liés ; validation Revit A003 en choisissant explicitement la source
 affichée dans la liste.
 
+### BUG-PDV-019 — Mur hôte visible mais aucune instance du type n'est retenue
+
+**Symptôme :** Revit montre directement une instance hôte du type
+`MUR-EXT-BET-Béton20CM` au niveau du logement, alors que le moteur retourne
+toujours zéro mur périphérique.
+
+**Cause potentielle isolée :** le collecteur comparait le texte `UniqueId` du
+`WallType` de chaque instance avec la clé de sélection. Ce détour est inutile
+et rend le diagnostic impossible lorsque le filtre échoue avant la géométrie.
+
+**Correction :** résoudre une seule fois le `WallType` sélectionné dans le
+document source et comparer son `ElementId` à `wall.GetTypeId()`. Ajouter
+des compteurs après chaque filtre : type, courbe droite, niveau, zone 2D et
+proximité/parallélisme.
+
+**Règle préventive :** pour relier une instance Revit à son type, utiliser
+prioritairement `GetTypeId()` et l'identité d'élément Revit. Les identifiants
+textuels servent à sérialiser une sélection, pas à répéter le test de type sur
+toutes les instances.
+
+**Anti-régression :** test de contrat sur `GetTypeId()`, résolution du type
+par `Document.GetElement(uniqueId)` et présence du diagnostic par étapes ;
+validation Revit sur A003.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -907,6 +931,7 @@ BUG-PDV-015
 BUG-PDV-016
 BUG-PDV-017
 BUG-PDV-018
+BUG-PDV-019
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

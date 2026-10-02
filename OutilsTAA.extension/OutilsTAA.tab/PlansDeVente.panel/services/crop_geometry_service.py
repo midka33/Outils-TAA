@@ -392,7 +392,7 @@ class CropGeometryService(object):
         (
             source_document,
             source_transform,
-            selected_unique_id,
+            selected_type_id,
             source_label,
         ) = self._resolve_peripheral_wall_source(selection_key)
         self._last_peripheral_wall_source = source_label
@@ -444,6 +444,13 @@ class CropGeometryService(object):
 
         loops = []
         used_walls = set()
+        diagnostics = {
+            "type": 0,
+            "line": 0,
+            "z": 0,
+            "bbox": 0,
+            "near_parallel": 0,
+        }
 
         walls = (
             FilteredElementCollector(source_document)
@@ -453,17 +460,27 @@ class CropGeometryService(object):
         )
 
         for wall in walls:
-            wall_type = getattr(wall, "WallType", None)
-            wall_type_unique_id = str(
-                getattr(wall_type, "UniqueId", "") or ""
-            )
-            if wall_type_unique_id != selected_unique_id:
+            try:
+                wall_type_id = wall.GetTypeId()
+            except Exception:
                 continue
+
+            try:
+                same_type = wall_type_id == selected_type_id
+                if not same_type and wall_type_id is not None:
+                    same_type = wall_type_id.Equals(selected_type_id)
+            except Exception:
+                same_type = False
+
+            if not same_type:
+                continue
+            diagnostics["type"] += 1
 
             location = getattr(wall, "Location", None)
             wall_curve = getattr(location, "Curve", None)
             if wall_curve is None or not isinstance(wall_curve, Line):
                 continue
+            diagnostics["line"] += 1
 
             try:
                 wall_start = wall_curve.GetEndPoint(0)
@@ -502,6 +519,7 @@ class CropGeometryService(object):
                         or reference_z > max_z + z_tolerance
                     ):
                         continue
+            diagnostics["z"] += 1
 
             start_uv = frame.project(
                 (wall_start.X, wall_start.Y, reference_z)
@@ -528,6 +546,7 @@ class CropGeometryService(object):
                 or wall_min_v > max_v
             ):
                 continue
+            diagnostics["bbox"] += 1
 
             unit_uv = (
                 wall_vector_uv[0] / wall_length_uv,
@@ -578,6 +597,7 @@ class CropGeometryService(object):
 
             if not overlap_values:
                 continue
+            diagnostics["near_parallel"] += 1
 
             minimum = max(
                 0.0,
@@ -698,12 +718,18 @@ class CropGeometryService(object):
 
         if not loops:
             raise ValueError(
-                "Aucun mur droit du type périphérique sélectionné n'a été "
-                "trouvé à moins de {} mm du contour extérieur des pièces "
-                "dans la source « {} »."
+                "Aucun mur exploitable du type périphérique sélectionné. "
+                "Source : « {} ». Diagnostic : {} instance(s) du type, "
+                "{} mur(s) droit(s), {} au bon niveau, {} dans la zone, "
+                "{} proche(s) et parallèle(s) au contour (rayon {} mm)."
                 .format(
-                    int(self.PERIPHERAL_WALL_SEARCH_MM),
                     source_label,
+                    diagnostics["type"],
+                    diagnostics["line"],
+                    diagnostics["z"],
+                    diagnostics["bbox"],
+                    diagnostics["near_parallel"],
+                    int(self.PERIPHERAL_WALL_SEARCH_MM),
                 )
             )
 
@@ -748,22 +774,39 @@ class CropGeometryService(object):
                     getattr(link_document, "Title", "") or "Lien Revit"
                 )
 
+            wall_type = link_document.GetElement(parts[2])
+            if wall_type is None:
+                raise ValueError(
+                    "Le type de mur sélectionné n'existe plus dans le lien."
+                )
+
             return (
                 link_document,
                 transform,
-                parts[2],
+                wall_type.Id,
                 "Lien : {}".format(link_name),
             )
 
         if value.startswith("HOST|"):
+            wall_type_uid = value.split("|", 1)[1]
+            wall_type = self.document.GetElement(wall_type_uid)
+            if wall_type is None:
+                raise ValueError(
+                    "Le type de mur sélectionné n'existe plus dans le projet."
+                )
             return (
                 self.document,
                 None,
-                value.split("|", 1)[1],
+                wall_type.Id,
                 "Projet",
             )
 
-        return self.document, None, value, "Projet"
+        wall_type = self.document.GetElement(value)
+        if wall_type is None:
+            raise ValueError(
+                "Le type de mur sélectionné n'existe plus dans le projet."
+            )
+        return self.document, None, wall_type.Id, "Projet"
 
     @staticmethod
     def _bounding_box_host_z_range(bbox, source_transform):

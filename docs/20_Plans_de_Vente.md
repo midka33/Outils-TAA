@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.13  
+**Version :** 1.14  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -2154,3 +2154,48 @@ pour les murs.
 Après rechargement de pyRevit, vérifier la liste **Mur périphérique**. Si le mur
 de façade appartient à un lien, sélectionner la ligne préfixée
 `[Lien : ...]` correspondante plutôt que la version `[Projet]`.
+
+
+## Prototype A.3.19 — Résolution robuste du type de mur hôte
+
+La capture Revit d'A003 confirme que le mur testé est bien une instance du
+projet actif :
+
+```text
+Mur de base
+MUR-EXT-BET-Béton20CM
+Niveau : Niveau 0A
+```
+
+Le problème n'est donc pas nécessairement lié à un lien Revit.
+
+### Correction
+
+Le moteur ne compare plus le `UniqueId` lu sur chaque `WallType` pendant
+la boucle.
+
+Il résout d'abord le type sélectionné dans son document source, puis conserve
+son `ElementId`. Chaque mur est ensuite testé avec :
+
+```text
+wall.GetTypeId() == selected_type.Id
+```
+
+Cette méthode suit directement le contrat Revit entre une instance de mur et
+son type.
+
+### Diagnostic de filtrage
+
+Si aucun mur n'aboutit à une bande périphérique, le message indique désormais
+combien de murs franchissent chaque filtre :
+
+```text
+X instance(s) du type
+Y mur(s) droit(s)
+Z au bon niveau
+A dans la zone
+B proche(s) et parallèle(s) au contour
+```
+
+Cela permettra au prochain test A003 d'identifier précisément le filtre qui
+élimine `MUR-EXT-BET-Béton20CM`, sans nouvelle supposition.

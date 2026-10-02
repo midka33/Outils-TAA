@@ -301,3 +301,34 @@ def test_peripheral_wall_search_supports_linked_revit_sources():
     assert "def _bounding_box_host_z_range(" in text
     assert "_last_peripheral_wall_source" in text
     assert "Source murs : {}." in text
+
+
+def test_peripheral_wall_type_matching_uses_element_id_and_reports_filter_counts():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    collector_start = text.index("def _collect_peripheral_wall_strip_loops(")
+    collector_end = text.index(
+        "def _collect_opposite_wall_face_guides(",
+        collector_start,
+    )
+    collector = text[collector_start:collector_end]
+
+    assert "selected_type_id" in collector
+    assert "wall.GetTypeId()" in collector
+    assert "wall_type_id.Equals(selected_type_id)" in collector
+    assert 'diagnostics["type"]' in collector
+    assert 'diagnostics["line"]' in collector
+    assert 'diagnostics["z"]' in collector
+    assert 'diagnostics["bbox"]' in collector
+    assert 'diagnostics["near_parallel"]' in collector
+    assert "instance(s) du type" in collector
+
+    resolver_start = text.index("def _resolve_peripheral_wall_source(")
+    resolver_end = text.index(
+        "def _bounding_box_host_z_range(",
+        resolver_start,
+    )
+    resolver = text[resolver_start:resolver_end]
+
+    assert "wall_type = self.document.GetElement(wall_type_uid)" in resolver
+    assert "wall_type.Id" in resolver
