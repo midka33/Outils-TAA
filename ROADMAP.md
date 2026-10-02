@@ -150,7 +150,7 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 - [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4. **Sous-prototype vue dépendante + crop rectangulaire validé dans Revit 2025.4 le 2026-10-01. Correctif suivant implémenté : crop calculé dans le repère écran de la vue (RightDirection / UpDirection) afin d'éliminer l'inclinaison due aux axes globaux ; validation Revit requise.**
 - [ ] PROTO-PDV-02 — Cotations : deux dimensions principales, faces finies, suppression des petits décrochements.
-- [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes. **Union géométrique et buffer robuste validés jusqu'à 500 mm. Angles corrigés. Les gaines sans Room créent encore des poches concaves ; fermeture générique des petites poches ajoutée avant marge (bouche/profondeur 1,5 m, aire 2 m²). Revalidation visuelle sur A003 requise.**
+- [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes. **Union géométrique et buffer robuste validés jusqu'à 500 mm. Angles corrigés. Les gaines restent visibles surtout à petite marge : détection rendue indépendante de la marge en testant toutes les paires de sommets non adjacents (bouche/profondeur 2 m, aire 3 m²). Revalidation A003 20/50/200/500 mm requise.**
 
 ### Développement V1
 
