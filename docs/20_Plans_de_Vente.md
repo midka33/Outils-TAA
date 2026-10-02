@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.7  
+**Version :** 1.8  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1847,3 +1847,45 @@ fallback rectangle si nécessaire
 Cette stratégie réutilise l'offset natif seulement **après simplification du contour**, ce qui évite le problème initial rencontré sur le contour brut.
 
 Validation demandée : reprendre A003 avec 20 / 50 / 200 / 500 mm et vérifier si le résultat reste en `Contour optimisé` sans erreur booléenne.
+
+
+## Prototype A.3.13 — Marge 100 % 2D
+
+Le test Revit a montré que le buffer booléen 3D restait instable dès qu'il était utilisé comme fallback, avec le message :
+
+```text
+Failed to perform a Boolean operation for the two solids
+```
+
+La décision est donc de **supprimer complètement les booléens 3D de la construction de marge**.
+
+### Nouveau pipeline
+
+```text
+Contour nettoyé
+      ↓
+Essai CreateViaOffset
+      ├─ succès → marge obtenue
+      └─ échec
+           ↓
+simplification adaptative de petites concavités
+           ↓
+nouvel essai CreateViaOffset
+      ├─ succès → marge obtenue
+      └─ échec → rectangle de secours
+```
+
+La simplification adaptative ne supprime que des sommets concaves et n'est acceptée que si :
+
+- le pont reste limité ;
+- la profondeur locale reste limitée ;
+- l'aire ajoutée reste faible ;
+- le polygone reste simple.
+
+Elle ajoute donc de l'espace à l'enveloppe au lieu de couper dans le logement.
+
+### Conséquence
+
+L'étape `Construction de la marge robuste` ne doit plus pouvoir remonter une erreur `BooleanOperationsUtils`.
+
+La validation Revit doit être rejouée sur A003 à 20 / 50 / 200 / 500 mm.
