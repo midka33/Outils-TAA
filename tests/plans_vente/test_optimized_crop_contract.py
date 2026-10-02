@@ -141,7 +141,8 @@ def test_shaft_detection_is_independent_from_crop_margin():
     assert "SHAFT_MAX_FILL_AREA_M2 = 5.0" in text
     assert "for i in range(count):" in text
     assert "for j in range(i + 1, count):" in text
-    assert "if self._point_in_polygon(midpoint, uv_points):" in text
+    assert "def _wall_aligned_bridge_paths(" in text
+    assert "if not self._point_in_polygon(" in text
     assert text.index("Fermeture des petites gaines et retraits") < text.index(
         "Construction de la marge robuste"
     )
@@ -193,7 +194,8 @@ def test_shaft_cleaner_tests_all_non_adjacent_vertices_safely():
     assert "for i in range(count):" in text
     assert "for j in range(i + 1, count):" in text
     assert "if self._vertices_are_adjacent(i, j, count):" in text
-    assert "if self._point_in_polygon(midpoint, uv_points):" in text
+    assert "def _wall_aligned_bridge_paths(" in text
+    assert "if not self._point_in_polygon(" in text
     assert "if not self._is_simple_polygon(candidate):" in text
     assert "fill_area = candidate_area - original_area" in text
 
@@ -215,3 +217,25 @@ def test_native_offset_is_attempted_before_adaptive_cleanup():
     native_call = block.index("native_offset = self._try_native_offset_outward")
     adaptive_call = block.index("adaptive_offset = self._try_offset_after_concavity_cleanup")
     assert native_call < adaptive_call
+
+
+def test_shaft_closure_prefers_opposite_wall_faces_over_diagonal_chords():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _collect_opposite_wall_face_guides(" in text
+    assert "wall.Orientation" in text
+    assert "wall.Width" in text
+    assert "def _wall_aligned_bridge_paths(" in text
+    assert "WALL_GUIDE_MAX_ANGLE_SIN = 0.2588190451" in text
+    assert "WALL_GUIDE_EXTENSION_MM = 600.0" in text
+    assert "def _bridge_matches_local_direction(" in text
+    assert "def _bridge_candidate_polygons_with_path(" in text
+    assert "_last_wall_aligned_recess_count" in text
+    assert "fermeture(s) alignée(s) sur mur" in text
+
+    close_start = text.index("def _close_small_recesses(")
+    close_end = text.index("def _vertices_are_adjacent(", close_start)
+    close_block = text[close_start:close_end]
+
+    assert "bridge_options.append((0, bridge_path))" in close_block
+    assert "if self._bridge_matches_local_direction(" in close_block

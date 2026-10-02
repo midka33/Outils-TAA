@@ -660,6 +660,35 @@ Seuils du prototype :
 
 **Anti-régression :** test de contrat vérifiant l'absence de `BooleanOperationsUtils` dans `_buffer_outward` et l'ordre offset natif → simplification adaptative.
 
+### BUG-PDV-014 — Fermeture de gaine par pont diagonal
+
+**Symptôme :** le moteur détecte et comble certaines gaines, mais la fermeture
+relie directement deux lèvres dont les positions ne sont pas parfaitement en
+vis-à-vis. Le crop crée alors un segment biaisé sans rapport avec une arête de
+mur réelle.
+
+**Cause :** la fermeture des poches utilisait la distance minimale entre deux
+sommets comme critère principal. Un pont direct pouvait donc être valide
+topologiquement tout en introduisant une nouvelle direction diagonale dans le
+dessin.
+
+**Correction :** relever les murs droits qui bornent les Rooms, calculer leur
+face opposée à la pièce à partir de `Wall.Orientation` et `Wall.Width`, puis
+utiliser ces faces comme guides de fermeture. Les lèvres sont projetées
+perpendiculairement sur le guide et reliées le long du chant du mur. Un pont
+direct n'est autorisé en secours que s'il est déjà parallèle à une direction
+locale du contour.
+
+**Règle préventive :** une simplification de crop destinée à un plan
+architectural ne doit pas créer une direction graphique nouvelle uniquement
+parce qu'elle est topologiquement plus courte. Lorsqu'une fermeture correspond
+à un vide bordé par des murs, la géométrie construite doit privilégier les
+directions et faces de ces murs.
+
+**Anti-régression :** test de contrat sur la collecte des faces opposées, le
+pont guidé par mur et le refus des ponts directs créant une direction oblique ;
+validation Revit sur le logement de référence aux marges 20 / 50 / 200 / 500 mm.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -720,6 +749,7 @@ BUG-PDV-010
 BUG-PDV-011
 BUG-PDV-012
 BUG-PDV-013
+BUG-PDV-014
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

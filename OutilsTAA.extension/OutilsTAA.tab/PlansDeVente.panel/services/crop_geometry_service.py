@@ -47,12 +47,15 @@ class CropGeometryService(object):
     SHAFT_MAX_MOUTH_MM = 3500.0
     SHAFT_MAX_DEPTH_MM = 2000.0
     SHAFT_MAX_FILL_AREA_M2 = 5.0
+    WALL_GUIDE_MAX_ANGLE_SIN = 0.2588190451
+    WALL_GUIDE_EXTENSION_MM = 600.0
 
     def __init__(self, document):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
         self._last_closed_recess_count = 0
+        self._last_wall_aligned_recess_count = 0
 
     def build_optimized_crop(self, room_unique_ids, view, margin_mm):
         """Construit un contour extérieur compatible avec les crops Revit.
@@ -66,6 +69,7 @@ class CropGeometryService(object):
 
         margin_internal = self._millimeters_to_internal(margin_mm)
         self._last_closed_recess_count = 0
+        self._last_wall_aligned_recess_count = 0
         fallback_loop = self._build_rectangular_fallback(
             room_unique_ids,
             view,
@@ -100,6 +104,11 @@ class CropGeometryService(object):
                 view,
             )
 
+            wall_guides = self._collect_opposite_wall_face_guides(
+                room_unique_ids,
+                view,
+            )
+
             clean_outer_loop = self._stage(
                 "Fermeture des petites gaines et retraits",
                 self._close_small_recesses,
@@ -110,6 +119,7 @@ class CropGeometryService(object):
                 self._square_meters_to_internal_area(
                     self.SHAFT_MAX_FILL_AREA_M2
                 ),
+                wall_guides,
             )
 
             final_loop = self._stage(
@@ -131,6 +141,10 @@ class CropGeometryService(object):
             if self._last_closed_recess_count:
                 mode += " — {} gaine(s)/retrait(s) comblé(s)".format(
                     self._last_closed_recess_count
+                )
+            if self._last_wall_aligned_recess_count:
+                mode += " — {} fermeture(s) alignée(s) sur mur".format(
+                    self._last_wall_aligned_recess_count
                 )
 
             return OptimizedCropResult(
@@ -274,6 +288,131 @@ class CropGeometryService(object):
         )
 
         return room_loops, reference_z
+
+    def _collect_opposite_wall_face_guides(self, room_unique_ids, view):
+        """Collecte les faces de murs opposées aux pièces comme guides 2D.
+
+        Les limites de Room sont demandées au centre des murs. Pour chaque
+        segment porté par un mur droit, on décale donc ce segment d'une
+        demi-épaisseur vers le côté opposé à la pièce. Le guide obtenu
+        correspond au chant du mur situé côté gaine / extérieur.
+        """
+        from Autodesk.Revit.DB import (
+            Line,
+            SpatialElementBoundaryLocation,
+            SpatialElementBoundaryOptions,
+            Wall,
+        )
+
+        frame = self._frame_from_view(view)
+        options = SpatialElementBoundaryOptions()
+        options.SpatialElementBoundaryLocation = (
+            SpatialElementBoundaryLocation.Center
+        )
+
+        guides = []
+        seen = set()
+        tolerance = max(self._short_curve_tolerance(), 1e-7)
+
+        for unique_id in room_unique_ids or []:
+            room = self.document.GetElement(unique_id)
+            if room is None:
+                continue
+
+            room_location = getattr(room, "Location", None)
+            room_point = getattr(room_location, "Point", None)
+            if room_point is None:
+                continue
+
+            try:
+                boundary_loops = room.GetBoundarySegments(options)
+            except Exception:
+                boundary_loops = None
+
+            for segment_loop in boundary_loops or []:
+                for segment in segment_loop or []:
+                    try:
+                        curve = segment.GetCurve()
+                        wall = self.document.GetElement(segment.ElementId)
+                    except Exception:
+                        continue
+
+                    if (
+                        curve is None
+                        or wall is None
+                        or not isinstance(wall, Wall)
+                        or not isinstance(curve, Line)
+                    ):
+                        continue
+
+                    try:
+                        width = float(wall.Width)
+                        orientation = wall.Orientation
+                        start = curve.GetEndPoint(0)
+                        end = curve.GetEndPoint(1)
+                        midpoint = curve.Evaluate(0.5, True)
+                    except Exception:
+                        continue
+
+                    if (
+                        width <= tolerance
+                        or orientation is None
+                        or start.DistanceTo(end) <= tolerance
+                    ):
+                        continue
+
+                    try:
+                        side = room_point.Subtract(midpoint).DotProduct(
+                            orientation
+                        )
+                    except Exception:
+                        continue
+
+                    if abs(side) <= 1e-9:
+                        continue
+
+                    offset = (-0.5 * width) if side > 0.0 else (0.5 * width)
+
+                    try:
+                        shift = orientation.Normalize().Multiply(offset)
+                        face_start = start.Add(shift)
+                        face_end = end.Add(shift)
+                    except Exception:
+                        continue
+
+                    start_uv = frame.project(
+                        (face_start.X, face_start.Y, face_start.Z)
+                    )
+                    end_uv = frame.project(
+                        (face_end.X, face_end.Y, face_end.Z)
+                    )
+
+                    if self._distance_2d(start_uv, end_uv) <= tolerance:
+                        continue
+
+                    wall_uid = getattr(wall, "UniqueId", "") or ""
+                    side_key = 1 if offset > 0.0 else -1
+                    key = (
+                        wall_uid,
+                        side_key,
+                        round(start_uv[0], 6),
+                        round(start_uv[1], 6),
+                        round(end_uv[0], 6),
+                        round(end_uv[1], 6),
+                    )
+                    if key in seen:
+                        continue
+
+                    seen.add(key)
+                    guides.append(
+                        {
+                            "start": start_uv,
+                            "end": end_uv,
+                            "half_width": 0.5 * width,
+                        }
+                    )
+
+        return guides
 
     def _union_room_solids(self, room_loops, view):
         from Autodesk.Revit.DB import (
@@ -484,16 +623,17 @@ class CropGeometryService(object):
         max_mouth_internal,
         max_depth_internal,
         max_fill_area_internal,
+        wall_guides=None,
     ):
         """Ferme les petites poches extérieures assimilables à des gaines.
 
-        Une gaine sans Room peut former une poche dont les deux lèvres ne sont
-        pas nécessairement des sommets concaves. La détection ne doit donc pas
-        dépendre uniquement de la concavité locale.
+        Les fermetures suivent en priorité le chant opposé d'un mur bordant
+        une pièce. Cela évite les ponts arbitrairement diagonaux : les lèvres
+        de la poche sont projetées perpendiculairement sur une face de mur
+        voisine, puis reliées le long de cette face.
 
-        Cette version teste toutes les paires de sommets non adjacents, mais
-        n'accepte un pont que s'il est géométriquement sûr et s'il ajoute une
-        petite surface extérieure au logement.
+        Si aucun guide mural exploitable n'existe, un pont direct n'est
+        conservé que s'il prolonge déjà une direction locale du contour.
         """
         frame = self._frame_from_view(view)
         xyz_points = self._tessellated_loop_points(curve_loop)
@@ -505,6 +645,9 @@ class CropGeometryService(object):
             frame.project((point.X, point.Y, point.Z))
             for point in xyz_points
         ]
+        guide_extension = self._millimeters_to_internal(
+            self.WALL_GUIDE_EXTENSION_MM
+        )
 
         changed = True
         safety = 0
@@ -528,72 +671,103 @@ class CropGeometryService(object):
                     if mouth <= 1e-9 or mouth > max_mouth_internal:
                         continue
 
-                    if self._bridge_intersects_polygon(
+                    bridge_options = []
+
+                    for bridge_path in self._wall_aligned_bridge_paths(
+                        uv_points,
+                        i,
+                        j,
+                        wall_guides,
+                        max_depth_internal,
+                        guide_extension,
+                    ):
+                        bridge_options.append((0, bridge_path))
+
+                    if self._bridge_matches_local_direction(
                         uv_points,
                         i,
                         j,
                     ):
-                        continue
-
-                    midpoint = (
-                        (uv_points[i][0] + uv_points[j][0]) * 0.5,
-                        (uv_points[i][1] + uv_points[j][1]) * 0.5,
-                    )
-                    if self._point_in_polygon(midpoint, uv_points):
-                        # Un pont traversant l'intérieur retirerait une partie
-                        # réelle du logement au lieu de combler une poche.
-                        continue
-
-                    for candidate, removed_chain in self._bridge_candidate_polygons(
-                        uv_points,
-                        i,
-                        j,
-                    ):
-                        if len(candidate) < 3:
-                            continue
-
-                        if not self._is_simple_polygon(candidate):
-                            continue
-
-                        candidate_area = abs(
-                            self._polygon_signed_area(candidate)
-                        )
-                        fill_area = candidate_area - original_area
-
-                        # Nous n'acceptons que les candidats qui AJOUTENT une
-                        # petite aire au logement. L'autre chaîne autour du
-                        # polygone produit normalement un candidat beaucoup
-                        # plus petit et est automatiquement rejetée ici.
-                        if (
-                            fill_area <= 1e-9
-                            or fill_area > max_fill_area_internal
+                        if not self._bridge_intersects_polygon(
+                            uv_points,
+                            i,
+                            j,
                         ):
-                            continue
+                            midpoint = (
+                                (uv_points[i][0] + uv_points[j][0]) * 0.5,
+                                (uv_points[i][1] + uv_points[j][1]) * 0.5,
+                            )
+                            if not self._point_in_polygon(
+                                midpoint,
+                                uv_points,
+                            ):
+                                bridge_options.append(
+                                    (
+                                        1,
+                                        [
+                                            uv_points[i],
+                                            uv_points[j],
+                                        ],
+                                    )
+                                )
 
-                        depth = self._max_chain_distance_to_bridge(
-                            removed_chain,
-                            uv_points[i],
-                            uv_points[j],
-                        )
-                        if depth > max_depth_internal:
-                            continue
+                    for alignment_rank, bridge_path in bridge_options:
+                        for candidate, removed_chain in (
+                            self._bridge_candidate_polygons_with_path(
+                                uv_points,
+                                i,
+                                j,
+                                bridge_path,
+                            )
+                        ):
+                            if len(candidate) < 3:
+                                continue
 
-                        score = (
-                            fill_area,
-                            mouth,
-                            depth,
-                        )
-                        if best is None or score < best[0]:
-                            best = (score, candidate)
+                            if not self._is_simple_polygon(candidate):
+                                continue
+
+                            candidate_area = abs(
+                                self._polygon_signed_area(candidate)
+                            )
+                            fill_area = candidate_area - original_area
+
+                            if (
+                                fill_area <= 1e-9
+                                or fill_area > max_fill_area_internal
+                            ):
+                                continue
+
+                            depth = self._max_chain_distance_to_polyline(
+                                removed_chain,
+                                bridge_path,
+                            )
+                            if depth > max_depth_internal:
+                                continue
+
+                            path_length = self._polyline_length(
+                                bridge_path
+                            )
+                            score = (
+                                alignment_rank,
+                                fill_area,
+                                mouth,
+                                depth,
+                                path_length,
+                            )
+                            if best is None or score < best[0]:
+                                best = (
+                                    score,
+                                    candidate,
+                                    alignment_rank == 0,
+                                )
 
             if best is not None:
                 uv_points = best[1]
                 self._last_closed_recess_count += 1
+                if best[2]:
+                    self._last_wall_aligned_recess_count += 1
                 changed = True
 
-        # Le nettoyage est purement optionnel. Si le polygone final n'est pas
-        # simple, on revient au contour original validé au lieu de dégrader le
-        # moteur de crop.
         if not self._is_simple_polygon(uv_points):
             return curve_loop
 
@@ -615,6 +789,242 @@ class CropGeometryService(object):
             )
         except Exception:
             return curve_loop
+
+    def _wall_aligned_bridge_paths(
+        self,
+        points,
+        i,
+        j,
+        wall_guides,
+        max_depth_internal,
+        max_extension_internal,
+    ):
+        """Construit des ponts orthogonaux guidés par une face de mur."""
+        values = list(points or [])
+        guides = list(wall_guides or [])
+        if not guides or len(values) < 3:
+            return []
+
+        start = values[i]
+        end = values[j]
+        mouth_vector = (
+            end[0] - start[0],
+            end[1] - start[1],
+        )
+        mouth_length = self._vector_length_2d(mouth_vector)
+        if mouth_length <= 1e-9:
+            return []
+
+        candidates = []
+
+        for guide in guides:
+            guide_start = guide.get("start")
+            guide_end = guide.get("end")
+            if guide_start is None or guide_end is None:
+                continue
+
+            guide_vector = (
+                guide_end[0] - guide_start[0],
+                guide_end[1] - guide_start[1],
+            )
+            guide_length = self._vector_length_2d(guide_vector)
+            if guide_length <= 1e-9:
+                continue
+
+            parallel_sin = abs(
+                (mouth_vector[0] * guide_vector[1])
+                - (mouth_vector[1] * guide_vector[0])
+            ) / (mouth_length * guide_length)
+            if parallel_sin > self.WALL_GUIDE_MAX_ANGLE_SIN:
+                continue
+
+            start_projection = self._project_point_to_line(
+                start,
+                guide_start,
+                guide_end,
+            )
+            end_projection = self._project_point_to_line(
+                end,
+                guide_start,
+                guide_end,
+            )
+            if start_projection is None or end_projection is None:
+                continue
+
+            projected_start, start_t, start_distance = start_projection
+            projected_end, end_t, end_distance = end_projection
+
+            extension_ratio = (
+                max_extension_internal / guide_length
+                if guide_length > 1e-9
+                else 0.0
+            )
+            if (
+                start_t < -extension_ratio
+                or start_t > 1.0 + extension_ratio
+                or end_t < -extension_ratio
+                or end_t > 1.0 + extension_ratio
+            ):
+                continue
+
+            if max(start_distance, end_distance) > max_depth_internal:
+                continue
+
+            face_midpoint = (
+                (projected_start[0] + projected_end[0]) * 0.5,
+                (projected_start[1] + projected_end[1]) * 0.5,
+            )
+            if self._point_in_polygon(face_midpoint, values):
+                continue
+
+            path = [start]
+            for point in (projected_start, projected_end, end):
+                if self._distance_2d(path[-1], point) > 1e-9:
+                    path.append(point)
+
+            if len(path) < 3:
+                continue
+
+            candidates.append(
+                (
+                    max(start_distance, end_distance),
+                    self._polyline_length(path),
+                    path,
+                )
+            )
+
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        return [item[2] for item in candidates]
+
+    @classmethod
+    def _bridge_matches_local_direction(cls, points, i, j):
+        """Refuse un pont direct s'il crée une direction oblique nouvelle."""
+        values = list(points or [])
+        count = len(values)
+        if count < 3:
+            return False
+
+        start = values[i]
+        end = values[j]
+        bridge = (
+            end[0] - start[0],
+            end[1] - start[1],
+        )
+        bridge_length = cls._vector_length_2d(bridge)
+        if bridge_length <= 1e-9:
+            return False
+
+        local_vectors = []
+        for index in (i, j):
+            previous = values[(index - 1) % count]
+            current = values[index]
+            following = values[(index + 1) % count]
+            local_vectors.extend(
+                [
+                    (
+                        current[0] - previous[0],
+                        current[1] - previous[1],
+                    ),
+                    (
+                        following[0] - current[0],
+                        following[1] - current[1],
+                    ),
+                ]
+            )
+
+        for vector in local_vectors:
+            length = cls._vector_length_2d(vector)
+            if length <= 1e-9:
+                continue
+
+            parallel_sin = abs(
+                (bridge[0] * vector[1])
+                - (bridge[1] * vector[0])
+            ) / (bridge_length * length)
+            if parallel_sin <= 1e-3:
+                return True
+
+        return False
+
+    @staticmethod
+    def _project_point_to_line(point, line_start, line_end):
+        dx = line_end[0] - line_start[0]
+        dy = line_end[1] - line_start[1]
+        denominator = (dx * dx) + (dy * dy)
+        if denominator <= 1e-12:
+            return None
+
+        t = (
+            ((point[0] - line_start[0]) * dx)
+            + ((point[1] - line_start[1]) * dy)
+        ) / denominator
+        projection = (
+            line_start[0] + (t * dx),
+            line_start[1] + (t * dy),
+        )
+        distance = CropGeometryService._distance_2d(
+            point,
+            projection,
+        )
+        return projection, t, distance
+
+    @staticmethod
+    def _polyline_length(points):
+        values = list(points or [])
+        total = 0.0
+        for index in range(len(values) - 1):
+            total += CropGeometryService._distance_2d(
+                values[index],
+                values[index + 1],
+            )
+        return total
+
+    @classmethod
+    def _max_chain_distance_to_polyline(cls, chain, polyline):
+        values = list(chain or [])
+        path = list(polyline or [])
+        if not values or len(path) < 2:
+            return 0.0
+
+        maximum = 0.0
+        for point in values:
+            minimum = None
+            for index in range(len(path) - 1):
+                distance = cls._point_distance_to_segment(
+                    point,
+                    path[index],
+                    path[index + 1],
+                )
+                if minimum is None or distance < minimum:
+                    minimum = distance
+
+            if minimum is not None and minimum > maximum:
+                maximum = minimum
+
+        return maximum
+
+    @staticmethod
+    def _bridge_candidate_polygons_with_path(points, i, j, bridge_path):
+        values = list(points or [])
+        path = list(bridge_path or [])
+        if i > j:
+            i, j = j, i
+            path.reverse()
+
+        first_chain = list(values[i:j + 1])
+        second_chain = list(values[j:]) + list(values[:i + 1])
+        bridge_inner = list(path[1:-1])
+
+        return [
+            (
+                first_chain + list(reversed(bridge_inner)),
+                second_chain,
+            ),
+            (
+                second_chain + bridge_inner,
+                first_chain,
+            ),
+        ]
 
     @staticmethod
     def _vertices_are_adjacent(i, j, count):
@@ -779,18 +1189,12 @@ class CropGeometryService(object):
 
     @staticmethod
     def _bridge_candidate_polygons(points, i, j):
-        if i > j:
-            i, j = j, i
-
-        first_chain = list(points[i:j + 1])
-        second_chain = list(points[j:]) + list(points[:i + 1])
-
-        # Chaque candidate garde une chaîne et remplace l'autre par le pont.
-        # removed_chain est utilisée pour mesurer la profondeur de la poche.
-        return [
-            (first_chain, second_chain),
-            (second_chain, first_chain),
-        ]
+        return CropGeometryService._bridge_candidate_polygons_with_path(
+            points,
+            i,
+            j,
+            [points[i], points[j]],
+        )
 
     @staticmethod
     def _segments_intersect_2d(a, b, c, d):

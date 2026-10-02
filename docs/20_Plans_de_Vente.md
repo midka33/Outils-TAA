@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.8  
+**Version :** 1.9  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1889,3 +1889,65 @@ Elle ajoute donc de l'espace à l'enveloppe au lieu de couper dans le logement.
 L'étape `Construction de la marge robuste` ne doit plus pouvoir remonter une erreur `BooleanOperationsUtils`.
 
 La validation Revit doit être rejouée sur A003 à 20 / 50 / 200 / 500 mm.
+
+
+## Prototype A.3.14 — Fermeture des gaines alignée sur les murs
+
+Le test visuel suivant montre que la détection des gaines fonctionne, mais que
+certains ponts directs entre deux lèvres créent des segments biaisés. Ces
+diagonales sont géométriquement valides mais ne correspondent pas à la lecture
+architecturale souhaitée du plan.
+
+### Nouveau principe
+
+Le moteur relève maintenant les murs droits qui bornent les pièces du logement.
+Les limites de Room étant lues au centre des murs, chaque segment est décalé de
+la moitié de l'épaisseur du mur vers le côté opposé à la pièce. Ce segment
+représente donc le **chant opposé du mur**, côté gaine ou extérieur.
+
+Lorsqu'une petite poche est détectée, la fermeture essaie en priorité :
+
+```text
+Lèvre A
+   ↓ projection perpendiculaire
+chant opposé du mur ───────────────
+   ↑                         ↑
+projection A             projection B
+                             ↓
+                           Lèvre B
+```
+
+Le contour ajouté est donc composé de segments guidés par le mur : deux
+raccords perpendiculaires et un segment parallèle au chant du mur. Un pont
+direct n'est conservé en secours que s'il prolonge déjà une direction locale
+du contour ; une nouvelle diagonale arbitraire est refusée.
+
+### Garde-fous
+
+- seuls les murs droits sont utilisés comme guides dans ce prototype ;
+- le guide doit être proche des deux lèvres ;
+- sa direction doit rester proche de celle de la bouche de la poche ;
+- les projections ne peuvent dépasser le segment de mur que de 600 mm ;
+- profondeur, bouche et aire ajoutée restent limitées par les seuils A.3.11 ;
+- le polygone final doit rester simple ;
+- en cas de doute, le contour précédent est conservé.
+
+Le diagnostic ajoute le nombre de fermetures réellement alignées sur un mur :
+
+```text
+Contour optimisé — N gaine(s)/retrait(s) comblé(s) — M fermeture(s) alignée(s) sur mur
+```
+
+### Validation Revit demandée
+
+Reprendre le logement montré lors du test du 2 octobre 2026 et vérifier en
+priorité les zones de gaines qui produisaient des biais. Tester les marges
+20 / 50 / 200 / 500 mm.
+
+Résultat attendu :
+
+- les gaines restent prises en compte ;
+- les fermetures suivent un chant de mur voisin au lieu d'une diagonale libre ;
+- aucune vraie forme en L du logement n'est supprimée ;
+- le crop reste en `Contour optimisé` ;
+- aucune régression sur les vues dépendantes.
