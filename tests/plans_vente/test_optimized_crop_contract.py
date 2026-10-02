@@ -113,3 +113,19 @@ def test_large_margin_uses_square_caps_and_notch_cleanup():
     assert "def _is_u_turn_notch(" in text
     assert "MIN_DETAIL_CLEANUP_MM = 300.0" in text
     assert "MAX_DETAIL_CLEANUP_MM = 600.0" in text
+
+
+def test_small_shaft_recesses_are_closed_before_margin():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert '"Fermeture des petites gaines et retraits"' in text
+    assert "def _close_small_recesses(" in text
+    assert "def _concave_vertex_indices(" in text
+    assert "def _bridge_candidate_polygons(" in text
+    assert "def _max_chain_distance_to_bridge(" in text
+    assert "SHAFT_MAX_MOUTH_MM = 1500.0" in text
+    assert "SHAFT_MAX_DEPTH_MM = 1500.0" in text
+    assert "SHAFT_MAX_FILL_AREA_M2 = 2.0" in text
+    assert text.index("Fermeture des petites gaines et retraits") < text.index(
+        "Construction de la marge robuste"
+    )
