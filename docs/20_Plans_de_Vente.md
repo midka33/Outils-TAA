@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.9  
+**Version :** 1.0  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1611,3 +1611,73 @@ Vérifier :
 - vue principale inchangée.
 
 Si un retrait légitime est supprimé, noter sa largeur approximative afin d'ajuster la tolérance.
+
+
+## Prototype A.3.5 — Fermeture des petites gaines
+
+Le test visuel suivant confirme que les raccords de marge sont nettement meilleurs, mais montre que certaines gaines techniques sans pièce restent interprétées comme des retraits du logement.
+
+### Cause
+
+L'union des Rooms représente fidèlement les pièces, pas nécessairement l'enveloppe graphique souhaitée pour un plan de vente.
+
+Une gaine technique sans Room crée une poche concave dans l'union.
+
+Le nettoyage précédent ne traitait que des décrochements simples en U. Certaines gaines comportent davantage de sommets et ne sont donc pas reconnues par cette règle locale.
+
+### Nouveau principe
+
+Les petites poches sont analysées **avant la marge**.
+
+```text
+Contour extérieur des Rooms
+        ↓
+Détection des sommets concaves
+        ↓
+Recherche de paires pouvant fermer une petite poche
+        ↓
+Pont direct testé
+        ↓
+Contrôles :
+- pas d'intersection avec le contour
+- bouche limitée
+- profondeur limitée
+- aire ajoutée limitée
+        ↓
+Fermeture de la gaine
+        ↓
+Marge robuste
+        ↓
+Crop final
+```
+
+### Seuils du prototype
+
+```text
+Bouche maximale      : 1 500 mm
+Profondeur maximale  : 1 500 mm
+Aire remplie maximale: 2,0 m²
+```
+
+Ces valeurs sont volontairement conservatrices afin de combler une petite gaine sans supprimer une vraie forme en L du logement.
+
+Elles pourront ensuite devenir configurables dans le Modèle de plan de vente si les projets TAA montrent des besoins différents.
+
+### Validation demandée
+
+Reprendre le logement A003 de la campagne de test et contrôler les marges :
+
+- 20 mm ;
+- 50 mm ;
+- 200 mm ;
+- 500 mm.
+
+Le résultat attendu est :
+
+- angles propres ;
+- petites gaines comblées ;
+- grandes formes du logement conservées ;
+- aucune pièce rognée ;
+- vue principale inchangée.
+
+Si une gaine reste visible, mesurer approximativement sa largeur et sa profondeur. Si au contraire une vraie forme du logement est comblée, noter également ses dimensions afin d'ajuster les seuils.
