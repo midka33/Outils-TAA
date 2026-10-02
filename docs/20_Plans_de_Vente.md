@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.0  
+**Version :** 1.1  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1681,3 +1681,44 @@ Le résultat attendu est :
 - vue principale inchangée.
 
 Si une gaine reste visible, mesurer approximativement sa largeur et sa profondeur. Si au contraire une vraie forme du logement est comblée, noter également ses dimensions afin d'ajuster les seuils.
+
+
+## Prototype A.3.6 — Nettoyage indépendant de la marge
+
+Le test visuel confirme que les angles sont désormais propres, mais que certaines gaines restent visibles surtout avec une petite marge.
+
+Cela montre que la marge ne doit pas servir à masquer une imperfection de l'enveloppe.
+
+### Correction
+
+La détection des petites gaines est maintenant totalement indépendante de la marge de crop.
+
+Au lieu de rechercher uniquement des sommets concaves, le moteur teste toutes les paires de sommets non adjacents pouvant former une bouche de poche.
+
+Un pont n'est retenu que si :
+
+- sa longueur est sous le seuil ;
+- il ne coupe pas une autre arête ;
+- son milieu se situe à l'extérieur du polygone logement ;
+- le nouveau contour augmente l'aire, donc comble bien une poche ;
+- la profondeur de la poche reste limitée ;
+- l'aire ajoutée reste limitée.
+
+Seuils du prototype :
+
+```text
+Bouche maximale       : 2 000 mm
+Profondeur maximale   : 2 000 mm
+Aire ajoutée maximale : 3,0 m²
+```
+
+### Conséquence recherchée
+
+Une même gaine doit être supprimée du contour de la même façon avec :
+
+- 20 mm ;
+- 50 mm ;
+- 200 mm ;
+- 500 mm.
+
+La marge ne sert plus à compenser la géométrie de l'enveloppe ; elle est appliquée uniquement après le nettoyage.
