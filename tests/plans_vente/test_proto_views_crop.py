@@ -92,3 +92,16 @@ def test_prototype_requires_explicit_peripheral_wall_type():
     assert "def list_peripheral_wall_types(" in prototype_text
     assert "Sélectionnez le type de mur périphérique." in prototype_text
     assert "peripheral_wall_type_unique_id" in prototype_text
+
+
+def test_peripheral_wall_types_include_host_and_loaded_revit_links():
+    text = (
+        PANEL / "services" / "prototype_view_service.py"
+    ).read_text(encoding="utf-8")
+
+    assert "RevitLinkInstance" in text
+    assert "GetLinkDocument()" in text
+    assert '"HOST|{}".format(wall_type_uid)' in text
+    assert '"LINK|{}|{}".format(' in text
+    assert '"Lien : {}".format(link_name)' in text
+    assert 'self.label = "[{}] {}".format(' in text

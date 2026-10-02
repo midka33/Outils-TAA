@@ -281,9 +281,23 @@ def test_selected_peripheral_wall_type_uses_fast_wall_strip_union():
     )
     collector = text[collector_start:collector_end]
 
-    assert "FilteredElementCollector(self.document)" in collector
+    assert "FilteredElementCollector(source_document)" in collector
     assert "PERIPHERAL_WALL_SEARCH_MM = 1000.0" in text
     assert "PERIPHERAL_WALL_PARALLEL_SIN" in text
     assert "def _segment_distance_2d(" in text
     assert "segment.ElementId" not in collector
     assert "room_outer_loop" in collector
+
+
+def test_peripheral_wall_search_supports_linked_revit_sources():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _resolve_peripheral_wall_source(" in text
+    assert 'if value.startswith("LINK|"):' in text
+    assert "GetLinkDocument()" in text
+    assert "GetTotalTransform()" in text
+    assert "source_transform.OfPoint(wall_start)" in text
+    assert "source_transform.OfVector(" in text
+    assert "def _bounding_box_host_z_range(" in text
+    assert "_last_peripheral_wall_source" in text
+    assert "Source murs : {}." in text

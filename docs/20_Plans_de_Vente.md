@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.12  
+**Version :** 1.13  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -2111,3 +2111,46 @@ Sélectionner à nouveau le même type de mur périphérique. Le résultat atten
 est désormais un diagnostic avec `Murs périphériques utilisés : N`, avec
 `N > 0`, puis un calcul nettement plus court que l'ancienne fermeture
 automatique.
+
+
+## Prototype A.3.18 — Murs périphériques du projet ou d'un lien Revit
+
+Le test A003 après la recherche par proximité retourne encore
+`Murs périphériques utilisés : 0`, alors que la façade visible est clairement
+à moins de 1 000 mm du contour des pièces.
+
+Cette situation montre que la **source du mur** doit être conservée : dans une
+maquette de coordination, les Rooms peuvent être dans le projet actif alors
+que les murs visibles proviennent d'un **lien Revit**.
+
+### Sélecteur enrichi
+
+La liste des types de murs affiche maintenant leur source :
+
+```text
+[Projet] Mur de base — ...
+[Lien : Architecture.rvt] Mur de base — ...
+[Lien : Structure.rvt] Mur de base — ...
+```
+
+Seuls les liens chargés sont proposés.
+
+### Géométrie liée
+
+Pour un type provenant d'un lien :
+
+1. le moteur récupère le `RevitLinkInstance` sélectionné ;
+2. il collecte les murs dans le document lié ;
+3. leurs points, orientations et boîtes englobantes sont transformés dans les
+   coordonnées du projet hôte avec `GetTotalTransform()` ;
+4. la même recherche par proximité de 1 000 mm est ensuite appliquée au
+   contour extérieur des Rooms.
+
+Le diagnostic de fallback indique maintenant explicitement la source utilisée
+pour les murs.
+
+### Validation A003
+
+Après rechargement de pyRevit, vérifier la liste **Mur périphérique**. Si le mur
+de façade appartient à un lien, sélectionner la ligne préfixée
+`[Lien : ...]` correspondante plutôt que la version `[Projet]`.

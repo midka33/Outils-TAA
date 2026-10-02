@@ -25,14 +25,30 @@ class PrototypeViewResult(object):
 
 
 class PeripheralWallTypeCandidate(object):
-    def __init__(self, unique_id, name, family_name=""):
+    def __init__(
+        self,
+        unique_id,
+        name,
+        family_name="",
+        source_label="Projet",
+    ):
         self.unique_id = unique_id or ""
         self.name = name or ""
         self.family_name = family_name or ""
+        self.source_label = source_label or "Projet"
+
         if self.family_name and self.family_name != self.name:
-            self.label = "{} — {}".format(self.family_name, self.name)
+            type_label = "{} — {}".format(
+                self.family_name,
+                self.name,
+            )
         else:
-            self.label = self.name
+            type_label = self.name
+
+        self.label = "[{}] {}".format(
+            self.source_label,
+            type_label,
+        )
 
 
 class PrototypeViewService(object):
@@ -48,37 +64,118 @@ class PrototypeViewService(object):
         return self.plan_view_service.list_primary_floor_plans(level_name)
 
     def list_peripheral_wall_types(self):
-        from Autodesk.Revit.DB import FilteredElementCollector, Wall
+        from Autodesk.Revit.DB import (
+            FilteredElementCollector,
+            RevitLinkInstance,
+            Wall,
+        )
 
         candidates = {}
-        walls = (
+
+        self._append_wall_type_candidates(
+            candidates,
+            source_document=self.document,
+            source_prefix="HOST",
+            source_label="Projet",
+            link_instance_unique_id="",
+            wall_class=Wall,
+            collector_class=FilteredElementCollector,
+        )
+
+        links = (
             FilteredElementCollector(self.document)
-            .OfClass(Wall)
+            .OfClass(RevitLinkInstance)
             .WhereElementIsNotElementType()
             .ToElements()
         )
-        for wall in walls:
-            wall_type = getattr(wall, "WallType", None)
-            if wall_type is None:
+        for link_instance in links:
+            try:
+                link_document = link_instance.GetLinkDocument()
+            except Exception:
+                link_document = None
+            if link_document is None:
                 continue
-            unique_id = str(getattr(wall_type, "UniqueId", "") or "")
-            if not unique_id or unique_id in candidates:
-                continue
-            name = self._element_type_name(wall_type)
-            if not name:
-                continue
-            family_name = str(
-                getattr(wall_type, "FamilyName", "") or ""
+
+            link_uid = str(
+                getattr(link_instance, "UniqueId", "") or ""
             )
-            candidates[unique_id] = PeripheralWallTypeCandidate(
-                unique_id,
-                name,
-                family_name,
+            if not link_uid:
+                continue
+
+            link_name = str(
+                getattr(link_instance, "Name", "") or ""
+            )
+            if not link_name:
+                link_name = str(
+                    getattr(link_document, "Title", "") or "Lien Revit"
+                )
+
+            self._append_wall_type_candidates(
+                candidates,
+                source_document=link_document,
+                source_prefix="LINK",
+                source_label="Lien : {}".format(link_name),
+                link_instance_unique_id=link_uid,
+                wall_class=Wall,
+                collector_class=FilteredElementCollector,
             )
 
         values = list(candidates.values())
         values.sort(key=lambda item: item.label.lower())
         return values
+
+    def _append_wall_type_candidates(
+        self,
+        candidates,
+        source_document,
+        source_prefix,
+        source_label,
+        link_instance_unique_id,
+        wall_class,
+        collector_class,
+    ):
+        walls = (
+            collector_class(source_document)
+            .OfClass(wall_class)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        )
+
+        for wall in walls:
+            wall_type = getattr(wall, "WallType", None)
+            if wall_type is None:
+                continue
+
+            wall_type_uid = str(
+                getattr(wall_type, "UniqueId", "") or ""
+            )
+            if not wall_type_uid:
+                continue
+
+            if source_prefix == "LINK":
+                selection_key = "LINK|{}|{}".format(
+                    link_instance_unique_id,
+                    wall_type_uid,
+                )
+            else:
+                selection_key = "HOST|{}".format(wall_type_uid)
+
+            if selection_key in candidates:
+                continue
+
+            name = self._element_type_name(wall_type)
+            if not name:
+                continue
+
+            family_name = str(
+                getattr(wall_type, "FamilyName", "") or ""
+            )
+            candidates[selection_key] = PeripheralWallTypeCandidate(
+                selection_key,
+                name,
+                family_name,
+                source_label,
+            )
 
     def create_dependent_crop_view(
         self,

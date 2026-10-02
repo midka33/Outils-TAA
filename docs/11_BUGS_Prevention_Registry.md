@@ -815,6 +815,31 @@ utilise `FilteredElementCollector` + proximité au `room_outer_loop` et ne
 dépend plus de `segment.ElementId`; validation Revit sur A003 avec le même
 type de mur.
 
+### BUG-PDV-018 — Les murs périphériques d'un lien Revit sont invisibles au moteur
+
+**Symptôme :** la recherche par proximité retourne toujours
+`Murs périphériques utilisés : 0` alors que le mur visible est clairement
+à moins de 1 000 mm du contour des Rooms.
+
+**Cause :** le sélecteur et le collecteur ne parcouraient que le document hôte.
+Un mur affiché dans la vue peut cependant appartenir à un `RevitLinkInstance`.
+Dans ce cas, son type et ses instances ne sont pas accessibles via un
+`FilteredElementCollector` du projet actif.
+
+**Correction :** exposer dans le sélecteur les types de murs du projet et des
+liens Revit chargés, avec une source explicite. Pour une source liée, collecter
+dans `GetLinkDocument()` puis transformer points, vecteurs et plage Z dans le
+repère hôte avec `GetTotalTransform()` avant le test de proximité.
+
+**Règle préventive :** toute géométrie visible dans une vue de coordination ne
+doit pas être supposée appartenir au document actif. Les sélections de types
+doivent conserver l'identité de leur document source.
+
+**Anti-régression :** tests de contrat sur `RevitLinkInstance`,
+`GetLinkDocument`, les clés `HOST|...` / `LINK|...` et la transformation
+des murs liés ; validation Revit A003 en choisissant explicitement la source
+affichée dans la liste.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -881,6 +906,7 @@ BUG-PDV-014
 BUG-PDV-015
 BUG-PDV-016
 BUG-PDV-017
+BUG-PDV-018
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

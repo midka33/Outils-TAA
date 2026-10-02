@@ -58,6 +58,7 @@ class CropGeometryService(object):
         self._last_closed_recess_count = 0
         self._last_wall_aligned_recess_count = 0
         self._last_peripheral_wall_count = 0
+        self._last_peripheral_wall_source = ""
 
     def build_optimized_crop(
         self,
@@ -79,6 +80,7 @@ class CropGeometryService(object):
         self._last_closed_recess_count = 0
         self._last_wall_aligned_recess_count = 0
         self._last_peripheral_wall_count = 0
+        self._last_peripheral_wall_source = ""
         fallback_loop = self._build_rectangular_fallback(
             room_unique_ids,
             view,
@@ -218,10 +220,12 @@ class CropGeometryService(object):
                 warning=(
                     "Le contour optimisé n'a pas pu être construit. "
                     "Un rectangle aligné à la vue a été utilisé. "
+                    "Source murs : {}. "
                     "Murs périphériques utilisés : {}. "
                     "Nettoyage avant échec : {} poche(s), dont {} "
                     "alignée(s) sur mur. Étape en échec : {}"
                 ).format(
+                    self._last_peripheral_wall_source or "Projet",
                     self._last_peripheral_wall_count,
                     self._last_closed_recess_count,
                     self._last_wall_aligned_recess_count,
@@ -381,9 +385,17 @@ class CropGeometryService(object):
             XYZ,
         )
 
-        selected_unique_id = str(peripheral_wall_type_unique_id or "")
-        if not selected_unique_id:
+        selection_key = str(peripheral_wall_type_unique_id or "")
+        if not selection_key:
             return [], 0
+
+        (
+            source_document,
+            source_transform,
+            selected_unique_id,
+            source_label,
+        ) = self._resolve_peripheral_wall_source(selection_key)
+        self._last_peripheral_wall_source = source_label
 
         frame = self._frame_from_view(view)
         contour_xyz = self._tessellated_loop_points(room_outer_loop)
@@ -434,7 +446,7 @@ class CropGeometryService(object):
         used_walls = set()
 
         walls = (
-            FilteredElementCollector(self.document)
+            FilteredElementCollector(source_document)
             .OfClass(Wall)
             .WhereElementIsNotElementType()
             .ToElements()
@@ -464,16 +476,32 @@ class CropGeometryService(object):
             if width <= tolerance or orientation is None:
                 continue
 
+            if source_transform is not None:
+                try:
+                    wall_start = source_transform.OfPoint(wall_start)
+                    wall_end = source_transform.OfPoint(wall_end)
+                    orientation = source_transform.OfVector(
+                        orientation
+                    )
+                except Exception:
+                    continue
+
             try:
                 bbox = wall.get_BoundingBox(None)
             except Exception:
                 bbox = None
             if bbox is not None:
-                if (
-                    reference_z < bbox.Min.Z - z_tolerance
-                    or reference_z > bbox.Max.Z + z_tolerance
-                ):
-                    continue
+                z_range = self._bounding_box_host_z_range(
+                    bbox,
+                    source_transform,
+                )
+                if z_range is not None:
+                    min_z, max_z = z_range
+                    if (
+                        reference_z < min_z - z_tolerance
+                        or reference_z > max_z + z_tolerance
+                    ):
+                        continue
 
             start_uv = frame.project(
                 (wall_start.X, wall_start.Y, reference_z)
@@ -671,11 +699,96 @@ class CropGeometryService(object):
         if not loops:
             raise ValueError(
                 "Aucun mur droit du type périphérique sélectionné n'a été "
-                "trouvé à moins de {} mm du contour extérieur des pièces."
-                .format(int(self.PERIPHERAL_WALL_SEARCH_MM))
+                "trouvé à moins de {} mm du contour extérieur des pièces "
+                "dans la source « {} »."
+                .format(
+                    int(self.PERIPHERAL_WALL_SEARCH_MM),
+                    source_label,
+                )
             )
 
         return loops, len(used_walls)
+
+    def _resolve_peripheral_wall_source(self, selection_key):
+        from Autodesk.Revit.DB import RevitLinkInstance
+
+        value = str(selection_key or "")
+        if value.startswith("LINK|"):
+            parts = value.split("|", 2)
+            if len(parts) != 3:
+                raise ValueError(
+                    "Référence de type de mur lié invalide."
+                )
+
+            link_instance = self.document.GetElement(parts[1])
+            if (
+                link_instance is None
+                or not isinstance(link_instance, RevitLinkInstance)
+            ):
+                raise ValueError(
+                    "Le lien Revit sélectionné n'est plus disponible."
+                )
+
+            link_document = link_instance.GetLinkDocument()
+            if link_document is None:
+                raise ValueError(
+                    "Le lien Revit sélectionné est déchargé."
+                )
+
+            try:
+                transform = link_instance.GetTotalTransform()
+            except Exception:
+                transform = link_instance.GetTransform()
+
+            link_name = str(
+                getattr(link_instance, "Name", "") or ""
+            )
+            if not link_name:
+                link_name = str(
+                    getattr(link_document, "Title", "") or "Lien Revit"
+                )
+
+            return (
+                link_document,
+                transform,
+                parts[2],
+                "Lien : {}".format(link_name),
+            )
+
+        if value.startswith("HOST|"):
+            return (
+                self.document,
+                None,
+                value.split("|", 1)[1],
+                "Projet",
+            )
+
+        return self.document, None, value, "Projet"
+
+    @staticmethod
+    def _bounding_box_host_z_range(bbox, source_transform):
+        if bbox is None:
+            return None
+
+        try:
+            from Autodesk.Revit.DB import XYZ
+            bbox_transform = bbox.Transform
+            points = []
+            for x in (bbox.Min.X, bbox.Max.X):
+                for y in (bbox.Min.Y, bbox.Max.Y):
+                    for z in (bbox.Min.Z, bbox.Max.Z):
+                        point = XYZ(x, y, z)
+                        if bbox_transform is not None:
+                            point = bbox_transform.OfPoint(point)
+                        if source_transform is not None:
+                            point = source_transform.OfPoint(point)
+                        points.append(point)
+            if not points:
+                return None
+            values = [point.Z for point in points]
+            return min(values), max(values)
+        except Exception:
+            return None
 
     @staticmethod
     def _segment_distance_2d(a, b, c, d):
