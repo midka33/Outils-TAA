@@ -44,14 +44,15 @@ class CropGeometryService(object):
     BOOLEAN_EXTRUSION_HEIGHT = 1.0
     MIN_DETAIL_CLEANUP_MM = 300.0
     MAX_DETAIL_CLEANUP_MM = 600.0
-    SHAFT_MAX_MOUTH_MM = 2000.0
+    SHAFT_MAX_MOUTH_MM = 3500.0
     SHAFT_MAX_DEPTH_MM = 2000.0
-    SHAFT_MAX_FILL_AREA_M2 = 3.0
+    SHAFT_MAX_FILL_AREA_M2 = 5.0
 
     def __init__(self, document):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
+        self._last_closed_recess_count = 0
 
     def build_optimized_crop(self, room_unique_ids, view, margin_mm):
         """Construit un contour extérieur compatible avec les crops Revit.
@@ -64,6 +65,7 @@ class CropGeometryService(object):
             raise ValueError("Vue Revit manquante pour calculer le crop.")
 
         margin_internal = self._millimeters_to_internal(margin_mm)
+        self._last_closed_recess_count = 0
         fallback_loop = self._build_rectangular_fallback(
             room_unique_ids,
             view,
@@ -125,9 +127,15 @@ class CropGeometryService(object):
                 view,
             )
 
+            mode = "Contour optimisé"
+            if self._last_closed_recess_count:
+                mode += " — {} gaine(s)/retrait(s) comblé(s)".format(
+                    self._last_closed_recess_count
+                )
+
             return OptimizedCropResult(
                 curve_loop=final_loop,
-                mode="Contour optimisé",
+                mode=mode,
                 fallback_curve_loop=fallback_loop,
             )
 
@@ -580,6 +588,7 @@ class CropGeometryService(object):
 
             if best is not None:
                 uv_points = best[1]
+                self._last_closed_recess_count += 1
                 changed = True
 
         # Le nettoyage est purement optionnel. Si le polygone final n'est pas
