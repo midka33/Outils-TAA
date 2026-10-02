@@ -600,6 +600,18 @@ Seuils du prototype :
 
 **Anti-régression :** vérifier qu'un échec du nettoyage ne peut pas provoquer à lui seul un fallback rectangle, et rejouer A003 aux marges 20/50/200/500 mm.
 
+### BUG-PDV-009 — Helper de surface polygonale appelé comme méthode d'instance
+
+**Symptôme :** tous les essais passent immédiatement en `Rectangle de secours` avec l'erreur `_polygon_signed_area() takes exactly 1 argument (2 given)` à l'étape « Fermeture des petites gaines et retraits ».
+
+**Cause :** `_polygon_signed_area(points)` avait été définie sans `@staticmethod` mais appelée via `self._polygon_signed_area(...)`. IronPython injectait donc implicitement `self` en premier argument.
+
+**Correction :** déclarer explicitement `_polygon_signed_area` en `@staticmethod`.
+
+**Règle préventive :** tout helper pur placé dans une classe de service doit être explicitement décoré en `@staticmethod` lorsqu'il ne consomme ni `self` ni `cls`.
+
+**Anti-régression :** test statique imposant le décorateur `@staticmethod` sur `_polygon_signed_area`.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -655,6 +667,7 @@ BUG-PDV-005
 BUG-PDV-006
 BUG-PDV-007
 BUG-PDV-008
+BUG-PDV-009
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
