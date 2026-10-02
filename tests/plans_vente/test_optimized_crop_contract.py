@@ -129,3 +129,19 @@ def test_small_shaft_recesses_are_closed_before_margin():
     assert text.index("Fermeture des petites gaines et retraits") < text.index(
         "Construction de la marge robuste"
     )
+
+
+def test_shaft_detection_is_independent_from_crop_margin():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _point_in_polygon(" in text
+    assert "def _vertices_are_adjacent(" in text
+    assert "SHAFT_MAX_MOUTH_MM = 2000.0" in text
+    assert "SHAFT_MAX_DEPTH_MM = 2000.0" in text
+    assert "SHAFT_MAX_FILL_AREA_M2 = 3.0" in text
+    assert "for i in range(count):" in text
+    assert "for j in range(i + 1, count):" in text
+    assert "if self._point_in_polygon(midpoint, uv_points):" in text
+    assert text.index("Fermeture des petites gaines et retraits") < text.index(
+        "Construction de la marge robuste"
+    )
