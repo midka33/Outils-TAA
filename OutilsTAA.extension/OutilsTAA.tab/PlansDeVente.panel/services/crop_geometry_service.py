@@ -193,7 +193,7 @@ class CropGeometryService(object):
                     "Le contour optimisé n'a pas pu être construit. "
                     "Un rectangle aligné à la vue a été utilisé. "
                     "Murs périphériques utilisés : {}. "
-                    "Nettoyage automatique avant échec : {} poche(s), dont {} "
+                    "Nettoyage avant échec : {} poche(s), dont {} "
                     "alignée(s) sur mur. Étape en échec : {}"
                 ).format(
                     self._last_peripheral_wall_count,
