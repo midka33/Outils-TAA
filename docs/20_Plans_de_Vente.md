@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.1  
+**Version :** 1.2  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1722,3 +1722,22 @@ Une même gaine doit être supprimée du contour de la même façon avec :
 - 500 mm.
 
 La marge ne sert plus à compenser la géométrie de l'enveloppe ; elle est appliquée uniquement après le nettoyage.
+
+
+## Prototype A.3.7 — Nettoyage conservateur des gaines
+
+La version précédente de la fermeture générique des poches a provoqué une régression : les quatre marges testées ont basculé en rectangle de secours.
+
+La cause est un nettoyeur trop permissif qui pouvait fabriquer une enveloppe auto-intersectante.
+
+Le nettoyage est maintenant volontairement conservateur :
+
+- seules des poches locales sont candidates ;
+- les deux extrémités doivent être des sommets concaves ;
+- la chaîne remplacée est limitée à quelques sommets ;
+- le pont doit passer à l'extérieur du logement ;
+- aucune intersection avec le contour n'est autorisée ;
+- le polygone candidat doit rester simple ;
+- si le moindre doute subsiste, le contour original est conservé.
+
+Le nettoyage devient ainsi une amélioration graphique facultative et ne doit plus pouvoir casser le moteur de crop validé.
