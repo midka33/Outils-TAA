@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.6  
+**Version :** 1.7  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1822,3 +1822,28 @@ Ce diagnostic permet de distinguer deux cas :
 
 - `N = 0` : la gaine n'est pas détectée par la logique de poche ;
 - `N > 0` mais la gaine reste visible : la poche fermée n'est pas celle attendue ou le seuil doit être ajusté.
+
+
+## Prototype A.3.12 — Offset natif après nettoyage
+
+Le dernier test Revit a confirmé que la construction de marge par union booléenne 3D peut échouer sur le contour nettoyé avec le message Revit relatif aux imprécisions géométriques entre solides.
+
+Le moteur applique désormais l'ordre suivant :
+
+```text
+Contour extérieur
+      ↓
+Nettoyage des petites gaines
+      ↓
+Essai CurveLoop.CreateViaOffset
+      ├─ succès → contour final
+      └─ échec
+           ↓
+buffer 3D par bandes + caps
+           ↓
+fallback rectangle si nécessaire
+```
+
+Cette stratégie réutilise l'offset natif seulement **après simplification du contour**, ce qui évite le problème initial rencontré sur le contour brut.
+
+Validation demandée : reprendre A003 avec 20 / 50 / 200 / 500 mm et vérifier si le résultat reste en `Contour optimisé` sans erreur booléenne.
