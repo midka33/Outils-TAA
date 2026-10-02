@@ -588,6 +588,18 @@ Seuils du prototype :
 
 **Anti-régression :** test statique de l'analyse de toutes les paires de sommets, du test point-dans-polygone et de l'ordre fermeture des gaines → marge robuste ; validation Revit sur A003 aux marges 20/50/200/500 mm.
 
+### BUG-PDV-008 — Nettoyage trop agressif des gaines provoque un fallback systématique
+
+**Symptôme :** après généralisation de la détection des petites poches, les quatre marges testées basculent en `Rectangle de secours`.
+
+**Cause :** le nettoyeur testait toutes les paires de sommets non adjacents. Il pouvait produire un polygone auto-intersectant ou topologiquement incorrect avant même la construction de la marge.
+
+**Correction :** revenir à une stratégie conservatrice : ne traiter que des poches locales limitées entre deux sommets concaves proches, limiter le nombre de sommets de la chaîne remplacée, vérifier le point de pont, contrôler les intersections et valider la simplicité du polygone avant de l'accepter. Si le nettoyage reste douteux, conserver le contour d'origine plutôt que faire échouer tout le crop optimisé.
+
+**Règle préventive :** une simplification graphique ne doit jamais être plus fragile que la géométrie de base. Tout nettoyage doit être optionnel et réversible vers le contour original.
+
+**Anti-régression :** vérifier qu'un échec du nettoyage ne peut pas provoquer à lui seul un fallback rectangle, et rejouer A003 aux marges 20/50/200/500 mm.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -642,6 +654,7 @@ BUG-PDV-004
 BUG-PDV-005
 BUG-PDV-006
 BUG-PDV-007
+BUG-PDV-008
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
