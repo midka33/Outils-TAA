@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.2  
+**Version :** 1.3  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1741,3 +1741,18 @@ Le nettoyage est maintenant volontairement conservateur :
 - si le moindre doute subsiste, le contour original est conservé.
 
 Le nettoyage devient ainsi une amélioration graphique facultative et ne doit plus pouvoir casser le moteur de crop validé.
+
+
+## Prototype A.3.8 — Correctif helper surface polygonale
+
+Le test Revit a identifié une erreur Python indépendante de la géométrie :
+
+```text
+_polygon_signed_area() takes exactly 1 argument (2 given)
+```
+
+La fonction `_polygon_signed_area(points)` était utilisée comme helper pur mais n'était pas décorée en `@staticmethod`. IronPython lui transmettait donc automatiquement `self`.
+
+Le correctif ajoute simplement `@staticmethod`.
+
+Ce bug expliquait le fallback systématique des quatre marges après la dernière itération : le moteur n'atteignait même pas réellement la logique de fermeture des gaines.
