@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 0.8  
+**Version :** 0.9  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1546,3 +1546,68 @@ Ensuite refaire au minimum :
 - un logement irrégulier.
 
 La vue principale doit rester inchangée.
+
+
+## Prototype A.3.4 — Enveloppe graphique propre
+
+Le test visuel aux marges 20 / 50 / 200 / 500 mm confirme que le contour optimisé fonctionne, mais met en évidence deux défauts de présentation :
+
+1. des facettes / renflements dans les angles à 200 et surtout 500 mm ;
+2. des petits décrochements dus aux gaines techniques ne comportant pas de pièce.
+
+### Décision de conception
+
+Le crop du plan de vente ne doit pas être une reproduction millimétrique de chaque accident du contour des pièces.
+
+Il doit représenter une **enveloppe graphique propre du logement**.
+
+Les grandes formes du logement sont conservées :
+
+- rectangle ;
+- forme en L ;
+- retraits importants ;
+- loggias / extensions significatives selon les pièces prises en compte.
+
+Les petits accidents liés à des gaines, micro-retraits ou imperfections de modélisation peuvent être simplifiés.
+
+### Raccords de marge
+
+Les anciens raccords octogonaux sont remplacés par des **carrés alignés avec la vue**.
+
+Cela supprime l'effet facetté visible avec de grandes marges et donne des coins plus architecturaux.
+
+### Nettoyage des petits décrochements
+
+Une passe spécifique recherche les détours rectangulaires en U.
+
+Lorsqu'un retrait est suffisamment petit, ses deux sommets intérieurs sont supprimés et le contour est ponté par une ligne directe.
+
+Tolérance actuelle du prototype :
+
+```text
+minimum : 300 mm
+maximum : 600 mm
+```
+
+Elle est liée à la marge de crop tout en restant bornée.
+
+Cette valeur est volontairement interne pendant le prototype. Si les tests montrent qu'un réglage utilisateur est utile, elle deviendra un paramètre du Modèle de plan de vente.
+
+### Validation demandée
+
+Reprendre le même logement avec :
+
+- 20 mm ;
+- 50 mm ;
+- 200 mm ;
+- 500 mm.
+
+Vérifier :
+
+- disparition des artefacts d'angles ;
+- maintien des grandes formes du logement ;
+- simplification des petites gaines / retraits ;
+- absence de coupe dans une pièce ;
+- vue principale inchangée.
+
+Si un retrait légitime est supprimé, noter sa largeur approximative afin d'ajuster la tolérance.
