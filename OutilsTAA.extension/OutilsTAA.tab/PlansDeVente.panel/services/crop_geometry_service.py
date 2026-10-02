@@ -888,150 +888,233 @@ class CropGeometryService(object):
         return candidates[0][1]
 
     def _buffer_outward(self, curve_loop, margin_internal, view):
-        """Dilate le contour sans dépendre de CurveLoop.CreateViaOffset.
+        """Construit la marge sans booléens 3D.
 
-        CreateViaOffset peut échouer brutalement quand une concavité ou un
-        petit décrochement devient plus petit que la marge. Le buffer robuste
-        construit à la place l'union de :
-        - la surface du logement ;
-        - une bande rectangulaire de largeur 2 x marge autour de chaque arête ;
-        - un carré de raccord, aligné sur la vue, autour de chaque sommet.
+        Stratégie :
+        1. essayer l'offset natif sur le contour nettoyé ;
+        2. si Revit refuse encore, simplifier uniquement des concavités
+           locales qui ajoutent peu de surface ;
+        3. retenter l'offset après chaque simplification ;
+        4. si aucun offset valide n'est obtenu, laisser le niveau supérieur
+           appliquer le rectangle de secours.
 
-        Les carrés évitent les artefacts "arrondis / crénelés" visibles avec
-        les anciens raccords octogonaux lorsque la marge devient importante.
+        Cette approche évite les erreurs BooleanOperationsUtils liées aux
+        solides quasi coplanaires observées dans Revit 2025.4.
         """
         if margin_internal <= 1e-9:
             return curve_loop
 
-        from Autodesk.Revit.DB import (
-            BooleanOperationsType,
-            BooleanOperationsUtils,
-            CurveLoop,
-            GeometryCreationUtilities,
-            Line,
+        straight_loop = self._linearize_curve_loop(
+            curve_loop,
+            view,
         )
-        from System.Collections.Generic import List
-        straight_loop = self._linearize_curve_loop(curve_loop, view)
 
-        # 1. Priorité à l'offset natif APRÈS nettoyage des gaines.
-        # Il évite les erreurs BooleanOperationsUtils liées aux faces
-        # coïncidentes des bandes/caps 3D.
         native_offset = self._try_native_offset_outward(
             straight_loop,
             margin_internal,
             view,
         )
         if native_offset is not None:
-            cleanup_internal = self._millimeters_to_internal(
-                self._detail_cleanup_mm(
-                    self._internal_to_millimeters(margin_internal)
-                )
-            )
-            return self._cleanup_small_notches(
+            return self._postprocess_offset(
                 native_offset,
                 view,
-                cleanup_internal,
+                margin_internal,
             )
 
-        # 2. Secours : buffer par union booléenne 3D.
-        base_solid = self._solid_from_loop(straight_loop, view)
-        result_solid = base_solid
-
-        curves = list(straight_loop)
-        if len(curves) < 3:
-            raise ValueError(
-                "Le contour ne contient pas assez de segments pour construire la marge."
-            )
-
-        tolerance = max(self._short_curve_tolerance(), 1e-7)
-
-        # 1. Bandes autour de chaque arête.
-        vertices = []
-        for curve in curves:
-            start = curve.GetEndPoint(0)
-            end = curve.GetEndPoint(1)
-            if start.DistanceTo(end) <= tolerance:
-                continue
-
-            if not vertices or start.DistanceTo(vertices[-1]) > tolerance:
-                vertices.append(start)
-
-            tangent = end.Subtract(start).Normalize()
-            perpendicular = view.ViewDirection.CrossProduct(tangent).Normalize()
-            delta = perpendicular.Multiply(margin_internal)
-
-            p1 = start.Add(delta)
-            p2 = end.Add(delta)
-            p3 = end.Subtract(delta)
-            p4 = start.Subtract(delta)
-
-            strip_loop = self._curve_loop_from_points(
-                (p1, p2, p3, p4),
-                tolerance,
-            )
-            strip_solid = self._solid_from_loop(strip_loop, view)
-            result_solid = BooleanOperationsUtils.ExecuteBooleanOperation(
-                result_solid,
-                strip_solid,
-                BooleanOperationsType.Union,
-            )
-
-        if not vertices:
-            raise ValueError(
-                "Aucun sommet exploitable n'a été trouvé pour construire la marge."
-            )
-
-        # 2. Raccords carrés, alignés sur le repère de la vue.
-        #
-        # Le crop de plan de vente doit rester graphique et propre. Des caps
-        # octogonaux créaient des facettes visibles à 200/500 mm. Le carré
-        # produit des angles francs et reste volontairement un peu plus large
-        # en diagonale que la marge saisie, jamais plus étroit.
-        right = view.RightDirection.Normalize()
-        up = view.UpDirection.Normalize()
-        right_delta = right.Multiply(margin_internal)
-        up_delta = up.Multiply(margin_internal)
-
-        for vertex in vertices:
-            cap_points = [
-                vertex.Add(right_delta).Add(up_delta),
-                vertex.Subtract(right_delta).Add(up_delta),
-                vertex.Subtract(right_delta).Subtract(up_delta),
-                vertex.Add(right_delta).Subtract(up_delta),
-            ]
-
-            cap_loop = self._curve_loop_from_points(
-                cap_points,
-                tolerance,
-            )
-            cap_solid = self._solid_from_loop(cap_loop, view)
-            result_solid = BooleanOperationsUtils.ExecuteBooleanOperation(
-                result_solid,
-                cap_solid,
-                BooleanOperationsType.Union,
-            )
-
-        reference_z = self._curve_loop_average_z(straight_loop)
-        buffered_loop = self._extract_outer_union_loop(
-            result_solid,
-            view,
-            reference_z,
-        )
-
-        buffered_loop = self._linearize_curve_loop(
-            buffered_loop,
+        adaptive_offset = self._try_offset_after_concavity_cleanup(
+            straight_loop,
+            margin_internal,
             view,
         )
+        if adaptive_offset is not None:
+            return self._postprocess_offset(
+                adaptive_offset,
+                view,
+                margin_internal,
+            )
 
+        raise ValueError(
+            "Revit n'a pas réussi à créer une marge 2D valide, même après "
+            "simplification contrôlée des petites concavités."
+        )
+
+    def _postprocess_offset(self, curve_loop, view, margin_internal):
         cleanup_internal = self._millimeters_to_internal(
             self._detail_cleanup_mm(
                 self._internal_to_millimeters(margin_internal)
             )
         )
         return self._cleanup_small_notches(
-            buffered_loop,
+            curve_loop,
             view,
             cleanup_internal,
+        )
+
+    def _try_offset_after_concavity_cleanup(
+        self,
+        curve_loop,
+        margin_internal,
+        view,
+    ):
+        """Simplifie progressivement les petites concavités puis retente l'offset.
+
+        Seuls les sommets concaves sont supprimés. Cette opération ajoute donc
+        de l'aire à l'enveloppe au lieu de couper dans le logement.
+
+        Les limites sont volontairement conservatrices :
+        - profondeur locale <= 2 m ;
+        - pont entre voisins <= 3,5 m ;
+        - aire ajoutée par suppression <= 5 m².
+        """
+        frame = self._frame_from_view(view)
+        xyz_points = self._tessellated_loop_points(curve_loop)
+        xyz_points = self._remove_near_duplicates(xyz_points)
+
+        if len(xyz_points) < 4:
+            return None
+
+        uv_points = [
+            frame.project((point.X, point.Y, point.Z))
+            for point in xyz_points
+        ]
+
+        max_bridge = self._millimeters_to_internal(
+            self.SHAFT_MAX_MOUTH_MM
+        )
+        max_depth = self._millimeters_to_internal(
+            self.SHAFT_MAX_DEPTH_MM
+        )
+        max_fill_area = self._square_meters_to_internal_area(
+            self.SHAFT_MAX_FILL_AREA_M2
+        )
+
+        for _iteration in range(30):
+            candidate_loop = self._curve_loop_from_uv_points(
+                uv_points,
+                frame,
+            )
+            offset = self._try_native_offset_outward(
+                candidate_loop,
+                margin_internal,
+                view,
+            )
+            if offset is not None:
+                return offset
+
+            signed_area = self._polygon_signed_area(uv_points)
+            concave_indices = self._concave_vertex_indices(
+                uv_points,
+                signed_area,
+            )
+
+            if not concave_indices:
+                return None
+
+            original_area = abs(signed_area)
+            best = None
+
+            for index in concave_indices:
+                count = len(uv_points)
+                previous = uv_points[(index - 1) % count]
+                current = uv_points[index]
+                following = uv_points[(index + 1) % count]
+
+                bridge = self._distance_2d(
+                    previous,
+                    following,
+                )
+                if bridge <= 1e-9 or bridge > max_bridge:
+                    continue
+
+                depth = self._point_distance_to_segment(
+                    current,
+                    previous,
+                    following,
+                )
+                if depth > max_depth:
+                    continue
+
+                candidate = (
+                    list(uv_points[:index])
+                    + list(uv_points[index + 1:])
+                )
+                if len(candidate) < 3:
+                    continue
+
+                if not self._is_simple_polygon(candidate):
+                    continue
+
+                candidate_area = abs(
+                    self._polygon_signed_area(candidate)
+                )
+                fill_area = candidate_area - original_area
+
+                if (
+                    fill_area <= 1e-9
+                    or fill_area > max_fill_area
+                ):
+                    continue
+
+                score = (
+                    fill_area,
+                    depth,
+                    bridge,
+                )
+                if best is None or score < best[0]:
+                    best = (score, candidate)
+
+            if best is None:
+                return None
+
+            uv_points = best[1]
+
+        return None
+
+    def _curve_loop_from_uv_points(self, uv_points, frame):
+        from Autodesk.Revit.DB import XYZ
+
+        world_points = [
+            frame.to_world(point[0], point[1])
+            for point in uv_points
+        ]
+        xyz_points = [
+            XYZ(point[0], point[1], point[2])
+            for point in world_points
+        ]
+        return self._curve_loop_from_points(
+            xyz_points,
+            max(self._short_curve_tolerance(), 1e-7),
+        )
+
+    @staticmethod
+    def _point_distance_to_segment(point, start, end):
+        px, py = point
+        ax, ay = start
+        bx, by = end
+
+        dx = bx - ax
+        dy = by - ay
+        denominator = (dx * dx) + (dy * dy)
+
+        if denominator <= 1e-12:
+            return CropGeometryService._distance_2d(
+                point,
+                start,
+            )
+
+        t = (
+            ((px - ax) * dx)
+            + ((py - ay) * dy)
+        ) / denominator
+        t = max(0.0, min(1.0, t))
+
+        projection = (
+            ax + (t * dx),
+            ay + (t * dy),
+        )
+        return CropGeometryService._distance_2d(
+            point,
+            projection,
         )
 
     def _cleanup_small_notches(self, curve_loop, view, tolerance_internal):
