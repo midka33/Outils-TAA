@@ -661,6 +661,7 @@ class CropGeometryService(object):
 
         return True
 
+    @staticmethod
     def _polygon_signed_area(points):
         values = list(points or [])
         if len(values) < 3:
