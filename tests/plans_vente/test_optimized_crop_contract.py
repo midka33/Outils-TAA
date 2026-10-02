@@ -100,7 +100,8 @@ def test_robust_margin_uses_edge_strips_and_vertex_caps():
     assert "sides = 8" in text
     assert "math.cos(math.pi / float(sides))" in text
     assert "BooleanOperationsUtils.ExecuteBooleanOperation" in text
-    assert "CurveLoop.CreateViaOffset" not in text
+    assert "def _try_native_offset_outward(" in text
+    assert "CurveLoop.CreateViaOffset" in text
 
 
 def test_large_margin_uses_square_caps_and_notch_cleanup():
@@ -203,3 +204,11 @@ def test_shaft_cleanup_reports_how_many_pockets_were_closed():
 
     assert "_last_closed_recess_count" in text
     assert "gaine(s)/retrait(s) comblé(s)" in text
+
+
+def test_native_offset_is_attempted_before_boolean_buffer():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    native_call = text.index("native_offset = self._try_native_offset_outward")
+    boolean_start = text.index("base_solid = self._solid_from_loop")
+    assert native_call < boolean_start
