@@ -264,7 +264,8 @@ def test_selected_peripheral_wall_type_uses_fast_wall_strip_union():
 
     assert "peripheral_wall_type_unique_id=None" in text
     assert "def _collect_peripheral_wall_strip_loops(" in text
-    assert "wall_type_unique_id != selected_unique_id" in text
+    assert "wall.GetTypeId()" in text
+    assert "selected_type_id" in text
     assert "supplemental_loops=None" in text
     assert "list(room_loops or []) + list(supplemental_loops or [])" in text
     assert "if peripheral_wall_type_unique_id:" in text

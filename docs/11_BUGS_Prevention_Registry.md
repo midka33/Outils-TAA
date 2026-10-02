@@ -864,6 +864,25 @@ toutes les instances.
 par `Document.GetElement(uniqueId)` et présence du diagnostic par étapes ;
 validation Revit sur A003.
 
+### BUG-TEST-005 — Contrat de type de mur resté sur l'ancien UniqueId
+
+**Symptôme :** la suite Plans de vente échoue après le passage à
+`wall.GetTypeId()` parce qu'un ancien test exige encore la chaîne
+`wall_type_unique_id != selected_unique_id`.
+
+**Cause :** le test de contrat n'a pas été réaligné avec la correction
+BUG-PDV-019 qui remplace volontairement la comparaison de `UniqueId` par
+l'identité Revit du type.
+
+**Correction :** vérifier la présence de `wall.GetTypeId()` et
+`selected_type_id` à la place de l'ancien filtre textuel.
+
+**Règle préventive :** lorsqu'un test encode précisément une implémentation
+qui est remplacée pour corriger un bug, mettre à jour ce contrat dans le même
+commit de comportement.
+
+**Anti-régression :** suite complète `tests/plans_vente` dans GitHub Actions.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -909,6 +928,7 @@ BUG-EXPORT-034
 BUG-TEST-002
 BUG-TEST-003
 BUG-TEST-004
+BUG-TEST-005
 BUG-CALCULS-001
 BUG-CALCULS-002
 BUG-CALCULS-003
