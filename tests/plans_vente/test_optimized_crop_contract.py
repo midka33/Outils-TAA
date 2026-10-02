@@ -160,3 +160,10 @@ def test_shaft_cleanup_is_conservative_and_reversible():
 def test_polygon_area_helper_is_static():
     text = SERVICE.read_text(encoding="utf-8")
     assert "@staticmethod\n    def _polygon_signed_area(points):" in text
+
+
+def test_shaft_cleanup_helpers_are_defined():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _vertices_are_adjacent(" in text
+    assert "def _point_in_polygon(" in text
