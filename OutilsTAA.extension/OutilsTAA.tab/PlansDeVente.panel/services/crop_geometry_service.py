@@ -44,9 +44,9 @@ class CropGeometryService(object):
     BOOLEAN_EXTRUSION_HEIGHT = 1.0
     MIN_DETAIL_CLEANUP_MM = 300.0
     MAX_DETAIL_CLEANUP_MM = 600.0
-    SHAFT_MAX_MOUTH_MM = 1500.0
-    SHAFT_MAX_DEPTH_MM = 1500.0
-    SHAFT_MAX_FILL_AREA_M2 = 2.0
+    SHAFT_MAX_MOUTH_MM = 2000.0
+    SHAFT_MAX_DEPTH_MM = 2000.0
+    SHAFT_MAX_FILL_AREA_M2 = 3.0
 
     def __init__(self, document):
         if document is None:
@@ -479,16 +479,21 @@ class CropGeometryService(object):
     ):
         """Ferme les petites poches concaves assimilables à des gaines.
 
-        Le contour exact des pièces peut rentrer dans une gaine technique sans
-        pièce. Pour le cadrage d'un plan de vente, ces petites poches doivent
-        être remplies sans pour autant supprimer une vraie forme en L.
+        La première version ne testait que les sommets détectés comme concaves.
+        Or, selon l'orientation de la boucle et la forme exacte d'une gaine,
+        les deux points formant sa "bouche" ne sont pas nécessairement tous les
+        deux classés concaves.
 
-        La méthode cherche deux sommets concaves pouvant former une "bouche"
-        courte. Le pont direct entre ces sommets est accepté uniquement si :
-        - il n'intersecte pas les autres arêtes du contour ;
-        - la poche ajoutée reste petite en surface ;
-        - la profondeur maximale de la chaîne remplacée reste petite ;
-        - le nouveau polygone augmente légèrement l'aire au lieu de la réduire.
+        Cette version teste donc les paires de sommets non adjacents et ne
+        conserve qu'un pont qui :
+        - reste court ;
+        - ne coupe aucune autre arête ;
+        - traverse réellement une zone EXTERIEURE au polygone ;
+        - augmente légèrement l'aire du logement ;
+        - remplit une poche de faible profondeur et faible surface.
+
+        Ainsi le nettoyage devient indépendant de la marge de crop : une gaine
+        jugée négligeable à 500 mm l'est aussi à 20 mm.
         """
         frame = self._frame_from_view(view)
         xyz_points = self._tessellated_loop_points(curve_loop)
@@ -506,25 +511,14 @@ class CropGeometryService(object):
         while changed and len(uv_points) >= 4 and safety < 50:
             safety += 1
             changed = False
-
-            orientation = self._polygon_signed_area(uv_points)
-            if abs(orientation) <= 1e-12:
-                break
-
-            concave = self._concave_vertex_indices(
-                uv_points,
-                orientation,
-            )
-            if len(concave) < 2:
-                break
-
-            original_area = abs(orientation)
+            count = len(uv_points)
+            original_area = abs(self._polygon_signed_area(uv_points))
             best = None
 
-            for left_pos in range(len(concave)):
-                for right_pos in range(left_pos + 1, len(concave)):
-                    i = concave[left_pos]
-                    j = concave[right_pos]
+            for i in range(count):
+                for j in range(i + 1, count):
+                    if self._vertices_are_adjacent(i, j, count):
+                        continue
 
                     bridge_length = self._distance_2d(
                         uv_points[i],
@@ -541,6 +535,15 @@ class CropGeometryService(object):
                         i,
                         j,
                     ):
+                        continue
+
+                    midpoint = (
+                        (uv_points[i][0] + uv_points[j][0]) * 0.5,
+                        (uv_points[i][1] + uv_points[j][1]) * 0.5,
+                    )
+                    if self._point_in_polygon(midpoint, uv_points):
+                        # Le pont traverse l'intérieur du logement : ce n'est
+                        # pas une gaine / poche extérieure à combler.
                         continue
 
                     candidates = self._bridge_candidate_polygons(
@@ -571,6 +574,9 @@ class CropGeometryService(object):
                         if depth > max_depth_internal:
                             continue
 
+                        # Priorité à la poche de plus petite surface ; à aire
+                        # égale, privilégier la bouche et la profondeur les
+                        # plus faibles.
                         score = (
                             fill_area,
                             bridge_length,
@@ -582,9 +588,6 @@ class CropGeometryService(object):
             if best is not None:
                 uv_points = best[1]
                 changed = True
-
-        if not changed and safety == 1:
-            return curve_loop
 
         from Autodesk.Revit.DB import XYZ
 
@@ -603,6 +606,58 @@ class CropGeometryService(object):
         )
 
     @staticmethod
+    def _vertices_are_adjacent(i, j, count):
+        if i == j:
+            return True
+        if abs(i - j) == 1:
+            return True
+        return {i, j} == {0, count - 1}
+
+    @staticmethod
+    def _point_in_polygon(point, polygon):
+        """Ray casting 2D. Les points sur bord sont considérés intérieurs."""
+        x, y = point
+        values = list(polygon or [])
+        count = len(values)
+        if count < 3:
+            return False
+
+        inside = False
+        epsilon = 1e-9
+
+        for index in range(count):
+            x1, y1 = values[index]
+            x2, y2 = values[(index + 1) % count]
+
+            # Point sur le segment.
+            cross = (
+                (x - x1) * (y2 - y1)
+                - (y - y1) * (x2 - x1)
+            )
+            if abs(cross) <= epsilon:
+                min_x = min(x1, x2) - epsilon
+                max_x = max(x1, x2) + epsilon
+                min_y = min(y1, y2) - epsilon
+                max_y = max(y1, y2) + epsilon
+                if min_x <= x <= max_x and min_y <= y <= max_y:
+                    return True
+
+            intersects = (
+                ((y1 > y) != (y2 > y))
+                and (
+                    x
+                    < (
+                        ((x2 - x1) * (y - y1))
+                        / ((y2 - y1) if abs(y2 - y1) > epsilon else epsilon)
+                    )
+                    + x1
+                )
+            )
+            if intersects:
+                inside = not inside
+
+        return inside
+
     def _polygon_signed_area(points):
         values = list(points or [])
         if len(values) < 3:
