@@ -624,6 +624,18 @@ Seuils du prototype :
 
 **Anti-régression :** test statique sur les deux helpers et contrôle automatique des méthodes privées appelées lors des prochains refactors.
 
+### BUG-PDV-011 — Les lèvres d'une gaine ne sont pas toujours des sommets concaves
+
+**Symptôme :** après sécurisation du moteur, le contour optimisé fonctionne mais continue à suivre certaines gaines techniques, notamment avec une petite marge.
+
+**Cause :** le nettoyeur conservateur supposait qu'une poche de gaine était bornée par deux sommets concaves. Ce n'est pas garanti : selon le sens du contour et la forme exacte de la gaine, l'un ou les deux sommets de la bouche peuvent être convexes ou neutres.
+
+**Correction :** tester toutes les paires de sommets non adjacents, mais avec des garde-fous stricts : pont court, aucune intersection avec le contour, milieu du pont situé à l'extérieur du polygone, polygone candidat simple, aire ajoutée positive et limitée, profondeur limitée. Le nettoyage reste réversible vers le contour d'origine en cas de doute.
+
+**Règle préventive :** ne pas déduire la sémantique « gaine / poche extérieure » uniquement de la concavité locale d'un sommet. Utiliser la topologie globale du polygone et la variation d'aire.
+
+**Anti-régression :** test statique du parcours de toutes les paires de sommets et test générique vérifiant que chaque appel `self._...` correspond à une méthode réellement définie.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -681,6 +693,7 @@ BUG-PDV-007
 BUG-PDV-008
 BUG-PDV-009
 BUG-PDV-010
+BUG-PDV-011
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
