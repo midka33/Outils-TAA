@@ -636,6 +636,18 @@ Seuils du prototype :
 
 **Anti-régression :** test statique du parcours de toutes les paires de sommets et test générique vérifiant que chaque appel `self._...` correspond à une méthode réellement définie.
 
+### BUG-PDV-012 — Buffer 3D instable après nettoyage du contour
+
+**Symptôme :** le crop optimisé retombe en rectangle de secours à l'étape `Construction de la marge robuste`, avec une erreur `BooleanOperationsUtils` signalant des imprécisions géométriques entre solides.
+
+**Cause :** après fermeture de certaines poches techniques, le contour est plus simple mais la construction de marge par bandes + caps extrudés peut créer des solides avec faces ou arêtes presque coïncidentes. Les booléens 3D Revit deviennent alors instables.
+
+**Correction :** essayer en priorité `CurveLoop.CreateViaOffset` sur le contour **déjà nettoyé**, puis ne conserver le buffer 3D par booléens qu'en secours. L'offset natif avait échoué auparavant sur le contour brut à cause des micro-concavités ; après nettoyage, il peut à nouveau être viable et produit des angles propres sans opérations booléennes.
+
+**Règle préventive :** préférer l'opération géométrique la plus simple une fois le contour métier stabilisé. Les booléens 3D ne doivent pas être utilisés par défaut lorsqu'une opération 2D native peut suffire.
+
+**Anti-régression :** test statique garantissant que l'offset natif est essayé avant le buffer booléen.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -694,6 +706,7 @@ BUG-PDV-008
 BUG-PDV-009
 BUG-PDV-010
 BUG-PDV-011
+BUG-PDV-012
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
