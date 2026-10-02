@@ -571,6 +571,23 @@ Seuils du prototype :
 
 **Anti-régression :** test statique garantissant que la fermeture des gaines précède le buffer, plus validation Revit sur le logement A003 utilisé pendant les prototypes.
 
+### BUG-PDV-007 — Les petites marges révèlent encore les gaines
+
+**Symptôme :** après les premiers correctifs, les gaines sont moins visibles à grande marge mais restent encore suivies par le crop lorsqu'on utilise une petite marge.
+
+**Cause :** la détection des poches reposait sur des paires de sommets classés concaves. Selon le sens de la boucle et la géométrie exacte d'une gaine, les deux points qui forment sa bouche ne sont pas nécessairement tous les deux identifiés comme concaves. La grande marge masquait partiellement le défaut, ce qui donnait l'impression que le nettoyage dépendait de la marge.
+
+**Correction :** détecter les poches indépendamment de la marge. Le moteur teste désormais toutes les paires de sommets non adjacents sous des seuils conservateurs. Un pont n'est accepté que s'il ne coupe aucune arête, passe par une zone extérieure au polygone, augmente légèrement l'aire et remplit une poche limitée en bouche, profondeur et surface.
+
+Seuils du prototype :
+- bouche maximale : 2 000 mm ;
+- profondeur maximale : 2 000 mm ;
+- aire remplie maximale : 3,0 m².
+
+**Règle préventive :** la simplification de l'enveloppe métier doit être calculée avant la marge de présentation. Une gaine jugée négligeable doit disparaître de la même manière à 20 mm et à 500 mm.
+
+**Anti-régression :** test statique de l'analyse de toutes les paires de sommets, du test point-dans-polygone et de l'ordre fermeture des gaines → marge robuste ; validation Revit sur A003 aux marges 20/50/200/500 mm.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -624,6 +641,7 @@ BUG-PDV-003
 BUG-PDV-004
 BUG-PDV-005
 BUG-PDV-006
+BUG-PDV-007
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
