@@ -155,3 +155,8 @@ def test_shaft_cleanup_is_conservative_and_reversible():
     assert "def _replace_chain_with_bridge(" in text
     assert "if not self._is_simple_polygon(candidate):" in text
     assert "return curve_loop" in text
+
+
+def test_polygon_area_helper_is_static():
+    text = SERVICE.read_text(encoding="utf-8")
+    assert "@staticmethod\n    def _polygon_signed_area(points):" in text
