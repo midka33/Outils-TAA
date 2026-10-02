@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.5  
+**Version :** 1.6  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1796,3 +1796,29 @@ Cette logique ne dépend plus du seul caractère concave des sommets.
 Si aucun candidat sûr n'est trouvé, ou si la reconstruction du contour échoue, le moteur conserve le contour d'origine. Le nettoyage des gaines ne doit donc pas pouvoir casser un crop autrement valide.
 
 Un test supplémentaire contrôle également que tous les appels privés `self._...` du service correspondent à des méthodes réellement définies, afin d'éviter les régressions de refactor rencontrées pendant ce prototype.
+
+
+## Prototype A.3.11 — Seuils de gaine élargis et diagnostic visuel
+
+Le test visuel montre que le moteur de fermeture fonctionne sans régression, mais que les gaines du logement A003 restent trop grandes pour les seuils précédents.
+
+Les seuils du prototype sont donc élargis de façon ciblée :
+
+```text
+Bouche maximale       : 3 500 mm
+Profondeur maximale   : 2 000 mm
+Aire ajoutée maximale : 5,0 m²
+```
+
+La profondeur reste volontairement limitée à 2 m afin de ne pas gommer une vraie grande forme en L.
+
+Le résultat indique maintenant le nombre de poches effectivement comblées :
+
+```text
+Contour optimisé — N gaine(s)/retrait(s) comblé(s)
+```
+
+Ce diagnostic permet de distinguer deux cas :
+
+- `N = 0` : la gaine n'est pas détectée par la logique de poche ;
+- `N > 0` mais la gaine reste visible : la poche fermée n'est pas celle attendue ou le seuil doit être ajusté.
