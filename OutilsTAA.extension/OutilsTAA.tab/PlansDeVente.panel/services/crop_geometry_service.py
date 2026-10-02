@@ -616,6 +616,55 @@ class CropGeometryService(object):
         return result
 
     @staticmethod
+    def _vertices_are_adjacent(i, j, count):
+        if i == j:
+            return True
+        if abs(i - j) == 1:
+            return True
+        return {i, j} == {0, count - 1}
+
+    @staticmethod
+    def _point_in_polygon(point, polygon):
+        """Ray casting 2D. Les points sur le bord sont considérés intérieurs."""
+        x, y = point
+        values = list(polygon or [])
+        count = len(values)
+        if count < 3:
+            return False
+
+        inside = False
+        epsilon = 1e-9
+
+        for index in range(count):
+            x1, y1 = values[index]
+            x2, y2 = values[(index + 1) % count]
+
+            cross = (
+                (x - x1) * (y2 - y1)
+                - (y - y1) * (x2 - x1)
+            )
+            if abs(cross) <= epsilon:
+                min_x = min(x1, x2) - epsilon
+                max_x = max(x1, x2) + epsilon
+                min_y = min(y1, y2) - epsilon
+                max_y = max(y1, y2) + epsilon
+                if min_x <= x <= max_x and min_y <= y <= max_y:
+                    return True
+
+            if ((y1 > y) != (y2 > y)):
+                denominator = y2 - y1
+                if abs(denominator) <= epsilon:
+                    continue
+                x_cross = (
+                    ((x2 - x1) * (y - y1))
+                    / denominator
+                ) + x1
+                if x < x_cross:
+                    inside = not inside
+
+        return inside
+
+    @staticmethod
     def _forward_chain_indices(i, j, count):
         values = [i]
         index = i
