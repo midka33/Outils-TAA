@@ -59,7 +59,7 @@ def test_crop_is_linearized_to_straight_segments_before_revit_validation():
     assert "Linéarisation du contour extérieur" in text
     assert "Linéarisation finale" in text
     assert text.index("Linéarisation du contour extérieur") < text.index(
-        "Application de la marge"
+        "Construction de la marge robuste"
     )
     assert "Linéarisation finale" in text
     assert "def apply_to_view(" in text
@@ -98,7 +98,8 @@ def test_margin_no_longer_uses_boolean_buffer():
     cleanup_start = text.index("def _cleanup_small_notches(", buffer_start)
     buffer_block = text[buffer_start:cleanup_start]
 
-    assert "BooleanOperationsUtils" not in buffer_block
+    assert "BooleanOperationsUtils." not in buffer_block
+    assert "ExecuteBooleanOperation" not in buffer_block
     assert "strip_loop" not in buffer_block
     assert "cap_points" not in buffer_block
     assert "_try_native_offset_outward" in buffer_block

@@ -736,6 +736,29 @@ explicitement ce chemin d'import.
 **Anti-régression :** exécution réelle du workflow
 `Plans de vente — tests hors Revit` après le correctif.
 
+### BUG-TEST-004 — Contrats Plans de vente désynchronisés du moteur de marge
+
+**Symptôme :** après correction du `PYTHONPATH`, la suite Plans de vente exécute
+34 tests mais deux contrats échouent alors que le code concerné n'a pas
+réintroduit de booléen dans la marge.
+
+**Cause :** un test cherchait encore l'ancien libellé
+`Application de la marge` alors que l'étape s'appelle désormais
+`Construction de la marge robuste`. Un autre interdisait la simple chaîne
+`BooleanOperationsUtils` dans le bloc, y compris lorsqu'elle apparaissait
+uniquement dans un commentaire de documentation décrivant l'erreur évitée.
+
+**Correction :** aligner le test sur le nom d'étape actuel et vérifier l'absence
+d'appels réels `BooleanOperationsUtils.` / `ExecuteBooleanOperation`, pas
+l'absence du mot dans les commentaires.
+
+**Règle préventive :** les tests de contrat textuels doivent cibler un contrat
+exécutable ou un identifiant stable, et ne pas confondre une mention
+documentaire avec un appel de code.
+
+**Anti-régression :** exécution complète de `python -m pytest tests/plans_vente -q`
+dans GitHub Actions.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -780,6 +803,7 @@ BUG-EXPORT-035
 BUG-EXPORT-034
 BUG-TEST-002
 BUG-TEST-003
+BUG-TEST-004
 BUG-CALCULS-001
 BUG-CALCULS-002
 BUG-CALCULS-003
