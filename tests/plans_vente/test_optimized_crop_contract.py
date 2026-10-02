@@ -167,3 +167,32 @@ def test_shaft_cleanup_helpers_are_defined():
 
     assert "def _vertices_are_adjacent(" in text
     assert "def _point_in_polygon(" in text
+
+
+def test_private_self_calls_have_matching_methods():
+    import re
+
+    text = SERVICE.read_text(encoding="utf-8")
+    definitions = set(
+        re.findall(r"^\s+def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", text, re.M)
+    )
+    calls = set(
+        re.findall(r"self\.([A-Za-z_][A-Za-z0-9_]*)\s*\(", text)
+    )
+
+    missing = sorted(
+        name for name in calls
+        if name.startswith("_") and name not in definitions
+    )
+    assert missing == []
+
+
+def test_shaft_cleaner_tests_all_non_adjacent_vertices_safely():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "for i in range(count):" in text
+    assert "for j in range(i + 1, count):" in text
+    assert "if self._vertices_are_adjacent(i, j, count):" in text
+    assert "if self._point_in_polygon(midpoint, uv_points):" in text
+    assert "if not self._is_simple_polygon(candidate):" in text
+    assert "fill_area = candidate_area - original_area" in text
