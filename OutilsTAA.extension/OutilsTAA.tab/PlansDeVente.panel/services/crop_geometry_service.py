@@ -44,6 +44,9 @@ class CropGeometryService(object):
     BOOLEAN_EXTRUSION_HEIGHT = 1.0
     MIN_DETAIL_CLEANUP_MM = 300.0
     MAX_DETAIL_CLEANUP_MM = 600.0
+    SHAFT_MAX_MOUTH_MM = 1500.0
+    SHAFT_MAX_DEPTH_MM = 1500.0
+    SHAFT_MAX_FILL_AREA_M2 = 2.0
 
     def __init__(self, document):
         if document is None:
@@ -95,10 +98,22 @@ class CropGeometryService(object):
                 view,
             )
 
+            clean_outer_loop = self._stage(
+                "Fermeture des petites gaines et retraits",
+                self._close_small_recesses,
+                straight_outer_loop,
+                view,
+                self._millimeters_to_internal(self.SHAFT_MAX_MOUTH_MM),
+                self._millimeters_to_internal(self.SHAFT_MAX_DEPTH_MM),
+                self._square_meters_to_internal_area(
+                    self.SHAFT_MAX_FILL_AREA_M2
+                ),
+            )
+
             final_loop = self._stage(
                 "Construction de la marge robuste",
                 self._buffer_outward,
-                straight_outer_loop,
+                clean_outer_loop,
                 margin_internal,
                 view,
             )
@@ -453,6 +468,274 @@ class CropGeometryService(object):
             values = simplified
 
         return values
+
+    def _close_small_recesses(
+        self,
+        curve_loop,
+        view,
+        max_mouth_internal,
+        max_depth_internal,
+        max_fill_area_internal,
+    ):
+        """Ferme les petites poches concaves assimilables à des gaines.
+
+        Le contour exact des pièces peut rentrer dans une gaine technique sans
+        pièce. Pour le cadrage d'un plan de vente, ces petites poches doivent
+        être remplies sans pour autant supprimer une vraie forme en L.
+
+        La méthode cherche deux sommets concaves pouvant former une "bouche"
+        courte. Le pont direct entre ces sommets est accepté uniquement si :
+        - il n'intersecte pas les autres arêtes du contour ;
+        - la poche ajoutée reste petite en surface ;
+        - la profondeur maximale de la chaîne remplacée reste petite ;
+        - le nouveau polygone augmente légèrement l'aire au lieu de la réduire.
+        """
+        frame = self._frame_from_view(view)
+        xyz_points = self._tessellated_loop_points(curve_loop)
+        xyz_points = self._remove_near_duplicates(xyz_points)
+        if len(xyz_points) < 4:
+            return curve_loop
+
+        uv_points = [
+            frame.project((point.X, point.Y, point.Z))
+            for point in xyz_points
+        ]
+
+        safety = 0
+        changed = True
+        while changed and len(uv_points) >= 4 and safety < 50:
+            safety += 1
+            changed = False
+
+            orientation = self._polygon_signed_area(uv_points)
+            if abs(orientation) <= 1e-12:
+                break
+
+            concave = self._concave_vertex_indices(
+                uv_points,
+                orientation,
+            )
+            if len(concave) < 2:
+                break
+
+            original_area = abs(orientation)
+            best = None
+
+            for left_pos in range(len(concave)):
+                for right_pos in range(left_pos + 1, len(concave)):
+                    i = concave[left_pos]
+                    j = concave[right_pos]
+
+                    bridge_length = self._distance_2d(
+                        uv_points[i],
+                        uv_points[j],
+                    )
+                    if (
+                        bridge_length <= 1e-9
+                        or bridge_length > max_mouth_internal
+                    ):
+                        continue
+
+                    if self._bridge_intersects_polygon(
+                        uv_points,
+                        i,
+                        j,
+                    ):
+                        continue
+
+                    candidates = self._bridge_candidate_polygons(
+                        uv_points,
+                        i,
+                        j,
+                    )
+
+                    for candidate, removed_chain in candidates:
+                        if len(candidate) < 3:
+                            continue
+
+                        candidate_area = abs(
+                            self._polygon_signed_area(candidate)
+                        )
+                        fill_area = candidate_area - original_area
+                        if (
+                            fill_area <= 1e-9
+                            or fill_area > max_fill_area_internal
+                        ):
+                            continue
+
+                        depth = self._max_chain_distance_to_bridge(
+                            removed_chain,
+                            uv_points[i],
+                            uv_points[j],
+                        )
+                        if depth > max_depth_internal:
+                            continue
+
+                        score = (
+                            fill_area,
+                            bridge_length,
+                            depth,
+                        )
+                        if best is None or score < best[0]:
+                            best = (score, candidate)
+
+            if best is not None:
+                uv_points = best[1]
+                changed = True
+
+        if not changed and safety == 1:
+            return curve_loop
+
+        from Autodesk.Revit.DB import XYZ
+
+        world_points = [
+            frame.to_world(point[0], point[1])
+            for point in uv_points
+        ]
+        xyz_result = [
+            XYZ(point[0], point[1], point[2])
+            for point in world_points
+        ]
+
+        return self._curve_loop_from_points(
+            xyz_result,
+            max(self._short_curve_tolerance(), 1e-7),
+        )
+
+    @staticmethod
+    def _polygon_signed_area(points):
+        values = list(points or [])
+        if len(values) < 3:
+            return 0.0
+
+        area = 0.0
+        count = len(values)
+        for index in range(count):
+            x1, y1 = values[index]
+            x2, y2 = values[(index + 1) % count]
+            area += (x1 * y2) - (x2 * y1)
+        return area * 0.5
+
+    @staticmethod
+    def _concave_vertex_indices(points, signed_area):
+        values = list(points or [])
+        count = len(values)
+        if count < 4:
+            return []
+
+        orientation_sign = 1.0 if signed_area > 0.0 else -1.0
+        result = []
+
+        for index in range(count):
+            previous = values[(index - 1) % count]
+            current = values[index]
+            following = values[(index + 1) % count]
+
+            left = (
+                current[0] - previous[0],
+                current[1] - previous[1],
+            )
+            right = (
+                following[0] - current[0],
+                following[1] - current[1],
+            )
+
+            cross = (
+                (left[0] * right[1])
+                - (left[1] * right[0])
+            )
+            if (cross * orientation_sign) < -1e-9:
+                result.append(index)
+
+        return result
+
+    def _bridge_intersects_polygon(self, points, i, j):
+        count = len(points)
+        a = points[i]
+        b = points[j]
+
+        for edge_index in range(count):
+            next_index = (edge_index + 1) % count
+
+            if edge_index in (i, j) or next_index in (i, j):
+                continue
+
+            c = points[edge_index]
+            d = points[next_index]
+
+            if self._segments_intersect_2d(a, b, c, d):
+                return True
+
+        return False
+
+    @staticmethod
+    def _bridge_candidate_polygons(points, i, j):
+        if i > j:
+            i, j = j, i
+
+        first_chain = list(points[i:j + 1])
+        second_chain = list(points[j:]) + list(points[:i + 1])
+
+        # Chaque candidate garde une chaîne et remplace l'autre par le pont.
+        # removed_chain est utilisée pour mesurer la profondeur de la poche.
+        return [
+            (first_chain, second_chain),
+            (second_chain, first_chain),
+        ]
+
+    @staticmethod
+    def _segments_intersect_2d(a, b, c, d):
+        def orient(p, q, r):
+            return (
+                (q[0] - p[0]) * (r[1] - p[1])
+                - (q[1] - p[1]) * (r[0] - p[0])
+            )
+
+        o1 = orient(a, b, c)
+        o2 = orient(a, b, d)
+        o3 = orient(c, d, a)
+        o4 = orient(c, d, b)
+
+        epsilon = 1e-9
+        return (
+            (o1 * o2) < -epsilon
+            and (o3 * o4) < -epsilon
+        )
+
+    @staticmethod
+    def _max_chain_distance_to_bridge(chain, bridge_start, bridge_end):
+        values = list(chain or [])
+        if not values:
+            return 0.0
+
+        ax, ay = bridge_start
+        bx, by = bridge_end
+        dx = bx - ax
+        dy = by - ay
+        denominator = (dx * dx) + (dy * dy)
+
+        if denominator <= 1e-12:
+            return float("inf")
+
+        maximum = 0.0
+        for point in values:
+            px, py = point
+            t = (
+                ((px - ax) * dx)
+                + ((py - ay) * dy)
+            ) / denominator
+            projection = (
+                ax + (t * dx),
+                ay + (t * dy),
+            )
+            distance = CropGeometryService._distance_2d(
+                point,
+                projection,
+            )
+            if distance > maximum:
+                maximum = distance
+
+        return maximum
 
     def _buffer_outward(self, curve_loop, margin_internal, view):
         """Dilate le contour sans dépendre de CurveLoop.CreateViaOffset.
@@ -936,6 +1219,14 @@ class CropGeometryService(object):
             origin=(origin.X, origin.Y, origin.Z),
             right=(right.X, right.Y, right.Z),
             up=(up.X, up.Y, up.Z),
+        )
+
+    @staticmethod
+    def _square_meters_to_internal_area(value):
+        from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+        return UnitUtils.ConvertToInternalUnits(
+            float(value),
+            UnitTypeId.SquareMeters,
         )
 
     @staticmethod
