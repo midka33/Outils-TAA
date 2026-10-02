@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.3  
+**Version :** 1.4  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1756,3 +1756,16 @@ La fonction `_polygon_signed_area(points)` était utilisée comme helper pur mai
 Le correctif ajoute simplement `@staticmethod`.
 
 Ce bug expliquait le fallback systématique des quatre marges après la dernière itération : le moteur n'atteignait même pas réellement la logique de fermeture des gaines.
+
+
+## Prototype A.3.9 — Restauration des helpers de nettoyage
+
+Le test Revit a remonté :
+
+```text
+'CropGeometryService' object has no attribute '_vertices_are_adjacent'
+```
+
+Il s'agit d'une régression de refactor : les helpers `_vertices_are_adjacent` et `_point_in_polygon` avaient été supprimés alors que le nettoyeur conservateur les utilisait encore.
+
+Les deux helpers ont été restaurés et un test de contrat vérifie désormais explicitement leur présence.
