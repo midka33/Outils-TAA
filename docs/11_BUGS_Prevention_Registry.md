@@ -612,6 +612,18 @@ Seuils du prototype :
 
 **Anti-régression :** test statique imposant le décorateur `@staticmethod` sur `_polygon_signed_area`.
 
+### BUG-PDV-010 — Helpers de nettoyage supprimés pendant un refactor
+
+**Symptôme :** tous les essais passent en `Rectangle de secours` avec l'erreur `'CropGeometryService' object has no attribute '_vertices_are_adjacent'`.
+
+**Cause :** lors du remplacement de l'algorithme de fermeture des gaines, les helpers `_vertices_are_adjacent` et `_point_in_polygon` ont été supprimés du fichier alors que la nouvelle méthode continuait à les appeler.
+
+**Correction :** restaurer les deux helpers et ajouter un test de contrat vérifiant explicitement leur présence.
+
+**Règle préventive :** après tout remplacement de bloc important dans un service Python, vérifier les appels `self._...` contre la liste des méthodes réellement définies avant commit.
+
+**Anti-régression :** test statique sur les deux helpers et contrôle automatique des méthodes privées appelées lors des prochains refactors.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -668,6 +680,7 @@ BUG-PDV-006
 BUG-PDV-007
 BUG-PDV-008
 BUG-PDV-009
+BUG-PDV-010
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
