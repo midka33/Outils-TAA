@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.9  
+**Version :** 1.10  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1926,7 +1926,7 @@ du contour ; une nouvelle diagonale arbitraire est refusée.
 
 - seuls les murs droits sont utilisés comme guides dans ce prototype ;
 - le guide doit être proche des deux lèvres ;
-- sa direction doit rester proche de celle de la bouche de la poche ;
+- les deux lèvres doivent pouvoir se projeter à proximité sur le même chant de mur ;
 - les projections ne peuvent dépasser le segment de mur que de 600 mm ;
 - profondeur, bouche et aire ajoutée restent limitées par les seuils A.3.11 ;
 - le polygone final doit rester simple ;
@@ -1951,3 +1951,41 @@ Résultat attendu :
 - aucune vraie forme en L du logement n'est supprimée ;
 - le crop reste en `Contour optimisé` ;
 - aucune régression sur les vues dépendantes.
+
+
+## Prototype A.3.15 — Accepter les lèvres décalées sur un même mur
+
+Le premier test Revit de la fermeture guidée par mur a basculé en
+`Rectangle de secours` à l'étape `Construction de la marge robuste`.
+
+### Cause identifiée
+
+La première implémentation imposait que la corde directe entre les deux lèvres
+de la poche soit presque parallèle au mur guide.
+
+Cette condition est contradictoire avec le cas que l'on cherche à corriger :
+quand les deux lèvres sont décalées l'une par rapport à l'autre, leur corde est
+justement diagonale. Le mur correct pouvait donc être rejeté avant même que les
+deux lèvres soient projetées sur son chant. La gaine restait alors dans le
+contour et l'offset Revit pouvait échouer sur cette concavité.
+
+### Correction
+
+La direction de la corde entre lèvres n'est plus comparée à celle du mur.
+
+Un mur guide est désormais accepté si :
+
+- les deux lèvres se projettent sur la même face opposée du mur ;
+- les projections restent proches du segment de mur, avec l'extension limitée
+  déjà prévue ;
+- le segment de face utilisé reste à l'extérieur du logement ;
+- la profondeur et l'aire ajoutée restent sous les seuils ;
+- le polygone candidat reste simple.
+
+Ainsi, une bouche dont les deux lèvres sont décalées peut être remplacée par
+deux raccords perpendiculaires au mur et un segment parallèle à son chant,
+sans créer de diagonale libre.
+
+Le message de fallback indique aussi désormais combien de poches avaient été
+fermées avant l'échec, dont combien avec un guide mural. Ce diagnostic permet
+de distinguer immédiatement un problème de détection d'un problème d'offset.

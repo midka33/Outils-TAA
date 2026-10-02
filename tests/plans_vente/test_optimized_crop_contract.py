@@ -226,7 +226,6 @@ def test_shaft_closure_prefers_opposite_wall_faces_over_diagonal_chords():
     assert "wall.Orientation" in text
     assert "wall.Width" in text
     assert "def _wall_aligned_bridge_paths(" in text
-    assert "WALL_GUIDE_MAX_ANGLE_SIN = 0.2588190451" in text
     assert "WALL_GUIDE_EXTENSION_MM = 600.0" in text
     assert "def _bridge_matches_local_direction(" in text
     assert "def _bridge_candidate_polygons_with_path(" in text
@@ -239,3 +238,21 @@ def test_shaft_closure_prefers_opposite_wall_faces_over_diagonal_chords():
 
     assert "bridge_options.append((0, bridge_path))" in close_block
     assert "if self._bridge_matches_local_direction(" in close_block
+
+    wall_start = text.index("def _wall_aligned_bridge_paths(")
+    wall_end = text.index("def _bridge_matches_local_direction(", wall_start)
+    wall_block = text[wall_start:wall_end]
+
+    # Une bouche diagonale ne doit plus exclure le mur guide : c'était
+    # précisément la cause du fallback observé dans Revit.
+    assert "mouth_vector" not in wall_block
+    assert "parallel_sin" not in wall_block
+    assert "_project_point_to_line(" in wall_block
+
+
+def test_fallback_reports_wall_guided_cleanup_counts():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "Nettoyage avant échec" in text
+    assert "_last_closed_recess_count" in text
+    assert "_last_wall_aligned_recess_count" in text

@@ -47,7 +47,6 @@ class CropGeometryService(object):
     SHAFT_MAX_MOUTH_MM = 3500.0
     SHAFT_MAX_DEPTH_MM = 2000.0
     SHAFT_MAX_FILL_AREA_M2 = 5.0
-    WALL_GUIDE_MAX_ANGLE_SIN = 0.2588190451
     WALL_GUIDE_EXTENSION_MM = 600.0
 
     def __init__(self, document):
@@ -161,8 +160,13 @@ class CropGeometryService(object):
                 warning=(
                     "Le contour optimisé n'a pas pu être construit. "
                     "Un rectangle aligné à la vue a été utilisé. "
-                    "Étape en échec : {}"
-                ).format(error),
+                    "Nettoyage avant échec : {} poche(s), dont {} "
+                    "alignée(s) sur mur. Étape en échec : {}"
+                ).format(
+                    self._last_closed_recess_count,
+                    self._last_wall_aligned_recess_count,
+                    error,
+                ),
             )
 
     def apply_to_view(self, view, crop_result):
@@ -807,12 +811,7 @@ class CropGeometryService(object):
 
         start = values[i]
         end = values[j]
-        mouth_vector = (
-            end[0] - start[0],
-            end[1] - start[1],
-        )
-        mouth_length = self._vector_length_2d(mouth_vector)
-        if mouth_length <= 1e-9:
+        if self._distance_2d(start, end) <= 1e-9:
             return []
 
         candidates = []
@@ -831,13 +830,11 @@ class CropGeometryService(object):
             if guide_length <= 1e-9:
                 continue
 
-            parallel_sin = abs(
-                (mouth_vector[0] * guide_vector[1])
-                - (mouth_vector[1] * guide_vector[0])
-            ) / (mouth_length * guide_length)
-            if parallel_sin > self.WALL_GUIDE_MAX_ANGLE_SIN:
-                continue
-
+            # Ne pas comparer la direction du guide à la corde entre les
+            # lèvres. Quand les lèvres sont décalées, cette corde est justement
+            # diagonale : c'est le défaut que le guidage par mur doit corriger.
+            # La validité est assurée par les projections, la proximité du mur,
+            # le test extérieur, l'aire ajoutée et la simplicité du polygone.
             start_projection = self._project_point_to_line(
                 start,
                 guide_start,

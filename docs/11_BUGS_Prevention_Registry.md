@@ -689,6 +689,33 @@ directions et faces de ces murs.
 pont guidé par mur et le refus des ponts directs créant une direction oblique ;
 validation Revit sur le logement de référence aux marges 20 / 50 / 200 / 500 mm.
 
+### BUG-PDV-015 — Le filtre d'angle rejette le mur qui devait supprimer le biais
+
+**Symptôme :** après l'introduction des fermetures guidées par mur, le logement
+de référence bascule en `Rectangle de secours` à l'étape
+`Construction de la marge robuste`.
+
+**Cause :** le premier filtre exigeait que la corde entre les deux lèvres de la
+poche soit presque parallèle au mur guide. Or, lorsque les lèvres sont
+décalées, cette corde est précisément diagonale. Le bon mur était donc rejeté,
+la poche restait non simplifiée et `CurveLoop.CreateViaOffset` pouvait encore
+échouer sur la concavité.
+
+**Correction :** supprimer la comparaison d'angle entre la corde des lèvres et
+le mur. Les lèvres sont projetées indépendamment sur une même face opposée de
+mur. La validité repose ensuite sur la proximité au guide, la position
+extérieure du segment, l'aire ajoutée, la profondeur et la simplicité du
+polygone.
+
+**Règle préventive :** un filtre géométrique ne doit pas tester comme condition
+d'entrée la propriété que l'algorithme a justement pour objectif de corriger.
+Pour une fermeture guidée, valider le guide et les projections plutôt que la
+corde brute entre les points.
+
+**Anti-régression :** test de contrat garantissant l'absence de filtre
+`mouth_vector / parallel_sin` dans `_wall_aligned_bridge_paths`, présence
+des projections sur le mur et validation Revit sur A003.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -750,6 +777,7 @@ BUG-PDV-011
 BUG-PDV-012
 BUG-PDV-013
 BUG-PDV-014
+BUG-PDV-015
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
