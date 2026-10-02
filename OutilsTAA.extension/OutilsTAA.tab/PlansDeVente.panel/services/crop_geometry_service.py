@@ -477,18 +477,20 @@ class CropGeometryService(object):
         max_depth_internal,
         max_fill_area_internal,
     ):
-        """Ferme uniquement des poches orthogonales clairement identifiées.
+        """Ferme les petites poches extérieures assimilables à des gaines.
 
-        La version précédente testait toutes les paires de sommets et pouvait
-        fabriquer un contour invalide. Cette version est volontairement plus
-        conservatrice : elle cherche une séquence locale en forme de poche
-        (entrée -> fond -> sortie) et ne remplace la chaîne que si le pont
-        direct est sûr et le polygone résultant reste simple.
+        Une gaine sans Room peut former une poche dont les deux lèvres ne sont
+        pas nécessairement des sommets concaves. La détection ne doit donc pas
+        dépendre uniquement de la concavité locale.
+
+        Cette version teste toutes les paires de sommets non adjacents, mais
+        n'accepte un pont que s'il est géométriquement sûr et s'il ajoute une
+        petite surface extérieure au logement.
         """
         frame = self._frame_from_view(view)
         xyz_points = self._tessellated_loop_points(curve_loop)
         xyz_points = self._remove_near_duplicates(xyz_points)
-        if len(xyz_points) < 5:
+        if len(xyz_points) < 4:
             return curve_loop
 
         uv_points = [
@@ -499,34 +501,16 @@ class CropGeometryService(object):
         changed = True
         safety = 0
 
-        while changed and len(uv_points) >= 5 and safety < 50:
+        while changed and len(uv_points) >= 4 and safety < 50:
             changed = False
             safety += 1
             count = len(uv_points)
             original_area = abs(self._polygon_signed_area(uv_points))
-            orientation = self._polygon_signed_area(uv_points)
-            if abs(orientation) <= 1e-12:
-                break
-
             best = None
 
-            # Une gaine / poche typique est délimitée localement par deux
-            # sommets concaves séparés de quelques sommets seulement.
-            concave = self._concave_vertex_indices(
-                uv_points,
-                orientation,
-            )
-
-            for left_pos in range(len(concave)):
-                for right_pos in range(left_pos + 1, len(concave)):
-                    i = concave[left_pos]
-                    j = concave[right_pos]
-
+            for i in range(count):
+                for j in range(i + 1, count):
                     if self._vertices_are_adjacent(i, j, count):
-                        continue
-
-                    chain = self._forward_chain_indices(i, j, count)
-                    if len(chain) > 7:
                         continue
 
                     mouth = self._distance_2d(
@@ -548,48 +532,61 @@ class CropGeometryService(object):
                         (uv_points[i][1] + uv_points[j][1]) * 0.5,
                     )
                     if self._point_in_polygon(midpoint, uv_points):
+                        # Un pont traversant l'intérieur retirerait une partie
+                        # réelle du logement au lieu de combler une poche.
                         continue
 
-                    removed_chain = [
-                        uv_points[index]
-                        for index in chain
-                    ]
-                    depth = self._max_chain_distance_to_bridge(
-                        removed_chain,
-                        uv_points[i],
-                        uv_points[j],
-                    )
-                    if depth > max_depth_internal:
-                        continue
-
-                    candidate = self._replace_chain_with_bridge(
+                    for candidate, removed_chain in self._bridge_candidate_polygons(
                         uv_points,
                         i,
                         j,
-                    )
-                    if len(candidate) < 3:
-                        continue
-
-                    if not self._is_simple_polygon(candidate):
-                        continue
-
-                    candidate_area = abs(
-                        self._polygon_signed_area(candidate)
-                    )
-                    fill_area = candidate_area - original_area
-                    if (
-                        fill_area <= 1e-9
-                        or fill_area > max_fill_area_internal
                     ):
-                        continue
+                        if len(candidate) < 3:
+                            continue
 
-                    score = (fill_area, mouth, depth)
-                    if best is None or score < best[0]:
-                        best = (score, candidate)
+                        if not self._is_simple_polygon(candidate):
+                            continue
+
+                        candidate_area = abs(
+                            self._polygon_signed_area(candidate)
+                        )
+                        fill_area = candidate_area - original_area
+
+                        # Nous n'acceptons que les candidats qui AJOUTENT une
+                        # petite aire au logement. L'autre chaîne autour du
+                        # polygone produit normalement un candidat beaucoup
+                        # plus petit et est automatiquement rejetée ici.
+                        if (
+                            fill_area <= 1e-9
+                            or fill_area > max_fill_area_internal
+                        ):
+                            continue
+
+                        depth = self._max_chain_distance_to_bridge(
+                            removed_chain,
+                            uv_points[i],
+                            uv_points[j],
+                        )
+                        if depth > max_depth_internal:
+                            continue
+
+                        score = (
+                            fill_area,
+                            mouth,
+                            depth,
+                        )
+                        if best is None or score < best[0]:
+                            best = (score, candidate)
 
             if best is not None:
                 uv_points = best[1]
                 changed = True
+
+        # Le nettoyage est purement optionnel. Si le polygone final n'est pas
+        # simple, on revient au contour original validé au lieu de dégrader le
+        # moteur de crop.
+        if not self._is_simple_polygon(uv_points):
+            return curve_loop
 
         from Autodesk.Revit.DB import XYZ
 
@@ -602,18 +599,13 @@ class CropGeometryService(object):
             for point in world_points
         ]
 
-        result = self._curve_loop_from_points(
-            xyz_result,
-            max(self._short_curve_tolerance(), 1e-7),
-        )
-
-        # Sécurité finale : si le nettoyage produit malgré tout une boucle
-        # géométriquement douteuse, on revient au contour d'origine plutôt que
-        # de faire échouer tout le crop optimisé.
-        if not self._is_simple_polygon(uv_points):
+        try:
+            return self._curve_loop_from_points(
+                xyz_result,
+                max(self._short_curve_tolerance(), 1e-7),
+            )
+        except Exception:
             return curve_loop
-
-        return result
 
     @staticmethod
     def _vertices_are_adjacent(i, j, count):
