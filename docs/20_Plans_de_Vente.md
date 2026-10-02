@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.4  
+**Version :** 1.5  
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -1769,3 +1769,30 @@ Le test Revit a remonté :
 Il s'agit d'une régression de refactor : les helpers `_vertices_are_adjacent` et `_point_in_polygon` avaient été supprimés alors que le nettoyeur conservateur les utilisait encore.
 
 Les deux helpers ont été restaurés et un test de contrat vérifie désormais explicitement leur présence.
+
+
+## Prototype A.3.10 — Détection topologique des poches
+
+Le moteur de crop est désormais stable, mais les tests visuels montrent que certaines gaines restent suivies par le contour, surtout lorsque la marge de présentation est faible.
+
+La cause est que les deux lèvres d'une gaine ne sont pas toujours toutes les deux classées comme sommets concaves.
+
+### Nouveau nettoyage
+
+Le moteur teste toutes les paires de sommets non adjacents comme candidats de fermeture, mais ne valide un pont que si :
+
+- la bouche reste sous le seuil configuré ;
+- le pont n'intersecte aucune autre arête ;
+- son milieu se situe à l'extérieur du polygone logement ;
+- le polygone candidat reste simple ;
+- la modification ajoute de la surface au logement ;
+- l'aire ajoutée reste limitée ;
+- la profondeur de la poche reste limitée.
+
+Cette logique ne dépend plus du seul caractère concave des sommets.
+
+### Sécurité
+
+Si aucun candidat sûr n'est trouvé, ou si la reconstruction du contour échoue, le moteur conserve le contour d'origine. Le nettoyage des gaines ne doit donc pas pouvoir casser un crop autrement valide.
+
+Un test supplémentaire contrôle également que tous les appels privés `self._...` du service correspondent à des méthodes réellement définies, afin d'éviter les régressions de refactor rencontrées pendant ce prototype.
