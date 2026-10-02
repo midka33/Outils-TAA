@@ -648,6 +648,18 @@ Seuils du prototype :
 
 **Anti-régression :** test statique garantissant que l'offset natif est essayé avant le buffer booléen.
 
+### BUG-PDV-013 — Le fallback booléen 3D reste instable
+
+**Symptôme :** malgré la priorité donnée à `CreateViaOffset`, le moteur retombe encore sur `BooleanOperationsUtils` pour la marge et échoue avec le message Revit `Failed to perform a Boolean operation for the two solids`.
+
+**Cause :** le simple fait de conserver le buffer 3D comme second choix réintroduit une branche connue comme instable sur des solides quasi coplanaires. Le moteur de marge pouvait donc encore échouer exactement de la même manière qu'avant.
+
+**Correction :** supprimer complètement les booléens 3D de l'étape de marge. La marge est désormais 100 % 2D : essai d'offset natif sur le contour nettoyé, puis simplification adaptative de petites concavités et nouvel essai d'offset. Si aucun contour 2D valide n'est obtenu, le niveau supérieur utilise directement le rectangle de secours.
+
+**Règle préventive :** une stratégie déjà identifiée comme instable ne doit pas rester cachée comme fallback par défaut. Les fallbacks doivent être plus simples et plus sûrs que le chemin principal.
+
+**Anti-régression :** test de contrat vérifiant l'absence de `BooleanOperationsUtils` dans `_buffer_outward` et l'ordre offset natif → simplification adaptative.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -707,6 +719,7 @@ BUG-PDV-009
 BUG-PDV-010
 BUG-PDV-011
 BUG-PDV-012
+BUG-PDV-013
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
