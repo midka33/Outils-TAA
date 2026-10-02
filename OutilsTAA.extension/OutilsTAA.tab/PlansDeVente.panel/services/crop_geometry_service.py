@@ -42,6 +42,8 @@ class CropGeometryService(object):
     """Construit un contour logement réel, avec secours rectangulaire explicite."""
 
     BOOLEAN_EXTRUSION_HEIGHT = 1.0
+    MIN_DETAIL_CLEANUP_MM = 300.0
+    MAX_DETAIL_CLEANUP_MM = 600.0
 
     def __init__(self, document):
         if document is None:
@@ -460,10 +462,10 @@ class CropGeometryService(object):
         construit à la place l'union de :
         - la surface du logement ;
         - une bande rectangulaire de largeur 2 x marge autour de chaque arête ;
-        - un octogone de raccord autour de chaque sommet.
+        - un carré de raccord, aligné sur la vue, autour de chaque sommet.
 
-        L'octogone est circonscrit au cercle de rayon demandé afin de garantir
-        au moins la marge souhaitée dans toutes les directions.
+        Les carrés évitent les artefacts "arrondis / crénelés" visibles avec
+        les anciens raccords octogonaux lorsque la marge devient importante.
         """
         if margin_internal <= 1e-9:
             return curve_loop
@@ -476,8 +478,6 @@ class CropGeometryService(object):
             Line,
         )
         from System.Collections.Generic import List
-        import math
-
         straight_loop = self._linearize_curve_loop(curve_loop, view)
         base_solid = self._solid_from_loop(straight_loop, view)
         result_solid = base_solid
@@ -526,23 +526,24 @@ class CropGeometryService(object):
                 "Aucun sommet exploitable n'a été trouvé pour construire la marge."
             )
 
-        # 2. Raccords polygonaux autour des sommets.
+        # 2. Raccords carrés, alignés sur le repère de la vue.
         #
-        # Pour un octogone régulier, le rayon des sommets est augmenté de
-        # 1/cos(pi/8) afin que l'apothème soit exactement la marge demandée.
-        sides = 8
-        cap_radius = margin_internal / math.cos(math.pi / float(sides))
+        # Le crop de plan de vente doit rester graphique et propre. Des caps
+        # octogonaux créaient des facettes visibles à 200/500 mm. Le carré
+        # produit des angles francs et reste volontairement un peu plus large
+        # en diagonale que la marge saisie, jamais plus étroit.
         right = view.RightDirection.Normalize()
         up = view.UpDirection.Normalize()
+        right_delta = right.Multiply(margin_internal)
+        up_delta = up.Multiply(margin_internal)
 
         for vertex in vertices:
-            cap_points = []
-            for index in range(sides):
-                angle = (2.0 * math.pi * float(index)) / float(sides)
-                offset = right.Multiply(math.cos(angle) * cap_radius).Add(
-                    up.Multiply(math.sin(angle) * cap_radius)
-                )
-                cap_points.append(vertex.Add(offset))
+            cap_points = [
+                vertex.Add(right_delta).Add(up_delta),
+                vertex.Subtract(right_delta).Add(up_delta),
+                vertex.Subtract(right_delta).Subtract(up_delta),
+                vertex.Add(right_delta).Subtract(up_delta),
+            ]
 
             cap_loop = self._curve_loop_from_points(
                 cap_points,
@@ -562,9 +563,150 @@ class CropGeometryService(object):
             reference_z,
         )
 
-        return self._linearize_curve_loop(
+        buffered_loop = self._linearize_curve_loop(
             buffered_loop,
             view,
+        )
+
+        cleanup_internal = self._millimeters_to_internal(
+            self._detail_cleanup_mm(
+                self._internal_to_millimeters(margin_internal)
+            )
+        )
+        return self._cleanup_small_notches(
+            buffered_loop,
+            view,
+            cleanup_internal,
+        )
+
+    def _cleanup_small_notches(self, curve_loop, view, tolerance_internal):
+        """Supprime les petits détours en U qui n'améliorent pas le cadrage.
+
+        Le crop représente l'enveloppe graphique du logement, pas chaque
+        décrochement créé par une gaine ou une pièce non modélisée. Cette
+        passe ne touche qu'aux motifs rectangulaires courts.
+        """
+        if tolerance_internal <= 1e-9:
+            return curve_loop
+
+        frame = self._frame_from_view(view)
+        points_xyz = self._tessellated_loop_points(curve_loop)
+        points_xyz = self._remove_near_duplicates(points_xyz)
+
+        if len(points_xyz) < 4:
+            return curve_loop
+
+        points_uv = [
+            frame.project((point.X, point.Y, point.Z))
+            for point in points_xyz
+        ]
+
+        changed = True
+        safety = 0
+        while changed and len(points_uv) >= 4 and safety < 100:
+            changed = False
+            safety += 1
+            count = len(points_uv)
+
+            for index in range(count):
+                p0 = points_uv[index % count]
+                p1 = points_uv[(index + 1) % count]
+                p2 = points_uv[(index + 2) % count]
+                p3 = points_uv[(index + 3) % count]
+
+                if not self._is_u_turn_notch(
+                    p0,
+                    p1,
+                    p2,
+                    p3,
+                    tolerance_internal,
+                ):
+                    continue
+
+                remove_indices = sorted(
+                    [
+                        (index + 1) % count,
+                        (index + 2) % count,
+                    ],
+                    reverse=True,
+                )
+                for remove_index in remove_indices:
+                    points_uv.pop(remove_index)
+
+                changed = True
+                break
+
+        if len(points_uv) < 3:
+            return curve_loop
+
+        world_points = [
+            frame.to_world(point[0], point[1])
+            for point in points_uv
+        ]
+
+        from Autodesk.Revit.DB import XYZ
+        xyz_points = [
+            XYZ(point[0], point[1], point[2])
+            for point in world_points
+        ]
+        return self._curve_loop_from_points(
+            xyz_points,
+            max(self._short_curve_tolerance(), 1e-7),
+        )
+
+    @staticmethod
+    def _is_u_turn_notch(p0, p1, p2, p3, tolerance):
+        v1 = (p1[0] - p0[0], p1[1] - p0[1])
+        v2 = (p2[0] - p1[0], p2[1] - p1[1])
+        v3 = (p3[0] - p2[0], p3[1] - p2[1])
+        bridge = (p3[0] - p0[0], p3[1] - p0[1])
+
+        l1 = CropGeometryService._vector_length_2d(v1)
+        l2 = CropGeometryService._vector_length_2d(v2)
+        l3 = CropGeometryService._vector_length_2d(v3)
+        lb = CropGeometryService._vector_length_2d(bridge)
+
+        if min(l1, l2, l3, lb) <= 1e-9:
+            return False
+
+        parallel_13 = abs(
+            (v1[0] * v3[1]) - (v1[1] * v3[0])
+        ) / (l1 * l3)
+        opposite_13 = (
+            (v1[0] * v3[0]) + (v1[1] * v3[1])
+        ) < 0.0
+
+        perpendicular_12 = abs(
+            (v1[0] * v2[0]) + (v1[1] * v2[1])
+        ) / (l1 * l2)
+
+        bridge_parallel_2 = abs(
+            (bridge[0] * v2[1]) - (bridge[1] * v2[0])
+        ) / (lb * l2)
+
+        if (
+            parallel_13 > 1e-3
+            or not opposite_13
+            or perpendicular_12 > 1e-3
+            or bridge_parallel_2 > 1e-3
+        ):
+            return False
+
+        depth = min(l1, l3)
+        width = l2
+
+        return depth <= tolerance or width <= tolerance
+
+    def _detail_cleanup_mm(self, margin_mm):
+        """Tolérance graphique : petite, bornée et liée à la marge."""
+        try:
+            value = float(margin_mm)
+        except Exception:
+            value = 0.0
+
+        return max(
+            self.MIN_DETAIL_CLEANUP_MM,
+            min(self.MAX_DETAIL_CLEANUP_MM, value),
         )
 
     def _solid_from_loop(self, curve_loop, view):
@@ -794,6 +936,14 @@ class CropGeometryService(object):
             origin=(origin.X, origin.Y, origin.Z),
             right=(right.X, right.Y, right.Z),
             up=(up.X, up.Y, up.Z),
+        )
+
+    @staticmethod
+    def _internal_to_millimeters(value):
+        from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+        return UnitUtils.ConvertFromInternalUnits(
+            float(value),
+            UnitTypeId.Millimeters,
         )
 
     @staticmethod
