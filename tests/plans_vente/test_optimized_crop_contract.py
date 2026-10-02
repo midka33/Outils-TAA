@@ -26,15 +26,15 @@ def test_optimized_crop_uses_room_center_boundaries_and_boolean_union():
     assert "BooleanOperationsType.Union" in text
 
 
-def test_optimized_crop_extracts_outer_loop_and_builds_robust_margin():
+def test_optimized_crop_extracts_outer_loop_and_builds_margin_in_2d():
     text = SERVICE.read_text(encoding="utf-8")
 
     assert "GetEdgesAsCurveLoops" in text
     assert "_extract_outer_union_loop" in text
     assert "def _buffer_outward(" in text
-    assert "CreateViaOffset" not in text
-    assert "cap_radius" in text
-    assert "BooleanOperationsType.Union" in text
+    assert "def _try_native_offset_outward(" in text
+    assert "CurveLoop.CreateViaOffset" in text
+    assert "def _try_offset_after_concavity_cleanup(" in text
 
 
 def test_fallback_is_explicit_and_reported():
@@ -91,27 +91,26 @@ def test_crop_capability_is_checked_on_created_target_view():
     assert "fallback_curve_loop" in text
 
 
-def test_robust_margin_uses_edge_strips_and_vertex_caps():
+def test_margin_no_longer_uses_boolean_buffer():
     text = SERVICE.read_text(encoding="utf-8")
 
-    assert "def _buffer_outward(" in text
-    assert "strip_loop" in text
-    assert "cap_points" in text
-    assert "sides = 8" in text
-    assert "math.cos(math.pi / float(sides))" in text
-    assert "BooleanOperationsUtils.ExecuteBooleanOperation" in text
-    assert "def _try_native_offset_outward(" in text
-    assert "CurveLoop.CreateViaOffset" in text
+    buffer_start = text.index("def _buffer_outward(")
+    cleanup_start = text.index("def _cleanup_small_notches(", buffer_start)
+    buffer_block = text[buffer_start:cleanup_start]
+
+    assert "BooleanOperationsUtils" not in buffer_block
+    assert "strip_loop" not in buffer_block
+    assert "cap_points" not in buffer_block
+    assert "_try_native_offset_outward" in buffer_block
+    assert "_try_offset_after_concavity_cleanup" in buffer_block
 
 
-def test_large_margin_uses_square_caps_and_notch_cleanup():
+def test_large_margin_uses_adaptive_concavity_cleanup():
     text = SERVICE.read_text(encoding="utf-8")
 
-    assert "Raccords carrés" in text
-    assert "right_delta" in text
-    assert "up_delta" in text
+    assert "def _try_offset_after_concavity_cleanup(" in text
+    assert "def _point_distance_to_segment(" in text
     assert "def _cleanup_small_notches(" in text
-    assert "def _is_u_turn_notch(" in text
     assert "MIN_DETAIL_CLEANUP_MM = 300.0" in text
     assert "MAX_DETAIL_CLEANUP_MM = 600.0" in text
 
@@ -124,9 +123,9 @@ def test_small_shaft_recesses_are_closed_before_margin():
     assert "def _concave_vertex_indices(" in text
     assert "def _bridge_candidate_polygons(" in text
     assert "def _max_chain_distance_to_bridge(" in text
-    assert "SHAFT_MAX_MOUTH_MM = 1500.0" in text
-    assert "SHAFT_MAX_DEPTH_MM = 1500.0" in text
-    assert "SHAFT_MAX_FILL_AREA_M2 = 2.0" in text
+    assert "SHAFT_MAX_MOUTH_MM = 3500.0" in text
+    assert "SHAFT_MAX_DEPTH_MM = 2000.0" in text
+    assert "SHAFT_MAX_FILL_AREA_M2 = 5.0" in text
     assert text.index("Fermeture des petites gaines et retraits") < text.index(
         "Construction de la marge robuste"
     )
@@ -206,9 +205,13 @@ def test_shaft_cleanup_reports_how_many_pockets_were_closed():
     assert "gaine(s)/retrait(s) comblé(s)" in text
 
 
-def test_native_offset_is_attempted_before_boolean_buffer():
+def test_native_offset_is_attempted_before_adaptive_cleanup():
     text = SERVICE.read_text(encoding="utf-8")
 
-    native_call = text.index("native_offset = self._try_native_offset_outward")
-    boolean_start = text.index("base_solid = self._solid_from_loop")
-    assert native_call < boolean_start
+    buffer_start = text.index("def _buffer_outward(")
+    cleanup_start = text.index("def _cleanup_small_notches(", buffer_start)
+    block = text[buffer_start:cleanup_start]
+
+    native_call = block.index("native_offset = self._try_native_offset_outward")
+    adaptive_call = block.index("adaptive_offset = self._try_offset_after_concavity_cleanup")
+    assert native_call < adaptive_call
