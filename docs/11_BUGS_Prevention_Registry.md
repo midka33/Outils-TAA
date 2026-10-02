@@ -554,6 +554,23 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** tests statiques sur raccords carrés, suppression des petits U et bornes de nettoyage ; validation Revit 2025.4 sur le même logement aux marges 20, 50, 200 et 500 mm.
 
+### BUG-PDV-006 — Le crop entre dans les gaines sans pièce
+
+**Symptôme :** après amélioration des raccords de marge, les angles deviennent propres mais le contour continue à rentrer dans certaines gaines techniques dépourvues de pièce.
+
+**Cause :** le moteur se basait sur l'union exacte des pièces. Une gaine sans Room apparaît donc comme une poche concave du polygone logement. Le nettoyage précédent ne reconnaissait que des motifs simples en U de quatre points et ne couvrait pas les gaines dont le contour comporte davantage de sommets.
+
+**Correction :** fermer les petites poches concaves **avant** la construction de la marge. Le moteur détecte les sommets concaves, teste des ponts directs entre paires de sommets, rejette les ponts qui croisent le contour, puis n'accepte le remplissage que si la bouche, la profondeur et l'aire ajoutée restent sous des seuils conservateurs. Les grandes formes en L doivent donc rester intactes.
+
+Seuils du prototype :
+- bouche maximale : 1 500 mm ;
+- profondeur maximale : 1 500 mm ;
+- aire ajoutée maximale : 2,0 m².
+
+**Règle préventive :** le contour de crop doit être une enveloppe graphique métier, pas l'union brute des Rooms. Les petits vides techniques sans pièce doivent pouvoir être comblés de façon contrôlée avant marge.
+
+**Anti-régression :** test statique garantissant que la fermeture des gaines précède le buffer, plus validation Revit sur le logement A003 utilisé pendant les prototypes.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -606,6 +623,7 @@ BUG-PDV-002
 BUG-PDV-003
 BUG-PDV-004
 BUG-PDV-005
+BUG-PDV-006
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
