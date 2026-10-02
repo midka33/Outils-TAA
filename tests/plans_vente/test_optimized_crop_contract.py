@@ -101,3 +101,15 @@ def test_robust_margin_uses_edge_strips_and_vertex_caps():
     assert "math.cos(math.pi / float(sides))" in text
     assert "BooleanOperationsUtils.ExecuteBooleanOperation" in text
     assert "CurveLoop.CreateViaOffset" not in text
+
+
+def test_large_margin_uses_square_caps_and_notch_cleanup():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "Raccords carrés" in text
+    assert "right_delta" in text
+    assert "up_delta" in text
+    assert "def _cleanup_small_notches(" in text
+    assert "def _is_u_turn_notch(" in text
+    assert "MIN_DETAIL_CLEANUP_MM = 300.0" in text
+    assert "MAX_DETAIL_CLEANUP_MM = 600.0" in text
