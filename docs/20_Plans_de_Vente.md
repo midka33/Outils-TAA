@@ -237,6 +237,45 @@ Vue principale du niveau
 └── Vue dépendante — logement A103
 ```
 
+Ce comportement a été retenu pour la V1 : les vues logement restent des vues dépendantes de vues principales techniques dédiées aux Plans de vente.
+
+### Groupes de vues principales par échelle
+
+Une vue dépendante ne doit jamais forcer un changement d'échelle sur une vue principale déjà utilisée par d'autres logements.
+
+La V1 organise donc les vues par **groupe de compatibilité** :
+
+```text
+niveau
++ vue source de référence
++ échelle
+        ↓
+vue principale technique PDV
+        ↓
+vues dépendantes des logements
+```
+
+Exemple :
+
+```text
+PDV MASTER — Niveau 0 — 1:50
+├── A001
+├── A002
+└── A003
+
+PDV MASTER — Niveau 0 — 1:100
+├── A004
+└── A005
+```
+
+Si une échelle demandée n'a pas encore de vue principale compatible, le module duplique la vue source en **vue indépendante**, applique l'échelle demandée à cette nouvelle vue principale technique, puis crée la vue logement comme dépendante de celle-ci.
+
+Si le groupe existe déjà, il est réutilisé. La vue source choisie par l'utilisateur n'est jamais modifiée.
+
+La vue principale technique n'est pas destinée à être placée sur une feuille ; seules les vues dépendantes des logements le sont.
+
+La clé V1 doit au minimum distinguer le niveau, l'échelle et la vue source de référence. Le futur **Modèle de plan de vente** ajoutera notamment le gabarit et la phase au contrat de compatibilité.
+
 Ce comportement doit être validé par prototype dans Revit 2025.4 avant d'être considéré comme architecture définitive.
 
 Le prototype doit vérifier :
@@ -510,23 +549,51 @@ Une légende déjà intégrée au cartouche ne doit évidemment pas être dupliq
 
 # 15. Échelle et optimisation de la vue
 
-Deux stratégies doivent être possibles :
+## 15.1 Décision V1 — échelle explicite
+
+Pour la V1, l'échelle est **choisie explicitement**. Le module ne cherche pas encore à déterminer automatiquement si un logement tient dans la zone disponible de la feuille.
+
+L'utilisateur peut demander par exemple :
+
+```text
+Échelle de la vue logement
+1:[ 50 ]
+```
+
+Le module ne modifie jamais l'échelle de la vue source sélectionnée.
+
+Il recherche d'abord une vue principale technique PDV correspondant au même niveau, à la même vue source de référence et à l'échelle demandée.
+
+- si elle existe : elle est réutilisée ;
+- sinon : une nouvelle vue principale indépendante est créée depuis la vue source, puis son échelle est réglée ;
+- la vue du logement est ensuite créée comme **vue dépendante** de cette vue principale technique.
+
+Cela permet d'avoir plusieurs groupes sur un même niveau sans désynchroniser les autres logements :
+
+```text
+Niveau 0
+├── groupe 1:50
+│   ├── A001
+│   └── A002
+└── groupe 1:100
+    └── A003
+```
+
+La création et la réutilisation du groupe doivent être déterministes afin de fonctionner également après fermeture/réouverture de Revit.
+
+## 15.2 Ajustement automatique — après V1
+
+L'ajustement automatique reste une évolution ultérieure :
 
 ```text
 Échelle
-● Imposée                       [1:50 ▼]
+● Imposée                       [1:50]
 ○ Ajuster automatiquement si nécessaire
 ```
 
-L'ajustement automatique doit rester une option.
+Lorsqu'il sera activé, le moteur comparera l'emprise du crop et la zone disponible sur la feuille, puis choisira une échelle Revit autorisée. Il devra ensuite rattacher la vue logement au groupe de vue principale correspondant à cette échelle.
 
-Il ne doit jamais changer silencieusement l'échelle définie par l'utilisateur sans que cette règle soit activée.
-
-Le moteur d'optimisation doit comparer :
-
-- l'emprise de la vue ;
-- la zone disponible sur la feuille ;
-- les échelles Revit autorisées.
+Aucun changement automatique d'échelle ne doit avoir lieu tant que cette option n'est pas explicitement activée.
 
 ---
 
@@ -2389,3 +2456,83 @@ N segment(s) parasite(s) absorbé(s)
 
 Cette information doit permettre de vérifier sur A003 que les deux petits retours
 résiduels sont réellement intégrés à la chaîne de la poche avant raccord.
+
+## Validation V1 du détourage — 2026-10-05
+
+Le détourage est considéré **validé pour la V1** après les essais Revit 2025.4 du moteur local A.3.20/A.3.21.
+
+Décision :
+
+- conserver le moteur local actuel comme comportement de référence ;
+- ne plus remettre en cause l'algorithme général pour traiter des cas isolés ;
+- accepter comme limite connue V1 que certaines **gaines palières** puissent encore demander une correction manuelle ;
+- traiter ce cas particulier dans une évolution ultérieure afin de ne pas déstabiliser le moteur validé.
+
+La V1 privilégie donc un contour fiable et rapide sur les cas courants plutôt qu'une automatisation totale de tous les cas de gaine.
+
+
+## A.4 — Échelle et groupes de vues principales
+
+Dernier sous-objectif de l'Étape 03.
+
+### Comportement retenu
+
+La vue source sélectionnée sert uniquement de **référence de duplication**. Elle n'est jamais modifiée.
+
+Pour chaque combinaison :
+
+```text
+vue source + niveau + échelle
+```
+
+le module utilise une vue principale technique dédiée :
+
+```text
+PDV MASTER - <niveau> - 1-<échelle> - <identifiant source>
+```
+
+Lors de la première création, la vue source est dupliquée avec
+`ViewDuplicateOption.Duplicate`, puis l'échelle est appliquée à cette copie.
+Les vues logement sont créées avec `ViewDuplicateOption.AsDependent` depuis
+cette vue principale technique.
+
+Les créations suivantes avec la même source, le même niveau et la même échelle
+réutilisent la vue principale existante. Une autre échelle crée un autre groupe.
+
+Les vues `PDV MASTER` sont exclues de la liste des vues sources proposées afin
+d'éviter les chaînes de masters.
+
+### Interface V1
+
+Le prototype expose un champ **Échelle 1:**. Il reprend par défaut l'échelle de
+la vue source choisie et accepte une valeur explicite telle que `50` ou
+`1:50`.
+
+Aucun calcul automatique d'échelle n'est effectué en V1.
+
+### Contrôles hors Revit
+
+Les tests couvrent :
+
+- normalisation `50` / `1:50` ;
+- rejet des échelles invalides ;
+- nom déterministe d'un groupe par niveau, échelle et source ;
+- duplication indépendante de la vue principale ;
+- création de la vue logement en dépendante du master ;
+- exclusion des masters de la liste des sources.
+
+### Validation finale Étape 03 — à effectuer dans Revit 2025.4
+
+1. choisir un logement et une vue source à l'échelle 1:50 ;
+2. créer le logement à 1:50 ;
+3. vérifier qu'une vue `PDV MASTER ... 1-50 ...` est créée et que le logement
+   en est dépendant ;
+4. créer un deuxième logement du même niveau avec la même source et 1:50 ;
+5. vérifier qu'aucun second master 1:50 n'est créé ;
+6. créer un logement à 1:100 ;
+7. vérifier qu'un master 1:100 distinct est créé ;
+8. vérifier que la vue source d'origine n'a changé ni d'échelle ni de crop ;
+9. vérifier les crops des trois vues logement.
+
+Après validation de ces points, **l'Étape 03 — Vues et crop pourra être clôturée**
+et le développement passera à **l'Étape 04 — Nomenclatures et repérage**.

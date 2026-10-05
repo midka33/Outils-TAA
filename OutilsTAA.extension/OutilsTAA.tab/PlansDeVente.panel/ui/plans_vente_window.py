@@ -8,6 +8,7 @@ import os
 from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
+from plans_vente.view_grouping import normalize_scale
 
 
 class ParameterChoice(object):
@@ -187,9 +188,14 @@ class PlansVenteWindow(forms.WPFWindow):
             )
 
     def SourceViewChanged(self, sender, args):
+        item = self.SourceViewCombo.SelectedItem
+        candidate = getattr(item, "Candidate", None) if item is not None else None
+        if candidate is not None and getattr(candidate, "scale", 0):
+            self.TargetScaleTextBox.Text = str(candidate.scale)
+
         self.CreatePrototypeButton.IsEnabled = (
             self.HousingGrid.SelectedItem is not None
-            and self.SourceViewCombo.SelectedItem is not None
+            and candidate is not None
         )
 
     def CreatePrototype_Click(self, sender, args):
@@ -212,6 +218,7 @@ class PlansVenteWindow(forms.WPFWindow):
 
         try:
             margin_mm = self._parse_margin_mm()
+            target_scale = self._parse_target_scale()
         except Exception as error:
             forms.alert(
                 str(error),
@@ -224,12 +231,14 @@ class PlansVenteWindow(forms.WPFWindow):
             (
                 "Créer une vue dépendante réelle pour le logement « {} » ?\n\n"
                 "Vue source : {}\n"
+                "Échelle : 1:{}\n"
                 "Marge de crop : {} mm\n"
                 "Contour : union optimisée des pièces\n\n"
                 "Cette opération ajoute une vue au projet mais ne supprime rien."
             ).format(
                 housing.key,
                 candidate.name,
+                target_scale,
                 self._format_number(margin_mm),
             ),
             title="Plans de vente — Prototype contour optimisé",
@@ -245,6 +254,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 housing=housing,
                 source_view_unique_id=candidate.unique_id,
                 margin_mm=margin_mm,
+                target_scale=target_scale,
             )
 
             status = "Vue prototype créée : {} — {}.".format(
@@ -258,12 +268,16 @@ class PlansVenteWindow(forms.WPFWindow):
             message = (
                 "Vue dépendante créée avec succès.\n\n"
                 "Nom : {}\n"
-                "Vue principale : {}\n"
+                "Vue source : {}\n"
+                "Vue principale PDV : {}\n"
+                "Échelle : 1:{}\n"
                 "Logement : {}\n"
                 "Crop : {}"
             ).format(
                 result.view_name,
                 result.source_view_name,
+                result.master_view_name,
+                result.target_scale,
                 result.housing_key,
                 result.crop_mode,
             )
@@ -293,10 +307,15 @@ class PlansVenteWindow(forms.WPFWindow):
         self._source_view_choices = []
         self.SourceViewCombo.ItemsSource = []
         self.SourceViewCombo.SelectedIndex = -1
+        self.TargetScaleTextBox.Text = "50"
         self.CreatePrototypeButton.IsEnabled = False
         self.PrototypeInfoText.Text = (
             "Sélectionnez d'abord un logement dans le tableau."
         )
+
+    def _parse_target_scale(self):
+        raw = (self.TargetScaleTextBox.Text or "").strip()
+        return normalize_scale(raw)
 
     def _parse_margin_mm(self):
         raw = (self.CropMarginTextBox.Text or "").strip().replace(",", ".")

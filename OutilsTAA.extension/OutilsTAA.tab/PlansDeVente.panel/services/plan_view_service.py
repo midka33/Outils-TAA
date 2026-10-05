@@ -5,14 +5,16 @@ from __future__ import unicode_literals
 
 
 class PlanViewCandidate(object):
-    def __init__(self, unique_id, name, level_name):
+    def __init__(self, unique_id, name, level_name, scale=0):
         self.unique_id = unique_id or ""
         self.name = name or ""
         self.level_name = level_name or ""
+        self.scale = int(scale or 0)
 
     @property
     def label(self):
-        return "{} — {}".format(self.name, self.level_name)
+        scale_label = "1:{}".format(self.scale) if self.scale else "échelle inconnue"
+        return "{} — {} — {}".format(self.name, self.level_name, scale_label)
 
 
 class PlanViewService(object):
@@ -51,6 +53,12 @@ class PlanViewService(object):
             except Exception:
                 continue
 
+            view_name = str(getattr(view, "Name", "") or "")
+            if view_name.startswith("PDV MASTER - "):
+                # Les vues principales techniques générées ne doivent pas devenir
+                # à leur tour des sources de nouveaux groupes.
+                continue
+
             try:
                 if not view.CanViewBeDuplicated(duplicate_option.AsDependent):
                     continue
@@ -60,8 +68,9 @@ class PlanViewService(object):
             result.append(
                 PlanViewCandidate(
                     unique_id=str(getattr(view, "UniqueId", "") or ""),
-                    name=str(getattr(view, "Name", "") or ""),
+                    name=view_name,
                     level_name=current_level_name,
+                    scale=int(getattr(view, "Scale", 0) or 0),
                 )
             )
 

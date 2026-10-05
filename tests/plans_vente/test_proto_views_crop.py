@@ -12,6 +12,7 @@ def test_new_python_files_parse_and_keep_encoding_header():
     paths = [
         ROOT / "OutilsTAA.extension" / "lib" / "plans_vente" / "crop_bounds.py",
         ROOT / "OutilsTAA.extension" / "lib" / "plans_vente" / "view_frame.py",
+        ROOT / "OutilsTAA.extension" / "lib" / "plans_vente" / "view_grouping.py",
         PANEL / "services" / "plan_view_service.py",
         PANEL / "services" / "crop_geometry_service.py",
         PANEL / "services" / "prototype_view_service.py",
@@ -83,5 +84,27 @@ def test_prototype_needs_only_housing_source_view_and_margin():
             assert obsolete not in text
     text = (PANEL / "ui" / "plans_vente.xaml").read_text(encoding="utf-8")
     assert 'x:Name="SourceViewCombo"' in text
+    assert 'x:Name="TargetScaleTextBox"' in text
     assert 'x:Name="CropMarginTextBox"' in text
     assert 'Content="Créer le contour optimisé"' in text
+
+
+def test_stage03_groups_dependents_under_scale_specific_master_views():
+    service_text = (PANEL / "services" / "prototype_view_service.py").read_text(
+        encoding="utf-8"
+    )
+    plan_text = (PANEL / "services" / "plan_view_service.py").read_text(
+        encoding="utf-8"
+    )
+    controller_text = (PANEL / "services" / "plans_vente_controller.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "ViewDuplicateOption.Duplicate" in service_text
+    assert "ViewDuplicateOption.AsDependent" in service_text
+    assert "_ensure_master_view" in service_text
+    assert "master_view_name(" in service_text
+    assert "master_view.Scale = target_scale" in service_text
+    assert "primary_id != master_view.Id" in service_text
+    assert 'view_name.startswith("PDV MASTER - ")' in plan_text
+    assert "target_scale" in controller_text

@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Prototype contour optimisé
+## État actuel — Étape 03 : vues, crop et échelle
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -28,7 +28,7 @@ Après validation de la détection et des vues dépendantes, le prototype constr
 - marge par offset du contour ;
 - fallback rectangulaire explicite si Revit refuse une géométrie.
 
-Validation réelle dans Revit 2025.4 requise avant de généraliser ce moteur.
+Le détourage est validé pour la V1 dans Revit 2025.4, avec une limite connue sur certaines gaines palières. La validation finale de l'Étape 03 porte désormais sur les groupes de vues principales par échelle.
 
 
 ### Correctif crop Revit
@@ -49,3 +49,15 @@ La marge utilise CreateViaOffset, puis une tentative de nettoyage local sûr.
 Aucun buffer booléen 3D de marge n'est conservé. Si la marge échoue, le rectangle
 de secours reste explicite. Les compteurs détaillent les trois types de raccord.
 Voir `docs/20_Plans_de_Vente.md`, A.3.20, pour seuils et test manuel A003.
+
+### Groupes de vues principales par échelle
+
+La vue source n'est jamais modifiée. Le module crée ou réutilise une vue
+principale technique `PDV MASTER` pour chaque combinaison source / niveau /
+échelle, puis crée les vues logement comme dépendantes de ce master.
+
+L'échelle est explicite en V1 ; aucun ajustement automatique à la feuille n'est
+encore effectué.
+
+Après validation Revit de la réutilisation des masters 1:50 / 1:100, l'Étape 03
+sera clôturée et l'Étape 04 — Nomenclatures et repérage pourra commencer.

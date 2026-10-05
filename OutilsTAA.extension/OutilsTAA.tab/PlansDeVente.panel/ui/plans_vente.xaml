@@ -141,9 +141,12 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="120"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="80"/>
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Grid.Column="0" Text="Vue source"
@@ -153,9 +156,15 @@
                                           SelectionChanged="SourceViewChanged"
                                           Style="{DynamicResource TAAComboBox}"/>
 
-                                <TextBlock Grid.Column="3" Text="Marge crop (mm)"
+                                <TextBlock Grid.Column="3" Text="Échelle 1:"
                                            VerticalAlignment="Center"/>
-                                <TextBox x:Name="CropMarginTextBox" Grid.Column="4"
+                                <TextBox x:Name="TargetScaleTextBox" Grid.Column="4"
+                                         Text="50"
+                                         Style="{DynamicResource TAATextBox}"/>
+
+                                <TextBlock Grid.Column="6" Text="Marge crop (mm)"
+                                           VerticalAlignment="Center"/>
+                                <TextBox x:Name="CropMarginTextBox" Grid.Column="7"
                                          Text="500"
                                          Style="{DynamicResource TAATextBox}"/>
                             </Grid>
