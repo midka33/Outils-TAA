@@ -148,14 +148,15 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Prototypes techniques prioritaires
 
-- [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4.
+- [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4. **Sous-prototype vue dépendante + crop rectangulaire validé dans Revit 2025.4 le 2026-10-01. Correctif suivant implémenté : crop calculé dans le repère écran de la vue (RightDirection / UpDirection) afin d'éliminer l'inclinaison due aux axes globaux ; validation Revit requise.**
 - [ ] PROTO-PDV-02 — Cotations : deux dimensions principales, faces finies, suppression des petits décrochements.
-- [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes.
+- [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes. **Moteur local sans murs en place et calcul rapide. Normalisation locale A/B ajoutée pour absorber jusqu'à deux petits segments résiduels de chaque côté d'une poche avant raccord ; diagnostic des segments absorbés ajouté. Revalidation visuelle A003 requise.**
 
 ### Développement V1
 
-- [ ] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
-- [ ] Collecter et regrouper les pièces par paramètre logement.
+- [x] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
+- [x] Collecter et regrouper les pièces par paramètre logement.
+- [x] Étape 01 validée dans Revit 2025.4 par l'utilisateur le 2026-10-01 : bouton, fenêtre, paramètres texte, analyse des logements, comptages et niveaux.
 - [ ] Implémenter le modèle de configuration de plan de vente.
 - [ ] Générer une ou deux vues par logement selon la configuration.
 - [ ] Appliquer les gabarits sélectionnés.

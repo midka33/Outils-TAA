@@ -7,6 +7,9 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : Étape 03 conservée comme validée V1 avec une dette de robustesse documentée (BUG-PDV-023) lorsque Revit rejette le contour final pour certaines marges ; consolidation reportée sans bloquer l'Étape 04.
+- Plans de vente : Étape 03 validée dans Revit 2025.4 le 2026-10-05 : vues dépendantes, détourage V1, groupes de vues principales par échelle et préservation de la vue source confirmés.
+- Plans de vente : détourage V1 considéré validé dans Revit 2025.4 ; les cas résiduels de gaines palières sont documentés comme limite connue afin de figer le moteur géométrique courant.
 - Charte TAA appliquée aux cinq fenêtres Export : thème partagé, orange pastel,
   Segoe UI, pictogrammes vectoriels, tableaux et champs adaptables. Validation Revit 2025.4 confirmée le 2026-10-01.
 - Calculs des pièces : migration fonctionnelle prête pour validation Revit 2025.4 ; collecte projet entière, workflow READ → DATA → CALCULATE → VALIDATE → WRITE et suppression définitive du choix de périmètre Vue active / Toutes les pièces.
@@ -36,6 +39,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Plans de vente : groupes de vues principales techniques par niveau/source/échelle ; la vue source reste inchangée, les logements sont dépendants d'un `PDV MASTER` réutilisable et l'échelle V1 est choisie explicitement.
 - Nommage Export : recherche et insertion des paramètres des feuilles et des
   informations sur le projet, sources distinctes et gestion des homonymes.
   Anciens modèles `{parametre:...}` conservés ; sélecteur validé dans Revit 2025.4.
