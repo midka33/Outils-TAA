@@ -1,0 +1,88 @@
+name: Publish Outils TAA v1.0.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v1.0.0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare release package
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "Outils-TAA_v1.0.0"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "OutilsTAA.extension" (Join-Path $stage "OutilsTAA.extension") -Recurse
+          $pdv = Join-Path $stage "OutilsTAA.extension\OutilsTAA.tab\PlansDeVente.panel"
+          if (Test-Path $pdv) { Remove-Item $pdv -Recurse -Force }
+          Copy-Item "docs\release\Tutoriel_Export_v1.0.0.md" $stage
+          Copy-Item "docs\release\Tutoriel_Calculs_Pieces_v1.0.0.md" $stage
+          @'
+          OUTILS TAA - RELEASE 1.0.0
+          Modules : Export ; Calculs des pieces
+          Compatibilite : Revit 2025.4 ; pyRevit 5.x
+          '@ | Set-Content (Join-Path $stage "LISEZ_MOI.txt") -Encoding UTF8
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath "Outils-TAA_v1.0.0.zip" -Force
+          $installer = @'
+          @echo off
+          setlocal
+          title Installation Outils TAA v1.0.0
+          set "ROOT=%APPDATA%\pyRevit\Extensions\Outils-TAA"
+          set "DEST=%ROOT%\OutilsTAA.extension"
+          set "TMP=%TEMP%\OutilsTAA_v1"
+          echo Outils TAA v1.0.0 - installation utilisateur
+          if exist "%TMP%" rmdir /S /Q "%TMP%"
+          mkdir "%TMP%"
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/midka33/Outils-TAA/releases/download/v1.0.0/Outils-TAA_v1.0.0.zip' -OutFile '%TMP%\release.zip'; Expand-Archive -Path '%TMP%\release.zip' -DestinationPath '%TMP%\release' -Force"
+          if errorlevel 1 goto :error
+          if exist "%ROOT%" move "%ROOT%" "%ROOT%_backup" >nul 2>&1
+          mkdir "%ROOT%" >nul 2>&1
+          xcopy "%TMP%\release\OutilsTAA.extension" "%DEST%\" /E /I /Y >nul
+          echo Installation terminee.
+          echo Si necessaire, ajouter ce dossier dans Custom Extension Directories :
+          echo %ROOT%
+          echo Fermez/relancez Revit ou utilisez Reload dans pyRevit.
+          goto :end
+          :error
+          echo Echec de l'installation. Verifiez la connexion Internet.
+          :end
+          if exist "%TMP%" rmdir /S /Q "%TMP%"
+          pause
+          '@
+          Set-Content -Path "INSTALLER_Outils_TAA_v1.0.0.cmd" -Value $installer -Encoding ASCII
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @'
+          # Outils TAA v1.0.0
+
+          Premiere release a partager avec les collaborateurs.
+
+          ## Modules
+          - Export : publication PDF/DWG, dossiers/carnets, nommage, previsualisation et rapport.
+          - Calculs des pieces : regroupement, somme, filtre optionnel et ecriture dans un parametre cible.
+
+          ## Compatibilite
+          - Autodesk Revit 2025.4
+          - pyRevit 5.x
+
+          ## Installation
+          Telecharger INSTALLER_Outils_TAA_v1.0.0.cmd, fermer Revit, lancer l'installateur puis relancer Revit.
+          Aucun droit administrateur n'est requis.
+
+          ## Tutoriels
+          Les tutoriels Export et Calculs des pieces sont joints a cette release et inclus dans le ZIP.
+          '@
+          gh release create v1.0.0 "Outils-TAA_v1.0.0.zip" "INSTALLER_Outils_TAA_v1.0.0.cmd" "docs/release/Tutoriel_Export_v1.0.0.md" "docs/release/Tutoriel_Calculs_Pieces_v1.0.0.md" --title "Outils TAA v1.0.0" --notes $notes --target "${{ github.sha }}"
