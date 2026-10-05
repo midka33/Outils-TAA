@@ -2812,3 +2812,17 @@ La V1 met en évidence toutes les pièces appartenant au logement détecté ; el
 10. relancer sur le même logement et vérifier que la collision de nom est bloquée.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+### Correctif 04B — libellés des zones remplies
+
+Lors du premier essai Revit 2025.4, les types de zones remplies étaient bien
+collectés mais leurs libellés apparaissaient vides dans la ComboBox.
+
+Cause : limitation connue d'IronPython sur la propriété `Name` des
+sous-classes de `ElementType`.
+
+Le service lit désormais les noms par `Element.Name.GetValue(...)`.
+Voir **BUG-PDV-024**.
+
+**À retester dans Revit 2025.4.**

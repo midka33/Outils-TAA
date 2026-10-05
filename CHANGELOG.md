@@ -23,6 +23,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Plans de vente : BUG-PDV-024 corrige les libellés vides des types de zones remplies sous IronPython/pyRevit en utilisant `Element.Name.GetValue`.
 - Ruban Export : le titre API `Export` reste non vide et le texte est masqué uniquement après création du contrôle via un smartbutton `__selfinit__` (`ShowText = False`) ; le panneau conserve « Export » et l’icône vectorielle agrandie. La tentative précédente avec un titre blanc a été retirée car Revit la refusait au rechargement. Validation finale Revit du ruban confirmée le 2026-10-01.
 - Calculs des pièces : correction du masquage du package métier `calculation` par le dossier de tests et sécurisation de la syntaxe générée des fichiers WPF/workflow.
 - Calculs des pièces : correction de la collision Python du module générique `models` et agrégation de l'état readonly avant filtrage des destinations écrivable.

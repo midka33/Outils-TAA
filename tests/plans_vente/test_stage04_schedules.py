@@ -164,3 +164,11 @@ def test_location_plan_name_is_collision_blocking_until_stage08():
     text = LOCATION_SERVICE.read_text(encoding="utf-8")
     assert "_ensure_view_name_available" in text
     assert "La mise à jour sera traitée à l'Étape 08." in text
+
+
+
+def test_filled_region_type_name_uses_ironpython_safe_element_name_getter():
+    text = LOCATION_SERVICE.read_text(encoding="utf-8")
+    assert "Element.Name.GetValue(element_type)" in text
+    assert "name=self._element_type_name(region_type)" in text
+    assert "fill_type_name=self._element_type_name(region_type)" in text

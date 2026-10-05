@@ -83,7 +83,7 @@ class LocationPlanService(object):
                             .ToElements()):
             result.append(FilledRegionTypeCandidate(
                 unique_id=str(getattr(region_type, "UniqueId", "") or ""),
-                name=str(getattr(region_type, "Name", "") or ""),
+                name=self._element_type_name(region_type),
             ))
         return sorted(result, key=lambda item: item.name.lower())
 
@@ -143,7 +143,7 @@ class LocationPlanService(object):
             view_unique_id=str(getattr(created_view, "UniqueId", "") or ""),
             region_count=region_count,
             template_name=str(getattr(template, "Name", "") or "") if template is not None else "Conserver la vue source",
-            fill_type_name=str(getattr(region_type, "Name", "") or ""),
+            fill_type_name=self._element_type_name(region_type),
         )
 
     def _room_boundaries(self, room):
@@ -192,6 +192,29 @@ class LocationPlanService(object):
         if element is None:
             raise ValueError(error_message)
         return element
+
+    @staticmethod
+    def _element_type_name(element_type):
+        """Lit le nom d'un ElementType de façon fiable sous IronPython/pyRevit."""
+        if element_type is None:
+            return ""
+
+        try:
+            from Autodesk.Revit.DB import Element
+            value = Element.Name.GetValue(element_type)
+            if value:
+                return str(value)
+        except Exception:
+            pass
+
+        try:
+            value = getattr(element_type, "Name", None)
+            if value:
+                return str(value)
+        except Exception:
+            pass
+
+        return ""
 
     @staticmethod
     def _single_level_name(housing):

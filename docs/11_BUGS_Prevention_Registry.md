@@ -972,6 +972,30 @@ que le rectangle est appliqué et qu'un avertissement remplace l'exception.
 Rejouer ensuite dans Revit les marges 20 / 50 / 200 / 500 mm sur les logements
 de référence.
 
+### BUG-PDV-024 — Noms des types de zones remplies vides dans pyRevit
+
+**Symptôme :** la liste **Zone remplie** contient bien des éléments sélectionnables,
+mais toutes les lignes sont visuellement vides dans l'interface Plans de vente.
+
+**Cause racine :** `FilledRegionType` hérite de `ElementType`. Sous
+IronPython/pyRevit, l'accès direct à `ElementType.Name` peut être illisible ou
+retourner une valeur non exploitable à cause du masquage de la propriété héritée.
+Le service utilisait `getattr(region_type, "Name", "")`, ce qui produisait des
+libellés vides.
+
+**Correction :** lire en priorité le nom par
+`Autodesk.Revit.DB.Element.Name.GetValue(element_type)`, puis conserver
+`Name` comme fallback. La même lecture est utilisée dans la liste et dans le
+rapport de création.
+
+**Règle préventive :** pour les sous-classes de `ElementType` utilisées sous
+IronPython/pyRevit, ne pas supposer que `.Name` est lisible directement.
+Centraliser une lecture sûre lorsque le type doit être affiché dans l'UI.
+
+**Anti-régression :** test statique du service imposant
+`Element.Name.GetValue(element_type)` pour les `FilledRegionType`, puis
+validation réelle dans Revit 2025.4 de l'affichage des noms dans la ComboBox.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1045,6 +1069,7 @@ BUG-PDV-020
 BUG-PDV-021
 BUG-PDV-022
 BUG-PDV-023
+BUG-PDV-024
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
