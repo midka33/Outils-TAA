@@ -40,6 +40,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Plans de vente : prototype 04A des nomenclatures intérieure/extérieure, avec sélection de modèles compatibles, duplication, filtre logement stable et collision de noms bloquante.
 - Plans de vente : groupes de vues principales techniques par niveau/source/échelle ; la vue source reste inchangée, les logements sont dépendants d'un `PDV MASTER` réutilisable et l'échelle V1 est choisie explicitement.
 - Nommage Export : recherche et insertion des paramètres des feuilles et des
   informations sur le projet, sources distinctes et gestion des homonymes.

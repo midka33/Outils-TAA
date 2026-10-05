@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 
 __title__ = "Plans de\nvente"
 __doc__ = (
-    "Détecte les logements et permet de tester une vue dépendante cadrée "
-    "sur un logement."
+    "Détecte les logements, crée les vues cadrées et prépare les "
+    "nomenclatures de plans de vente."
 )
 
 import os
@@ -31,6 +31,7 @@ from plans_vente_controller import PlansVenteController
 from prototype_view_service import PrototypeViewService
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
+from schedule_service import ScheduleService
 from plans_vente_window import PlansVenteWindow
 
 
@@ -65,9 +66,12 @@ def main():
         crop_geometry_service=crop_geometry_service,
     )
 
+    schedule_service = ScheduleService(document)
+
     controller = PlansVenteController(
         analysis_service=analysis_service,
         prototype_view_service=prototype_view_service,
+        schedule_service=schedule_service,
     )
 
     window = PlansVenteWindow(controller)

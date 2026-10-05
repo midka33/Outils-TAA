@@ -82,3 +82,12 @@ Ordre retenu :
 
 Les nomenclatures modèles conservent la logique métier intérieur / extérieur ;
 le plugin ajoute uniquement le filtre du logement choisi.
+
+
+### Prototype 04A — Nomenclatures
+
+Le prototype permet maintenant de choisir deux nomenclatures modèles compatibles avec le paramètre logement, puis de créer une copie intérieure et une copie extérieure filtrées sur le logement sélectionné.
+
+Nommage : `PDV_<logement>_INT` / `PDV_<logement>_EXT`.
+
+Les modèles restent inchangés. Les autres filtres, champs, tris et mises en forme sont conservés par duplication. Validation réelle Revit 2025.4 requise.

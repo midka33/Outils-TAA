@@ -3,7 +3,7 @@ name: Plans de vente — tests hors Revit
 on:
   push:
     branches:
-      - "feature/plans-de-vente-proto-views-crop"
+      - "feature/plans-de-vente-*"
     paths:
       - "OutilsTAA.extension/OutilsTAA.tab/PlansDeVente.panel/**"
       - "OutilsTAA.extension/lib/plans_vente/**"

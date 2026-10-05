@@ -2668,3 +2668,70 @@ validation Revit
         ↓
 Étape 04 validée
 ```
+
+
+## Prototype 04A — Nomenclatures filtrées par logement
+
+Implémentation préparée sur `feature/plans-de-vente-stage04-schedules-location`.
+
+### Comportement
+
+Après l'analyse des logements, l'interface propose uniquement les nomenclatures Revit qui :
+
+- sont des `ViewSchedule` duplicables ;
+- ne sont pas des vues gabarits ;
+- ne sont pas déjà des nomenclatures générées `PDV_...` ;
+- contiennent réellement le champ correspondant au paramètre logement choisi.
+
+L'identification du champ privilégie l'identité stable du paramètre :
+
+- GUID pour un paramètre partagé ;
+- identifiant de paramètre intégré Revit ;
+- identifiant de définition pour un paramètre projet ;
+- nom seulement pour un descripteur qui ne possède aucune identité plus stable.
+
+Pour le logement `A001`, les deux copies sont nommées :
+
+```text
+PDV_A001_INT
+PDV_A001_EXT
+```
+
+Les caractères interdits dans un nom de vue Revit sont neutralisés.
+
+### Conservation du modèle
+
+Chaque nomenclature modèle est dupliquée avec `ViewDuplicateOption.Duplicate`.
+La copie conserve donc les champs, tris, mise en forme et filtres métier du modèle.
+
+Le service repère les filtres qui utilisent le champ logement :
+
+- s'il en existe un, il est remplacé par `paramètre logement = <valeur logement>` ;
+- s'il en existe plusieurs sur ce même champ, un seul filtre d'égalité est conservé ;
+- s'il n'en existe aucun, le filtre d'égalité est ajouté ;
+- les filtres portant sur les autres champs ne sont pas modifiés.
+
+Si le champ logement n'est pas présent ou n'est pas filtrable par valeur, l'opération est refusée avant duplication.
+
+### Sécurité V1
+
+La nomenclature modèle n'est jamais modifiée.
+
+Si `PDV_<logement>_INT` ou `PDV_<logement>_EXT` existe déjà, le prototype bloque la création au lieu de générer silencieusement un doublon. La logique de mise à jour des éléments existants reste réservée à l'Étape 08.
+
+Les deux nomenclatures sont créées dans une transaction courte commune : un échec sur l'une annule la paire.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. choisir le paramètre logement et lancer l'analyse ;
+2. sélectionner un logement ;
+3. sélectionner une nomenclature modèle intérieure et une extérieure ;
+4. cliquer **Créer les nomenclatures** ;
+5. vérifier la création de `PDV_<logement>_INT` et `PDV_<logement>_EXT` ;
+6. vérifier que champs, tris, formatage et filtres métier sont identiques aux modèles ;
+7. vérifier que seul le filtre logement vaut la valeur du logement sélectionné ;
+8. vérifier que les nomenclatures modèles sont inchangées ;
+9. relancer sur le même logement et vérifier que la collision est bloquée ;
+10. vérifier qu'une nomenclature ne contenant pas le paramètre logement n'est pas proposée.
+
+**Statut : À valider dans Revit 2025.4.**

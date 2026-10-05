@@ -3,9 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Plans de vente — Outils TAA"
     Width="1080"
-    Height="720"
+    Height="840"
     MinWidth="900"
-    MinHeight="600"
+    MinHeight="700"
     WindowStartupLocation="CenterScreen"
     Background="{DynamicResource TAABackgroundBrush}"
     FontFamily="Segoe UI"
@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Détection des logements · Prototype contour optimisé"
+                <TextBlock Text="Étape 04 · Nomenclatures et repérage"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -74,7 +74,9 @@
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
@@ -175,6 +177,47 @@
                                 VerticalAlignment="Bottom"
                                 Style="{DynamicResource TAAPrimaryButton}"
                                 Click="CreatePrototype_Click"/>
+                    </Grid>
+                </Border>
+                <Border Grid.Row="4" Background="{DynamicResource TAAPanelBrush}"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Étape 04A — Nomenclatures"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <TextBlock x:Name="ScheduleInfoText"
+                                       Style="{DynamicResource TAASecondaryText}"
+                                       Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="8"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Nomenclature intérieure" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="InteriorScheduleCombo" Grid.Row="0" Grid.Column="1"
+                                          DisplayMemberPath="Label" SelectionChanged="ScheduleTemplateChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Nomenclature extérieure" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="ExteriorScheduleCombo" Grid.Row="2" Grid.Column="1"
+                                          DisplayMemberPath="Label" SelectionChanged="ScheduleTemplateChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
+                            </Grid>
+                        </StackPanel>
+                        <Button x:Name="CreateSchedulesButton" Grid.Column="2"
+                                Content="Créer les nomenclatures" VerticalAlignment="Bottom"
+                                Style="{DynamicResource TAAPrimaryButton}"
+                                Click="CreateSchedules_Click"/>
                     </Grid>
                 </Border>
             </Grid>

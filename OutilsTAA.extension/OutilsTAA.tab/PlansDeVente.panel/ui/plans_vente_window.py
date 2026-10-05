@@ -31,6 +31,12 @@ class SourceViewChoice(object):
         self.Label = candidate.label
 
 
+class ScheduleTemplateChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
 class PlansVenteWindow(forms.WPFWindow):
 
     def __init__(self, controller):
@@ -38,6 +44,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._choices = []
         self._housing_rows = []
         self._source_view_choices = []
+        self._schedule_choices = []
+        self._active_descriptor = None
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "plans_vente.xaml")
@@ -46,6 +54,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._load_theme()
         self._load_context()
         self._clear_prototype_selection()
+        self._clear_schedule_selection()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -144,7 +153,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 )
 
             self.StatusText.Text = message
+            self._active_descriptor = descriptor
             self._clear_prototype_selection()
+            self._load_schedule_templates(descriptor)
         except Exception as error:
             self.StatusText.Text = "Erreur pendant l'analyse."
             forms.alert(
@@ -160,6 +171,7 @@ class PlansVenteWindow(forms.WPFWindow):
         housing = getattr(row, "Housing", None) if row is not None else None
         if housing is None:
             self._clear_prototype_selection()
+            self._update_schedule_button_state()
             return
 
         try:
@@ -186,6 +198,8 @@ class PlansVenteWindow(forms.WPFWindow):
             self.PrototypeInfoText.Text = (
                 "Aucune vue plan principale duplicable n'a été trouvée pour ce niveau."
             )
+
+        self._update_schedule_button_state()
 
     def SourceViewChanged(self, sender, args):
         item = self.SourceViewCombo.SelectedItem
@@ -302,6 +316,108 @@ class PlansVenteWindow(forms.WPFWindow):
                 self.HousingGrid.SelectedItem is not None
                 and self.SourceViewCombo.SelectedItem is not None
             )
+
+    def ScheduleTemplateChanged(self, sender, args):
+        self._update_schedule_button_state()
+
+    def CreateSchedules_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        interior_item = self.InteriorScheduleCombo.SelectedItem
+        exterior_item = self.ExteriorScheduleCombo.SelectedItem
+        interior = getattr(interior_item, "Candidate", None) if interior_item is not None else None
+        exterior = getattr(exterior_item, "Candidate", None) if exterior_item is not None else None
+
+        if housing is None or self._active_descriptor is None or interior is None or exterior is None:
+            forms.alert(
+                "Sélectionnez un logement et les deux nomenclatures modèles.",
+                title="Plans de vente — Nomenclatures",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer les nomenclatures du logement « {} » ?\n\n"
+                "Intérieure : {}\n"
+                "Extérieure : {}\n"
+                "Filtre logement : {} = {}\n\n"
+                "Les nomenclatures modèles ne seront pas modifiées."
+            ).format(
+                housing.key, interior.name, exterior.name,
+                self._active_descriptor.name, housing.key,
+            ),
+            title="Plans de vente — Nomenclatures",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateSchedulesButton.IsEnabled = False
+        try:
+            result = self.controller.create_schedule_prototype(
+                housing=housing,
+                descriptor=self._active_descriptor,
+                interior_template_unique_id=interior.unique_id,
+                exterior_template_unique_id=exterior.unique_id,
+            )
+            self.StatusText.Text = "Nomenclatures créées pour {} : {} / {}.".format(
+                result.housing_key, result.interior_name, result.exterior_name)
+            forms.alert(
+                (
+                    "Nomenclatures créées avec succès.\n\n"
+                    "Intérieure : {}\n"
+                    "Extérieure : {}\n"
+                    "Logement : {}"
+                ).format(result.interior_name, result.exterior_name, result.housing_key),
+                title="Plans de vente — Nomenclatures",
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création des nomenclatures."
+            forms.alert(str(error), title="Plans de vente — Nomenclatures", warn_icon=True)
+        finally:
+            self._update_schedule_button_state()
+
+    def _load_schedule_templates(self, descriptor):
+        self._clear_schedule_selection()
+        if descriptor is None:
+            return
+        try:
+            candidates = self.controller.schedule_templates(descriptor)
+        except Exception as error:
+            self.ScheduleInfoText.Text = str(error)
+            return
+
+        self._schedule_choices = [ScheduleTemplateChoice(candidate) for candidate in candidates]
+        self.InteriorScheduleCombo.ItemsSource = self._schedule_choices
+        self.ExteriorScheduleCombo.ItemsSource = self._schedule_choices
+        if self._schedule_choices:
+            self.InteriorScheduleCombo.SelectedIndex = 0
+            self.ExteriorScheduleCombo.SelectedIndex = 1 if len(self._schedule_choices) > 1 else 0
+            self.ScheduleInfoText.Text = "{} nomenclature(s) compatible(s) avec « {} ».".format(
+                len(self._schedule_choices), descriptor.name)
+        else:
+            self.ScheduleInfoText.Text = "Aucune nomenclature modèle contenant le champ « {} ».".format(
+                descriptor.name)
+        self._update_schedule_button_state()
+
+    def _clear_schedule_selection(self):
+        self._schedule_choices = []
+        self.InteriorScheduleCombo.ItemsSource = []
+        self.ExteriorScheduleCombo.ItemsSource = []
+        self.InteriorScheduleCombo.SelectedIndex = -1
+        self.ExteriorScheduleCombo.SelectedIndex = -1
+        self.CreateSchedulesButton.IsEnabled = False
+        self.ScheduleInfoText.Text = "Analysez les logements pour charger les nomenclatures compatibles."
+
+    def _update_schedule_button_state(self):
+        self.CreateSchedulesButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self._active_descriptor is not None
+            and self.InteriorScheduleCombo.SelectedItem is not None
+            and self.ExteriorScheduleCombo.SelectedItem is not None
+        )
 
     def _clear_prototype_selection(self):
         self._source_view_choices = []
