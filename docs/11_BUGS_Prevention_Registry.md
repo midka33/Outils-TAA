@@ -494,6 +494,18 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 **Règle préventive :** ne jamais utiliser chaîne vide, espace seul ou caractère invisible comme substitut au titre obligatoire d'un `PushButtonData`.  
 **Anti-régression :** test statique exigeant `title: Export` et `ShowText = False`, puis rechargement réel pyRevit sans erreur dans Revit 2025.4.
 
+### BUG-EXPORT-040 — Publication limitée au premier élément d'une sélection multiple
+
+**Symptôme :** plusieurs feuilles/carnets surlignés avec Ctrl/Maj, mais seul l'élément natif actif apparaît dans le périmètre et est exporté.
+
+**Cause racine :** la sélection du gestionnaire de glisser-déposer et `TreeView.SelectedItem` sont distinctes ; résumé, aperçu et publication utilisaient `_selected_set/_selected_item`. Ctrl/Maj interceptait en outre l'événement natif sans actualiser ces actions.
+
+**Correction :** constructeur de périmètre unique à partir de `selected_tags()`, regroupement des feuilles par carnet, copies non persistées et priorité du parent complet sur ses descendants. Notification explicite Ctrl/Maj, distinction sélection vide/native et suppression du wrapper dossier susceptible de remplacer le bouton multiple.
+
+**Règle préventive :** toutes les actions groupées et leur résumé doivent consommer le même état de sélection ; ne jamais confondre élément actif des réglages et périmètre d'action. Un repli clavier ne doit pas réactiver un élément explicitement désélectionné.
+
+**Anti-régression :** `tests/test_export_multiselection.py` exécute les handlers et les hooks Stage 07 ; sous-ensembles, ordre, carnets multiples, paramètres/destinations indépendants, collisions, annulation, Ctrl/Maj et sélection vide. Les anciens tests pointant encore sur `Export.pushbutton/script.py` sont réalignés sur le smartbutton actuel. Recette MS-01 à MS-10 à effectuer dans Revit ; aucun résultat Revit revendiqué.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.

@@ -975,6 +975,11 @@ Ne jamais supposer qu'une valeur saisie est valide.
 
 L'interface doit refléter l'état réel du traitement.
 
+Pour une sélection multiple, distinguer l'élément actif des réglages du périmètre
+d'action. Le résumé, l'aperçu et l'exécution consomment un même constructeur de
+périmètre. Notifier les changements Ctrl/Maj interceptés par WPF et distinguer une
+sélection explicitement vide du repli clavier natif (BUG-EXPORT-040).
+
 Exemple :
 
 ```text

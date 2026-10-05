@@ -42,6 +42,14 @@
 - [ ] Recontrôler TEST-04 et un déplacement multiple après suppression des doublons.
 - [ ] Consolider la surcouche `stage07` après validation réelle.
 
+### V1 — Sélection multiple et tutoriel (2026-10-05)
+
+- [x] Raccorder la sélection Ctrl/Maj au résumé, à l'aperçu et à la publication.
+- [x] Tester hors Revit les sous-ensembles, l'ordre, les doublons et les réglages indépendants.
+- [x] Rédiger le [tutoriel utilisateur](docs/20_Export_Tutoriel.md).
+- [ ] Valider MS-01 à MS-10 dans Revit 2025.4 : [recette](docs/21_Export_Recette_Selection_Multiple.md).
+- [ ] Valider le tutoriel avec l'utilisateur avant release.
+
 ### V1 — Stabilisation et sortie
 
 - [x] Retirer l'option « Publier uniquement les mises en page nouvelles ou modifiées » (décision du 2026-09-30).

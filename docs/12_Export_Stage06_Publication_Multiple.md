@@ -96,6 +96,14 @@ Tester au minimum :
 9. collisions de noms entre deux carnets ;
 10. dossier sans carnet publiable.
 
-## Limite de l'étape 06
+## Extension du 2026-10-05 : sélection indépendante
 
-La sélection multiple indépendante de carnets par `Ctrl + clic` / `Shift + clic` n'est pas encore le mécanisme principal de cette étape. Le périmètre introduit ici est la publication du dossier et de ses descendants.
+La sélection Ctrl/Maj de feuilles et de carnets est raccordée au résumé,
+à l'aperçu global et à la publication. Le service `publication_selection`
+regroupe les feuilles par carnet, évite les doublons parent/enfant et conserve
+l'ordre métier. Le flux direct existant, étendu à plusieurs cibles, utilise
+les hooks Stage 07 ; le flux dossier conserve `PublicationBatchService`.
+Les deux flux consomment les mêmes copies de périmètre et le même moteur PDF/DWG.
+
+Voir `09_Export.md`, `20_Export_Tutoriel.md` et `21_Export_Recette_Selection_Multiple.md`.
+La validation de cette extension dans Revit reste à réaliser avant release.
