@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Étape 04 validée : nomenclatures et repérage
+## État actuel — Étape 05 en cours : étiquettes de pièces
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -123,3 +123,15 @@ ancrages sémantiques en positions réelles dans le modèle de feuille.
 Le module dispose désormais des artefacts nécessaires à l'assemblage futur :
 vue logement, vue de repérage, nomenclatures intérieure/extérieure, avec rôles
 et ancrages explicites.
+
+
+### Étape 05 — Étiquettes
+
+Le prototype permet de choisir une vue logement dépendante et un type
+d'étiquette de pièce. Il recherche plusieurs positions intérieures, utilise
+`Room.IsPointInRoom`, puis contrôle le bounding box réel de l'étiquette.
+
+L'anti-collision V1 évite les autres étiquettes de la vue et prépare un contrat
+`exclusion_boxes` pour les futures zones de cotation.
+
+Validation réelle dans Revit 2025.4 requise.

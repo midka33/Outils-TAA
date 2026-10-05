@@ -3,9 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Plans de vente — Outils TAA"
     Width="1080"
-    Height="840"
+    Height="920"
     MinWidth="900"
-    MinHeight="700"
+    MinHeight="760"
     WindowStartupLocation="CenterScreen"
     Background="{DynamicResource TAABackgroundBrush}"
     FontFamily="Segoe UI"
@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Étape 04 · Nomenclatures et repérage"
+                <TextBlock Text="Étape 05 · Étiquettes de pièces"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -95,6 +95,8 @@
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="10"/>
@@ -239,6 +241,55 @@
                                 Content="Créer les nomenclatures" VerticalAlignment="Bottom"
                                 Style="{DynamicResource TAAPrimaryButton}"
                                 Click="CreateSchedules_Click"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="6" Background="{DynamicResource TAAPanelBrush}"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Étape 05 — Étiquettes de pièces"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <TextBlock x:Name="RoomTagInfoText"
+                                       Style="{DynamicResource TAASecondaryText}"
+                                       Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="Vue logement"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="RoomTagViewCombo" Grid.Column="1"
+                                          DisplayMemberPath="Label"
+                                          SelectionChanged="RoomTagChoiceChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
+
+                                <TextBlock Grid.Column="3" Text="Type étiquette"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="RoomTagTypeCombo" Grid.Column="4"
+                                          DisplayMemberPath="Label"
+                                          SelectionChanged="RoomTagChoiceChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <Button x:Name="CreateRoomTagsButton" Grid.Column="2"
+                                Content="Créer les étiquettes"
+                                VerticalAlignment="Bottom"
+                                Style="{DynamicResource TAAPrimaryButton}"
+                                Click="CreateRoomTags_Click"/>
                     </Grid>
                 </Border>
             </Grid>

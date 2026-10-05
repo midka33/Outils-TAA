@@ -19,6 +19,7 @@ def test_new_python_files_parse_and_keep_encoding_header():
         PANEL / "services" / "plans_vente_controller.py",
         PANEL / "services" / "schedule_service.py",
         PANEL / "services" / "location_plan_service.py",
+        PANEL / "services" / "room_tag_service.py",
         PANEL / "ui" / "plans_vente_window.py",
         PANEL / "PlansDeVente.pushbutton" / "script.py",
     ]
@@ -43,6 +44,8 @@ def test_xaml_handlers_for_prototype_exist():
         "CreateSchedules_Click",
         "LocationChoiceChanged",
         "CreateLocationPlan_Click",
+        "RoomTagChoiceChanged",
+        "CreateRoomTags_Click",
     ):
         assert "def {}(".format(handler) in python_text
 

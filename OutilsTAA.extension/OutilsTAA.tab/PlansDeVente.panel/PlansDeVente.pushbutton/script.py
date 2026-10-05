@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 
 __title__ = "Plans de\nvente"
 __doc__ = (
-    "Détecte les logements et prépare vues, nomenclatures et plans "
-    "de repérage des plans de vente."
+    "Détecte les logements et prépare vues, nomenclatures, repérage "
+    "et étiquettes de pièces des plans de vente."
 )
 
 import os
@@ -32,6 +32,7 @@ from plans_vente_controller import PlansVenteController
 from prototype_view_service import PrototypeViewService
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
+from room_tag_service import RoomTagService
 from schedule_service import ScheduleService
 from plans_vente_window import PlansVenteWindow
 
@@ -68,6 +69,7 @@ def main():
     )
 
     schedule_service = ScheduleService(document)
+    room_tag_service = RoomTagService(document)
     location_plan_service = LocationPlanService(
         document,
         plan_view_service,
@@ -79,6 +81,7 @@ def main():
         prototype_view_service=prototype_view_service,
         schedule_service=schedule_service,
         location_plan_service=location_plan_service,
+        room_tag_service=room_tag_service,
     )
 
     window = PlansVenteWindow(controller)

@@ -2996,3 +2996,88 @@ clôture.
 **Étape 04 — Nomenclatures et repérage : VALIDÉE V1.**
 
 Le placement réel sur feuille reste volontairement réservé à l'Étape 07.
+
+
+## Ouverture Étape 05 — Étiquettes de pièces
+
+Branche : `feature/plans-de-vente-stage05-room-tags`.
+
+### Prototype 05A — placement automatique
+
+La V1 propose un type de `RoomTagType` et une vue logement dépendante générée
+par l'Étape 03.
+
+L'API Revit 2025 vérifiée pour ce prototype est :
+
+- `Document.Create.NewRoomTag(LinkElementId, UV, ElementId)` ;
+- `Room.IsPointInRoom(XYZ)` ;
+- `RoomTag.RoomTagType` ;
+- `SpatialElementTag.TagHeadPosition`.
+
+Le prototype ne place jamais les étiquettes dans la vue source ou dans un
+`PDV MASTER`. Il cible uniquement une vue dépendante
+`PDV PROTO - <logement> - ...`.
+
+### Recherche du point intérieur
+
+Pour chaque pièce :
+
+1. lire le contour fini de la pièce ;
+2. prendre la boucle extérieure la plus grande ;
+3. calculer son centroïde géométrique ;
+4. tester le centre de bounding box ;
+5. conserver le point de localisation Revit comme autre candidat ;
+6. générer une grille de candidats centrée sur la pièce ;
+7. accepter uniquement les candidats pour lesquels
+   `Room.IsPointInRoom(...)` est vrai.
+
+Une fois l'étiquette créée, son emprise graphique réelle est vérifiée via son
+bounding box dans la vue.
+
+Le moteur privilégie :
+
+```text
+pas de collision
+      +
+bounding box entièrement dans la pièce
+      +
+position la plus centrale possible
+```
+
+Si aucune position ne permet de garder toute l'étiquette dans la pièce, le
+centre reste obligatoirement intérieur à la pièce et un avertissement est
+retourné.
+
+### Anti-collision V1
+
+Le prototype évite :
+
+- les étiquettes de pièces déjà présentes dans la vue ;
+- les étiquettes créées plus tôt dans le même logement.
+
+Une marge graphique de sécurité de 10 mm est appliquée entre bounding boxes.
+
+Le service accepte déjà une liste `exclusion_boxes`. L'Étape 06 pourra y
+injecter les futures zones réservées aux cotations sans modifier le moteur de
+placement des étiquettes.
+
+La V1 bloque une nouvelle génération si une pièce du logement possède déjà une
+étiquette dans la vue. La mise à jour / repositionnement d'étiquettes existantes
+reste réservée à l'Étape 08.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. créer ou sélectionner une vue logement dépendante ;
+2. choisir un type d'étiquette ;
+3. cliquer **Créer les étiquettes** ;
+4. vérifier qu'une étiquette est créée pour chaque pièce du logement ;
+5. vérifier le type d'étiquette ;
+6. contrôler une pièce rectangulaire ;
+7. contrôler une pièce en L ou concave ;
+8. vérifier qu'une étiquette trop proche d'un bord est déplacée vers une autre
+   position intérieure lorsque possible ;
+9. vérifier que deux étiquettes ne se superposent pas lorsque des positions
+   alternatives existent ;
+10. relancer sur la même vue et vérifier que les doublons sont bloqués.
+
+**Statut : À valider dans Revit 2025.4.**

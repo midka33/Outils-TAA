@@ -5,11 +5,19 @@ from __future__ import unicode_literals
 
 
 class PlansVenteController(object):
-    def __init__(self, analysis_service, prototype_view_service, schedule_service, location_plan_service):
+    def __init__(
+        self,
+        analysis_service,
+        prototype_view_service,
+        schedule_service,
+        location_plan_service,
+        room_tag_service,
+    ):
         self.analysis_service = analysis_service
         self.prototype_view_service = prototype_view_service
         self.schedule_service = schedule_service
         self.location_plan_service = location_plan_service
+        self.room_tag_service = room_tag_service
 
     def load_context(self):
         return self.analysis_service.load_context()
@@ -72,4 +80,23 @@ class PlansVenteController(object):
             source_view_unique_id,
             filled_region_type_unique_id,
             template_unique_id,
+        )
+
+
+    def room_tag_types(self):
+        return self.room_tag_service.list_tag_types()
+
+    def room_tag_target_views(self, housing):
+        return self.room_tag_service.target_views_for_housing(housing)
+
+    def create_room_tags(
+        self,
+        housing,
+        target_view_unique_id,
+        room_tag_type_unique_id,
+    ):
+        return self.room_tag_service.create_tags(
+            housing,
+            target_view_unique_id,
+            room_tag_type_unique_id,
         )

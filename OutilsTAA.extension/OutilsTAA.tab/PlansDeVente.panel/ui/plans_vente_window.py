@@ -44,6 +44,12 @@ class LocationChoice(object):
         self.Label = label if label is not None else candidate.label
 
 
+class RoomTagChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
 class PlansVenteWindow(forms.WPFWindow):
 
     def __init__(self, controller):
@@ -55,6 +61,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._location_source_choices = []
         self._location_template_choices = []
         self._location_fill_choices = []
+        self._room_tag_type_choices = []
+        self._room_tag_view_choices = []
         self._active_descriptor = None
 
         current_dir = os.path.dirname(__file__)
@@ -67,6 +75,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._clear_schedule_selection()
         self._load_location_static_choices()
         self._clear_location_source_selection()
+        self._load_room_tag_types()
+        self._clear_room_tag_views()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -185,6 +195,7 @@ class PlansVenteWindow(forms.WPFWindow):
         housing = getattr(row, "Housing", None) if row is not None else None
         if housing is None:
             self._clear_prototype_selection()
+            self._clear_room_tag_views()
             self._update_schedule_button_state()
             return
 
@@ -214,6 +225,7 @@ class PlansVenteWindow(forms.WPFWindow):
             )
 
         self._load_location_sources(housing)
+        self._load_room_tag_views(housing)
         self._update_schedule_button_state()
 
     def SourceViewChanged(self, sender, args):
@@ -313,6 +325,8 @@ class PlansVenteWindow(forms.WPFWindow):
 
             if result.warning:
                 message += "\n\nAvertissement :\n{}".format(result.warning)
+
+            self._load_room_tag_views(housing)
 
             forms.alert(
                 message,
@@ -548,6 +562,160 @@ class PlansVenteWindow(forms.WPFWindow):
             self.HousingGrid.SelectedItem is not None
             and self.LocationSourceCombo.SelectedItem is not None
             and self.LocationFillTypeCombo.SelectedItem is not None
+        )
+
+
+    def RoomTagChoiceChanged(self, sender, args):
+        self._update_room_tag_button_state()
+
+    def CreateRoomTags_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        view_item = self.RoomTagViewCombo.SelectedItem
+        type_item = self.RoomTagTypeCombo.SelectedItem
+        view = getattr(view_item, "Candidate", None) if view_item is not None else None
+        tag_type = getattr(type_item, "Candidate", None) if type_item is not None else None
+
+        if housing is None or view is None or tag_type is None:
+            forms.alert(
+                "Sélectionnez un logement, une vue logement et un type d'étiquette.",
+                title="Plans de vente — Étiquettes",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer les étiquettes des pièces du logement « {} » ?\n\n"
+                "Vue logement : {}\n"
+                "Type d'étiquette : {}\n"
+                "Pièces : {}\n\n"
+                "Le moteur cherche d'abord une position entièrement dans la "
+                "pièce et sans collision avec les autres étiquettes."
+            ).format(
+                housing.key,
+                view.name,
+                tag_type.label,
+                housing.room_count,
+            ),
+            title="Plans de vente — Étiquettes",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateRoomTagsButton.IsEnabled = False
+        try:
+            result = self.controller.create_room_tags(
+                housing=housing,
+                target_view_unique_id=view.unique_id,
+                room_tag_type_unique_id=tag_type.unique_id,
+            )
+
+            status = "{} étiquette(s) créée(s) dans {}.".format(
+                result.created_count,
+                result.view_name,
+            )
+            if result.adjusted_count:
+                status += " {} repositionnée(s).".format(result.adjusted_count)
+            if result.warning_count:
+                status += " {} avertissement(s).".format(result.warning_count)
+            self.StatusText.Text = status
+
+            message = (
+                "Étiquettes créées avec succès.\n\n"
+                "Logement : {}\n"
+                "Vue : {}\n"
+                "Type : {}\n"
+                "Créées : {}\n"
+                "Repositionnées : {}"
+            ).format(
+                result.housing_key,
+                result.view_name,
+                result.tag_type_name,
+                result.created_count,
+                result.adjusted_count,
+            )
+            if result.warnings:
+                message += "\n\nAvertissements :\n- " + "\n- ".join(result.warnings)
+
+            forms.alert(
+                message,
+                title="Plans de vente — Étiquettes",
+                warn_icon=bool(result.warnings),
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création des étiquettes."
+            forms.alert(
+                str(error),
+                title="Plans de vente — Étiquettes",
+                warn_icon=True,
+            )
+        finally:
+            self._update_room_tag_button_state()
+
+    def _load_room_tag_types(self):
+        try:
+            candidates = self.controller.room_tag_types()
+        except Exception as error:
+            self.RoomTagInfoText.Text = str(error)
+            candidates = []
+
+        self._room_tag_type_choices = [
+            RoomTagChoice(candidate)
+            for candidate in candidates
+        ]
+        self.RoomTagTypeCombo.ItemsSource = self._room_tag_type_choices
+        self.RoomTagTypeCombo.SelectedIndex = (
+            0 if self._room_tag_type_choices else -1
+        )
+
+    def _load_room_tag_views(self, housing):
+        self._clear_room_tag_views()
+        if housing is None:
+            return
+
+        try:
+            candidates = self.controller.room_tag_target_views(housing)
+        except Exception as error:
+            self.RoomTagInfoText.Text = str(error)
+            return
+
+        self._room_tag_view_choices = [
+            RoomTagChoice(candidate)
+            for candidate in candidates
+        ]
+        self.RoomTagViewCombo.ItemsSource = self._room_tag_view_choices
+        self.RoomTagViewCombo.SelectedIndex = (
+            0 if self._room_tag_view_choices else -1
+        )
+
+        if self._room_tag_view_choices:
+            self.RoomTagInfoText.Text = (
+                "Le centre est testé dans la pièce ; le moteur recherche une "
+                "position alternative en cas de débordement ou collision."
+            )
+        else:
+            self.RoomTagInfoText.Text = (
+                "Créez d'abord une vue logement avec le contour optimisé."
+            )
+        self._update_room_tag_button_state()
+
+    def _clear_room_tag_views(self):
+        self._room_tag_view_choices = []
+        self.RoomTagViewCombo.ItemsSource = []
+        self.RoomTagViewCombo.SelectedIndex = -1
+        self.CreateRoomTagsButton.IsEnabled = False
+        self.RoomTagInfoText.Text = (
+            "Sélectionnez un logement puis une vue logement générée."
+        )
+
+    def _update_room_tag_button_state(self):
+        self.CreateRoomTagsButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.RoomTagViewCombo.SelectedItem is not None
+            and self.RoomTagTypeCombo.SelectedItem is not None
         )
 
     def _clear_prototype_selection(self):

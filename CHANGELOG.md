@@ -46,6 +46,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Plans de vente : prototype Étape 05 des étiquettes de pièces avec type configurable, recherche de point intérieur, contrôle de l'emprise graphique et anti-collision de base.
 - Plans de vente : prototype 04A des nomenclatures intérieure/extérieure, avec sélection de modèles compatibles, duplication, filtre logement stable et collision de noms bloquante.
 - Plans de vente : prototype 04B du plan de repérage, avec vue source configurable, gabarit optionnel et surbrillance du logement par zones remplies.
 - Plans de vente : contrat de placement 04C avec rôles explicites, UniqueId Revit et ancrages sémantiques pour préparer l'assemblage de feuille sans heuristique de nommage.
