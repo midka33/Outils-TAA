@@ -102,3 +102,14 @@ Le module peut maintenant dupliquer une vue plan source en `PDV_<logement>_REP`,
 La vue source reste inchangée. 04B validé dans Revit 2025.4 le 5 octobre 2026, avec une seule zone remplie globale couvrant aussi les cloisons intérieures.
 
 Le premier essai 04B a révélé des libellés vides pour les types de zones remplies sous IronPython ; correction BUG-PDV-024 validée dans Revit 2025.4 le 5 octobre 2026.
+
+
+### 04C — Contrat de placement
+
+Les éléments générés portent maintenant un rôle et un ancrage explicites :
+`MainView/main_view`, `LocationView/location_view`,
+`InteriorSchedule/interior_schedule` et
+`ExteriorSchedule/exterior_schedule`.
+
+Aucune coordonnée de feuille n'est encore appliquée. L'Étape 07 traduira ces
+ancrages sémantiques en positions réelles dans le modèle de feuille.

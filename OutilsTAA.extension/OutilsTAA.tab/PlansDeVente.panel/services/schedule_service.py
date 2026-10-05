@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 """Duplication et filtrage des nomenclatures modèles Plans de vente."""
 
 from common.transaction import RevitTransaction
+from plans_vente.placement_contract import PlacementRole, placement_artifact
 from plans_vente.schedule_naming import schedule_name
 
 
@@ -24,6 +25,7 @@ class SchedulePairResult(object):
         self.interior_unique_id = interior_unique_id or ""
         self.exterior_name = exterior_name or ""
         self.exterior_unique_id = exterior_unique_id or ""
+        self.placements = list(placements or [])
 
 
 class ScheduleService(object):
@@ -111,6 +113,20 @@ class ScheduleService(object):
             interior_unique_id=str(getattr(interior, "UniqueId", "") or ""),
             exterior_name=exterior.Name,
             exterior_unique_id=str(getattr(exterior, "UniqueId", "") or ""),
+            placements=[
+                placement_artifact(
+                    housing.key,
+                    PlacementRole.INTERIOR_SCHEDULE,
+                    str(getattr(interior, "UniqueId", "") or ""),
+                    interior.Name,
+                ),
+                placement_artifact(
+                    housing.key,
+                    PlacementRole.EXTERIOR_SCHEDULE,
+                    str(getattr(exterior, "UniqueId", "") or ""),
+                    exterior.Name,
+                ),
+            ],
         )
 
     def _get_schedule(self, unique_id):

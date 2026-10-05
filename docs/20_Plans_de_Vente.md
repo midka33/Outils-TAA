@@ -2871,3 +2871,84 @@ Points validés :
 **04B — Plan de repérage : VALIDÉ V1.**
 
 Prochaine sous-étape : **04C — contrat de placement / ancrages**.
+
+
+## Prototype 04C — Contrat de placement et ancrages
+
+L'Étape 04 ne place toujours aucun élément sur une feuille. Elle définit
+désormais un **contrat métier explicite** que l'Étape 07 utilisera pour
+l'assemblage.
+
+### Rôles stables
+
+Chaque élément produit reçoit un rôle fonctionnel indépendant de son nom Revit :
+
+| Élément | Rôle | Type de placement | Ancrage |
+|---|---|---|---|
+| Vue logement | `MainView` | `Viewport` | `main_view` |
+| Plan de repérage | `LocationView` | `Viewport` | `location_view` |
+| Nomenclature intérieure | `InteriorSchedule` | `Schedule` | `interior_schedule` |
+| Nomenclature extérieure | `ExteriorSchedule` | `Schedule` | `exterior_schedule` |
+
+Le nom Revit reste utile à l'utilisateur, mais il ne doit plus servir à deviner
+le rôle lors de l'assemblage.
+
+### Artefact de placement
+
+Chaque résultat de création transporte désormais :
+
+```text
+HousingKey
+Role
+ElementUniqueId
+ElementName
+PlacementKind
+AnchorKey
+```
+
+Le `UniqueId` Revit est utilisé dans le contrat courant plutôt qu'un
+`ElementId` volatile.
+
+Les services renvoient directement ces métadonnées au moment où ils créent
+l'élément :
+
+- vue logement → un artefact `MainView` ;
+- plan de repérage → un artefact `LocationView` ;
+- paire de nomenclatures → deux artefacts
+  `InteriorSchedule` / `ExteriorSchedule`.
+
+Cela évite qu'un futur contrôleur recherche des vues par préfixe de nom pour
+déterminer leur fonction.
+
+### Ancrages
+
+Les ancrages de 04C sont des **identifiants sémantiques**, pas encore des
+coordonnées papier.
+
+```text
+main_view
+location_view
+interior_schedule
+exterior_schedule
+```
+
+L'Étape 07 associera ces identifiants aux coordonnées réelles d'un
+**Modèle de plan de vente / feuille modèle**.
+
+Aucune coordonnée XYZ n'est codée en dur dans l'Étape 04.
+
+### Validation du contrat
+
+`HousingPlacementContract` garantit pour un logement :
+
+- un seul artefact par rôle ;
+- un seul artefact par ancrage ;
+- cohérence logement / rôle / type de placement / ancrage ;
+- présence d'un `UniqueId` et d'un nom d'élément.
+
+La persistance durable de `GeneratedBy`, `HousingKey`, `TemplateId` et
+`Role` dans le projet Revit reste volontairement réservée à l'Étape 08.
+
+**04C ne nécessite pas de validation graphique Revit**, car il n'effectue aucune
+opération de placement ni transaction supplémentaire. Sa validation repose sur
+les tests du contrat et sur les résultats déjà validés de 04A/04B.

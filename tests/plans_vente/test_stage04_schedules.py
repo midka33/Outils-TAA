@@ -7,6 +7,13 @@ from plans_vente.defaults import (
     DEFAULT_HOUSING_PARAMETER_NAME,
     preferred_housing_parameter_index,
 )
+from plans_vente.placement_contract import (
+    AnchorKey,
+    HousingPlacementContract,
+    PlacementKind,
+    PlacementRole,
+    placement_artifact,
+)
 from plans_vente.schedule_naming import schedule_name
 
 
@@ -192,3 +199,85 @@ def test_location_highlight_refuses_rectangular_fallback():
     text = LOCATION_SERVICE.read_text(encoding="utf-8")
     assert 'if not highlight_result.mode.startswith("Contour optimisé")' in text
     assert "Aucun rectangle de secours n'est utilisé" in text
+
+
+
+def test_stage04c_roles_have_stable_placement_kind_and_anchor():
+    main = placement_artifact("A001", PlacementRole.MAIN_VIEW, "view-main", "Vue")
+    rep = placement_artifact(
+        "A001",
+        PlacementRole.LOCATION_VIEW,
+        "view-rep",
+        "Repérage",
+    )
+    interior = placement_artifact(
+        "A001",
+        PlacementRole.INTERIOR_SCHEDULE,
+        "schedule-int",
+        "INT",
+    )
+    exterior = placement_artifact(
+        "A001",
+        PlacementRole.EXTERIOR_SCHEDULE,
+        "schedule-ext",
+        "EXT",
+    )
+
+    assert main.placement_kind == PlacementKind.VIEWPORT
+    assert main.anchor_key == AnchorKey.MAIN_VIEW
+    assert rep.placement_kind == PlacementKind.VIEWPORT
+    assert rep.anchor_key == AnchorKey.LOCATION_VIEW
+    assert interior.placement_kind == PlacementKind.SCHEDULE
+    assert interior.anchor_key == AnchorKey.INTERIOR_SCHEDULE
+    assert exterior.placement_kind == PlacementKind.SCHEDULE
+    assert exterior.anchor_key == AnchorKey.EXTERIOR_SCHEDULE
+
+
+def test_stage04c_housing_contract_rejects_duplicate_roles():
+    first = placement_artifact(
+        "A001", PlacementRole.MAIN_VIEW, "view-1", "Vue 1"
+    )
+    second = placement_artifact(
+        "A001", PlacementRole.MAIN_VIEW, "view-2", "Vue 2"
+    )
+    try:
+        HousingPlacementContract("A001", [first, second])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Deux artefacts portant le même rôle ont été acceptés.")
+
+
+def test_stage04c_services_return_explicit_placement_metadata():
+    prototype = (
+        PANEL / "services" / "prototype_view_service.py"
+    ).read_text(encoding="utf-8")
+    schedules = SERVICE.read_text(encoding="utf-8")
+    location = LOCATION_SERVICE.read_text(encoding="utf-8")
+
+    assert "PlacementRole.MAIN_VIEW" in prototype
+    assert "self.placement = placement" in prototype
+
+    assert "PlacementRole.INTERIOR_SCHEDULE" in schedules
+    assert "PlacementRole.EXTERIOR_SCHEDULE" in schedules
+    assert "self.placements = list(placements or [])" in schedules
+
+    assert "PlacementRole.LOCATION_VIEW" in location
+    assert "self.placement = placement" in location
+
+
+def test_stage04c_contract_has_no_sheet_coordinates_or_revit_api():
+    path = (
+        ROOT
+        / "OutilsTAA.extension"
+        / "lib"
+        / "plans_vente"
+        / "placement_contract.py"
+    )
+    text = path.read_text(encoding="utf-8")
+    ast.parse(text)
+
+    assert "Autodesk.Revit" not in text
+    assert "XYZ" not in text
+    assert "Viewport.Create" not in text
+    assert "ScheduleSheetInstance.Create" not in text

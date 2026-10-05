@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from common.transaction import RevitTransaction
 from plans_vente.location_naming import location_view_name
+from plans_vente.placement_contract import PlacementRole, placement_artifact
 
 
 class LocationTemplateCandidate(object):
@@ -35,6 +36,7 @@ class LocationPlanResult(object):
         self.region_count = int(region_count or 0)
         self.template_name = template_name or ""
         self.fill_type_name = fill_type_name or ""
+        self.placement = placement
 
 
 class LocationPlanService(object):
@@ -154,6 +156,12 @@ class LocationPlanService(object):
             region_count=region_count,
             template_name=str(getattr(template, "Name", "") or "") if template is not None else "Conserver la vue source",
             fill_type_name=self._element_type_name(region_type),
+            placement=placement_artifact(
+                housing.key,
+                PlacementRole.LOCATION_VIEW,
+                str(getattr(created_view, "UniqueId", "") or ""),
+                created_view.Name,
+            ),
         )
 
     def _create_global_filled_region(self, view, region_type, curve_loop):
