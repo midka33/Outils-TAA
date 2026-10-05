@@ -2835,7 +2835,7 @@ distinguer graphiquement intérieur et extérieur dans le plan de repérage.
     devenir un simple rectangle ;
 11. relancer sur le même logement et vérifier que la collision de nom est bloquée.
 
-**Statut : À valider dans Revit 2025.4.**
+**Statut : VALIDÉ dans Revit 2025.4 le 5 octobre 2026.**
 
 
 ### Correctif 04B — libellés des zones remplies
@@ -2850,3 +2850,24 @@ Le service lit désormais les noms par `Element.Name.GetValue(...)`.
 Voir **BUG-PDV-024**.
 
 **Correctif des libellés validé dans Revit 2025.4 le 5 octobre 2026.**
+
+
+### Validation finale 04B — 2026-10-05
+
+Validation utilisateur confirmée dans Revit 2025.4 / pyRevit 5.x.
+
+Points validés :
+
+- noms des types de zones remplies correctement affichés ;
+- duplication de la vue source sans modification de l'original ;
+- création de `PDV_<logement>_REP` ;
+- gabarit optionnel appliqué uniquement à la copie ;
+- création d'une **seule zone remplie globale** ;
+- enveloppe continue du logement ;
+- cloisons intérieures recouvertes par la surbrillance ;
+- contour global issu du moteur géométrique de l'Étape 03 à marge nulle ;
+- absence de rectangle de secours implicite.
+
+**04B — Plan de repérage : VALIDÉ V1.**
+
+Prochaine sous-étape : **04C — contrat de placement / ancrages**.
