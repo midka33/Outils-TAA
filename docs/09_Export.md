@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 4.2  
+**Version :** 4.3
 **Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -19,6 +19,40 @@ Le modèle expose `modified_only=False` en lecture seule pour les intégrations 
 encore présentes. La case XAML et ses handlers/synchronisations sont supprimés.
 Les services de filtrage isolés restent disponibles pour une éventuelle V2.
 Le retour de l'option sera étudié **après finalisation et sortie de la V1** : voir `ROADMAP.md`.
+
+## Sélection multiple — correctif du 2026-10-05
+
+`Ctrl + clic` sélectionne plusieurs feuilles et/ou carnets ; `Maj + clic`
+sélectionne une plage (feuilles du même carnet). Le résumé, **Aperçu…** et
+**Publier la sélection** utilisent le même périmètre. Une désélection explicite
+vide désactive la publication ; la navigation clavier retrouve la sélection native.
+
+Les feuilles sont regroupées par carnet dans leur ordre métier. Un carnet/dossier
+sélectionné inclut son contenu entier et prime sur ses descendants sélectionnés,
+sans doublon dans un même carnet. Une feuille dans deux carnets reste deux livrables.
+Chaque carnet conserve ses réglages, son héritage et sa destination ; les copies
+de publication ne modifient jamais le contenu persistant du carnet.
+Un PDF combiné contient seulement les feuilles retenues de son carnet, sans fusion
+entre carnets. Un sous-ensemble peut remplacer un PDF complet du même nom :
+l'avertissement de fichier existant reste visible dans l'aperçu.
+
+Les réglages à droite restent ceux de l'élément actif nommé dans ce panneau,
+sans édition groupée implicite. Les collisions entre les fichiers de la sélection
+sont contrôlées avant confirmation. Un aperçu global et un rapport global couvrent
+la sélection complète. Les destinations distinctes restent indiquées dans le rapport.
+
+Contrat technique : `publication_selection.publication_targets` est le constructeur
+métier indépendant de WPF ; `ExportWindow._publication_targets` est le point de
+raccordement commun au résumé, à l'aperçu et au handler de publication. Le gestionnaire
+Ctrl/Maj notifie explicitement la fenêtre, car l'événement natif WPF est intercepté.
+Le handler natif `Tree_SelectedItemChanged` reste propriétaire du chargement des réglages ;
+la surcouche de sélection de dossier devenue redondante est retirée.
+
+Voir [le tutoriel utilisateur](20_Export_Tutoriel.md) et
+[la recette Revit](21_Export_Recette_Selection_Multiple.md).
+**Statut : 212 tests Python réussis ; fonctionnement de la sélection multiple
+confirmé par l’utilisateur dans Revit le 2026-10-05 sur la branche de la PR #11.**
+La recette détaillée MS-01 à MS-10 reste distincte de cette validation fonctionnelle.
 
 ## Héritage récursif des réglages
 

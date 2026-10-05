@@ -16,6 +16,7 @@ from carnet_sheets_window import CarnetSheetsWindow
 from carnet_manager_window import CarnetManagerWindow
 from publication_folder import PublicationFolder, _folder_targets
 from publication_overview import formats_for, summarize_publication
+from publication_selection import publication_targets
 from pdf_settings_window import PdfSettingsWindow
 from pdf_options import PDF_OPTIONS, defaults as pdf_defaults
 from publication_settings import PublicationSettings
@@ -182,26 +183,47 @@ class ExportWindow(forms.WPFWindow):
             for node in nodes:
                 tag = node.Tag
                 if tag and tag[0] == "SHEET":
-                    node.Header = self._sheet_header(tag[1], self._resolve_settings(tag[2]))
+                    settings = self._resolve_settings(tag[2])
+                    expected = " + ".join(formats_for(settings)) or "Aucun format activé"
+                    # Préserver la source du clic pendant les événements Preview WPF.
+                    if getattr(node.Header, "ToolTip", None) != expected:
+                        node.Header = self._sheet_header(tag[1], settings)
                 refresh(node.Items)
         refresh(self.PublicationTree.Items)
-        targets = []
+        tags = self._publication_selection_tags()
+        targets = self._publication_targets()
         context = "Aucune publication sélectionnée."
-        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
-            targets = _folder_targets(self, self._selected_folder)
-            context = "Dossier : {0} | Périmètre : dossier et sous-dossiers".format(self._selected_folder.name)
-        elif self._selected_set is not None:
-            targets = [self._selected_set]
-            folder = self._folder_for_set(self._selected_set)
+        if len(tags) > 1:
+            context = "Périmètre : sélection multiple ({0} éléments)".format(len(tags))
+        elif tags and tags[0][0] == "FOLDER":
+            context = "Dossier : {0} | Périmètre : dossier et sous-dossiers".format(tags[0][1].name)
+        elif tags:
+            tag = tags[0]
+            parent = tag[2] if tag[0] == "SHEET" else tag[1]
+            folder = self._folder_for_set(parent)
             chain = self.settings_resolver.folder_chain(folder, self._folders)
             path = " / ".join(f.name for f in reversed(chain))
-            scope = "cette mise en page" if self._selected_kind == "SHEET" else "tout le carnet"
-            context = "Dossier : {0} | Carnet : {1} | Périmètre : {2}".format(path, self._selected_set.name, scope)
+            scope = "cette mise en page" if tag[0] == "SHEET" else "tout le carnet"
+            context = "Dossier : {0} | Carnet : {1} | Périmètre : {2}".format(path, parent.name, scope)
         self.PublicationSummaryText.Text = context
         if targets:
             self.PublicationSummaryText.Text += "\n" + summarize_publication(
-                targets, self._resolve_settings,
-                self._selected_item if self._selected_kind == "SHEET" else None)
+                targets, self._resolve_settings)
+
+    def _publication_selection_tags(self):
+        manager = getattr(self, "_drag_drop_manager", None)
+        if manager is not None:
+            return manager.selected_tags()
+        node = self.PublicationTree.SelectedItem
+        return [node.Tag] if node is not None and getattr(node, "Tag", None) else []
+
+    def _publication_targets(self):
+        return publication_targets(self._publication_selection_tags(),
+                                   lambda folder: _folder_targets(self, folder))
+
+    def _publication_selection_changed(self):
+        """Ctrl/Maj ne déclenche pas l'événement natif de sélection WPF."""
+        self.Tree_SelectedItemChanged(None, None)
 
     def _belongs_to_current_project(self, publication_set):
         return publication_set is not None and any(item is not None and item.unique_id in self.current_project_unique_ids for item in (publication_set.items or []))
@@ -221,10 +243,12 @@ class ExportWindow(forms.WPFWindow):
         self._selected_item = None
         self._selected_kind = None
         self._selected_folder = None
-        if node is None or not getattr(node, "Tag", None):
+        tags = self._publication_selection_tags()
+        if not tags:
             self._set_no_selection()
             return
-        tag = node.Tag
+        native_tag = getattr(node, "Tag", None)
+        tag = native_tag if native_tag in tags else tags[0]
         if tag[0] == "CARNET":
             self._selected_kind = "CARNET"
             self._selected_set = tag[1]
@@ -511,12 +535,7 @@ class ExportWindow(forms.WPFWindow):
     def Preview_Click(self, sender, args):
         # Réutilise le constructeur d'aperçu actif, y compris le raccordement Stage 07.
         import publication_preview_integration as preview_flow
-        if self._selected_kind == "FOLDER":
-            targets = _folder_targets(self, self._selected_folder)
-        elif self._selected_kind == "SHEET" and self._selected_item is not None:
-            targets = [self._make_sheet_target()]
-        else:
-            targets = [self._selected_set] if self._selected_set is not None else []
+        targets = self._publication_targets()
         if not targets:
             return
         dialog = preview_flow.PublicationPreviewWindow(preview_flow._build_preview(self, targets), owner=self)

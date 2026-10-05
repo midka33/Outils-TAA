@@ -20,21 +20,12 @@ from publication_tree_delete import deletion_targets, delete_selected
 
 def install_preview_on_export_window(export_window_class):
     """Installe l'aperçu, la publication de dossier et les handlers WPF."""
-    original_selection_changed = getattr(export_window_class, "Tree_SelectedItemChanged", None)
     original_init = export_window_class.__init__
     original_refresh_tree = getattr(export_window_class, "_refresh_tree", None)
 
     def init_with_tree_features(self, controller, repository):
         original_init(self, controller, repository)
         self._publication_history_service = _history_service()
-
-    def selection_changed_with_folder_action(self, sender, args):
-        if original_selection_changed is not None:
-            original_selection_changed(self, sender, args)
-        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
-            count = len(_folder_targets(self, self._selected_folder))
-            self.PublishButton.Content = "Publier le dossier « {0} »".format(self._selected_folder.name)
-            self.PublishButton.IsEnabled = count > 0
 
     def refresh_tree_preserving_expansion(self):
         """Rafraîchit l'arbre sans refermer les dossiers/carnets déjà ouverts."""
@@ -69,19 +60,19 @@ def install_preview_on_export_window(export_window_class):
             restore(self.PublicationTree.Items)
         except Exception:
             pass
+        manager = getattr(self, "_drag_drop_manager", None)
+        if manager is not None:
+            manager._select(manager.selected, fallback_to_native=not manager._selection_explicit)
 
     def publish_click_with_preview(self, sender, args):
-        if self._selected_kind == "SHEET" and self._selected_item is not None:
-            targets = [self._make_sheet_target()]
-            return _preview_then_publish_single(self, targets)
-
-        if self._selected_kind == "CARNET" and self._selected_set is not None:
-            return _preview_then_publish_single(self, [self._selected_set])
-
-        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
-            return _preview_then_publish_folder(self, _folder_targets(self, self._selected_folder))
-
-        forms.alert("Sélectionnez un carnet ou une mise en page dans l'arborescence.", title="Publication")
+        tags = self._publication_selection_tags()
+        targets = self._publication_targets()
+        if not targets:
+            forms.alert("Sélectionnez au moins un carnet ou une mise en page à publier.", title="Publication")
+            return
+        if len(tags) == 1 and tags[0][0] == "FOLDER":
+            return _preview_then_publish_folder(self, targets)
+        return _preview_then_publish_single(self, targets)
 
     def manager_click_with_folder(self, sender, args):
         target_folder_id = "default"
@@ -99,24 +90,26 @@ def install_preview_on_export_window(export_window_class):
             self._refresh_tree()
 
     def update_selection_info(self):
-        if self._selected_kind == "CARNET" and self._selected_set is not None:
-            count = len(self._selected_set.items or [])
-            self.SelectionInfo.Text = "Carnet sélectionné : {0} • {1} mise(s) en page.".format(self._selected_set.name, count)
-            self.PublishButton.Content = "Publier le carnet « {0} »".format(self._selected_set.name)
-            self.PublishButton.IsEnabled = count > 0
+        tags = self._publication_selection_tags()
+        targets = self._publication_targets()
+        if not tags:
+            self._set_no_selection()
             return
-        if self._selected_kind == "SHEET" and self._selected_item is not None:
-            self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(self._selected_item.sheet_number or "", self._selected_item.sheet_name or "")
-            self.PublishButton.Content = "Publier la mise en page"
-            self.PublishButton.IsEnabled = True
-            return
-        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
-            count = len(_folder_targets(self, self._selected_folder))
-            self.SelectionInfo.Text = "Dossier sélectionné : {0} • {1} carnet(s) publiable(s).".format(self._selected_folder.name, count)
-            self.PublishButton.Content = "Publier le dossier « {0} »".format(self._selected_folder.name)
-            self.PublishButton.IsEnabled = count > 0
-            return
-        self._set_no_selection()
+        count = sum(len(target.items or []) for target in targets)
+        if len(tags) > 1:
+            self.SelectionInfo.Text = "Sélection : {0} éléments • {1} carnet(s) • {2} mise(s) en page.".format(len(tags), len(targets), count)
+            self.PublishButton.Content = "Publier la sélection"
+        else:
+            kind, value = tags[0][:2]
+            if kind == "SHEET":
+                self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(value.sheet_number or "", value.sheet_name or "")
+                self.PublishButton.Content = "Publier la mise en page"
+            else:
+                label = "dossier" if kind == "FOLDER" else "carnet"
+                self.SelectionInfo.Text = "{0} : {1} • {2} mise(s) en page.".format(label.capitalize(), value.name, count)
+                self.PublishButton.Content = "Publier le {0} « {1} »".format(label, value.name)
+        self.PublishButton.IsEnabled = count > 0
+        self._update_publication_overview()
 
     def set_no_selection_compat(self, sender=None, args=None):
         self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
@@ -166,20 +159,6 @@ def install_preview_on_export_window(export_window_class):
         self._update_selection_info()
         if blocked:
             forms.alert("Éléments conservés :\n" + "\n".join(blocked), title="Export")
-
-    def make_sheet_target(self):
-        parent = self._selected_set
-        settings = self._resolve_settings(parent)
-        return PublicationSet(
-            name=parent.name,
-            items=[self._selected_item],
-            source=parent.source,
-            output_directory=settings.output_directory,
-            filename_template_id=parent.filename_template_id,
-            set_id=str(Guid.NewGuid()),
-            persistent=False,
-            folder_id=parent.folder_id,
-            publication_settings=settings)
 
     def folder_name_compat(self, publication_set):
         folder = self._folder_for_set(publication_set)
@@ -270,8 +249,6 @@ def install_preview_on_export_window(export_window_class):
         export_window_class._update_selection_info = update_selection_info
     if not hasattr(export_window_class, "_set_no_selection"):
         export_window_class._set_no_selection = set_no_selection_compat
-    if not hasattr(export_window_class, "_make_sheet_target"):
-        export_window_class._make_sheet_target = make_sheet_target
     if not hasattr(export_window_class, "_folder_name"):
         export_window_class._folder_name = folder_name_compat
     if not hasattr(export_window_class, "Publish_Click"):
@@ -293,7 +270,6 @@ def install_preview_on_export_window(export_window_class):
 
     export_window_class.__init__ = init_with_tree_features
     export_window_class._refresh_tree = refresh_tree_preserving_expansion
-    export_window_class.Tree_SelectedItemChanged = selection_changed_with_folder_action
     export_window_class.OpenCarnetManager_Click = manager_click_with_folder
     export_window_class.Publish_Click = publish_click_with_preview
 
@@ -376,7 +352,7 @@ def _preview_then_publish_single(window, targets):
 def _publish_targets(window, targets):
     all_results, all_errors, all_warnings = [], [], []
     all_success = True
-    output_directory = None
+    output_directories = []
 
     for publication_set in targets:
         effective_target, settings, history_info = _effective_publication_target(window, publication_set)
@@ -385,7 +361,8 @@ def _publish_targets(window, targets):
             all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
             all_success = False
             continue
-        output_directory = settings.output_directory
+        if settings.output_directory not in output_directories:
+            output_directories.append(settings.output_directory)
         try:
             result = window.controller.publish(
                 effective_target.with_settings(settings),
@@ -417,11 +394,11 @@ def _publish_targets(window, targets):
 
     report = {
         "success": all_success,
-        "carnet": "Publication : carnet/mise en page",
+        "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
         "results": all_results,
         "errors": all_errors,
         "warnings": all_warnings,
-        "output_directory": output_directory or ""
+        "output_directory": "; ".join(output_directories)
     }
     PublicationReportWindow(report, owner=window).ShowDialog()
 

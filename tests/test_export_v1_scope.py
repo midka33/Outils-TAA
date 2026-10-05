@@ -34,7 +34,7 @@ def test_legacy_filter_is_ignored_at_every_level(layer, tmp_path):
 
 
 def stage_functions(namespace):
-    tree = ast.parse((PANEL / 'Export.pushbutton/script.py').read_text(encoding='utf-8'))
+    tree = ast.parse((PANEL / 'Export.smartbutton/script.py').read_text(encoding='utf-8'))
     nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in (
         '_build_preview_stage07', '_publish_targets_stage07', '_preview_then_publish_folder_stage07')]
     exec(compile(ast.Module(body=nodes, type_ignores=[]), 'script.py', 'exec'), namespace)
@@ -104,7 +104,7 @@ def test_unchanged_sheets_reach_preview_and_publication(scope, tmp_path):
 
 def test_removed_control_has_no_dangling_ui_references():
     ET.parse(str(PANEL / 'ui.xaml'))
-    for relative in ('ui.xaml', 'Export.pushbutton/script.py', 'services/publication_preview_integration.py'):
+    for relative in ('ui.xaml', 'Export.smartbutton/script.py', 'services/publication_preview_integration.py'):
         source = (PANEL / relative).read_text(encoding='utf-8')
         assert 'ModifiedOnlyCheckBox' not in source
         assert 'ModifiedOnlyChanged' not in source
