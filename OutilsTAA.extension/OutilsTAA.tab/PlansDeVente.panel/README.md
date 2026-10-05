@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Étape 03 : vues, crop et échelle
+## État actuel — Étape 03 validée / Étape 04 à démarrer
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -59,5 +59,6 @@ principale technique `PDV MASTER` pour chaque combinaison source / niveau /
 L'échelle est explicite en V1 ; aucun ajustement automatique à la feuille n'est
 encore effectué.
 
-Après validation Revit de la réutilisation des masters 1:50 / 1:100, l'Étape 03
-sera clôturée et l'Étape 04 — Nomenclatures et repérage pourra commencer.
+L'Étape 03 a été validée dans Revit 2025.4 le 5 octobre 2026 : masters 1:50 / 1:100, réutilisation, dépendances et préservation de la vue source sont conformes.
+
+Prochaine étape : **Étape 04 — Nomenclatures et repérage**.

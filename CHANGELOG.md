@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : Étape 03 validée dans Revit 2025.4 le 2026-10-05 : vues dépendantes, détourage V1, groupes de vues principales par échelle et préservation de la vue source confirmés.
 - Plans de vente : détourage V1 considéré validé dans Revit 2025.4 ; les cas résiduels de gaines palières sont documentés comme limite connue afin de figer le moteur géométrique courant.
 - Charte TAA appliquée aux cinq fenêtres Export : thème partagé, orange pastel,
   Segoe UI, pictogrammes vectoriels, tableaux et champs adaptables. Validation Revit 2025.4 confirmée le 2026-10-01.

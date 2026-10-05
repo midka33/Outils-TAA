@@ -2521,18 +2521,42 @@ Les tests couvrent :
 - création de la vue logement en dépendante du master ;
 - exclusion des masters de la liste des sources.
 
-### Validation finale Étape 03 — à effectuer dans Revit 2025.4
+### Validation finale Étape 03 — Revit 2025.4
 
-1. choisir un logement et une vue source à l'échelle 1:50 ;
-2. créer le logement à 1:50 ;
-3. vérifier qu'une vue `PDV MASTER ... 1-50 ...` est créée et que le logement
-   en est dépendant ;
-4. créer un deuxième logement du même niveau avec la même source et 1:50 ;
-5. vérifier qu'aucun second master 1:50 n'est créé ;
-6. créer un logement à 1:100 ;
-7. vérifier qu'un master 1:100 distinct est créé ;
-8. vérifier que la vue source d'origine n'a changé ni d'échelle ni de crop ;
-9. vérifier les crops des trois vues logement.
+Validation utilisateur confirmée le **5 octobre 2026** dans Revit 2025.4 / pyRevit 5.x.
 
-Après validation de ces points, **l'Étape 03 — Vues et crop pourra être clôturée**
-et le développement passera à **l'Étape 04 — Nomenclatures et repérage**.
+Points validés :
+
+- création d'un master technique à 1:50 ;
+- réutilisation du même master pour un second logement compatible ;
+- création d'un master distinct à 1:100 ;
+- conservation de la vue source d'origine sans changement d'échelle ni de crop ;
+- vues logement correctement dépendantes du master correspondant ;
+- crops logement conformes ;
+- aucun problème de chargement ou d'utilisation signalé.
+
+**Étape 03 — Vues et crop : VALIDÉE V1.**
+
+Le développement peut désormais passer à **l'Étape 04 — Nomenclatures et repérage**.
+
+
+## Clôture Étape 03 — 2026-10-05
+
+L'Étape 03 est considérée comme terminée pour la V1.
+
+Acquis :
+
+- vues dépendantes validées ;
+- vue source préservée ;
+- détourage automatique validé V1 ;
+- limite connue documentée sur certaines gaines palières ;
+- marge de crop opérationnelle ;
+- groupes `PDV MASTER` séparés par source / niveau / échelle ;
+- réutilisation d'un master compatible ;
+- création d'un nouveau master lorsqu'une autre échelle est demandée ;
+- échelle explicite en V1 ;
+- 71 tests Plans de vente réussis en CI avant validation Revit.
+
+L'ajustement automatique de l'échelle à la feuille reste hors V1.
+
+**Prochaine étape officielle : Étape 04 — Nomenclatures et repérage.**
