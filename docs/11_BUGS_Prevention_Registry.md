@@ -883,6 +883,41 @@ commit de comportement.
 
 **Anti-régression :** suite complète `tests/plans_vente` dans GitHub Actions.
 
+### BUG-PDV-020 — Raccords arbitraires et recherche globale des poches
+
+**Symptôme :** gaines comblées par des biais, puis collecte de murs complexe et
+jusqu'à 50 fermetures avec temps de calcul excessif.
+**Cause :** fermeture fondée sur des paires globales de sommets et des cordes,
+puis projection sur des murs externes au contour ; validations d'aire ne
+prouvant pas la contenance. La marge adaptative pouvait recréer une diagonale
+en supprimant un sommet concave, même après correction du premier nettoyage.
+**Correction :** moteur pur local `local_crop_geometry.py` ; chaîne bornée à
+12 arêtes, supports immédiatement voisins, colinéarité / TR / perpendiculaire.
+Murs, types, bandes, faces guides et liens retirés de ce sous-module. Contenance
+sur toutes les arêtes, simplicité avec contacts et recouvrements, seuils
+3,5 m / 2 m / 5 m², extension maximale 3,5 m, deux passes et 128 validations.
+Les chemins de nettoyage de marge utilisent le même moteur ; conservation de
+l'original si reconstruction impossible. Les règles historiques BUG-PDV-006 à
+011 et 014 à 019 relatives aux paires globales et murs sont remplacées par celle-ci.
+**Règle préventive :** ni gain d'aire ni sommets contenus ne garantissent qu'un
+candidat ne coupe pas le logement. Contrôler les arêtes complètes et tester
+le chemin de secours autant que le chemin principal. Ne pas réintroduire le
+buffer 3D de marge (BUG-PDV-013).
+**Tests :** `test_local_crop_geometry.py` (A–H, sens/rotation, seuils, 20 poches,
+budget), `test_local_crop_adapter.py` (conservation/reconstruction/diagnostic),
+contrats sans murs et suite `tests/plans_vente`. A003 reste à valider dans Revit.
+
+### BUG-PDV-021 — Diagnostic suffixé court-circuitant CanHaveShape
+
+**Symptôme identifié dans le code :** dès qu'un compteur était ajouté au mode
+« Contour optimisé », sa comparaison exacte échouait et le contrôle de capacité
+non rectangulaire de la vue cible pouvait être sauté.
+**Cause :** `mode == "Contour optimisé"` mélangeait statut et texte de diagnostic.
+**Correction :** test du préfixe du mode conservant les diagnostics détaillés.
+**Règle préventive :** les diagnostics ne doivent jamais désactiver un garde-fou.
+**Test :** vraie méthode `apply_to_view` avec vue incapable et mode suffixé ;
+le rectangle de secours est appliqué. Contrôle réel Revit toujours requis.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -952,6 +987,8 @@ BUG-PDV-016
 BUG-PDV-017
 BUG-PDV-018
 BUG-PDV-019
+BUG-PDV-020
+BUG-PDV-021
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from plans_vente.crop_bounds import CropBounds
 from plans_vente.view_frame import ViewFrame
+from plans_vente import local_crop_geometry as local_geometry
 
 
 class OptimizedCropResult(object):
@@ -47,25 +48,20 @@ class CropGeometryService(object):
     SHAFT_MAX_MOUTH_MM = 3500.0
     SHAFT_MAX_DEPTH_MM = 2000.0
     SHAFT_MAX_FILL_AREA_M2 = 5.0
-    WALL_GUIDE_EXTENSION_MM = 600.0
-    PERIPHERAL_WALL_SEARCH_MM = 1000.0
-    PERIPHERAL_WALL_PARALLEL_SIN = 0.2588190451
+    SHAFT_MAX_EXTENSION_MM = 3500.0
 
     def __init__(self, document):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
         self._last_closed_recess_count = 0
-        self._last_wall_aligned_recess_count = 0
-        self._last_peripheral_wall_count = 0
-        self._last_peripheral_wall_source = ""
+        self._last_recess_counts = local_geometry.empty_diagnostics()
 
     def build_optimized_crop(
         self,
         room_unique_ids,
         view,
         margin_mm,
-        peripheral_wall_type_unique_id=None,
     ):
         """Construit un contour extérieur compatible avec les crops Revit.
 
@@ -78,9 +74,7 @@ class CropGeometryService(object):
 
         margin_internal = self._millimeters_to_internal(margin_mm)
         self._last_closed_recess_count = 0
-        self._last_wall_aligned_recess_count = 0
-        self._last_peripheral_wall_count = 0
-        self._last_peripheral_wall_source = ""
+        self._last_recess_counts = local_geometry.empty_diagnostics()
         fallback_loop = self._build_rectangular_fallback(
             room_unique_ids,
             view,
@@ -94,10 +88,6 @@ class CropGeometryService(object):
                 room_unique_ids,
                 view,
             )
-            # Première enveloppe : uniquement les Rooms. Elle sert de
-            # référence spatiale pour chercher les murs périphériques proches,
-            # même lorsqu'un doublage ou une autre limite de pièce se trouve
-            # entre la Room et le mur sélectionné.
             room_union_solid = self._stage(
                 "Union géométrique des pièces",
                 self._union_room_solids,
@@ -118,64 +108,15 @@ class CropGeometryService(object):
                 view,
             )
 
-            straight_outer_loop = straight_room_outer_loop
-
-            if peripheral_wall_type_unique_id:
-                (
-                    peripheral_wall_loops,
-                    self._last_peripheral_wall_count,
-                ) = self._stage(
-                    "Recherche des murs périphériques proches",
-                    self._collect_peripheral_wall_strip_loops,
-                    straight_room_outer_loop,
-                    view,
-                    reference_z,
-                    peripheral_wall_type_unique_id,
-                )
-
-                union_solid = self._stage(
-                    "Union des pièces et murs périphériques",
-                    self._union_room_solids,
-                    room_loops,
-                    view,
-                    peripheral_wall_loops,
-                )
-                outer_loop = self._stage(
-                    "Extraction du contour pièces + murs",
-                    self._extract_outer_union_loop,
-                    union_solid,
-                    view,
-                    reference_z,
-                )
-                straight_outer_loop = self._stage(
-                    "Linéarisation du contour pièces + murs",
-                    self._linearize_curve_loop,
-                    outer_loop,
-                    view,
-                )
-
-            if peripheral_wall_type_unique_id:
-                # Le type périphérique explicite remplace la recherche
-                # combinatoire de poches. Les bandes de mur sont déjà unies
-                # aux Rooms : on évite les dizaines de fermetures candidates.
-                clean_outer_loop = straight_outer_loop
-            else:
-                wall_guides = self._collect_opposite_wall_face_guides(
-                    room_unique_ids,
-                    view,
-                )
-                clean_outer_loop = self._stage(
-                    "Fermeture des petites gaines et retraits",
-                    self._close_small_recesses,
-                    straight_outer_loop,
-                    view,
-                    self._millimeters_to_internal(self.SHAFT_MAX_MOUTH_MM),
-                    self._millimeters_to_internal(self.SHAFT_MAX_DEPTH_MM),
-                    self._square_meters_to_internal_area(
-                        self.SHAFT_MAX_FILL_AREA_M2
-                    ),
-                    wall_guides,
-                )
+            clean_outer_loop = self._stage(
+                "Fermeture des petites gaines et retraits",
+                self._close_small_recesses,
+                straight_room_outer_loop,
+                view,
+                self._millimeters_to_internal(self.SHAFT_MAX_MOUTH_MM),
+                self._millimeters_to_internal(self.SHAFT_MAX_DEPTH_MM),
+                self._square_meters_to_internal_area(self.SHAFT_MAX_FILL_AREA_M2),
+            )
 
             final_loop = self._stage(
                 "Construction de la marge robuste",
@@ -192,19 +133,7 @@ class CropGeometryService(object):
                 view,
             )
 
-            mode = "Contour optimisé"
-            if self._last_peripheral_wall_count:
-                mode += " — {} mur(s) périphérique(s)".format(
-                    self._last_peripheral_wall_count
-                )
-            if self._last_closed_recess_count:
-                mode += " — {} gaine(s)/retrait(s) comblé(s)".format(
-                    self._last_closed_recess_count
-                )
-            if self._last_wall_aligned_recess_count:
-                mode += " — {} fermeture(s) alignée(s) sur mur".format(
-                    self._last_wall_aligned_recess_count
-                )
+            mode = "Contour optimisé — " + self._recess_diagnostic()
 
             return OptimizedCropResult(
                 curve_loop=final_loop,
@@ -220,15 +149,9 @@ class CropGeometryService(object):
                 warning=(
                     "Le contour optimisé n'a pas pu être construit. "
                     "Un rectangle aligné à la vue a été utilisé. "
-                    "Source murs : {}. "
-                    "Murs périphériques utilisés : {}. "
-                    "Nettoyage avant échec : {} poche(s), dont {} "
-                    "alignée(s) sur mur. Étape en échec : {}"
+                    "Nettoyage avant échec : {}. Étape en échec : {}"
                 ).format(
-                    self._last_peripheral_wall_source or "Projet",
-                    self._last_peripheral_wall_count,
-                    self._last_closed_recess_count,
-                    self._last_wall_aligned_recess_count,
+                    self._recess_diagnostic(),
                     error,
                 ),
             )
@@ -247,7 +170,7 @@ class CropGeometryService(object):
         mode = crop_result.mode
         warning = crop_result.warning or ""
 
-        if mode == "Contour optimisé" and not bool(manager.CanHaveShape):
+        if mode.startswith("Contour optimisé") and not bool(manager.CanHaveShape):
             released, detail = self._try_release_scope_box(view)
             if released:
                 self.document.Regenerate()
@@ -357,624 +280,10 @@ class CropGeometryService(object):
 
         return room_loops, reference_z
 
-    def _collect_peripheral_wall_strip_loops(
-        self,
-        room_outer_loop,
-        view,
-        reference_z,
-        peripheral_wall_type_unique_id,
-    ):
-        """Trouve les murs du type choisi proches de l'enveloppe des Rooms.
-
-        Le mur sélectionné n'a pas besoin d'être l'élément qui porte
-        directement la limite de Room : un doublage, une cloison ou une autre
-        limite peut se trouver entre les deux.
-
-        La recherche reste locale et rapide :
-        - uniquement les instances du type choisi ;
-        - uniquement les murs au niveau vertical du contour ;
-        - uniquement les murs proches et parallèles à une arête extérieure ;
-        - seule la portion du mur en vis-à-vis du logement est transformée en
-          bande 2D, avec une extension longitudinale bornée.
-        """
-        from Autodesk.Revit.DB import (
-            CurveLoop,
-            FilteredElementCollector,
-            Line,
-            Wall,
-            XYZ,
-        )
-
-        selection_key = str(peripheral_wall_type_unique_id or "")
-        if not selection_key:
-            return [], 0
-
-        (
-            source_document,
-            source_transform,
-            selected_type_id,
-            source_label,
-        ) = self._resolve_peripheral_wall_source(selection_key)
-        self._last_peripheral_wall_source = source_label
-
-        frame = self._frame_from_view(view)
-        contour_xyz = self._tessellated_loop_points(room_outer_loop)
-        contour_xyz = self._remove_near_duplicates(contour_xyz)
-        if len(contour_xyz) < 3:
-            raise ValueError(
-                "Le contour extérieur des pièces est insuffisant pour "
-                "chercher les murs périphériques."
-            )
-
-        contour_uv = [
-            frame.project((point.X, point.Y, point.Z))
-            for point in contour_xyz
-        ]
-        contour_edges = []
-        count = len(contour_uv)
-        for index in range(count):
-            start = contour_uv[index]
-            end = contour_uv[(index + 1) % count]
-            vector = (
-                end[0] - start[0],
-                end[1] - start[1],
-            )
-            length = self._vector_length_2d(vector)
-            if length > 1e-9:
-                contour_edges.append((start, end, vector, length))
-
-        if not contour_edges:
-            raise ValueError(
-                "Aucune arête extérieure exploitable n'a été trouvée."
-            )
-
-        search_distance = self._millimeters_to_internal(
-            self.PERIPHERAL_WALL_SEARCH_MM
-        )
-        extension = self._millimeters_to_internal(
-            self.WALL_GUIDE_EXTENSION_MM
-        )
-        z_tolerance = search_distance
-        tolerance = max(self._short_curve_tolerance(), 1e-7)
-
-        min_u = min(point[0] for point in contour_uv) - search_distance
-        max_u = max(point[0] for point in contour_uv) + search_distance
-        min_v = min(point[1] for point in contour_uv) - search_distance
-        max_v = max(point[1] for point in contour_uv) + search_distance
-
-        loops = []
-        used_walls = set()
-        diagnostics = {
-            "type": 0,
-            "line": 0,
-            "z": 0,
-            "bbox": 0,
-            "near_parallel": 0,
-        }
-
-        walls = (
-            FilteredElementCollector(source_document)
-            .OfClass(Wall)
-            .WhereElementIsNotElementType()
-            .ToElements()
-        )
-
-        for wall in walls:
-            try:
-                wall_type_id = wall.GetTypeId()
-            except Exception:
-                continue
-
-            try:
-                same_type = wall_type_id == selected_type_id
-                if not same_type and wall_type_id is not None:
-                    same_type = wall_type_id.Equals(selected_type_id)
-            except Exception:
-                same_type = False
-
-            if not same_type:
-                continue
-            diagnostics["type"] += 1
-
-            location = getattr(wall, "Location", None)
-            wall_curve = getattr(location, "Curve", None)
-            if wall_curve is None or not isinstance(wall_curve, Line):
-                continue
-            diagnostics["line"] += 1
-
-            try:
-                wall_start = wall_curve.GetEndPoint(0)
-                wall_end = wall_curve.GetEndPoint(1)
-                width = float(wall.Width)
-                orientation = wall.Orientation
-            except Exception:
-                continue
-
-            if width <= tolerance or orientation is None:
-                continue
-
-            if source_transform is not None:
-                try:
-                    wall_start = source_transform.OfPoint(wall_start)
-                    wall_end = source_transform.OfPoint(wall_end)
-                    orientation = source_transform.OfVector(
-                        orientation
-                    )
-                except Exception:
-                    continue
-
-            try:
-                bbox = wall.get_BoundingBox(None)
-            except Exception:
-                bbox = None
-            if bbox is not None:
-                z_range = self._bounding_box_host_z_range(
-                    bbox,
-                    source_transform,
-                )
-                if z_range is not None:
-                    min_z, max_z = z_range
-                    if (
-                        reference_z < min_z - z_tolerance
-                        or reference_z > max_z + z_tolerance
-                    ):
-                        continue
-            diagnostics["z"] += 1
-
-            start_uv = frame.project(
-                (wall_start.X, wall_start.Y, reference_z)
-            )
-            end_uv = frame.project(
-                (wall_end.X, wall_end.Y, reference_z)
-            )
-            wall_vector_uv = (
-                end_uv[0] - start_uv[0],
-                end_uv[1] - start_uv[1],
-            )
-            wall_length_uv = self._vector_length_2d(wall_vector_uv)
-            if wall_length_uv <= tolerance:
-                continue
-
-            wall_min_u = min(start_uv[0], end_uv[0]) - width
-            wall_max_u = max(start_uv[0], end_uv[0]) + width
-            wall_min_v = min(start_uv[1], end_uv[1]) - width
-            wall_max_v = max(start_uv[1], end_uv[1]) + width
-            if (
-                wall_max_u < min_u
-                or wall_min_u > max_u
-                or wall_max_v < min_v
-                or wall_min_v > max_v
-            ):
-                continue
-            diagnostics["bbox"] += 1
-
-            unit_uv = (
-                wall_vector_uv[0] / wall_length_uv,
-                wall_vector_uv[1] / wall_length_uv,
-            )
-
-            overlap_values = []
-            room_side_samples = []
-
-            for edge_start, edge_end, edge_vector, edge_length in contour_edges:
-                parallel_sin = abs(
-                    (wall_vector_uv[0] * edge_vector[1])
-                    - (wall_vector_uv[1] * edge_vector[0])
-                ) / (wall_length_uv * edge_length)
-                if parallel_sin > self.PERIPHERAL_WALL_PARALLEL_SIN:
-                    continue
-
-                distance = self._segment_distance_2d(
-                    start_uv,
-                    end_uv,
-                    edge_start,
-                    edge_end,
-                )
-                if distance > search_distance + (width * 0.5):
-                    continue
-
-                for point in (edge_start, edge_end):
-                    scalar = (
-                        ((point[0] - start_uv[0]) * unit_uv[0])
-                        + ((point[1] - start_uv[1]) * unit_uv[1])
-                    )
-                    overlap_values.append(scalar)
-
-                midpoint = (
-                    (edge_start[0] + edge_end[0]) * 0.5,
-                    (edge_start[1] + edge_end[1]) * 0.5,
-                )
-                wall_midpoint = (
-                    (start_uv[0] + end_uv[0]) * 0.5,
-                    (start_uv[1] + end_uv[1]) * 0.5,
-                )
-                room_side_samples.append(
-                    (
-                        midpoint[0] - wall_midpoint[0],
-                        midpoint[1] - wall_midpoint[1],
-                    )
-                )
-
-            if not overlap_values:
-                continue
-            diagnostics["near_parallel"] += 1
-
-            minimum = max(
-                0.0,
-                min(overlap_values) - extension,
-            )
-            maximum = min(
-                wall_length_uv,
-                max(overlap_values) + extension,
-            )
-            if maximum - minimum <= tolerance:
-                continue
-
-            wall_vector_xyz = wall_end.Subtract(wall_start)
-            wall_length_xyz = wall_vector_xyz.GetLength()
-            if wall_length_xyz <= tolerance:
-                continue
-            wall_direction_xyz = wall_vector_xyz.Normalize()
-
-            ratio_start = minimum / wall_length_uv
-            ratio_end = maximum / wall_length_uv
-            center_start = wall_start.Add(
-                wall_direction_xyz.Multiply(
-                    wall_length_xyz * ratio_start
-                )
-            )
-            center_end = wall_start.Add(
-                wall_direction_xyz.Multiply(
-                    wall_length_xyz * ratio_end
-                )
-            )
-            center_start = XYZ(
-                center_start.X,
-                center_start.Y,
-                reference_z,
-            )
-            center_end = XYZ(
-                center_end.X,
-                center_end.Y,
-                reference_z,
-            )
-
-            normal_xyz = XYZ(
-                orientation.X,
-                orientation.Y,
-                0.0,
-            )
-            if normal_xyz.GetLength() <= tolerance:
-                continue
-            normal_xyz = normal_xyz.Normalize()
-
-            # Étendre la bande jusqu'au contour des Rooms du côté logement
-            # pour garantir une union même si un doublage sépare la Room du
-            # mur porteur sélectionné. Le côté opposé reste au chant du mur.
-            room_side_sign = 0.0
-            if room_side_samples:
-                normal_uv_end_world = XYZ(
-                    center_start.X + normal_xyz.X,
-                    center_start.Y + normal_xyz.Y,
-                    reference_z,
-                )
-                normal_start_uv = frame.project(
-                    (center_start.X, center_start.Y, reference_z)
-                )
-                normal_end_uv = frame.project(
-                    (
-                        normal_uv_end_world.X,
-                        normal_uv_end_world.Y,
-                        reference_z,
-                    )
-                )
-                normal_uv = (
-                    normal_end_uv[0] - normal_start_uv[0],
-                    normal_end_uv[1] - normal_start_uv[1],
-                )
-                average_dot = sum(
-                    (sample[0] * normal_uv[0])
-                    + (sample[1] * normal_uv[1])
-                    for sample in room_side_samples
-                ) / float(len(room_side_samples))
-                room_side_sign = 1.0 if average_dot >= 0.0 else -1.0
-
-            half_width = width * 0.5
-            room_reach = search_distance + half_width
-            if room_side_sign >= 0.0:
-                positive_reach = room_reach
-                negative_reach = half_width
-            else:
-                positive_reach = half_width
-                negative_reach = room_reach
-
-            positive = normal_xyz.Multiply(positive_reach)
-            negative = normal_xyz.Multiply(-negative_reach)
-
-            points = [
-                center_start.Add(positive),
-                center_end.Add(positive),
-                center_end.Add(negative),
-                center_start.Add(negative),
-            ]
-
-            curve_loop = CurveLoop()
-            valid = True
-            for index in range(4):
-                start = points[index]
-                end = points[(index + 1) % 4]
-                if start.DistanceTo(end) <= tolerance:
-                    valid = False
-                    break
-                curve_loop.Append(Line.CreateBound(start, end))
-
-            if not valid or curve_loop.IsOpen():
-                continue
-
-            loops.append(curve_loop)
-            used_walls.add(
-                str(getattr(wall, "UniqueId", "") or "")
-            )
-
-        if not loops:
-            raise ValueError(
-                "Aucun mur exploitable du type périphérique sélectionné. "
-                "Source : « {} ». Diagnostic : {} instance(s) du type, "
-                "{} mur(s) droit(s), {} au bon niveau, {} dans la zone, "
-                "{} proche(s) et parallèle(s) au contour (rayon {} mm)."
-                .format(
-                    source_label,
-                    diagnostics["type"],
-                    diagnostics["line"],
-                    diagnostics["z"],
-                    diagnostics["bbox"],
-                    diagnostics["near_parallel"],
-                    int(self.PERIPHERAL_WALL_SEARCH_MM),
-                )
-            )
-
-        return loops, len(used_walls)
-
-    def _resolve_peripheral_wall_source(self, selection_key):
-        from Autodesk.Revit.DB import RevitLinkInstance
-
-        value = str(selection_key or "")
-        if value.startswith("LINK|"):
-            parts = value.split("|", 2)
-            if len(parts) != 3:
-                raise ValueError(
-                    "Référence de type de mur lié invalide."
-                )
-
-            link_instance = self.document.GetElement(parts[1])
-            if (
-                link_instance is None
-                or not isinstance(link_instance, RevitLinkInstance)
-            ):
-                raise ValueError(
-                    "Le lien Revit sélectionné n'est plus disponible."
-                )
-
-            link_document = link_instance.GetLinkDocument()
-            if link_document is None:
-                raise ValueError(
-                    "Le lien Revit sélectionné est déchargé."
-                )
-
-            try:
-                transform = link_instance.GetTotalTransform()
-            except Exception:
-                transform = link_instance.GetTransform()
-
-            link_name = str(
-                getattr(link_instance, "Name", "") or ""
-            )
-            if not link_name:
-                link_name = str(
-                    getattr(link_document, "Title", "") or "Lien Revit"
-                )
-
-            wall_type = link_document.GetElement(parts[2])
-            if wall_type is None:
-                raise ValueError(
-                    "Le type de mur sélectionné n'existe plus dans le lien."
-                )
-
-            return (
-                link_document,
-                transform,
-                wall_type.Id,
-                "Lien : {}".format(link_name),
-            )
-
-        if value.startswith("HOST|"):
-            wall_type_uid = value.split("|", 1)[1]
-            wall_type = self.document.GetElement(wall_type_uid)
-            if wall_type is None:
-                raise ValueError(
-                    "Le type de mur sélectionné n'existe plus dans le projet."
-                )
-            return (
-                self.document,
-                None,
-                wall_type.Id,
-                "Projet",
-            )
-
-        wall_type = self.document.GetElement(value)
-        if wall_type is None:
-            raise ValueError(
-                "Le type de mur sélectionné n'existe plus dans le projet."
-            )
-        return self.document, None, wall_type.Id, "Projet"
-
-    @staticmethod
-    def _bounding_box_host_z_range(bbox, source_transform):
-        if bbox is None:
-            return None
-
-        try:
-            from Autodesk.Revit.DB import XYZ
-            bbox_transform = bbox.Transform
-            points = []
-            for x in (bbox.Min.X, bbox.Max.X):
-                for y in (bbox.Min.Y, bbox.Max.Y):
-                    for z in (bbox.Min.Z, bbox.Max.Z):
-                        point = XYZ(x, y, z)
-                        if bbox_transform is not None:
-                            point = bbox_transform.OfPoint(point)
-                        if source_transform is not None:
-                            point = source_transform.OfPoint(point)
-                        points.append(point)
-            if not points:
-                return None
-            values = [point.Z for point in points]
-            return min(values), max(values)
-        except Exception:
-            return None
-
-    @staticmethod
-    def _segment_distance_2d(a, b, c, d):
-        if CropGeometryService._segments_intersect_2d(a, b, c, d):
-            return 0.0
-
-        return min(
-            CropGeometryService._point_distance_to_segment(a, c, d),
-            CropGeometryService._point_distance_to_segment(b, c, d),
-            CropGeometryService._point_distance_to_segment(c, a, b),
-            CropGeometryService._point_distance_to_segment(d, a, b),
-        )
-
-    def _collect_opposite_wall_face_guides(self, room_unique_ids, view):
-        """Collecte les faces de murs opposées aux pièces comme guides 2D.
-
-        Les limites de Room sont demandées au centre des murs. Pour chaque
-        segment porté par un mur droit, on décale donc ce segment d'une
-        demi-épaisseur vers le côté opposé à la pièce. Le guide obtenu
-        correspond au chant du mur situé côté gaine / extérieur.
-        """
-        from Autodesk.Revit.DB import (
-            Line,
-            SpatialElementBoundaryLocation,
-            SpatialElementBoundaryOptions,
-            Wall,
-        )
-
-        frame = self._frame_from_view(view)
-        options = SpatialElementBoundaryOptions()
-        options.SpatialElementBoundaryLocation = (
-            SpatialElementBoundaryLocation.Center
-        )
-
-        guides = []
-        seen = set()
-        tolerance = max(self._short_curve_tolerance(), 1e-7)
-
-        for unique_id in room_unique_ids or []:
-            room = self.document.GetElement(unique_id)
-            if room is None:
-                continue
-
-            room_location = getattr(room, "Location", None)
-            room_point = getattr(room_location, "Point", None)
-            if room_point is None:
-                continue
-
-            try:
-                boundary_loops = room.GetBoundarySegments(options)
-            except Exception:
-                boundary_loops = None
-
-            for segment_loop in boundary_loops or []:
-                for segment in segment_loop or []:
-                    try:
-                        curve = segment.GetCurve()
-                        wall = self.document.GetElement(segment.ElementId)
-                    except Exception:
-                        continue
-
-                    if (
-                        curve is None
-                        or wall is None
-                        or not isinstance(wall, Wall)
-                        or not isinstance(curve, Line)
-                    ):
-                        continue
-
-                    try:
-                        width = float(wall.Width)
-                        orientation = wall.Orientation
-                        start = curve.GetEndPoint(0)
-                        end = curve.GetEndPoint(1)
-                        midpoint = curve.Evaluate(0.5, True)
-                    except Exception:
-                        continue
-
-                    if (
-                        width <= tolerance
-                        or orientation is None
-                        or start.DistanceTo(end) <= tolerance
-                    ):
-                        continue
-
-                    try:
-                        side = room_point.Subtract(midpoint).DotProduct(
-                            orientation
-                        )
-                    except Exception:
-                        continue
-
-                    if abs(side) <= 1e-9:
-                        continue
-
-                    offset = (-0.5 * width) if side > 0.0 else (0.5 * width)
-
-                    try:
-                        shift = orientation.Normalize().Multiply(offset)
-                        face_start = start.Add(shift)
-                        face_end = end.Add(shift)
-                    except Exception:
-                        continue
-
-                    start_uv = frame.project(
-                        (face_start.X, face_start.Y, face_start.Z)
-                    )
-                    end_uv = frame.project(
-                        (face_end.X, face_end.Y, face_end.Z)
-                    )
-
-                    if self._distance_2d(start_uv, end_uv) <= tolerance:
-                        continue
-
-                    wall_uid = getattr(wall, "UniqueId", "") or ""
-                    side_key = 1 if offset > 0.0 else -1
-                    key = (
-                        wall_uid,
-                        side_key,
-                        round(start_uv[0], 6),
-                        round(start_uv[1], 6),
-                        round(end_uv[0], 6),
-                        round(end_uv[1], 6),
-                    )
-                    if key in seen:
-                        continue
-
-                    seen.add(key)
-                    guides.append(
-                        {
-                            "start": start_uv,
-                            "end": end_uv,
-                            "half_width": 0.5 * width,
-                        }
-                    )
-
-        return guides
-
     def _union_room_solids(
         self,
         room_loops,
         view,
-        supplemental_loops=None,
     ):
         from Autodesk.Revit.DB import (
             BooleanOperationsType,
@@ -989,7 +298,7 @@ class CropGeometryService(object):
             raise ValueError("La vue ne fournit pas de direction exploitable.")
 
         solids = []
-        all_loops = list(room_loops or []) + list(supplemental_loops or [])
+        all_loops = list(room_loops or [])
         for curve_loop in all_loops:
             loops = List[CurveLoop]()
             loops.Add(curve_loop)
@@ -1178,632 +487,44 @@ class CropGeometryService(object):
 
         return values
 
+    def _recess_diagnostic(self):
+        counts = self._last_recess_counts
+        message = (
+            "{} fermeture(s) colinéaire(s), {} raccord(s) Trim/Extend, "
+            "{} raccord(s) perpendiculaire(s)"
+        ).format(counts["collinear"], counts["trim"], counts["perpendicular"])
+        if counts["budget_exhausted"]:
+            message += " — limite de calcul atteinte, retraits restants conservés"
+        return message
+
     def _close_small_recesses(
-        self,
-        curve_loop,
-        view,
-        max_mouth_internal,
-        max_depth_internal,
-        max_fill_area_internal,
-        wall_guides=None,
+        self, curve_loop, view, max_mouth_internal,
+        max_depth_internal, max_fill_area_internal,
     ):
-        """Ferme les petites poches extérieures assimilables à des gaines.
-
-        Les fermetures suivent en priorité le chant opposé d'un mur bordant
-        une pièce. Cela évite les ponts arbitrairement diagonaux : les lèvres
-        de la poche sont projetées perpendiculairement sur une face de mur
-        voisine, puis reliées le long de cette face.
-
-        Si aucun guide mural exploitable n'existe, un pont direct n'est
-        conservé que s'il prolonge déjà une direction locale du contour.
-        """
+        """Adaptateur Revit du moteur local pur ; conservation en cas de doute."""
         frame = self._frame_from_view(view)
-        xyz_points = self._tessellated_loop_points(curve_loop)
-        xyz_points = self._remove_near_duplicates(xyz_points)
-        if len(xyz_points) < 4:
-            return curve_loop
-
-        uv_points = [
-            frame.project((point.X, point.Y, point.Z))
-            for point in xyz_points
-        ]
-        guide_extension = self._millimeters_to_internal(
-            self.WALL_GUIDE_EXTENSION_MM
+        points = self._remove_near_duplicates(self._tessellated_loop_points(curve_loop))
+        uv = [frame.project((p.X, p.Y, p.Z)) for p in points]
+        cleaned, counts = local_geometry.close_pockets(
+            uv, max_mouth_internal, max_depth_internal, max_fill_area_internal,
+            self._millimeters_to_internal(self.SHAFT_MAX_EXTENSION_MM),
+            tolerance=max(self._short_curve_tolerance(), 1e-7),
         )
-
-        changed = True
-        safety = 0
-
-        while changed and len(uv_points) >= 4 and safety < 50:
-            changed = False
-            safety += 1
-            count = len(uv_points)
-            original_area = abs(self._polygon_signed_area(uv_points))
-            best = None
-
-            for i in range(count):
-                for j in range(i + 1, count):
-                    if self._vertices_are_adjacent(i, j, count):
-                        continue
-
-                    mouth = self._distance_2d(
-                        uv_points[i],
-                        uv_points[j],
-                    )
-                    if mouth <= 1e-9 or mouth > max_mouth_internal:
-                        continue
-
-                    bridge_options = []
-
-                    for bridge_path in self._wall_aligned_bridge_paths(
-                        uv_points,
-                        i,
-                        j,
-                        wall_guides,
-                        max_depth_internal,
-                        guide_extension,
-                    ):
-                        bridge_options.append((0, bridge_path))
-
-                    if self._bridge_matches_local_direction(
-                        uv_points,
-                        i,
-                        j,
-                    ):
-                        if not self._bridge_intersects_polygon(
-                            uv_points,
-                            i,
-                            j,
-                        ):
-                            midpoint = (
-                                (uv_points[i][0] + uv_points[j][0]) * 0.5,
-                                (uv_points[i][1] + uv_points[j][1]) * 0.5,
-                            )
-                            if not self._point_in_polygon(
-                                midpoint,
-                                uv_points,
-                            ):
-                                bridge_options.append(
-                                    (
-                                        1,
-                                        [
-                                            uv_points[i],
-                                            uv_points[j],
-                                        ],
-                                    )
-                                )
-
-                    for alignment_rank, bridge_path in bridge_options:
-                        for candidate, removed_chain in (
-                            self._bridge_candidate_polygons_with_path(
-                                uv_points,
-                                i,
-                                j,
-                                bridge_path,
-                            )
-                        ):
-                            if len(candidate) < 3:
-                                continue
-
-                            if not self._is_simple_polygon(candidate):
-                                continue
-
-                            candidate_area = abs(
-                                self._polygon_signed_area(candidate)
-                            )
-                            fill_area = candidate_area - original_area
-
-                            if (
-                                fill_area <= 1e-9
-                                or fill_area > max_fill_area_internal
-                            ):
-                                continue
-
-                            depth = self._max_chain_distance_to_polyline(
-                                removed_chain,
-                                bridge_path,
-                            )
-                            if depth > max_depth_internal:
-                                continue
-
-                            path_length = self._polyline_length(
-                                bridge_path
-                            )
-                            score = (
-                                alignment_rank,
-                                fill_area,
-                                mouth,
-                                depth,
-                                path_length,
-                            )
-                            if best is None or score < best[0]:
-                                best = (
-                                    score,
-                                    candidate,
-                                    alignment_rank == 0,
-                                )
-
-            if best is not None:
-                uv_points = best[1]
-                self._last_closed_recess_count += 1
-                if best[2]:
-                    self._last_wall_aligned_recess_count += 1
-                changed = True
-
-        if not self._is_simple_polygon(uv_points):
+        if not sum(counts[key] for key in ("collinear", "trim", "perpendicular")):
+            self._last_recess_counts["budget_exhausted"] |= counts["budget_exhausted"]
             return curve_loop
-
-        from Autodesk.Revit.DB import XYZ
-
-        world_points = [
-            frame.to_world(point[0], point[1])
-            for point in uv_points
-        ]
-        xyz_result = [
-            XYZ(point[0], point[1], point[2])
-            for point in world_points
-        ]
-
         try:
-            return self._curve_loop_from_points(
-                xyz_result,
-                max(self._short_curve_tolerance(), 1e-7),
-            )
+            result = self._curve_loop_from_uv_points(cleaned, frame)
         except Exception:
             return curve_loop
-
-    def _wall_aligned_bridge_paths(
-        self,
-        points,
-        i,
-        j,
-        wall_guides,
-        max_depth_internal,
-        max_extension_internal,
-    ):
-        """Construit des ponts orthogonaux guidés par une face de mur."""
-        values = list(points or [])
-        guides = list(wall_guides or [])
-        if not guides or len(values) < 3:
-            return []
-
-        start = values[i]
-        end = values[j]
-        if self._distance_2d(start, end) <= 1e-9:
-            return []
-
-        candidates = []
-
-        for guide in guides:
-            guide_start = guide.get("start")
-            guide_end = guide.get("end")
-            if guide_start is None or guide_end is None:
-                continue
-
-            guide_vector = (
-                guide_end[0] - guide_start[0],
-                guide_end[1] - guide_start[1],
-            )
-            guide_length = self._vector_length_2d(guide_vector)
-            if guide_length <= 1e-9:
-                continue
-
-            # Ne pas comparer la direction du guide à la corde entre les
-            # lèvres. Quand les lèvres sont décalées, cette corde est justement
-            # diagonale : c'est le défaut que le guidage par mur doit corriger.
-            # La validité est assurée par les projections, la proximité du mur,
-            # le test extérieur, l'aire ajoutée et la simplicité du polygone.
-            start_projection = self._project_point_to_line(
-                start,
-                guide_start,
-                guide_end,
-            )
-            end_projection = self._project_point_to_line(
-                end,
-                guide_start,
-                guide_end,
-            )
-            if start_projection is None or end_projection is None:
-                continue
-
-            projected_start, start_t, start_distance = start_projection
-            projected_end, end_t, end_distance = end_projection
-
-            extension_ratio = (
-                max_extension_internal / guide_length
-                if guide_length > 1e-9
-                else 0.0
-            )
-            if (
-                start_t < -extension_ratio
-                or start_t > 1.0 + extension_ratio
-                or end_t < -extension_ratio
-                or end_t > 1.0 + extension_ratio
-            ):
-                continue
-
-            if max(start_distance, end_distance) > max_depth_internal:
-                continue
-
-            face_midpoint = (
-                (projected_start[0] + projected_end[0]) * 0.5,
-                (projected_start[1] + projected_end[1]) * 0.5,
-            )
-            if self._point_in_polygon(face_midpoint, values):
-                continue
-
-            path = [start]
-            for point in (projected_start, projected_end, end):
-                if self._distance_2d(path[-1], point) > 1e-9:
-                    path.append(point)
-
-            if len(path) < 3:
-                continue
-
-            candidates.append(
-                (
-                    max(start_distance, end_distance),
-                    self._polyline_length(path),
-                    path,
-                )
-            )
-
-        candidates.sort(key=lambda item: (item[0], item[1]))
-        return [item[2] for item in candidates]
-
-    @classmethod
-    def _bridge_matches_local_direction(cls, points, i, j):
-        """Refuse un pont direct s'il crée une direction oblique nouvelle."""
-        values = list(points or [])
-        count = len(values)
-        if count < 3:
-            return False
-
-        start = values[i]
-        end = values[j]
-        bridge = (
-            end[0] - start[0],
-            end[1] - start[1],
+        # Counters describe reconstructed geometry only.
+        for key in ("collinear", "trim", "perpendicular", "candidates", "validations"):
+            self._last_recess_counts[key] += counts[key]
+        self._last_recess_counts["budget_exhausted"] |= counts["budget_exhausted"]
+        self._last_closed_recess_count += sum(
+            counts[key] for key in ("collinear", "trim", "perpendicular")
         )
-        bridge_length = cls._vector_length_2d(bridge)
-        if bridge_length <= 1e-9:
-            return False
-
-        local_vectors = []
-        for index in (i, j):
-            previous = values[(index - 1) % count]
-            current = values[index]
-            following = values[(index + 1) % count]
-            local_vectors.extend(
-                [
-                    (
-                        current[0] - previous[0],
-                        current[1] - previous[1],
-                    ),
-                    (
-                        following[0] - current[0],
-                        following[1] - current[1],
-                    ),
-                ]
-            )
-
-        for vector in local_vectors:
-            length = cls._vector_length_2d(vector)
-            if length <= 1e-9:
-                continue
-
-            parallel_sin = abs(
-                (bridge[0] * vector[1])
-                - (bridge[1] * vector[0])
-            ) / (bridge_length * length)
-            if parallel_sin <= 1e-3:
-                return True
-
-        return False
-
-    @staticmethod
-    def _project_point_to_line(point, line_start, line_end):
-        dx = line_end[0] - line_start[0]
-        dy = line_end[1] - line_start[1]
-        denominator = (dx * dx) + (dy * dy)
-        if denominator <= 1e-12:
-            return None
-
-        t = (
-            ((point[0] - line_start[0]) * dx)
-            + ((point[1] - line_start[1]) * dy)
-        ) / denominator
-        projection = (
-            line_start[0] + (t * dx),
-            line_start[1] + (t * dy),
-        )
-        distance = CropGeometryService._distance_2d(
-            point,
-            projection,
-        )
-        return projection, t, distance
-
-    @staticmethod
-    def _polyline_length(points):
-        values = list(points or [])
-        total = 0.0
-        for index in range(len(values) - 1):
-            total += CropGeometryService._distance_2d(
-                values[index],
-                values[index + 1],
-            )
-        return total
-
-    @classmethod
-    def _max_chain_distance_to_polyline(cls, chain, polyline):
-        values = list(chain or [])
-        path = list(polyline or [])
-        if not values or len(path) < 2:
-            return 0.0
-
-        maximum = 0.0
-        for point in values:
-            minimum = None
-            for index in range(len(path) - 1):
-                distance = cls._point_distance_to_segment(
-                    point,
-                    path[index],
-                    path[index + 1],
-                )
-                if minimum is None or distance < minimum:
-                    minimum = distance
-
-            if minimum is not None and minimum > maximum:
-                maximum = minimum
-
-        return maximum
-
-    @staticmethod
-    def _bridge_candidate_polygons_with_path(points, i, j, bridge_path):
-        values = list(points or [])
-        path = list(bridge_path or [])
-        if i > j:
-            i, j = j, i
-            path.reverse()
-
-        first_chain = list(values[i:j + 1])
-        second_chain = list(values[j:]) + list(values[:i + 1])
-        bridge_inner = list(path[1:-1])
-
-        return [
-            (
-                first_chain + list(reversed(bridge_inner)),
-                second_chain,
-            ),
-            (
-                second_chain + bridge_inner,
-                first_chain,
-            ),
-        ]
-
-    @staticmethod
-    def _vertices_are_adjacent(i, j, count):
-        if i == j:
-            return True
-        if abs(i - j) == 1:
-            return True
-        return {i, j} == {0, count - 1}
-
-    @staticmethod
-    def _point_in_polygon(point, polygon):
-        """Ray casting 2D. Les points sur le bord sont considérés intérieurs."""
-        x, y = point
-        values = list(polygon or [])
-        count = len(values)
-        if count < 3:
-            return False
-
-        inside = False
-        epsilon = 1e-9
-
-        for index in range(count):
-            x1, y1 = values[index]
-            x2, y2 = values[(index + 1) % count]
-
-            cross = (
-                (x - x1) * (y2 - y1)
-                - (y - y1) * (x2 - x1)
-            )
-            if abs(cross) <= epsilon:
-                min_x = min(x1, x2) - epsilon
-                max_x = max(x1, x2) + epsilon
-                min_y = min(y1, y2) - epsilon
-                max_y = max(y1, y2) + epsilon
-                if min_x <= x <= max_x and min_y <= y <= max_y:
-                    return True
-
-            if ((y1 > y) != (y2 > y)):
-                denominator = y2 - y1
-                if abs(denominator) <= epsilon:
-                    continue
-                x_cross = (
-                    ((x2 - x1) * (y - y1))
-                    / denominator
-                ) + x1
-                if x < x_cross:
-                    inside = not inside
-
-        return inside
-
-    @staticmethod
-    def _forward_chain_indices(i, j, count):
-        values = [i]
-        index = i
-        while index != j:
-            index = (index + 1) % count
-            values.append(index)
-            if len(values) > count + 1:
-                break
-        return values
-
-    @staticmethod
-    def _replace_chain_with_bridge(points, i, j):
-        values = list(points or [])
-        count = len(values)
-        if i > j:
-            i, j = j, i
-        return values[:i + 1] + values[j:]
-
-    @classmethod
-    def _is_simple_polygon(cls, points):
-        values = list(points or [])
-        count = len(values)
-        if count < 3:
-            return False
-
-        for i in range(count):
-            a = values[i]
-            b = values[(i + 1) % count]
-
-            for j in range(i + 1, count):
-                c_index = j
-                d_index = (j + 1) % count
-
-                if i == c_index or i == d_index:
-                    continue
-                if (i + 1) % count == c_index or (i + 1) % count == d_index:
-                    continue
-
-                c = values[c_index]
-                d = values[d_index]
-                if cls._segments_intersect_2d(a, b, c, d):
-                    return False
-
-        return True
-
-    @staticmethod
-    def _polygon_signed_area(points):
-        values = list(points or [])
-        if len(values) < 3:
-            return 0.0
-
-        area = 0.0
-        count = len(values)
-        for index in range(count):
-            x1, y1 = values[index]
-            x2, y2 = values[(index + 1) % count]
-            area += (x1 * y2) - (x2 * y1)
-        return area * 0.5
-
-    @staticmethod
-    def _concave_vertex_indices(points, signed_area):
-        values = list(points or [])
-        count = len(values)
-        if count < 4:
-            return []
-
-        orientation_sign = 1.0 if signed_area > 0.0 else -1.0
-        result = []
-
-        for index in range(count):
-            previous = values[(index - 1) % count]
-            current = values[index]
-            following = values[(index + 1) % count]
-
-            left = (
-                current[0] - previous[0],
-                current[1] - previous[1],
-            )
-            right = (
-                following[0] - current[0],
-                following[1] - current[1],
-            )
-
-            cross = (
-                (left[0] * right[1])
-                - (left[1] * right[0])
-            )
-            if (cross * orientation_sign) < -1e-9:
-                result.append(index)
-
         return result
-
-    def _bridge_intersects_polygon(self, points, i, j):
-        count = len(points)
-        a = points[i]
-        b = points[j]
-
-        for edge_index in range(count):
-            next_index = (edge_index + 1) % count
-
-            if edge_index in (i, j) or next_index in (i, j):
-                continue
-
-            c = points[edge_index]
-            d = points[next_index]
-
-            if self._segments_intersect_2d(a, b, c, d):
-                return True
-
-        return False
-
-    @staticmethod
-    def _bridge_candidate_polygons(points, i, j):
-        return CropGeometryService._bridge_candidate_polygons_with_path(
-            points,
-            i,
-            j,
-            [points[i], points[j]],
-        )
-
-    @staticmethod
-    def _segments_intersect_2d(a, b, c, d):
-        def orient(p, q, r):
-            return (
-                (q[0] - p[0]) * (r[1] - p[1])
-                - (q[1] - p[1]) * (r[0] - p[0])
-            )
-
-        o1 = orient(a, b, c)
-        o2 = orient(a, b, d)
-        o3 = orient(c, d, a)
-        o4 = orient(c, d, b)
-
-        epsilon = 1e-9
-        return (
-            (o1 * o2) < -epsilon
-            and (o3 * o4) < -epsilon
-        )
-
-    @staticmethod
-    def _max_chain_distance_to_bridge(chain, bridge_start, bridge_end):
-        values = list(chain or [])
-        if not values:
-            return 0.0
-
-        ax, ay = bridge_start
-        bx, by = bridge_end
-        dx = bx - ax
-        dy = by - ay
-        denominator = (dx * dx) + (dy * dy)
-
-        if denominator <= 1e-12:
-            return float("inf")
-
-        maximum = 0.0
-        for point in values:
-            px, py = point
-            t = (
-                ((px - ax) * dx)
-                + ((py - ay) * dy)
-            ) / denominator
-            projection = (
-                ax + (t * dx),
-                ay + (t * dy),
-            )
-            distance = CropGeometryService._distance_2d(
-                point,
-                projection,
-            )
-            if distance > maximum:
-                maximum = distance
-
-        return maximum
 
     def _try_native_offset_outward(self, curve_loop, margin_internal, view):
         """Essaie d'abord l'offset natif sur le contour DEJA nettoyé.
@@ -1915,119 +636,16 @@ class CropGeometryService(object):
         margin_internal,
         view,
     ):
-        """Simplifie progressivement les petites concavités puis retente l'offset.
-
-        Seuls les sommets concaves sont supprimés. Cette opération ajoute donc
-        de l'aire à l'enveloppe au lieu de couper dans le logement.
-
-        Les limites sont volontairement conservatrices :
-        - profondeur locale <= 2 m ;
-        - pont entre voisins <= 3,5 m ;
-        - aire ajoutée par suppression <= 5 m².
-        """
-        frame = self._frame_from_view(view)
-        xyz_points = self._tessellated_loop_points(curve_loop)
-        xyz_points = self._remove_near_duplicates(xyz_points)
-
-        if len(xyz_points) < 4:
+        """Retente une simplification locale sûre, jamais une corde diagonale."""
+        cleaned = self._close_small_recesses(
+            curve_loop, view,
+            self._millimeters_to_internal(self.SHAFT_MAX_MOUTH_MM),
+            self._millimeters_to_internal(self.SHAFT_MAX_DEPTH_MM),
+            self._square_meters_to_internal_area(self.SHAFT_MAX_FILL_AREA_M2),
+        )
+        if cleaned is curve_loop:
             return None
-
-        uv_points = [
-            frame.project((point.X, point.Y, point.Z))
-            for point in xyz_points
-        ]
-
-        max_bridge = self._millimeters_to_internal(
-            self.SHAFT_MAX_MOUTH_MM
-        )
-        max_depth = self._millimeters_to_internal(
-            self.SHAFT_MAX_DEPTH_MM
-        )
-        max_fill_area = self._square_meters_to_internal_area(
-            self.SHAFT_MAX_FILL_AREA_M2
-        )
-
-        for _iteration in range(30):
-            candidate_loop = self._curve_loop_from_uv_points(
-                uv_points,
-                frame,
-            )
-            offset = self._try_native_offset_outward(
-                candidate_loop,
-                margin_internal,
-                view,
-            )
-            if offset is not None:
-                return offset
-
-            signed_area = self._polygon_signed_area(uv_points)
-            concave_indices = self._concave_vertex_indices(
-                uv_points,
-                signed_area,
-            )
-
-            if not concave_indices:
-                return None
-
-            original_area = abs(signed_area)
-            best = None
-
-            for index in concave_indices:
-                count = len(uv_points)
-                previous = uv_points[(index - 1) % count]
-                current = uv_points[index]
-                following = uv_points[(index + 1) % count]
-
-                bridge = self._distance_2d(
-                    previous,
-                    following,
-                )
-                if bridge <= 1e-9 or bridge > max_bridge:
-                    continue
-
-                depth = self._point_distance_to_segment(
-                    current,
-                    previous,
-                    following,
-                )
-                if depth > max_depth:
-                    continue
-
-                candidate = (
-                    list(uv_points[:index])
-                    + list(uv_points[index + 1:])
-                )
-                if len(candidate) < 3:
-                    continue
-
-                if not self._is_simple_polygon(candidate):
-                    continue
-
-                candidate_area = abs(
-                    self._polygon_signed_area(candidate)
-                )
-                fill_area = candidate_area - original_area
-
-                if (
-                    fill_area <= 1e-9
-                    or fill_area > max_fill_area
-                ):
-                    continue
-
-                score = (
-                    fill_area,
-                    depth,
-                    bridge,
-                )
-                if best is None or score < best[0]:
-                    best = (score, candidate)
-
-            if best is None:
-                return None
-
-            uv_points = best[1]
-
-        return None
+        return self._try_native_offset_outward(cleaned, margin_internal, view)
 
     def _curve_loop_from_uv_points(self, uv_points, frame):
         from Autodesk.Revit.DB import XYZ
@@ -2045,154 +663,14 @@ class CropGeometryService(object):
             max(self._short_curve_tolerance(), 1e-7),
         )
 
-    @staticmethod
-    def _point_distance_to_segment(point, start, end):
-        px, py = point
-        ax, ay = start
-        bx, by = end
-
-        dx = bx - ax
-        dy = by - ay
-        denominator = (dx * dx) + (dy * dy)
-
-        if denominator <= 1e-12:
-            return CropGeometryService._distance_2d(
-                point,
-                start,
-            )
-
-        t = (
-            ((px - ax) * dx)
-            + ((py - ay) * dy)
-        ) / denominator
-        t = max(0.0, min(1.0, t))
-
-        projection = (
-            ax + (t * dx),
-            ay + (t * dy),
-        )
-        return CropGeometryService._distance_2d(
-            point,
-            projection,
-        )
-
     def _cleanup_small_notches(self, curve_loop, view, tolerance_internal):
-        """Supprime les petits détours en U qui n'améliorent pas le cadrage.
-
-        Le crop représente l'enveloppe graphique du logement, pas chaque
-        décrochement créé par une gaine ou une pièce non modélisée. Cette
-        passe ne touche qu'aux motifs rectangulaires courts.
-        """
+        """Même garde-fou de contenance après offset ; pas de corde de secours."""
         if tolerance_internal <= 1e-9:
             return curve_loop
-
-        frame = self._frame_from_view(view)
-        points_xyz = self._tessellated_loop_points(curve_loop)
-        points_xyz = self._remove_near_duplicates(points_xyz)
-
-        if len(points_xyz) < 4:
-            return curve_loop
-
-        points_uv = [
-            frame.project((point.X, point.Y, point.Z))
-            for point in points_xyz
-        ]
-
-        changed = True
-        safety = 0
-        while changed and len(points_uv) >= 4 and safety < 100:
-            changed = False
-            safety += 1
-            count = len(points_uv)
-
-            for index in range(count):
-                p0 = points_uv[index % count]
-                p1 = points_uv[(index + 1) % count]
-                p2 = points_uv[(index + 2) % count]
-                p3 = points_uv[(index + 3) % count]
-
-                if not self._is_u_turn_notch(
-                    p0,
-                    p1,
-                    p2,
-                    p3,
-                    tolerance_internal,
-                ):
-                    continue
-
-                remove_indices = sorted(
-                    [
-                        (index + 1) % count,
-                        (index + 2) % count,
-                    ],
-                    reverse=True,
-                )
-                for remove_index in remove_indices:
-                    points_uv.pop(remove_index)
-
-                changed = True
-                break
-
-        if len(points_uv) < 3:
-            return curve_loop
-
-        world_points = [
-            frame.to_world(point[0], point[1])
-            for point in points_uv
-        ]
-
-        from Autodesk.Revit.DB import XYZ
-        xyz_points = [
-            XYZ(point[0], point[1], point[2])
-            for point in world_points
-        ]
-        return self._curve_loop_from_points(
-            xyz_points,
-            max(self._short_curve_tolerance(), 1e-7),
+        return self._close_small_recesses(
+            curve_loop, view, tolerance_internal, tolerance_internal,
+            tolerance_internal * tolerance_internal,
         )
-
-    @staticmethod
-    def _is_u_turn_notch(p0, p1, p2, p3, tolerance):
-        v1 = (p1[0] - p0[0], p1[1] - p0[1])
-        v2 = (p2[0] - p1[0], p2[1] - p1[1])
-        v3 = (p3[0] - p2[0], p3[1] - p2[1])
-        bridge = (p3[0] - p0[0], p3[1] - p0[1])
-
-        l1 = CropGeometryService._vector_length_2d(v1)
-        l2 = CropGeometryService._vector_length_2d(v2)
-        l3 = CropGeometryService._vector_length_2d(v3)
-        lb = CropGeometryService._vector_length_2d(bridge)
-
-        if min(l1, l2, l3, lb) <= 1e-9:
-            return False
-
-        parallel_13 = abs(
-            (v1[0] * v3[1]) - (v1[1] * v3[0])
-        ) / (l1 * l3)
-        opposite_13 = (
-            (v1[0] * v3[0]) + (v1[1] * v3[1])
-        ) < 0.0
-
-        perpendicular_12 = abs(
-            (v1[0] * v2[0]) + (v1[1] * v2[1])
-        ) / (l1 * l2)
-
-        bridge_parallel_2 = abs(
-            (bridge[0] * v2[1]) - (bridge[1] * v2[0])
-        ) / (lb * l2)
-
-        if (
-            parallel_13 > 1e-3
-            or not opposite_13
-            or perpendicular_12 > 1e-3
-            or bridge_parallel_2 > 1e-3
-        ):
-            return False
-
-        depth = min(l1, l3)
-        width = l2
-
-        return depth <= tolerance or width <= tolerance
 
     def _detail_cleanup_mm(self, margin_mm):
         """Tolérance graphique : petite, bornée et liée à la marge."""
@@ -2205,24 +683,6 @@ class CropGeometryService(object):
             self.MIN_DETAIL_CLEANUP_MM,
             min(self.MAX_DETAIL_CLEANUP_MM, value),
         )
-
-    def _solid_from_loop(self, curve_loop, view):
-        from Autodesk.Revit.DB import CurveLoop, GeometryCreationUtilities
-        from System.Collections.Generic import List
-
-        loops = List[CurveLoop]()
-        loops.Add(curve_loop)
-
-        solid = GeometryCreationUtilities.CreateExtrusionGeometry(
-            loops,
-            view.ViewDirection,
-            self.BOOLEAN_EXTRUSION_HEIGHT,
-        )
-        if solid is None or solid.Volume <= 1e-9:
-            raise ValueError(
-                "Impossible de créer le solide temporaire utilisé pour la marge."
-            )
-        return solid
 
     @staticmethod
     def _curve_loop_from_points(points, tolerance):

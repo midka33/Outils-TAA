@@ -37,7 +37,6 @@ class PlansVenteWindow(forms.WPFWindow):
         self._choices = []
         self._housing_rows = []
         self._source_view_choices = []
-        self._peripheral_wall_type_choices = []
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "plans_vente.xaml")
@@ -68,18 +67,6 @@ class PlansVenteWindow(forms.WPFWindow):
 
         self._choices = self._build_parameter_choices(context.parameters)
         self.HousingParameterCombo.ItemsSource = self._choices
-
-        try:
-            self._peripheral_wall_type_choices = list(
-                self.controller.peripheral_wall_types() or []
-            )
-        except Exception:
-            self._peripheral_wall_type_choices = []
-
-        self.PeripheralWallTypeCombo.ItemsSource = (
-            self._peripheral_wall_type_choices
-        )
-        self.PeripheralWallTypeCombo.SelectedIndex = -1
 
         if self._choices:
             self.HousingParameterCombo.SelectedIndex = 0
@@ -187,12 +174,12 @@ class PlansVenteWindow(forms.WPFWindow):
         ]
         self.SourceViewCombo.ItemsSource = self._source_view_choices
         self.SourceViewCombo.SelectedIndex = 0 if self._source_view_choices else -1
-        self._update_create_prototype_enabled()
+        self.CreatePrototypeButton.IsEnabled = bool(self._source_view_choices)
 
         if self._source_view_choices:
             self.PrototypeInfoText.Text = (
-                "Choisissez le type de mur périphérique. Le prototype unit "
-                "les pièces à ces murs avant de calculer le contour."
+                "Le prototype crée une vue dépendante avec un contour optimisé "
+                "à partir de l'union réelle des pièces du logement."
             )
         else:
             self.PrototypeInfoText.Text = (
@@ -200,16 +187,9 @@ class PlansVenteWindow(forms.WPFWindow):
             )
 
     def SourceViewChanged(self, sender, args):
-        self._update_create_prototype_enabled()
-
-    def PeripheralWallTypeChanged(self, sender, args):
-        self._update_create_prototype_enabled()
-
-    def _update_create_prototype_enabled(self):
         self.CreatePrototypeButton.IsEnabled = (
             self.HousingGrid.SelectedItem is not None
             and self.SourceViewCombo.SelectedItem is not None
-            and self.PeripheralWallTypeCombo.SelectedItem is not None
         )
 
     def CreatePrototype_Click(self, sender, args):
@@ -222,11 +202,9 @@ class PlansVenteWindow(forms.WPFWindow):
             else None
         )
 
-        wall_type = self.PeripheralWallTypeCombo.SelectedItem
-
-        if housing is None or candidate is None or wall_type is None:
+        if housing is None or candidate is None:
             forms.alert(
-                "Sélectionnez un logement, une vue source et un type de mur périphérique.",
+                "Sélectionnez un logement et une vue source.",
                 title="Plans de vente — Prototype",
                 warn_icon=True,
             )
@@ -246,14 +224,12 @@ class PlansVenteWindow(forms.WPFWindow):
             (
                 "Créer une vue dépendante réelle pour le logement « {} » ?\n\n"
                 "Vue source : {}\n"
-                "Mur périphérique : {}\n"
                 "Marge de crop : {} mm\n"
-                "Contour : pièces + murs périphériques sélectionnés\n\n"
+                "Contour : union optimisée des pièces\n\n"
                 "Cette opération ajoute une vue au projet mais ne supprime rien."
             ).format(
                 housing.key,
                 candidate.name,
-                wall_type.label,
                 self._format_number(margin_mm),
             ),
             title="Plans de vente — Prototype contour optimisé",
@@ -269,7 +245,6 @@ class PlansVenteWindow(forms.WPFWindow):
                 housing=housing,
                 source_view_unique_id=candidate.unique_id,
                 margin_mm=margin_mm,
-                peripheral_wall_type_unique_id=wall_type.unique_id,
             )
 
             status = "Vue prototype créée : {} — {}.".format(
@@ -309,13 +284,16 @@ class PlansVenteWindow(forms.WPFWindow):
                 warn_icon=True,
             )
         finally:
-            self._update_create_prototype_enabled()
+            self.CreatePrototypeButton.IsEnabled = (
+                self.HousingGrid.SelectedItem is not None
+                and self.SourceViewCombo.SelectedItem is not None
+            )
 
     def _clear_prototype_selection(self):
         self._source_view_choices = []
         self.SourceViewCombo.ItemsSource = []
         self.SourceViewCombo.SelectedIndex = -1
-        self._update_create_prototype_enabled()
+        self.CreatePrototypeButton.IsEnabled = False
         self.PrototypeInfoText.Text = (
             "Sélectionnez d'abord un logement dans le tableau."
         )

@@ -2,12 +2,15 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.14  
+**Version :** 1.15
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-01
+**Date :** 2026-10-05
+
+
+**Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
 
 ---
 
@@ -2199,3 +2202,133 @@ B proche(s) et parallèle(s) au contour
 
 Cela permettra au prochain test A003 d'identifier précisément le filtre qui
 élimine `MUR-EXT-BET-Béton20CM`, sans nouvelle supposition.
+
+## Prototype A.3.20 — Raccords locaux sans murs périphériques (2026-10-05)
+
+**Comportement actif de référence.** Les sections A.3.5 à A.3.19 ci-dessus
+conservent l'historique des essais ; leurs recherches de paires globales,
+cordes directes et stratégies de murs sont remplacées par cette section.
+L'union des Rooms, le repère de vue, la normalisation en lignes, les identifiants
+persistants et le secours rectangulaire sont conservés.
+
+### Historique analysé et retrait ciblé
+
+`96c0f15` est la référence avant les guides de murs : les poches étaient
+comblées, mais par des cordes susceptibles d'être obliques. La suppression du
+buffer de marge 3D (`ee730f1`) et ses correctifs restent acquises.
+`405d577` et `6555a8f` introduisaient les faces guides ; `f253187` ajoutait le
+choix de type, puis `57c3c4e`, `be15509` et `a79a90b` élargissaient la recherche
+aux murs proches, aux liens et à la résolution des types. Ces mécanismes sont
+retirés, sans revert global de la branche.
+
+### Pipeline et responsabilité
+
+Rooms → union géométrique temporaire → boucle extérieure → linéarisation
+→ moteur local pur → validation → offset natif 2D → linéarisation → crop.
+
+`lib/plans_vente/local_crop_geometry.py` porte les calculs sans import Revit ni
+bibliothèque géométrique tierce ; syntaxe compatible IronPython 2.7.
+`CropGeometryService` convertit les UV et les unités internes, reconstruit la
+CurveLoop et conserve l'original si cette reconstruction échoue.
+
+Une chaîne locale contient au moins un virage concave intérieur. Ses lèvres
+sont des virages sortants après fusion des subdivisions exactement colinéaires.
+Les deux supports A/B sont les arêtes immédiatement avant/après cette chaîne.
+Parmi les chaînes locales sûres au même départ, la plus complète est retenue
+pour éviter plusieurs fermetures partielles d'une même gaine. Pour cette chaîne,
+on retient le raccord sûr ajoutant le moins de surface.
+
+- **Colinéaires** : suppression du détour puis fusion des segments alignés.
+- **Non parallèles** : intersection des droites support, comme TR ; raccourcir
+  ou prolonger sans inverser A/B. Aucun segment reliant directement les lèvres.
+- **Parallèles décalées** : deux projections orthogonales possibles. Le raccord
+  entre supports est perpendiculaire ; les prolongements restent sur A/B.
+- Supports parallèles parcourus en sens opposés : candidat rejeté.
+
+La validation impose orientation conservée, aire ajoutée strictement positive,
+polygone simple, absence de segment nul, recouvrement ou contact non adjacent.
+La contenance porte sur **toutes les arêtes de l'ancien contour**, découpées
+aux intersections, et pas uniquement sur ses sommets ou son aire totale.
+
+### Seuils et performances
+
+| Critère | Limite |
+|---|---|
+| Distance entre lèvres | 3 500 mm |
+| Profondeur maximale de la chaîne par rapport au raccord | 2 000 mm |
+| Surface ajoutée par fermeture | 5,0 m² |
+| Distance intersection–chacune des lèvres / prolongement sur support | 3 500 mm |
+| Chaîne inspectée | 12 arêtes au maximum |
+| Balayages par appel | 2 |
+| Validations complètes par appel | 128 |
+| Tolérance angulaire de parallélisme | sinus ≤ 1e-9 |
+| Tolérance géométrique transmise par Revit | max(ShortCurveTolerance, 1e-7 pied) |
+
+Les supports presque parallèles qui se croisent trop loin sont rejetés.
+Le test strict de colinéarité utilise 1e-9 unité de longueur ; une séparation
+supérieure ne devient jamais une corde inclinée « presque alignée ».
+Chaque balayage visite au plus le nombre de sommets présent au début du
+balayage et inspecte au plus 11 longueurs de chaîne par départ. Il n'y a plus
+50 reprises d'une recherche sur toutes les paires de sommets. Les vérifications
+topologiques restent quadratiques en nombre d'arêtes, mais sont plafonnées à
+128 candidats par appel. Si ce budget ou le nombre de passes est atteint,
+les retraits non traités restent présents et le diagnostic le signale.
+
+La fermeture initiale est indépendante de la marge. L'offset natif est essayé
+en premier. La tentative adaptative et le nettoyage après offset emploient le
+même moteur sûr : aucune suppression de sommet créant une corde oblique ne
+subsiste. Le nettoyage après offset garde sa tolérance de 300 à 600 mm et une
+aire maximale égale au carré de cette tolérance. Si l'offset reste impossible,
+le rectangle de secours est annoncé. **Aucun booléen 3D pour la marge.**
+Les booléens de l'union initiale des Rooms restent nécessaires et inchangés.
+
+### Interface et diagnostic
+
+Le prototype demande seulement le logement, la vue source et la marge, puis
+**Créer le contour optimisé**. Aucun type de mur ni source liée à choisir.
+Le sélecteur de paramètre identifiant le logement reste dans la détection.
+
+Le résultat affiche les fermetures colinéaires, les raccords Trim/Extend et
+les raccords perpendiculaires. Les compteurs ne sont incrémentés qu'après
+reconstruction réussie ; ils incluent les éventuels nettoyages de marge.
+Un échec indique l'étape et les compteurs déjà obtenus. Le contrôle CanHaveShape
+sur la vue cible fonctionne aussi lorsque le mode contient ce diagnostic.
+
+### Tests et validation
+
+`tests/plans_vente/test_local_crop_geometry.py` couvre A–H : colinéaire,
+intersection droite/oblique, parallèles décalées, intersection distante,
+auto-intersection/contact/recouvrement, contenance malgré gain d'aire,
+absence de corde arbitraire. S'ajoutent rotations, translation, inversion de
+sens, changement de sommet initial, seuils, grandes formes en L, budget,
+idempotence et 20 poches synthétiques.
+`test_local_crop_adapter.py` exécute le véritable adaptateur avec reconstruction
+CurveLoop simulée : conservation en cas d'erreur, diagnostic et fallback sur
+vue incompatible. Les contrats obsolètes des murs ont été remplacés.
+
+Résultat local : **60 tests réussis**, suite entière `tests/plans_vente`.
+Ce résultat ne valide ni le temps sur A003 ni l'API/rendu Revit réel.
+Le workflow `.github/workflows/plans-vente-tests.yml` exécute cette même suite
+avec Python 3.11 après publication sur la branche de travail.
+
+### Procédure manuelle A003 — Revit 2025.4 / pyRevit 5.x
+
+1. Récupérer `feature/plans-de-vente-proto-views-crop`, copier l'extension si
+   l'installation pyRevit utilise un autre dossier, puis recharger pyRevit.
+2. Ouvrir Plans de vente dans la même maquette et choisir le paramètre logement.
+   Lancer l'analyse et sélectionner A003 ; vérifier son nombre de pièces.
+3. Choisir la même vue source que précédemment. Aucun champ de mur ne doit
+   apparaître. Noter la vue source et son crop avant l'essai.
+4. Entrer **20 mm**, lancer **Créer le contour optimisé**, confirmer la création.
+   Chronométrer le clic jusqu'au résultat et relever le diagnostic complet.
+5. Dans la vue dépendante créée, afficher/modifier le cadrage et examiner chaque
+   ancienne gaine : alignement continu, angle TR ou marche perpendiculaire,
+   aucune diagonale nouvelle, aucune pièce rognée, grande forme en L conservée.
+6. Refaire des créations à **50, 200 et 500 mm** avec la même source. La marge
+   doit fonctionner sans retour au buffer 3D. Relever tout rectangle de secours,
+   étape en échec ou message de budget ; ne pas le compter comme un succès.
+7. Vérifier que la vue principale n'a pas été recadrée et que chaque vue créée
+   s'ouvre correctement. Refaire un essai sur une autre forme de logement.
+8. Transmettre les captures de chaque gaine à 20 mm et 500 mm, les compteurs et
+   temps mesurés. Les données géométriques réelles d'A003 ne sont pas disponibles
+   dans les tests hors Revit : leur validation reste indispensable.

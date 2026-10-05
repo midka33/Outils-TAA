@@ -35,7 +35,6 @@ def test_xaml_handlers_for_prototype_exist():
     for handler in (
         "HousingSelectionChanged",
         "SourceViewChanged",
-        "PeripheralWallTypeChanged",
         "CreatePrototype_Click",
     ):
         assert "def {}(".format(handler) in python_text
@@ -73,35 +72,16 @@ def test_crop_uses_view_coordinate_system_and_true_room_union():
     assert "build_optimized_crop" in prototype_text
 
 
-def test_prototype_requires_explicit_peripheral_wall_type():
-    xaml_text = (PANEL / "ui" / "plans_vente.xaml").read_text(encoding="utf-8")
-    window_text = (PANEL / "ui" / "plans_vente_window.py").read_text(
-        encoding="utf-8"
-    )
-    controller_text = (
-        PANEL / "services" / "plans_vente_controller.py"
-    ).read_text(encoding="utf-8")
-    prototype_text = (
-        PANEL / "services" / "prototype_view_service.py"
-    ).read_text(encoding="utf-8")
 
-    assert 'x:Name="PeripheralWallTypeCombo"' in xaml_text
-    assert 'DisplayMemberPath="label"' in xaml_text
-    assert "def PeripheralWallTypeChanged(" in window_text
-    assert "def peripheral_wall_types(" in controller_text
-    assert "def list_peripheral_wall_types(" in prototype_text
-    assert "Sélectionnez le type de mur périphérique." in prototype_text
-    assert "peripheral_wall_type_unique_id" in prototype_text
-
-
-def test_peripheral_wall_types_include_host_and_loaded_revit_links():
-    text = (
-        PANEL / "services" / "prototype_view_service.py"
-    ).read_text(encoding="utf-8")
-
-    assert "RevitLinkInstance" in text
-    assert "GetLinkDocument()" in text
-    assert '"HOST|{}".format(wall_type_uid)' in text
-    assert '"LINK|{}|{}".format(' in text
-    assert '"Lien : {}".format(link_name)' in text
-    assert 'self.label = "[{}] {}".format(' in text
+def test_prototype_needs_only_housing_source_view_and_margin():
+    for path in (PANEL / "ui" / "plans_vente.xaml",
+                 PANEL / "ui" / "plans_vente_window.py",
+                 PANEL / "services" / "plans_vente_controller.py",
+                 PANEL / "services" / "prototype_view_service.py"):
+        text = path.read_text(encoding="utf-8")
+        for obsolete in ("PeripheralWallType", "peripheral_wall_type", "RevitLinkInstance"):
+            assert obsolete not in text
+    text = (PANEL / "ui" / "plans_vente.xaml").read_text(encoding="utf-8")
+    assert 'x:Name="SourceViewCombo"' in text
+    assert 'x:Name="CropMarginTextBox"' in text
+    assert 'Content="Créer le contour optimisé"' in text

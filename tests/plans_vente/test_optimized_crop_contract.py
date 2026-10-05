@@ -110,7 +110,6 @@ def test_large_margin_uses_adaptive_concavity_cleanup():
     text = SERVICE.read_text(encoding="utf-8")
 
     assert "def _try_offset_after_concavity_cleanup(" in text
-    assert "def _point_distance_to_segment(" in text
     assert "def _cleanup_small_notches(" in text
     assert "MIN_DETAIL_CLEANUP_MM = 300.0" in text
     assert "MAX_DETAIL_CLEANUP_MM = 600.0" in text
@@ -121,9 +120,6 @@ def test_small_shaft_recesses_are_closed_before_margin():
 
     assert '"Fermeture des petites gaines et retraits"' in text
     assert "def _close_small_recesses(" in text
-    assert "def _concave_vertex_indices(" in text
-    assert "def _bridge_candidate_polygons(" in text
-    assert "def _max_chain_distance_to_bridge(" in text
     assert "SHAFT_MAX_MOUTH_MM = 3500.0" in text
     assert "SHAFT_MAX_DEPTH_MM = 2000.0" in text
     assert "SHAFT_MAX_FILL_AREA_M2 = 5.0" in text
@@ -132,43 +128,12 @@ def test_small_shaft_recesses_are_closed_before_margin():
     )
 
 
-def test_shaft_detection_is_independent_from_crop_margin():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "def _point_in_polygon(" in text
-    assert "def _vertices_are_adjacent(" in text
-    assert "SHAFT_MAX_MOUTH_MM = 3500.0" in text
-    assert "SHAFT_MAX_DEPTH_MM = 2000.0" in text
-    assert "SHAFT_MAX_FILL_AREA_M2 = 5.0" in text
-    assert "for i in range(count):" in text
-    assert "for j in range(i + 1, count):" in text
-    assert "def _wall_aligned_bridge_paths(" in text
-    assert "if not self._point_in_polygon(" in text
-    assert text.index("Fermeture des petites gaines et retraits") < text.index(
-        "Construction de la marge robuste"
-    )
 
 
-def test_shaft_cleanup_is_conservative_and_reversible():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "def _is_simple_polygon(" in text
-    assert "def _forward_chain_indices(" in text
-    assert "def _replace_chain_with_bridge(" in text
-    assert "if not self._is_simple_polygon(candidate):" in text
-    assert "return curve_loop" in text
 
 
-def test_polygon_area_helper_is_static():
-    text = SERVICE.read_text(encoding="utf-8")
-    assert "@staticmethod\n    def _polygon_signed_area(points):" in text
 
 
-def test_shaft_cleanup_helpers_are_defined():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "def _vertices_are_adjacent(" in text
-    assert "def _point_in_polygon(" in text
 
 
 def test_private_self_calls_have_matching_methods():
@@ -189,23 +154,8 @@ def test_private_self_calls_have_matching_methods():
     assert missing == []
 
 
-def test_shaft_cleaner_tests_all_non_adjacent_vertices_safely():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "for i in range(count):" in text
-    assert "for j in range(i + 1, count):" in text
-    assert "if self._vertices_are_adjacent(i, j, count):" in text
-    assert "def _wall_aligned_bridge_paths(" in text
-    assert "if not self._point_in_polygon(" in text
-    assert "if not self._is_simple_polygon(candidate):" in text
-    assert "fill_area = candidate_area - original_area" in text
 
 
-def test_shaft_cleanup_reports_how_many_pockets_were_closed():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "_last_closed_recess_count" in text
-    assert "gaine(s)/retrait(s) comblé(s)" in text
 
 
 def test_native_offset_is_attempted_before_adaptive_cleanup():
@@ -220,116 +170,33 @@ def test_native_offset_is_attempted_before_adaptive_cleanup():
     assert native_call < adaptive_call
 
 
-def test_shaft_closure_prefers_opposite_wall_faces_over_diagonal_chords():
+
+
+
+
+
+
+
+
+
+
+def test_revit_adapter_uses_local_engine_without_wall_or_chord_fallback():
     text = SERVICE.read_text(encoding="utf-8")
-
-    assert "def _collect_opposite_wall_face_guides(" in text
-    assert "wall.Orientation" in text
-    assert "wall.Width" in text
-    assert "def _wall_aligned_bridge_paths(" in text
-    assert "WALL_GUIDE_EXTENSION_MM = 600.0" in text
-    assert "def _bridge_matches_local_direction(" in text
-    assert "def _bridge_candidate_polygons_with_path(" in text
-    assert "_last_wall_aligned_recess_count" in text
-    assert "fermeture(s) alignée(s) sur mur" in text
-
-    close_start = text.index("def _close_small_recesses(")
-    close_end = text.index("def _vertices_are_adjacent(", close_start)
-    close_block = text[close_start:close_end]
-
-    assert "bridge_options.append((0, bridge_path))" in close_block
-    assert "if self._bridge_matches_local_direction(" in close_block
-
-    wall_start = text.index("def _wall_aligned_bridge_paths(")
-    wall_end = text.index("def _bridge_matches_local_direction(", wall_start)
-    wall_block = text[wall_start:wall_end]
-
-    # Une bouche diagonale ne doit plus exclure le mur guide : c'était
-    # précisément la cause du fallback observé dans Revit.
-    assert "mouth_vector" not in wall_block
-    assert "parallel_sin" not in wall_block
-    assert "_project_point_to_line(" in wall_block
+    assert "local_geometry.close_pockets(" in text
+    for obsolete in ("RevitLinkInstance", "peripheral_wall", "wall_guides",
+                     "_bridge_candidate_polygons", "_collect_opposite_wall"):
+        assert obsolete not in text
+    assert "SHAFT_MAX_EXTENSION_MM = 3500.0" in text
+    # Both cleanup paths after/before native offset delegate to the safe engine.
+    for name in ("_try_offset_after_concavity_cleanup", "_cleanup_small_notches"):
+        node = next(n for n in ast.walk(ast.parse(text))
+                    if isinstance(n, ast.FunctionDef) and n.name == name)
+        block = "\n".join(text.splitlines()[node.lineno-1:node.end_lineno])
+        assert "self._close_small_recesses(" in block
 
 
-def test_fallback_reports_wall_guided_cleanup_counts():
+def test_diagnostics_distinguish_all_three_repair_types():
     text = SERVICE.read_text(encoding="utf-8")
-
-    assert "Nettoyage avant échec" in text
-    assert "_last_closed_recess_count" in text
-    assert "_last_wall_aligned_recess_count" in text
-
-
-def test_selected_peripheral_wall_type_uses_fast_wall_strip_union():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "peripheral_wall_type_unique_id=None" in text
-    assert "def _collect_peripheral_wall_strip_loops(" in text
-    assert "wall.GetTypeId()" in text
-    assert "selected_type_id" in text
-    assert "supplemental_loops=None" in text
-    assert "list(room_loops or []) + list(supplemental_loops or [])" in text
-    assert "if peripheral_wall_type_unique_id:" in text
-    assert "clean_outer_loop = straight_outer_loop" in text
-    assert "_last_peripheral_wall_count" in text
-    assert "Murs périphériques utilisés" in text
-
-    # Le type choisi est recherché près du contour extérieur des Rooms :
-    # il n'a plus besoin d'être directement BoundarySegment.ElementId.
-    collector_start = text.index("def _collect_peripheral_wall_strip_loops(")
-    collector_end = text.index(
-        "def _collect_opposite_wall_face_guides(",
-        collector_start,
-    )
-    collector = text[collector_start:collector_end]
-
-    assert "FilteredElementCollector(source_document)" in collector
-    assert "PERIPHERAL_WALL_SEARCH_MM = 1000.0" in text
-    assert "PERIPHERAL_WALL_PARALLEL_SIN" in text
-    assert "def _segment_distance_2d(" in text
-    assert "segment.ElementId" not in collector
-    assert "room_outer_loop" in collector
-
-
-def test_peripheral_wall_search_supports_linked_revit_sources():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    assert "def _resolve_peripheral_wall_source(" in text
-    assert 'if value.startswith("LINK|"):' in text
-    assert "GetLinkDocument()" in text
-    assert "GetTotalTransform()" in text
-    assert "source_transform.OfPoint(wall_start)" in text
-    assert "source_transform.OfVector(" in text
-    assert "def _bounding_box_host_z_range(" in text
-    assert "_last_peripheral_wall_source" in text
-    assert "Source murs : {}." in text
-
-
-def test_peripheral_wall_type_matching_uses_element_id_and_reports_filter_counts():
-    text = SERVICE.read_text(encoding="utf-8")
-
-    collector_start = text.index("def _collect_peripheral_wall_strip_loops(")
-    collector_end = text.index(
-        "def _collect_opposite_wall_face_guides(",
-        collector_start,
-    )
-    collector = text[collector_start:collector_end]
-
-    assert "selected_type_id" in collector
-    assert "wall.GetTypeId()" in collector
-    assert "wall_type_id.Equals(selected_type_id)" in collector
-    assert 'diagnostics["type"]' in collector
-    assert 'diagnostics["line"]' in collector
-    assert 'diagnostics["z"]' in collector
-    assert 'diagnostics["bbox"]' in collector
-    assert 'diagnostics["near_parallel"]' in collector
-    assert "instance(s) du type" in collector
-
-    resolver_start = text.index("def _resolve_peripheral_wall_source(")
-    resolver_end = text.index(
-        "def _bounding_box_host_z_range(",
-        resolver_start,
-    )
-    resolver = text[resolver_start:resolver_end]
-
-    assert "wall_type = self.document.GetElement(wall_type_uid)" in resolver
-    assert "wall_type.Id" in resolver
+    for word in ("colinéaire", "Trim/Extend", "perpendiculaire", "Nettoyage avant échec"):
+        assert word in text
+    assert 'mode.startswith("Contour optimisé")' in text

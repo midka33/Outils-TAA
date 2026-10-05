@@ -24,33 +24,6 @@ class PrototypeViewResult(object):
         self.warning = warning or ""
 
 
-class PeripheralWallTypeCandidate(object):
-    def __init__(
-        self,
-        unique_id,
-        name,
-        family_name="",
-        source_label="Projet",
-    ):
-        self.unique_id = unique_id or ""
-        self.name = name or ""
-        self.family_name = family_name or ""
-        self.source_label = source_label or "Projet"
-
-        if self.family_name and self.family_name != self.name:
-            type_label = "{} — {}".format(
-                self.family_name,
-                self.name,
-            )
-        else:
-            type_label = self.name
-
-        self.label = "[{}] {}".format(
-            self.source_label,
-            type_label,
-        )
-
-
 class PrototypeViewService(object):
     def __init__(self, document, plan_view_service, crop_geometry_service):
         if document is None:
@@ -63,134 +36,12 @@ class PrototypeViewService(object):
         level_name = self._single_level_name(housing)
         return self.plan_view_service.list_primary_floor_plans(level_name)
 
-    def list_peripheral_wall_types(self):
-        from Autodesk.Revit.DB import (
-            FilteredElementCollector,
-            RevitLinkInstance,
-            Wall,
-        )
-
-        candidates = {}
-
-        self._append_wall_type_candidates(
-            candidates,
-            source_document=self.document,
-            source_prefix="HOST",
-            source_label="Projet",
-            link_instance_unique_id="",
-            wall_class=Wall,
-            collector_class=FilteredElementCollector,
-        )
-
-        links = (
-            FilteredElementCollector(self.document)
-            .OfClass(RevitLinkInstance)
-            .WhereElementIsNotElementType()
-            .ToElements()
-        )
-        for link_instance in links:
-            try:
-                link_document = link_instance.GetLinkDocument()
-            except Exception:
-                link_document = None
-            if link_document is None:
-                continue
-
-            link_uid = str(
-                getattr(link_instance, "UniqueId", "") or ""
-            )
-            if not link_uid:
-                continue
-
-            link_name = str(
-                getattr(link_instance, "Name", "") or ""
-            )
-            if not link_name:
-                link_name = str(
-                    getattr(link_document, "Title", "") or "Lien Revit"
-                )
-
-            self._append_wall_type_candidates(
-                candidates,
-                source_document=link_document,
-                source_prefix="LINK",
-                source_label="Lien : {}".format(link_name),
-                link_instance_unique_id=link_uid,
-                wall_class=Wall,
-                collector_class=FilteredElementCollector,
-            )
-
-        values = list(candidates.values())
-        values.sort(key=lambda item: item.label.lower())
-        return values
-
-    def _append_wall_type_candidates(
-        self,
-        candidates,
-        source_document,
-        source_prefix,
-        source_label,
-        link_instance_unique_id,
-        wall_class,
-        collector_class,
-    ):
-        walls = (
-            collector_class(source_document)
-            .OfClass(wall_class)
-            .WhereElementIsNotElementType()
-            .ToElements()
-        )
-
-        for wall in walls:
-            wall_type = getattr(wall, "WallType", None)
-            if wall_type is None:
-                continue
-
-            wall_type_uid = str(
-                getattr(wall_type, "UniqueId", "") or ""
-            )
-            if not wall_type_uid:
-                continue
-
-            if source_prefix == "LINK":
-                selection_key = "LINK|{}|{}".format(
-                    link_instance_unique_id,
-                    wall_type_uid,
-                )
-            else:
-                selection_key = "HOST|{}".format(wall_type_uid)
-
-            if selection_key in candidates:
-                continue
-
-            name = self._element_type_name(wall_type)
-            if not name:
-                continue
-
-            family_name = str(
-                getattr(wall_type, "FamilyName", "") or ""
-            )
-            candidates[selection_key] = PeripheralWallTypeCandidate(
-                selection_key,
-                name,
-                family_name,
-                source_label,
-            )
-
-    def create_dependent_crop_view(
-        self,
-        housing,
-        source_view_unique_id,
-        margin_mm=500.0,
-        peripheral_wall_type_unique_id=None,
-    ):
+    def create_dependent_crop_view(self, housing, source_view_unique_id, margin_mm=500.0):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
         level_name = self._single_level_name(housing)
         if not source_view_unique_id:
             raise ValueError("Sélectionnez une vue source.")
-        if not peripheral_wall_type_unique_id:
-            raise ValueError("Sélectionnez le type de mur périphérique.")
 
         source_view = self.document.GetElement(source_view_unique_id)
         if source_view is None:
@@ -211,7 +62,6 @@ class PrototypeViewService(object):
             housing.room_unique_ids,
             source_view,
             margin_mm,
-            peripheral_wall_type_unique_id,
         )
 
         created_view = None
@@ -246,28 +96,6 @@ class PrototypeViewService(object):
             crop_mode=crop_result.mode,
             warning=crop_result.warning,
         )
-
-    @staticmethod
-    def _element_type_name(element_type):
-        try:
-            value = getattr(element_type, "Name", None)
-            if value:
-                return str(value)
-        except Exception:
-            pass
-
-        try:
-            from Autodesk.Revit.DB import BuiltInParameter
-            parameter = element_type.get_Parameter(
-                BuiltInParameter.SYMBOL_NAME_PARAM
-            )
-            if parameter is not None:
-                value = parameter.AsString()
-                if value:
-                    return str(value)
-        except Exception:
-            pass
-        return ""
 
     @staticmethod
     def _single_level_name(housing):

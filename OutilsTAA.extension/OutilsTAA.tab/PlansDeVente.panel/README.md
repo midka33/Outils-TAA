@@ -38,8 +38,14 @@ Le crop Revit exige une boucle composée uniquement de segments droits. Le conto
 En cas de fallback, l'interface indique maintenant l'étape géométrique exacte en échec.
 
 
-### Marge robuste
+### Contour local et marge 2D
 
-Le prototype ne dépend plus de `CurveLoop.CreateViaOffset`, qui échouait dès 25 mm sur certains contours concaves.
+Après linéarisation, les petites poches sont raccordées par colinéarité,
+Trim/Extend ou projection perpendiculaire entre supports parallèles décalés.
+La géométrie utilise uniquement les pièces ; aucun type de mur n'est demandé.
+La contenance complète et la simplicité sont contrôlées avant toute fermeture.
 
-La marge est maintenant construite par union booléenne de bandes le long des arêtes et de raccords octogonaux aux sommets. Cette stratégie accepte les changements de topologie dus aux grandes marges.
+La marge utilise CreateViaOffset, puis une tentative de nettoyage local sûr.
+Aucun buffer booléen 3D de marge n'est conservé. Si la marge échoue, le rectangle
+de secours reste explicite. Les compteurs détaillent les trois types de raccord.
+Voir `docs/20_Plans_de_Vente.md`, A.3.20, pour seuils et test manuel A003.
