@@ -2597,3 +2597,402 @@ Décision V1 :
   autre marge ou corrigé manuellement.
 
 Cette dette devra être traitée avant la stabilisation finale de la V1.
+
+
+## Ouverture Étape 04 — Nomenclatures et repérage
+
+Branche de travail : `feature/plans-de-vente-stage04-schedules-location`.
+
+L'Étape 04 est découpée en trois sous-étapes afin de conserver des prototypes
+Revit testables et indépendants.
+
+### 04A — Nomenclatures intérieure et extérieure
+
+La V1 utilise **deux nomenclatures modèles choisies par l'utilisateur** :
+
+- nomenclature modèle intérieure ;
+- nomenclature modèle extérieure.
+
+Ces nomenclatures modèles restent la source de vérité pour la présentation et
+pour la distinction métier intérieur / extérieur. Le plugin ne doit pas coder
+en dur une liste de noms de pièces comme `Balcon`, `Terrasse` ou `Loggia`.
+
+Pour un logement sélectionné, le module doit :
+
+1. dupliquer la nomenclature modèle ;
+2. conserver ses champs, tris, mise en forme et filtres métier existants ;
+3. identifier le champ correspondant au paramètre logement déjà choisi lors de
+   l'analyse ;
+4. remplacer ou ajouter uniquement le filtre de logement ;
+5. appliquer la valeur du logement ;
+6. nommer la copie de manière déterministe ;
+7. ne jamais modifier la nomenclature modèle.
+
+Si une nomenclature modèle ne contient pas le champ nécessaire au filtre
+logement, l'opération doit être bloquée avec un diagnostic clair.
+
+### 04B — Plan de repérage
+
+Le plan de repérage partira d'une vue plan de référence configurable. La V1 doit
+permettre de choisir :
+
+- la vue source de repérage ;
+- le gabarit à appliquer lorsque pertinent ;
+- le style/type de surbrillance du logement.
+
+La vue de repérage générée doit mettre en évidence le logement sans modifier la
+vue source.
+
+### 04C — Placement
+
+L'Étape 04 doit produire des éléments prêts à être placés sur une feuille :
+nomenclature intérieure, nomenclature extérieure et vue de repérage.
+
+Le placement définitif et la composition complète avec cartouche, vue logement,
+légendes et paramètres seront raccordés à l'Étape 07 — Assemblage feuille.
+L'Étape 04 doit néanmoins préparer des rôles et points d'ancrage stables afin
+que ce raccordement ne dépende pas d'une détection implicite.
+
+### Ordre de développement
+
+```text
+04A Nomenclatures
+        ↓
+validation Revit
+        ↓
+04B Plan de repérage
+        ↓
+validation Revit
+        ↓
+04C Contrat de placement / ancrages
+        ↓
+Étape 04 validée
+```
+
+
+## Prototype 04A — Nomenclatures filtrées par logement
+
+Implémentation préparée sur `feature/plans-de-vente-stage04-schedules-location`.
+
+### Comportement
+
+Après l'analyse des logements, l'interface propose uniquement les nomenclatures Revit qui :
+
+- sont des `ViewSchedule` duplicables ;
+- ne sont pas des vues gabarits ;
+- ne sont pas déjà des nomenclatures générées `PDV_...` ;
+- contiennent réellement le champ correspondant au paramètre logement choisi.
+
+L'identification du champ privilégie l'identité stable du paramètre :
+
+- GUID pour un paramètre partagé ;
+- identifiant de paramètre intégré Revit ;
+- identifiant de définition pour un paramètre projet ;
+- nom seulement pour un descripteur qui ne possède aucune identité plus stable.
+
+Pour le logement `A001`, les deux copies sont nommées :
+
+```text
+PDV_A001_INT
+PDV_A001_EXT
+```
+
+Les caractères interdits dans un nom de vue Revit sont neutralisés.
+
+### Conservation du modèle
+
+Chaque nomenclature modèle est dupliquée avec `ViewDuplicateOption.Duplicate`.
+La copie conserve donc les champs, tris, mise en forme et filtres métier du modèle.
+
+Le service repère les filtres qui utilisent le champ logement :
+
+- s'il en existe un, il est remplacé par `paramètre logement = <valeur logement>` ;
+- s'il en existe plusieurs sur ce même champ, un seul filtre d'égalité est conservé ;
+- s'il n'en existe aucun, le filtre d'égalité est ajouté ;
+- les filtres portant sur les autres champs ne sont pas modifiés.
+
+Si le champ logement n'est pas présent ou n'est pas filtrable par valeur, l'opération est refusée avant duplication.
+
+### Sécurité V1
+
+La nomenclature modèle n'est jamais modifiée.
+
+Si `PDV_<logement>_INT` ou `PDV_<logement>_EXT` existe déjà, le prototype bloque la création au lieu de générer silencieusement un doublon. La logique de mise à jour des éléments existants reste réservée à l'Étape 08.
+
+Les deux nomenclatures sont créées dans une transaction courte commune : un échec sur l'une annule la paire.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. choisir le paramètre logement et lancer l'analyse ;
+2. sélectionner un logement ;
+3. sélectionner une nomenclature modèle intérieure et une extérieure ;
+4. cliquer **Créer les nomenclatures** ;
+5. vérifier la création de `PDV_<logement>_INT` et `PDV_<logement>_EXT` ;
+6. vérifier que champs, tris, formatage et filtres métier sont identiques aux modèles ;
+7. vérifier que seul le filtre logement vaut la valeur du logement sélectionné ;
+8. vérifier que les nomenclatures modèles sont inchangées ;
+9. relancer sur le même logement et vérifier que la collision est bloquée ;
+10. vérifier qu'une nomenclature ne contenant pas le paramètre logement n'est pas proposée.
+
+**Statut : VALIDÉ dans Revit 2025.4 le 5 octobre 2026.**
+
+
+### Paramètre logement par défaut
+
+À l'ouverture de Plans de vente, le sélecteur **Paramètre identifiant le logement** cherche en priorité le paramètre partagé nommé exactement :
+
+```text
+N° Appartement
+```
+
+Le critère `SHARED_GUID` est obligatoire : un paramètre projet ou un paramètre par nom portant le même libellé ne doit pas être préféré au paramètre partagé.
+
+Si ce paramètre partagé est présent, il est sélectionné automatiquement. S'il n'existe pas dans le projet, le premier paramètre texte disponible reste sélectionné afin de ne pas bloquer l'outil.
+
+Ce choix ne lance pas automatiquement l'analyse ; l'utilisateur conserve le contrôle du bouton **Analyser les logements**.
+
+
+## Prototype 04B — Plan de repérage
+
+Le prototype 04B crée une vue de repérage indépendante sans modifier la vue source.
+
+### Principe V1
+
+Pour un logement sur un seul niveau :
+
+```text
+Vue plan source
+      ↓ Duplicate
+PDV_<logement>_REP
+      +
+gabarit optionnel
+      +
+zones remplies sur les pièces du logement
+```
+
+Le nom est déterministe, par exemple `PDV_A001_REP`.
+
+### Configuration utilisateur
+
+L'interface permet de choisir :
+
+- la vue plan source du niveau du logement ;
+- un gabarit de plan d'étage, ou **Conserver la vue source** ;
+- un type de `FilledRegionType` pour la surbrillance.
+
+Les vues générées `PDV_...` ne sont pas reproposées comme vues sources, afin d'éviter les duplications en chaîne.
+
+### Surbrillance
+
+Le plan de repérage utilise désormais **une seule zone remplie globale pour tout
+le logement**.
+
+Le contour est construit par le moteur géométrique de l'Étape 03 avec une marge
+de `0 mm`. Ce moteur travaille sur les limites de pièces au centre des murs,
+réunit les pièces puis extrait l'enveloppe extérieure du logement. La zone
+remplie passe ainsi **par-dessus les cloisons intérieures**, au lieu de laisser
+une coupure entre chaque pièce.
+
+```text
+pièces du logement
+        ↓
+moteur de contour global Étape 03
+        ↓
+enveloppe extérieure — marge 0 mm
+        ↓
+1 seule FilledRegion
+```
+
+Le rectangle de secours du moteur de crop n'est volontairement pas utilisé pour
+le repérage : si l'enveloppe globale fiable ne peut pas être calculée, la
+création est bloquée afin d'éviter de surligner une partie extérieure au
+logement.
+
+La V1 met en évidence toute l'emprise du logement ; elle ne tente pas encore de
+distinguer graphiquement intérieur et extérieur dans le plan de repérage.
+
+### Sécurité
+
+- la vue source n'est jamais modifiée ;
+- le gabarit n'est appliqué qu'à la copie ;
+- la création de la vue et de toutes les zones remplies est regroupée dans une transaction courte ;
+- si `PDV_<logement>_REP` existe déjà, la création est bloquée jusqu'à la logique de mise à jour de l'Étape 08 ;
+- le prototype V1 attend actuellement un logement sur un seul niveau.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. analyser les logements puis sélectionner un logement ;
+2. choisir une **Vue source** de repérage du bon niveau ;
+3. choisir **Conserver la vue source** ou un gabarit de plan ;
+4. choisir un type de **Zone remplie** ;
+5. cliquer **Créer le plan de repérage** ;
+6. vérifier la création de `PDV_<logement>_REP` ;
+7. vérifier que la vue source d'origine est inchangée ;
+8. vérifier que le gabarit choisi est appliqué uniquement à la copie ;
+9. vérifier qu'il existe **une seule zone remplie** couvrant tout le logement,
+   y compris les cloisons intérieures ;
+10. vérifier que la zone suit bien l'enveloppe extérieure du logement sans
+    devenir un simple rectangle ;
+11. relancer sur le même logement et vérifier que la collision de nom est bloquée.
+
+**Statut : VALIDÉ dans Revit 2025.4 le 5 octobre 2026.**
+
+
+### Correctif 04B — libellés des zones remplies
+
+Lors du premier essai Revit 2025.4, les types de zones remplies étaient bien
+collectés mais leurs libellés apparaissaient vides dans la ComboBox.
+
+Cause : limitation connue d'IronPython sur la propriété `Name` des
+sous-classes de `ElementType`.
+
+Le service lit désormais les noms par `Element.Name.GetValue(...)`.
+Voir **BUG-PDV-024**.
+
+**Correctif des libellés validé dans Revit 2025.4 le 5 octobre 2026.**
+
+
+### Validation finale 04B — 2026-10-05
+
+Validation utilisateur confirmée dans Revit 2025.4 / pyRevit 5.x.
+
+Points validés :
+
+- noms des types de zones remplies correctement affichés ;
+- duplication de la vue source sans modification de l'original ;
+- création de `PDV_<logement>_REP` ;
+- gabarit optionnel appliqué uniquement à la copie ;
+- création d'une **seule zone remplie globale** ;
+- enveloppe continue du logement ;
+- cloisons intérieures recouvertes par la surbrillance ;
+- contour global issu du moteur géométrique de l'Étape 03 à marge nulle ;
+- absence de rectangle de secours implicite.
+
+**04B — Plan de repérage : VALIDÉ V1.**
+
+Prochaine sous-étape : **04C — contrat de placement / ancrages**.
+
+
+## Prototype 04C — Contrat de placement et ancrages
+
+L'Étape 04 ne place toujours aucun élément sur une feuille. Elle définit
+désormais un **contrat métier explicite** que l'Étape 07 utilisera pour
+l'assemblage.
+
+### Rôles stables
+
+Chaque élément produit reçoit un rôle fonctionnel indépendant de son nom Revit :
+
+| Élément | Rôle | Type de placement | Ancrage |
+|---|---|---|---|
+| Vue logement | `MainView` | `Viewport` | `main_view` |
+| Plan de repérage | `LocationView` | `Viewport` | `location_view` |
+| Nomenclature intérieure | `InteriorSchedule` | `Schedule` | `interior_schedule` |
+| Nomenclature extérieure | `ExteriorSchedule` | `Schedule` | `exterior_schedule` |
+
+Le nom Revit reste utile à l'utilisateur, mais il ne doit plus servir à deviner
+le rôle lors de l'assemblage.
+
+### Artefact de placement
+
+Chaque résultat de création transporte désormais :
+
+```text
+HousingKey
+Role
+ElementUniqueId
+ElementName
+PlacementKind
+AnchorKey
+```
+
+Le `UniqueId` Revit est utilisé dans le contrat courant plutôt qu'un
+`ElementId` volatile.
+
+Les services renvoient directement ces métadonnées au moment où ils créent
+l'élément :
+
+- vue logement → un artefact `MainView` ;
+- plan de repérage → un artefact `LocationView` ;
+- paire de nomenclatures → deux artefacts
+  `InteriorSchedule` / `ExteriorSchedule`.
+
+Cela évite qu'un futur contrôleur recherche des vues par préfixe de nom pour
+déterminer leur fonction.
+
+### Ancrages
+
+Les ancrages de 04C sont des **identifiants sémantiques**, pas encore des
+coordonnées papier.
+
+```text
+main_view
+location_view
+interior_schedule
+exterior_schedule
+```
+
+L'Étape 07 associera ces identifiants aux coordonnées réelles d'un
+**Modèle de plan de vente / feuille modèle**.
+
+Aucune coordonnée XYZ n'est codée en dur dans l'Étape 04.
+
+### Validation du contrat
+
+`HousingPlacementContract` garantit pour un logement :
+
+- un seul artefact par rôle ;
+- un seul artefact par ancrage ;
+- cohérence logement / rôle / type de placement / ancrage ;
+- présence d'un `UniqueId` et d'un nom d'élément.
+
+La persistance durable de `GeneratedBy`, `HousingKey`, `TemplateId` et
+`Role` dans le projet Revit reste volontairement réservée à l'Étape 08.
+
+**04C ne nécessite pas de validation graphique Revit**, car il n'effectue aucune
+opération de placement ni transaction supplémentaire. Sa validation repose sur
+les tests du contrat et sur les résultats déjà validés de 04A/04B.
+
+
+## Clôture Étape 04 — 2026-10-05
+
+L'Étape 04 est considérée comme terminée pour la V1.
+
+### 04A — Nomenclatures
+
+Validé dans Revit 2025.4 :
+
+- duplication des modèles INT / EXT ;
+- conservation de la mise en forme, tris et filtres métier ;
+- filtre logement appliqué sur le paramètre choisi ;
+- modèles source inchangés ;
+- collisions bloquées.
+
+### 04B — Plan de repérage
+
+Validé dans Revit 2025.4 :
+
+- vue source préservée ;
+- gabarit optionnel ;
+- type de zone remplie configurable ;
+- une zone remplie globale ;
+- cloisons intérieures recouvertes ;
+- contour global fidèle au logement.
+
+### 04C — Contrat de placement
+
+Validé hors Revit :
+
+- rôles stables ;
+- `UniqueId` des éléments ;
+- types de placement explicites ;
+- ancrages sémantiques ;
+- absence de coordonnées de feuille codées en dur ;
+- contrôle des doublons de rôle/ancrage.
+
+La suite Plans de vente compte **92 tests hors Revit réussis** au moment de cette
+clôture.
+
+**Étape 04 — Nomenclatures et repérage : VALIDÉE V1.**
+
+Le placement réel sur feuille reste volontairement réservé à l'Étape 07.

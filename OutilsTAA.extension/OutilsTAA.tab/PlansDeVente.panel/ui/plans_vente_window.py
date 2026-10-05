@@ -8,6 +8,7 @@ import os
 from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
+from plans_vente.defaults import preferred_housing_parameter_index
 from plans_vente.view_grouping import normalize_scale
 
 
@@ -31,6 +32,18 @@ class SourceViewChoice(object):
         self.Label = candidate.label
 
 
+class ScheduleTemplateChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
+class LocationChoice(object):
+    def __init__(self, candidate, label=None):
+        self.Candidate = candidate
+        self.Label = label if label is not None else candidate.label
+
+
 class PlansVenteWindow(forms.WPFWindow):
 
     def __init__(self, controller):
@@ -38,6 +51,11 @@ class PlansVenteWindow(forms.WPFWindow):
         self._choices = []
         self._housing_rows = []
         self._source_view_choices = []
+        self._schedule_choices = []
+        self._location_source_choices = []
+        self._location_template_choices = []
+        self._location_fill_choices = []
+        self._active_descriptor = None
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "plans_vente.xaml")
@@ -46,6 +64,9 @@ class PlansVenteWindow(forms.WPFWindow):
         self._load_theme()
         self._load_context()
         self._clear_prototype_selection()
+        self._clear_schedule_selection()
+        self._load_location_static_choices()
+        self._clear_location_source_selection()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -70,7 +91,9 @@ class PlansVenteWindow(forms.WPFWindow):
         self.HousingParameterCombo.ItemsSource = self._choices
 
         if self._choices:
-            self.HousingParameterCombo.SelectedIndex = 0
+            self.HousingParameterCombo.SelectedIndex = preferred_housing_parameter_index(
+                context.parameters
+            )
             self.AnalyzeButton.IsEnabled = True
             self.StatusText.Text = (
                 "Choisissez le paramètre logement puis lancez l'analyse."
@@ -144,7 +167,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 )
 
             self.StatusText.Text = message
+            self._active_descriptor = descriptor
             self._clear_prototype_selection()
+            self._load_schedule_templates(descriptor)
         except Exception as error:
             self.StatusText.Text = "Erreur pendant l'analyse."
             forms.alert(
@@ -160,6 +185,7 @@ class PlansVenteWindow(forms.WPFWindow):
         housing = getattr(row, "Housing", None) if row is not None else None
         if housing is None:
             self._clear_prototype_selection()
+            self._update_schedule_button_state()
             return
 
         try:
@@ -186,6 +212,9 @@ class PlansVenteWindow(forms.WPFWindow):
             self.PrototypeInfoText.Text = (
                 "Aucune vue plan principale duplicable n'a été trouvée pour ce niveau."
             )
+
+        self._load_location_sources(housing)
+        self._update_schedule_button_state()
 
     def SourceViewChanged(self, sender, args):
         item = self.SourceViewCombo.SelectedItem
@@ -302,6 +331,224 @@ class PlansVenteWindow(forms.WPFWindow):
                 self.HousingGrid.SelectedItem is not None
                 and self.SourceViewCombo.SelectedItem is not None
             )
+
+    def ScheduleTemplateChanged(self, sender, args):
+        self._update_schedule_button_state()
+
+    def CreateSchedules_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        interior_item = self.InteriorScheduleCombo.SelectedItem
+        exterior_item = self.ExteriorScheduleCombo.SelectedItem
+        interior = getattr(interior_item, "Candidate", None) if interior_item is not None else None
+        exterior = getattr(exterior_item, "Candidate", None) if exterior_item is not None else None
+
+        if housing is None or self._active_descriptor is None or interior is None or exterior is None:
+            forms.alert(
+                "Sélectionnez un logement et les deux nomenclatures modèles.",
+                title="Plans de vente — Nomenclatures",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer les nomenclatures du logement « {} » ?\n\n"
+                "Intérieure : {}\n"
+                "Extérieure : {}\n"
+                "Filtre logement : {} = {}\n\n"
+                "Les nomenclatures modèles ne seront pas modifiées."
+            ).format(
+                housing.key, interior.name, exterior.name,
+                self._active_descriptor.name, housing.key,
+            ),
+            title="Plans de vente — Nomenclatures",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateSchedulesButton.IsEnabled = False
+        try:
+            result = self.controller.create_schedule_prototype(
+                housing=housing,
+                descriptor=self._active_descriptor,
+                interior_template_unique_id=interior.unique_id,
+                exterior_template_unique_id=exterior.unique_id,
+            )
+            self.StatusText.Text = "Nomenclatures créées pour {} : {} / {}.".format(
+                result.housing_key, result.interior_name, result.exterior_name)
+            forms.alert(
+                (
+                    "Nomenclatures créées avec succès.\n\n"
+                    "Intérieure : {}\n"
+                    "Extérieure : {}\n"
+                    "Logement : {}"
+                ).format(result.interior_name, result.exterior_name, result.housing_key),
+                title="Plans de vente — Nomenclatures",
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création des nomenclatures."
+            forms.alert(str(error), title="Plans de vente — Nomenclatures", warn_icon=True)
+        finally:
+            self._update_schedule_button_state()
+
+    def _load_schedule_templates(self, descriptor):
+        self._clear_schedule_selection()
+        if descriptor is None:
+            return
+        try:
+            candidates = self.controller.schedule_templates(descriptor)
+        except Exception as error:
+            self.ScheduleInfoText.Text = str(error)
+            return
+
+        self._schedule_choices = [ScheduleTemplateChoice(candidate) for candidate in candidates]
+        self.InteriorScheduleCombo.ItemsSource = self._schedule_choices
+        self.ExteriorScheduleCombo.ItemsSource = self._schedule_choices
+        if self._schedule_choices:
+            self.InteriorScheduleCombo.SelectedIndex = 0
+            self.ExteriorScheduleCombo.SelectedIndex = 1 if len(self._schedule_choices) > 1 else 0
+            self.ScheduleInfoText.Text = "{} nomenclature(s) compatible(s) avec « {} ».".format(
+                len(self._schedule_choices), descriptor.name)
+        else:
+            self.ScheduleInfoText.Text = "Aucune nomenclature modèle contenant le champ « {} ».".format(
+                descriptor.name)
+        self._update_schedule_button_state()
+
+    def _clear_schedule_selection(self):
+        self._schedule_choices = []
+        self.InteriorScheduleCombo.ItemsSource = []
+        self.ExteriorScheduleCombo.ItemsSource = []
+        self.InteriorScheduleCombo.SelectedIndex = -1
+        self.ExteriorScheduleCombo.SelectedIndex = -1
+        self.CreateSchedulesButton.IsEnabled = False
+        self.ScheduleInfoText.Text = "Analysez les logements pour charger les nomenclatures compatibles."
+
+    def _update_schedule_button_state(self):
+        self.CreateSchedulesButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self._active_descriptor is not None
+            and self.InteriorScheduleCombo.SelectedItem is not None
+            and self.ExteriorScheduleCombo.SelectedItem is not None
+        )
+
+    def LocationChoiceChanged(self, sender, args):
+        self._update_location_button_state()
+
+    def CreateLocationPlan_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        source_item = self.LocationSourceCombo.SelectedItem
+        fill_item = self.LocationFillTypeCombo.SelectedItem
+        template_item = self.LocationTemplateCombo.SelectedItem
+        source = getattr(source_item, "Candidate", None) if source_item is not None else None
+        fill_type = getattr(fill_item, "Candidate", None) if fill_item is not None else None
+        template = getattr(template_item, "Candidate", None) if template_item is not None else None
+
+        if housing is None or source is None or fill_type is None:
+            forms.alert(
+                "Sélectionnez un logement, une vue source et un type de zone remplie.",
+                title="Plans de vente — Repérage",
+                warn_icon=True,
+            )
+            return
+
+        template_name = template.name if template is not None else "Conserver la vue source"
+        confirmed = forms.alert(
+            (
+                "Créer le plan de repérage du logement « {} » ?\n\n"
+                "Vue source : {}\n"
+                "Gabarit : {}\n"
+                "Surbrillance : {}\n\n"
+                "La vue source ne sera pas modifiée."
+            ).format(housing.key, source.name, template_name, fill_type.name),
+            title="Plans de vente — Plan de repérage",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateLocationPlanButton.IsEnabled = False
+        try:
+            result = self.controller.create_location_plan_prototype(
+                housing=housing,
+                source_view_unique_id=source.unique_id,
+                filled_region_type_unique_id=fill_type.unique_id,
+                template_unique_id=template.unique_id if template is not None else None,
+            )
+            self.StatusText.Text = "Plan de repérage créé : {}.".format(result.view_name)
+            forms.alert(
+                (
+                    "Plan de repérage créé avec succès.\n\n"
+                    "Vue : {}\n"
+                    "Logement : {}\n"
+                    "Zones remplies : {}\n"
+                    "Gabarit : {}\n"
+                    "Type : {}"
+                ).format(
+                    result.view_name, result.housing_key, result.region_count,
+                    result.template_name, result.fill_type_name,
+                ),
+                title="Plans de vente — Plan de repérage",
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création du plan de repérage."
+            forms.alert(str(error), title="Plans de vente — Repérage", warn_icon=True)
+        finally:
+            self._update_location_button_state()
+
+    def _load_location_static_choices(self):
+        try:
+            templates = self.controller.location_view_templates()
+            fill_types = self.controller.location_filled_region_types()
+        except Exception as error:
+            self.LocationInfoText.Text = str(error)
+            return
+
+        self._location_template_choices = [LocationChoice(None, "Conserver la vue source")] + [
+            LocationChoice(candidate) for candidate in templates
+        ]
+        self._location_fill_choices = [LocationChoice(candidate) for candidate in fill_types]
+        self.LocationTemplateCombo.ItemsSource = self._location_template_choices
+        self.LocationFillTypeCombo.ItemsSource = self._location_fill_choices
+        self.LocationTemplateCombo.SelectedIndex = 0
+        self.LocationFillTypeCombo.SelectedIndex = 0 if self._location_fill_choices else -1
+
+    def _load_location_sources(self, housing):
+        self._clear_location_source_selection()
+        if housing is None:
+            return
+        try:
+            candidates = self.controller.location_source_views_for_housing(housing)
+        except Exception as error:
+            self.LocationInfoText.Text = str(error)
+            return
+
+        self._location_source_choices = [LocationChoice(candidate) for candidate in candidates]
+        self.LocationSourceCombo.ItemsSource = self._location_source_choices
+        self.LocationSourceCombo.SelectedIndex = 0 if self._location_source_choices else -1
+        if self._location_source_choices:
+            self.LocationInfoText.Text = "La vue source sera dupliquée ; le logement sera surligné par zone remplie."
+        else:
+            self.LocationInfoText.Text = "Aucune vue plan source disponible pour ce niveau."
+        self._update_location_button_state()
+
+    def _clear_location_source_selection(self):
+        self._location_source_choices = []
+        self.LocationSourceCombo.ItemsSource = []
+        self.LocationSourceCombo.SelectedIndex = -1
+        self.CreateLocationPlanButton.IsEnabled = False
+        self.LocationInfoText.Text = "Sélectionnez un logement pour préparer le plan de repérage."
+
+    def _update_location_button_state(self):
+        self.CreateLocationPlanButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.LocationSourceCombo.SelectedItem is not None
+            and self.LocationFillTypeCombo.SelectedItem is not None
+        )
 
     def _clear_prototype_selection(self):
         self._source_view_choices = []

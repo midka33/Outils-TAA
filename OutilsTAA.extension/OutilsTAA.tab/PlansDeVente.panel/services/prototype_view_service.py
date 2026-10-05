@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 """Prototype contrôlé : vue dépendante + contour logement optimisé."""
 
 from common.transaction import RevitTransaction
+from plans_vente.placement_contract import PlacementRole, placement_artifact
 from plans_vente.view_grouping import master_view_name, normalize_scale
 
 
@@ -19,6 +20,7 @@ class PrototypeViewResult(object):
         master_view_name="",
         target_scale=0,
         master_created=False,
+        placement=None,
     ):
         self.view_name = view_name or ""
         self.view_unique_id = view_unique_id or ""
@@ -29,6 +31,7 @@ class PrototypeViewResult(object):
         self.master_view_name = master_view_name or ""
         self.target_scale = int(target_scale or 0)
         self.master_created = bool(master_created)
+        self.placement = placement
 
 
 class PrototypeViewService(object):
@@ -131,6 +134,12 @@ class PrototypeViewService(object):
             master_view_name=str(getattr(master_view, "Name", "") or ""),
             target_scale=target_scale,
             master_created=master_created,
+            placement=placement_artifact(
+                housing.key,
+                PlacementRole.MAIN_VIEW,
+                str(getattr(created_view, "UniqueId", "") or ""),
+                created_view.Name,
+            ),
         )
 
 

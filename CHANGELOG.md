@@ -7,6 +7,11 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
+- Plans de vente : le paramètre partagé `N° Appartement` est désormais présélectionné comme identifiant logement lorsqu'il est disponible ; 04A Nomenclatures validé dans Revit 2025.4.
+- Plans de vente : 04B utilise désormais une seule zone remplie globale issue du contour logement de l'Étape 03 à marge nulle, afin de surligner l'emprise continue et de passer sur les cloisons intérieures.
+- Plans de vente : 04B Plan de repérage validé dans Revit 2025.4 avec une zone remplie globale continue couvrant le logement et ses cloisons intérieures.
+- Plans de vente : Étape 04 validée V1 — nomenclatures, plan de repérage et contrat de placement/ancrages sont prêts pour l'assemblage futur sur feuille.
 - Plans de vente : Étape 03 conservée comme validée V1 avec une dette de robustesse documentée (BUG-PDV-023) lorsque Revit rejette le contour final pour certaines marges ; consolidation reportée sans bloquer l'Étape 04.
 - Plans de vente : Étape 03 validée dans Revit 2025.4 le 2026-10-05 : vues dépendantes, détourage V1, groupes de vues principales par échelle et préservation de la vue source confirmés.
 - Plans de vente : détourage V1 considéré validé dans Revit 2025.4 ; les cas résiduels de gaines palières sont documentés comme limite connue afin de figer le moteur géométrique courant.
@@ -21,6 +26,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Plans de vente : BUG-PDV-024 corrige les libellés vides des types de zones remplies sous IronPython/pyRevit en utilisant `Element.Name.GetValue`.
 - Export : publication Ctrl/Maj de plusieurs feuilles/carnets ; résumé, aperçu et export partagent le même périmètre, sans doublons parent/enfant. Désélection vide respectée, copies sans modification des carnets, destinations multiples dans le rapport. Fonctionnement confirmé par l’utilisateur dans Revit le 2026-10-05 (PR #11) ; recette détaillée distincte avant release.
 - Ruban Export : le titre API `Export` reste non vide et le texte est masqué uniquement après création du contrôle via un smartbutton `__selfinit__` (`ShowText = False`) ; le panneau conserve « Export » et l’icône vectorielle agrandie. La tentative précédente avec un titre blanc a été retirée car Revit la refusait au rechargement. Validation finale Revit du ruban confirmée le 2026-10-01.
 - Calculs des pièces : correction du masquage du package métier `calculation` par le dossier de tests et sécurisation de la syntaxe générée des fichiers WPF/workflow.
@@ -40,6 +46,9 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Plans de vente : prototype 04A des nomenclatures intérieure/extérieure, avec sélection de modèles compatibles, duplication, filtre logement stable et collision de noms bloquante.
+- Plans de vente : prototype 04B du plan de repérage, avec vue source configurable, gabarit optionnel et surbrillance du logement par zones remplies.
+- Plans de vente : contrat de placement 04C avec rôles explicites, UniqueId Revit et ancrages sémantiques pour préparer l'assemblage de feuille sans heuristique de nommage.
 - Export : tutoriel utilisateur et recette ciblée de la sélection multiple avant release.
 - Plans de vente : groupes de vues principales techniques par niveau/source/échelle ; la vue source reste inchangée, les logements sont dépendants d'un `PDV MASTER` réutilisable et l'échelle V1 est choisie explicitement.
 - Nommage Export : recherche et insertion des paramètres des feuilles et des

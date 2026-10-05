@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Étape 03 validée / Étape 04 à démarrer
+## État actuel — Étape 04 validée : nomenclatures et repérage
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -70,3 +70,56 @@ L'Étape 03 reste validée V1, mais un cas Revit a confirmé que certaines marge
 peuvent produire un contour optimisé rejeté par `IsCropRegionShapeValid`.
 Le fallback final sera consolidé ultérieurement (BUG-PDV-023). Ce point ne
 bloque pas le démarrage de l'Étape 04.
+
+
+### Étape 04
+
+Ordre retenu :
+
+1. duplication et filtrage des nomenclatures modèles intérieure / extérieure ;
+2. création du plan de repérage ;
+3. préparation des rôles et ancrages pour l'assemblage feuille.
+
+Les nomenclatures modèles conservent la logique métier intérieur / extérieur ;
+le plugin ajoute uniquement le filtre du logement choisi.
+
+
+### Prototype 04A — Nomenclatures
+
+Le prototype permet maintenant de choisir deux nomenclatures modèles compatibles avec le paramètre logement, puis de créer une copie intérieure et une copie extérieure filtrées sur le logement sélectionné.
+
+Nommage : `PDV_<logement>_INT` / `PDV_<logement>_EXT`.
+
+Les modèles restent inchangés. Les autres filtres, champs, tris et mises en forme sont conservés par duplication. Prototype 04A validé dans Revit 2025.4 le 5 octobre 2026.
+
+Le paramètre partagé `N° Appartement` est sélectionné par défaut à l'ouverture lorsqu'il est disponible ; sinon le premier paramètre texte reste utilisé.
+
+
+### Prototype 04B — Plan de repérage
+
+Le module peut maintenant dupliquer une vue plan source en `PDV_<logement>_REP`, conserver sa présentation ou appliquer un gabarit choisi, puis créer **une zone remplie globale** sur l'enveloppe du logement. Cette zone utilise le moteur de contour de l'Étape 03 à marge nulle et passe sur les cloisons intérieures.
+
+La vue source reste inchangée. 04B validé dans Revit 2025.4 le 5 octobre 2026, avec une seule zone remplie globale couvrant aussi les cloisons intérieures.
+
+Le premier essai 04B a révélé des libellés vides pour les types de zones remplies sous IronPython ; correction BUG-PDV-024 validée dans Revit 2025.4 le 5 octobre 2026.
+
+
+### 04C — Contrat de placement
+
+Les éléments générés portent maintenant un rôle et un ancrage explicites :
+`MainView/main_view`, `LocationView/location_view`,
+`InteriorSchedule/interior_schedule` et
+`ExteriorSchedule/exterior_schedule`.
+
+Aucune coordonnée de feuille n'est encore appliquée. L'Étape 07 traduira ces
+ancrages sémantiques en positions réelles dans le modèle de feuille.
+
+
+### Étape 04 validée V1
+
+04A Nomenclatures et 04B Plan de repérage ont été validés dans Revit 2025.4.
+04C Contrat de placement est validé par tests purs.
+
+Le module dispose désormais des artefacts nécessaires à l'assemblage futur :
+vue logement, vue de repérage, nomenclatures intérieure/extérieure, avec rôles
+et ancrages explicites.

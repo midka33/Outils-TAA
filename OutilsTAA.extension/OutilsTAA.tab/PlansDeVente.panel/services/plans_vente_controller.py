@@ -5,9 +5,11 @@ from __future__ import unicode_literals
 
 
 class PlansVenteController(object):
-    def __init__(self, analysis_service, prototype_view_service):
+    def __init__(self, analysis_service, prototype_view_service, schedule_service, location_plan_service):
         self.analysis_service = analysis_service
         self.prototype_view_service = prototype_view_service
+        self.schedule_service = schedule_service
+        self.location_plan_service = location_plan_service
 
     def load_context(self):
         return self.analysis_service.load_context()
@@ -30,4 +32,44 @@ class PlansVenteController(object):
             source_view_unique_id,
             margin_mm,
             target_scale,
+        )
+
+    def schedule_templates(self, descriptor):
+        return self.schedule_service.list_templates(descriptor)
+
+    def create_schedule_prototype(
+        self,
+        housing,
+        descriptor,
+        interior_template_unique_id,
+        exterior_template_unique_id,
+    ):
+        return self.schedule_service.create_pair(
+            housing,
+            descriptor,
+            interior_template_unique_id,
+            exterior_template_unique_id,
+        )
+
+    def location_source_views_for_housing(self, housing):
+        return self.location_plan_service.source_views_for_housing(housing)
+
+    def location_view_templates(self):
+        return self.location_plan_service.list_view_templates()
+
+    def location_filled_region_types(self):
+        return self.location_plan_service.list_filled_region_types()
+
+    def create_location_plan_prototype(
+        self,
+        housing,
+        source_view_unique_id,
+        filled_region_type_unique_id,
+        template_unique_id=None,
+    ):
+        return self.location_plan_service.create_location_plan(
+            housing,
+            source_view_unique_id,
+            filled_region_type_unique_id,
+            template_unique_id,
         )
