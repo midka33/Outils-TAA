@@ -83,6 +83,7 @@ jobs:
           Aucun droit administrateur n'est requis.
 
           ## Tutoriels
+          
           Les tutoriels Export et Calculs des pieces sont joints a cette release et inclus dans le ZIP.
           '@
           gh release create v1.0.0 "Outils-TAA_v1.0.0.zip" "INSTALLER_Outils_TAA_v1.0.0.cmd" "docs/release/Tutoriel_Export_v1.0.0.md" "docs/release/Tutoriel_Calculs_Pieces_v1.0.0.md" --title "Outils TAA v1.0.0" --notes $notes --target "${{ github.sha }}"
