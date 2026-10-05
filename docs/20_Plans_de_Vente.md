@@ -2354,8 +2354,8 @@ Un segment adjacent n'est absorbé que s'il est court **relativement à son cont
 local** :
 
 - il reste sous une fraction des seuils existants de bouche et de profondeur ;
-- il est nettement plus court que le segment principal situé plus loin ou que le bord
-  voisin de la poche ;
+- il est nettement plus court que le segment principal situé plus loin du côté
+  extérieur de la poche ;
 - la recherche reste strictement locale et bornée.
 
 Après normalisation, les règles de fermeture restent inchangées :

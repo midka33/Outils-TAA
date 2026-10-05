@@ -175,7 +175,10 @@ def context_edge_is_parasitic(edge_length, outer_length, pocket_length,
         max_depth * CONTEXT_DEPTH_RATIO,
         max_mouth * CONTEXT_MOUTH_RATIO,
     )
-    reference = max(outer_length, pocket_length)
+    # The edge must be short relative to the support farther away from the
+    # pocket. Comparing against the pocket edge itself can absorb a legitimate
+    # short structural return simply because the pocket happens to be deep.
+    reference = outer_length
     return (
         edge_length <= local_limit + tol
         and edge_length <= reference * CONTEXT_EDGE_RATIO + tol
