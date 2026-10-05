@@ -157,3 +157,75 @@ def test_local_scan_has_bounded_work_and_is_idempotent():
     assert_safe(ring, result)
     again, _ = clean(result)
     assert again == result
+
+
+
+def test_context_normalization_absorbs_short_left_support_edge():
+    ring = [
+        (6.0, 9.8), (6.0, 9.0), (5.0, 9.0), (5.0, 10.0),
+        (0.0, 10.0), (0.0, 0.0), (10.0, 0.0), (10.0, 10.0),
+        (6.2, 10.0),
+    ]
+    context = geo.normalize_support_context(
+        ring, 3, 3.5, 2.0,
+    )
+    assert context["left_absorbed"] == 1
+    assert context["right_absorbed"] == 0
+    assert context["absorbed"] == 1
+    assert context["a"] == (6.2, 10.0)
+    assert context["previous"] == (10.0, 10.0)
+
+
+def test_context_normalization_absorbs_short_right_support_edge():
+    ring = [
+        (6.0, 10.0), (6.0, 9.0), (5.0, 9.0), (5.0, 9.8),
+        (4.8, 10.0), (0.0, 10.0), (0.0, 0.0), (10.0, 0.0),
+        (10.0, 10.0),
+    ]
+    context = geo.normalize_support_context(
+        ring, 3, 3.5, 2.0,
+    )
+    assert context["left_absorbed"] == 0
+    assert context["right_absorbed"] == 1
+    assert context["absorbed"] == 1
+    assert context["b"] == (4.8, 10.0)
+    assert context["following"] == (0.0, 10.0)
+
+
+def test_context_normalization_does_not_absorb_short_structural_edge():
+    ring = [
+        (6.0, 9.8), (6.0, 9.0), (5.0, 9.0), (5.0, 10.0),
+        (0.0, 10.0), (0.0, 0.0), (10.0, 0.0), (6.5, 10.0),
+        (6.2, 10.0),
+    ]
+    context = geo.normalize_support_context(
+        ring, 3, 3.5, 2.0,
+    )
+    # 0.28 m is not short relative to the 0.30 m outer edge.
+    assert context["left_absorbed"] == 0
+    assert context["a"] == ring[0]
+
+
+def test_context_normalization_is_bounded_to_two_segments_per_side():
+    ring = [
+        (6.0, 9.8), (6.0, 9.0), (5.0, 9.0), (5.0, 10.0),
+        (0.0, 10.0), (0.0, 0.0), (10.0, 0.0), (10.0, 10.0),
+        (7.2, 10.0), (6.4, 10.0), (6.1, 9.9),
+    ]
+    context = geo.normalize_support_context(
+        ring, 3, 3.5, 2.0,
+    )
+    assert context["left_absorbed"] <= geo.MAX_CONTEXT_SEGMENTS
+    assert context["right_absorbed"] <= geo.MAX_CONTEXT_SEGMENTS
+
+
+def test_residual_lip_segments_are_absorbed_before_support_repair():
+    ring = [
+        (0.0, 0.0), (10.0, 0.0), (10.0, 10.0),
+        (6.2, 10.0), (6.0, 9.8), (6.0, 9.0),
+        (5.0, 9.0), (5.0, 9.8), (4.8, 10.0), (0.0, 10.0),
+    ]
+    result, stats = clean(ring)
+    assert stats["absorbed"] >= 1
+    assert stats["collinear"] + stats["trim"] + stats["perpendicular"] >= 1
+    assert_safe(ring, result)

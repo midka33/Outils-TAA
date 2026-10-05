@@ -918,6 +918,30 @@ non rectangulaire de la vue cible pouvait être sauté.
 **Test :** vraie méthode `apply_to_view` avec vue incapable et mode suffixé ;
 le rectangle de secours est appliqué. Contrôle réel Revit toujours requis.
 
+### BUG-PDV-022 — Petits segments résiduels utilisés comme supports A/B
+
+**Symptôme :** le moteur local ferme correctement les gaines et reste rapide, mais
+quelques petits décrochements persistent à proximité immédiate de certaines poches.
+
+**Cause :** le segment immédiatement avant ou après la chaîne détectée peut lui-même
+être un petit retour appartenant visuellement à la poche. Il était alors utilisé comme
+support A ou B. Le raccord était géométriquement valide mais s'appuyait sur un segment
+trop local, laissant un résidu.
+
+**Correction :** normaliser localement A/B avant raccord. Au maximum deux segments
+adjacents peuvent être absorbés de chaque côté lorsqu'ils sont courts relativement au
+contexte local. Les règles colinéaire / Trim-Extend / perpendiculaire et tous les
+garde-fous de contenance restent inchangés. Le diagnostic compte les segments absorbés.
+
+**Règle préventive :** une chaîne de poche doit être distinguée de ses supports
+structurels. Avant de raccorder, vérifier localement que A/B ne sont pas eux-mêmes des
+petits retours parasites. Ne jamais remplacer cette normalisation bornée par une
+simplification globale du polygone.
+
+**Anti-régression :** tests purs sur absorption gauche, droite, segment court
+structurel, limite de deux segments et cas complet avec deux lèvres résiduelles ;
+test adaptateur sur le diagnostic des segments absorbés.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -989,6 +1013,7 @@ BUG-PDV-018
 BUG-PDV-019
 BUG-PDV-020
 BUG-PDV-021
+BUG-PDV-022
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

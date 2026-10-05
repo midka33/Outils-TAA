@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.15
+**Version :** 1.16
 **Statut :** Développement — prototypes géométriques  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -2332,3 +2332,60 @@ avec Python 3.11 après publication sur la branche de travail.
 8. Transmettre les captures de chaque gaine à 20 mm et 500 mm, les compteurs et
    temps mesurés. Les données géométriques réelles d'A003 ne sont pas disponibles
    dans les tests hors Revit : leur validation reste indispensable.
+
+
+## A.3.21 — Normalisation locale des segments A/B
+
+La validation Revit du moteur local A.3.20 montre un résultat globalement correct et
+rapide, mais quelques petits décrochements peuvent subsister au bord de certaines
+gaines techniques.
+
+La cause est locale : le segment immédiatement avant ou après la chaîne de la poche
+peut lui-même être un petit retour parasite. Le moteur utilisait alors ce petit segment
+comme support A ou B, puis appliquait correctement la règle colinéaire / Trim-Extend /
+perpendiculaire, mais sur un support trop proche de la poche.
+
+### Correction
+
+Avant le raccord, le moteur peut désormais absorber au maximum **deux segments de
+contexte de chaque côté** de la poche détectée.
+
+Un segment adjacent n'est absorbé que s'il est court **relativement à son contexte
+local** :
+
+- il reste sous une fraction des seuils existants de bouche et de profondeur ;
+- il est nettement plus court que le segment principal situé plus loin ou que le bord
+  voisin de la poche ;
+- la recherche reste strictement locale et bornée.
+
+Après normalisation, les règles de fermeture restent inchangées :
+
+1. supports colinéaires → fusion ;
+2. supports non parallèles → Trim/Extend à leur intersection ;
+3. supports parallèles décalés → raccord perpendiculaire.
+
+Tous les garde-fous existants restent obligatoires : aire ajoutée positive et limitée,
+contenance de l'ancien contour, polygone simple, extension maximale et budget de
+validations.
+
+### Performance
+
+La normalisation n'effectue aucune recherche globale. Elle regarde au maximum deux
+segments supplémentaires avant A et deux après B.
+
+Constante :
+
+```text
+MAX_CONTEXT_SEGMENTS = 2
+```
+
+### Diagnostic
+
+Le diagnostic Revit indique maintenant également :
+
+```text
+N segment(s) parasite(s) absorbé(s)
+```
+
+Cette information doit permettre de vérifier sur A003 que les deux petits retours
+résiduels sont réellement intégrés à la chaîne de la poche avant raccord.

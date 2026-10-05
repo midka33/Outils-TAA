@@ -12,6 +12,10 @@ import math
 MAX_CHAIN_EDGES = 12
 MAX_PASSES = 2
 MAX_VALIDATIONS = 128
+MAX_CONTEXT_SEGMENTS = 2
+CONTEXT_EDGE_RATIO = 0.45
+CONTEXT_DEPTH_RATIO = 0.50
+CONTEXT_MOUTH_RATIO = 0.35
 PARALLEL_SIN = 1e-9
 
 
@@ -154,6 +158,113 @@ def simplify(points, tol):
     return result
 
 
+def _cyclic(points, index):
+    return points[index % len(points)]
+
+
+def context_edge_is_parasitic(edge_length, outer_length, pocket_length,
+                              max_mouth, max_depth, tol=1e-7):
+    """Return True only for a short local support edge worth absorbing.
+
+    The decision is deliberately relative to its local context. This avoids
+    turning the pocket cleaner into a global polygon simplifier.
+    """
+    if min(edge_length, outer_length) <= tol:
+        return False
+    local_limit = min(
+        max_depth * CONTEXT_DEPTH_RATIO,
+        max_mouth * CONTEXT_MOUTH_RATIO,
+    )
+    reference = max(outer_length, pocket_length)
+    return (
+        edge_length <= local_limit + tol
+        and edge_length <= reference * CONTEXT_EDGE_RATIO + tol
+    )
+
+
+def support_context(points, start, end):
+    """Return the local A / pocket / B context for cyclic offsets."""
+    n = len(points)
+    return dict(
+        previous=_cyclic(points, start - 1),
+        a=_cyclic(points, start),
+        b=_cyclic(points, end),
+        following=_cyclic(points, end + 1),
+        interior=[_cyclic(points, i) for i in range(start + 1, end)],
+        outside=[_cyclic(points, i) for i in range(end + 1, start + n)],
+        start=start,
+        end=end,
+        chain_edges=end - start,
+    )
+
+
+def normalize_support_context(points, steps, max_mouth, max_depth,
+                              tolerance=1e-7,
+                              max_context_segments=MAX_CONTEXT_SEGMENTS):
+    """Absorb at most two short support edges around an already local pocket.
+
+    The initial pocket remains the source of truth. Only the immediately
+    adjacent support edge can be absorbed, then at most one more on the same
+    side. This is bounded local context, not a search across arbitrary pairs.
+    """
+    n = len(points)
+    start, end = 0, steps
+    left_absorbed = 0
+    right_absorbed = 0
+
+    for _unused in range(max_context_segments):
+        if end - (start - 1) > n - 3:
+            break
+        edge_length = distance(
+            _cyclic(points, start - 1),
+            _cyclic(points, start),
+        )
+        outer_length = distance(
+            _cyclic(points, start - 2),
+            _cyclic(points, start - 1),
+        )
+        pocket_length = distance(
+            _cyclic(points, start),
+            _cyclic(points, start + 1),
+        )
+        if not context_edge_is_parasitic(
+            edge_length, outer_length, pocket_length,
+            max_mouth, max_depth, tolerance,
+        ):
+            break
+        start -= 1
+        left_absorbed += 1
+
+    for _unused in range(max_context_segments):
+        if (end + 1) - start > n - 3:
+            break
+        edge_length = distance(
+            _cyclic(points, end),
+            _cyclic(points, end + 1),
+        )
+        outer_length = distance(
+            _cyclic(points, end + 1),
+            _cyclic(points, end + 2),
+        )
+        pocket_length = distance(
+            _cyclic(points, end - 1),
+            _cyclic(points, end),
+        )
+        if not context_edge_is_parasitic(
+            edge_length, outer_length, pocket_length,
+            max_mouth, max_depth, tolerance,
+        ):
+            break
+        end += 1
+        right_absorbed += 1
+
+    context = support_context(points, start, end)
+    context["left_absorbed"] = left_absorbed
+    context["right_absorbed"] = right_absorbed
+    context["absorbed"] = left_absorbed + right_absorbed
+    return context
+
+
 def support_paths(previous, a, b, following, max_extension, tol=1e-7):
     """At most two replacements, defined solely by supporting edges A/B."""
     va, vb = sub(a, previous), sub(following, b)
@@ -199,29 +310,32 @@ def valid_replacement(original, candidate, max_area, tol=1e-7):
 
 
 def empty_diagnostics():
-    return dict(collinear=0, trim=0, perpendicular=0, candidates=0,
-                validations=0, budget_exhausted=False)
+    return dict(collinear=0, trim=0, perpendicular=0, absorbed=0,
+                candidates=0, validations=0, budget_exhausted=False)
 
 
 def close_pockets(points, max_mouth, max_depth, max_area, max_extension,
                   tolerance=1e-7, max_chain_edges=MAX_CHAIN_EDGES,
                   max_passes=MAX_PASSES, max_validations=MAX_VALIDATIONS):
-    """Bounded local scans; unsafe or over-budget pockets remain unchanged.
+    """Bounded local scans with local A/B normalization.
 
-    At a lip, inspect only the next <=12 edges, with at least one interior
-    concave turn. Test at most two support paths, choose least added area.
-    Never scan arbitrary pairs globally. Two sweeps and 128 full validations.
+    A detected pocket can absorb at most two short support edges on each side
+    before the existing collinear / Trim-Extend / perpendicular rules run.
+    This removes the small residual steps seen next to technical shafts without
+    introducing a global simplification pass.
     """
     ring = list(points)
     stats = empty_diagnostics()
     if not is_simple(ring, tolerance):
         return ring, stats
     ring = simplify(ring, tolerance)
+
     for _pass in range(max_passes):
         changed = False
         i = 0
         visited = 0
         sweep_limit = len(ring)
+
         while i < len(ring) and visited < sweep_limit:
             visited += 1
             n = len(ring)
@@ -229,52 +343,157 @@ def close_pockets(points, max_mouth, max_depth, max_area, max_extension,
             sign = 1 if signed_area(rotated) > 0 else -1
             best = None
             has_concavity = False
+
             for steps in range(2, min(max_chain_edges, n - 3) + 1):
                 p, q, r = rotated[steps - 2:steps + 1]
-                has_concavity |= cross(sub(q, p), sub(r, q)) * sign < -tolerance * tolerance
+                has_concavity |= (
+                    cross(sub(q, p), sub(r, q)) * sign
+                    < -tolerance * tolerance
+                )
                 if not has_concavity:
                     continue
-                a, b = rotated[0], rotated[steps]
-                # Lips are outward turns; interior reflex vertices are not lips.
-                # This prevents closing half a pocket against its own inner edge.
-                if (cross(sub(a, rotated[-1]), sub(rotated[1], a)) * sign <= 0 or
-                        cross(sub(b, rotated[steps - 1]), sub(rotated[steps + 1], b)) * sign <= 0):
-                    continue
-                if distance(a, b) > max_mouth:
-                    continue
-                # Limit every point in the chain spatially, not just its lips.
-                if any(distance(p, a) > max_mouth + 2 * max_depth
-                       for p in rotated[1:steps]):
-                    continue
-                stats["candidates"] += 1
-                options = support_paths(rotated[-1], a, b, rotated[steps + 1],
-                                        max_extension, tolerance)
-                for kind, path in options:
-                    bridge = [a] + path + [b]
-                    if any(min(segment_distance(p, x, y) for x, y in zip(bridge, bridge[1:]))
-                           > max_depth for p in rotated[1:steps]):
+
+                base = support_context(rotated, 0, steps)
+                base["left_absorbed"] = 0
+                base["right_absorbed"] = 0
+                base["absorbed"] = 0
+
+                normalized = normalize_support_context(
+                    rotated,
+                    steps,
+                    max_mouth,
+                    max_depth,
+                    tolerance,
+                )
+
+                contexts = [base]
+                if normalized["absorbed"]:
+                    contexts.insert(0, normalized)
+
+                seen_contexts = set()
+
+                for context in contexts:
+                    key = (context["start"], context["end"])
+                    if key in seen_contexts:
                         continue
-                    candidate = simplify(path + rotated[steps + 1:], tolerance)
-                    added = abs(signed_area(candidate)) - abs(signed_area(rotated))
-                    if added <= tolerance * tolerance or added > max_area:
+                    seen_contexts.add(key)
+
+                    previous = context["previous"]
+                    a = context["a"]
+                    b = context["b"]
+                    following = context["following"]
+                    interior = context["interior"]
+                    outside = context["outside"]
+
+                    if not interior:
                         continue
-                    if stats["validations"] >= max_validations:
-                        stats["budget_exhausted"] = True
-                        return ring, stats
-                    stats["validations"] += 1
-                    if valid_replacement(rotated, candidate, max_area, tolerance):
-                        score = (-steps, added)
-                        if best is None or score < best[0]:
-                            best = (score, candidate, kind)
+
+                    # Normalized A/B must themselves be real outward lips.
+                    if (
+                        cross(
+                            sub(a, previous),
+                            sub(interior[0], a),
+                        ) * sign <= 0
+                        or cross(
+                            sub(b, interior[-1]),
+                            sub(following, b),
+                        ) * sign <= 0
+                    ):
+                        continue
+
+                    if distance(a, b) > max_mouth:
+                        continue
+
+                    if any(
+                        distance(point, a) > max_mouth + 2 * max_depth
+                        for point in interior
+                    ):
+                        continue
+
+                    stats["candidates"] += 1
+
+                    options = support_paths(
+                        previous,
+                        a,
+                        b,
+                        following,
+                        max_extension,
+                        tolerance,
+                    )
+
+                    for kind, path in options:
+                        bridge = [a] + path + [b]
+                        if any(
+                            min(
+                                segment_distance(point, x, y)
+                                for x, y in zip(bridge, bridge[1:])
+                            ) > max_depth
+                            for point in interior
+                        ):
+                            continue
+
+                        candidate = simplify(
+                            path + outside,
+                            tolerance,
+                        )
+                        original = [
+                            _cyclic(rotated, offset)
+                            for offset in range(
+                                context["start"],
+                                context["start"] + n,
+                            )
+                        ]
+                        added = (
+                            abs(signed_area(candidate))
+                            - abs(signed_area(original))
+                        )
+
+                        if (
+                            added <= tolerance * tolerance
+                            or added > max_area
+                        ):
+                            continue
+
+                        if stats["validations"] >= max_validations:
+                            stats["budget_exhausted"] = True
+                            return ring, stats
+
+                        stats["validations"] += 1
+
+                        if valid_replacement(
+                            original,
+                            candidate,
+                            max_area,
+                            tolerance,
+                        ):
+                            # A short adjacent support edge is absorbed only
+                            # after all the same safety checks as the original
+                            # pocket. Prefer this normalized solution, then the
+                            # longest local chain, then least added area.
+                            score = (
+                                -context["absorbed"],
+                                -context["chain_edges"],
+                                added,
+                            )
+                            if best is None or score < best[0]:
+                                best = (
+                                    score,
+                                    candidate,
+                                    kind,
+                                    context["absorbed"],
+                                )
+
             if best is not None:
                 ring = best[1]
                 stats[best[2]] += 1
+                stats["absorbed"] += best[3]
                 changed = True
-                # Continue beyond this repaired lip, without restarting globally.
                 i = 1
             else:
                 i += 1
+
         if not changed:
             return ring, stats
+
     stats["budget_exhausted"] = True
     return ring, stats

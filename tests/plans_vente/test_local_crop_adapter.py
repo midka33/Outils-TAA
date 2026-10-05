@@ -57,3 +57,22 @@ def test_crop_capability_with_diagnostic_suffix_uses_rectangle(service):
     service.apply_to_view(view, result)
     assert applied == ['rectangle']
     assert result.mode == 'Rectangle de secours'
+
+
+
+def test_adapter_reports_absorbed_residual_segments(service):
+    ring = [
+        (0.0, 0.0), (10.0, 0.0), (10.0, 10.0),
+        (6.2, 10.0), (6.0, 9.8), (6.0, 9.0),
+        (5.0, 9.0), (5.0, 9.8), (4.8, 10.0), (0.0, 10.0),
+    ]
+    result = service._close_small_recesses(
+        ring,
+        object(),
+        3.5,
+        2.0,
+        5.0,
+    )
+    assert result is not ring
+    assert service._last_recess_counts["absorbed"] >= 1
+    assert "segment(s) parasite(s) absorbé(s)" in service._recess_diagnostic()

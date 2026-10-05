@@ -491,8 +491,14 @@ class CropGeometryService(object):
         counts = self._last_recess_counts
         message = (
             "{} fermeture(s) colinéaire(s), {} raccord(s) Trim/Extend, "
-            "{} raccord(s) perpendiculaire(s)"
-        ).format(counts["collinear"], counts["trim"], counts["perpendicular"])
+            "{} raccord(s) perpendiculaire(s), "
+            "{} segment(s) parasite(s) absorbé(s)"
+        ).format(
+            counts["collinear"],
+            counts["trim"],
+            counts["perpendicular"],
+            counts.get("absorbed", 0),
+        )
         if counts["budget_exhausted"]:
             message += " — limite de calcul atteinte, retraits restants conservés"
         return message
@@ -518,8 +524,15 @@ class CropGeometryService(object):
         except Exception:
             return curve_loop
         # Counters describe reconstructed geometry only.
-        for key in ("collinear", "trim", "perpendicular", "candidates", "validations"):
-            self._last_recess_counts[key] += counts[key]
+        for key in (
+            "collinear",
+            "trim",
+            "perpendicular",
+            "absorbed",
+            "candidates",
+            "validations",
+        ):
+            self._last_recess_counts[key] += counts.get(key, 0)
         self._last_recess_counts["budget_exhausted"] |= counts["budget_exhausted"]
         self._last_closed_recess_count += sum(
             counts[key] for key in ("collinear", "trim", "perpendicular")
