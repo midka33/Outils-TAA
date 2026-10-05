@@ -97,8 +97,8 @@ Le paramètre partagé `N° Appartement` est sélectionné par défaut à l'ouve
 
 ### Prototype 04B — Plan de repérage
 
-Le module peut maintenant dupliquer une vue plan source en `PDV_<logement>_REP`, conserver sa présentation ou appliquer un gabarit choisi, puis surligner les pièces du logement avec un type de zone remplie sélectionné.
+Le module peut maintenant dupliquer une vue plan source en `PDV_<logement>_REP`, conserver sa présentation ou appliquer un gabarit choisi, puis créer **une zone remplie globale** sur l'enveloppe du logement. Cette zone utilise le moteur de contour de l'Étape 03 à marge nulle et passe sur les cloisons intérieures.
 
 La vue source reste inchangée. Validation réelle dans Revit 2025.4 requise avant de clôturer 04B.
 
-Le premier essai 04B a révélé des libellés vides pour les types de zones remplies sous IronPython ; correction BUG-PDV-024 avec lecture sûre du nom des `ElementType`. À retester dans Revit 2025.4.
+Le premier essai 04B a révélé des libellés vides pour les types de zones remplies sous IronPython ; correction BUG-PDV-024 validée dans Revit 2025.4 le 5 octobre 2026.

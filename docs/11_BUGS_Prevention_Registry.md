@@ -996,6 +996,9 @@ Centraliser une lecture sûre lorsque le type doit être affiché dans l'UI.
 `Element.Name.GetValue(element_type)` pour les `FilledRegionType`, puis
 validation réelle dans Revit 2025.4 de l'affichage des noms dans la ComboBox.
 
+**Validation Revit :** confirmée le **5 octobre 2026** ; les noms des types de
+zones remplies sont correctement affichés et sélectionnables.
+
 ## 5. Identifiants des bugs
 
 ```text

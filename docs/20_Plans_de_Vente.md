@@ -2784,11 +2784,32 @@ Les vues générées `PDV_...` ne sont pas reproposées comme vues sources, afin
 
 ### Surbrillance
 
-Chaque pièce du logement est lue avec `SpatialElementBoundaryLocation.Finish`.
-Ses boucles fermées sont transmises à `FilledRegion.Create` dans la vue de repérage.
-Le prototype crée une zone remplie par pièce afin de rester robuste lorsque le logement comporte plusieurs pièces disjointes ou des trous locaux.
+Le plan de repérage utilise désormais **une seule zone remplie globale pour tout
+le logement**.
 
-La V1 met en évidence toutes les pièces appartenant au logement détecté ; elle ne tente pas encore de distinguer graphiquement intérieur et extérieur dans le plan de repérage.
+Le contour est construit par le moteur géométrique de l'Étape 03 avec une marge
+de `0 mm`. Ce moteur travaille sur les limites de pièces au centre des murs,
+réunit les pièces puis extrait l'enveloppe extérieure du logement. La zone
+remplie passe ainsi **par-dessus les cloisons intérieures**, au lieu de laisser
+une coupure entre chaque pièce.
+
+```text
+pièces du logement
+        ↓
+moteur de contour global Étape 03
+        ↓
+enveloppe extérieure — marge 0 mm
+        ↓
+1 seule FilledRegion
+```
+
+Le rectangle de secours du moteur de crop n'est volontairement pas utilisé pour
+le repérage : si l'enveloppe globale fiable ne peut pas être calculée, la
+création est bloquée afin d'éviter de surligner une partie extérieure au
+logement.
+
+La V1 met en évidence toute l'emprise du logement ; elle ne tente pas encore de
+distinguer graphiquement intérieur et extérieur dans le plan de repérage.
 
 ### Sécurité
 
@@ -2808,8 +2829,11 @@ La V1 met en évidence toutes les pièces appartenant au logement détecté ; el
 6. vérifier la création de `PDV_<logement>_REP` ;
 7. vérifier que la vue source d'origine est inchangée ;
 8. vérifier que le gabarit choisi est appliqué uniquement à la copie ;
-9. vérifier que toutes les pièces du logement sont surlignées au bon endroit ;
-10. relancer sur le même logement et vérifier que la collision de nom est bloquée.
+9. vérifier qu'il existe **une seule zone remplie** couvrant tout le logement,
+   y compris les cloisons intérieures ;
+10. vérifier que la zone suit bien l'enveloppe extérieure du logement sans
+    devenir un simple rectangle ;
+11. relancer sur le même logement et vérifier que la collision de nom est bloquée.
 
 **Statut : À valider dans Revit 2025.4.**
 
@@ -2825,4 +2849,4 @@ sous-classes de `ElementType`.
 Le service lit désormais les noms par `Element.Name.GetValue(...)`.
 Voir **BUG-PDV-024**.
 
-**À retester dans Revit 2025.4.**
+**Correctif des libellés validé dans Revit 2025.4 le 5 octobre 2026.**

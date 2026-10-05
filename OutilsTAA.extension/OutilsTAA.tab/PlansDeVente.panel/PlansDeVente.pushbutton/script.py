@@ -68,7 +68,11 @@ def main():
     )
 
     schedule_service = ScheduleService(document)
-    location_plan_service = LocationPlanService(document, plan_view_service)
+    location_plan_service = LocationPlanService(
+        document,
+        plan_view_service,
+        crop_geometry_service,
+    )
 
     controller = PlansVenteController(
         analysis_service=analysis_service,

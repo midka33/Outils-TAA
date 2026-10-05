@@ -40,13 +40,16 @@ class LocationPlanResult(object):
 class LocationPlanService(object):
     """Service Revit de l'Étape 04B."""
 
-    def __init__(self, document, plan_view_service):
+    def __init__(self, document, plan_view_service, crop_geometry_service):
         if document is None:
             raise ValueError("Document Revit manquant.")
         if plan_view_service is None:
             raise ValueError("Service de vues plan manquant.")
+        if crop_geometry_service is None:
+            raise ValueError("Service de géométrie de contour manquant.")
         self.document = document
         self.plan_view_service = plan_view_service
+        self.crop_geometry_service = crop_geometry_service
 
     def source_views_for_housing(self, housing):
         level_name = self._single_level_name(housing)
@@ -106,6 +109,18 @@ class LocationPlanService(object):
         target_name = location_view_name(housing.key)
         self._ensure_view_name_available(target_name)
 
+        highlight_result = self.crop_geometry_service.build_optimized_crop(
+            housing.room_unique_ids,
+            source_view,
+            0.0,
+        )
+        if not highlight_result.mode.startswith("Contour optimisé"):
+            raise ValueError(
+                "Le contour global du logement n'a pas pu être construit de façon "
+                "fiable pour le repérage. Aucun rectangle de secours n'est utilisé "
+                "pour éviter de surligner une zone extérieure au logement."
+            )
+
         if template is not None:
             if not bool(getattr(template, "IsTemplate", False)):
                 raise ValueError("Le gabarit de repérage sélectionné n'est plus un gabarit de vue.")
@@ -125,17 +140,12 @@ class LocationPlanService(object):
                 except Exception as error:
                     raise ValueError("Impossible d'appliquer le gabarit de repérage : {}".format(error))
 
-            for room_unique_id in housing.room_unique_ids:
-                room = self.document.GetElement(room_unique_id)
-                if room is None:
-                    raise ValueError("Une pièce du logement n'existe plus dans le projet.")
-                boundaries = self._room_boundaries(room)
-                if boundaries.Count == 0:
-                    raise ValueError(
-                        "La pièce « {} » ne possède pas de contour exploitable pour le repérage.".format(
-                            getattr(room, "Number", "") or getattr(room, "Name", "") or room_unique_id))
-                self._create_filled_region(created_view, region_type, boundaries)
-                region_count += 1
+            self._create_global_filled_region(
+                created_view,
+                region_type,
+                highlight_result.curve_loop,
+            )
+            region_count = 1
 
         return LocationPlanResult(
             housing_key=housing.key,
@@ -146,34 +156,28 @@ class LocationPlanService(object):
             fill_type_name=self._element_type_name(region_type),
         )
 
-    def _room_boundaries(self, room):
-        from Autodesk.Revit.DB import CurveLoop, SpatialElementBoundaryLocation, SpatialElementBoundaryOptions
+    def _create_global_filled_region(self, view, region_type, curve_loop):
+        from Autodesk.Revit.DB import CurveLoop, FilledRegion
         from System.Collections.Generic import List
 
-        options = SpatialElementBoundaryOptions()
-        options.SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish
-        loops = List[CurveLoop]()
+        if curve_loop is None or curve_loop.IsOpen():
+            raise ValueError("Le contour global du logement n'est pas fermé.")
 
-        boundary_sets = room.GetBoundarySegments(options)
-        for segment_loop in boundary_sets or []:
-            curve_loop = CurveLoop()
-            count = 0
-            for segment in segment_loop or []:
-                curve = segment.GetCurve()
-                if curve is None:
-                    continue
-                curve_loop.Append(curve)
-                count += 1
-            if count >= 3 and not curve_loop.IsOpen():
-                loops.Add(curve_loop)
-        return loops
-
-    def _create_filled_region(self, view, region_type, boundaries):
-        from Autodesk.Revit.DB import FilledRegion
+        boundaries = List[CurveLoop]()
+        boundaries.Add(curve_loop)
         try:
-            return FilledRegion.Create(self.document, region_type.Id, view.Id, boundaries)
+            return FilledRegion.Create(
+                self.document,
+                region_type.Id,
+                view.Id,
+                boundaries,
+            )
         except Exception as error:
-            raise ValueError("Revit n'a pas pu créer la zone remplie de repérage : {}".format(error))
+            raise ValueError(
+                "Revit n'a pas pu créer la zone remplie globale de repérage : {}".format(
+                    error
+                )
+            )
 
     def _ensure_view_name_available(self, target_name):
         from Autodesk.Revit.DB import FilteredElementCollector, View

@@ -130,7 +130,7 @@ def test_location_plan_naming_and_revit_contract():
         "ViewDuplicateOption.Duplicate",
         "ViewTemplateId",
         "FilledRegion.Create",
-        "SpatialElementBoundaryLocation.Finish",
+        "build_optimized_crop",
         "RevitTransaction",
     ):
         assert token in service_text
@@ -158,6 +158,8 @@ def test_location_plan_source_is_duplicated_and_generated_views_are_not_reused_a
     assert 'if not item.name.startswith("PDV_")' in text
     assert "source_view.Duplicate(ViewDuplicateOption.Duplicate)" in text
     assert "source_view.Name =" not in text
+    assert "housing.room_unique_ids" in text
+    assert "0.0" in text
 
 
 def test_location_plan_name_is_collision_blocking_until_stage08():
@@ -172,3 +174,21 @@ def test_filled_region_type_name_uses_ironpython_safe_element_name_getter():
     assert "Element.Name.GetValue(element_type)" in text
     assert "name=self._element_type_name(region_type)" in text
     assert "fill_type_name=self._element_type_name(region_type)" in text
+
+
+
+def test_location_highlight_is_one_global_region_from_stage03_outline():
+    text = LOCATION_SERVICE.read_text(encoding="utf-8")
+    assert "self.crop_geometry_service.build_optimized_crop(" in text
+    assert "highlight_result.curve_loop" in text
+    assert "region_count = 1" in text
+    assert "_create_global_filled_region" in text
+    assert "boundaries.Add(curve_loop)" in text
+    assert "SpatialElementBoundaryLocation.Finish" not in text
+    assert "for room_unique_id in housing.room_unique_ids" not in text
+
+
+def test_location_highlight_refuses_rectangular_fallback():
+    text = LOCATION_SERVICE.read_text(encoding="utf-8")
+    assert 'if not highlight_result.mode.startswith("Contour optimisé")' in text
+    assert "Aucun rectangle de secours n'est utilisé" in text
