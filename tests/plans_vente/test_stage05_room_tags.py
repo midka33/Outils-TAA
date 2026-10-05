@@ -104,3 +104,13 @@ def test_base_collision_logic_is_ready_for_future_dimension_exclusion_boxes():
 def test_tag_type_names_use_ironpython_safe_element_type_name():
     text = SERVICE.read_text(encoding="utf-8")
     assert "Element.Name.GetValue(element_type)" in text
+    assert "BuiltInParameter.SYMBOL_NAME_PARAM" in text
+    assert "BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM" in text
+    assert "FamilyName" in text
+    assert "_room_tag_type_name(tag_type)" in text
+    assert "_room_tag_family_name(tag_type)" in text
+
+
+def test_room_tag_type_label_never_becomes_visually_empty():
+    text = SERVICE.read_text(encoding="utf-8")
+    assert "<Type d'étiquette sans nom>" in text

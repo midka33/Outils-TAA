@@ -135,3 +135,5 @@ L'anti-collision V1 évite les autres étiquettes de la vue et prépare un contr
 `exclusion_boxes` pour les futures zones de cotation.
 
 Validation réelle dans Revit 2025.4 requise.
+
+Le premier essai Étape 05 a révélé des libellés vides pour certains `RoomTagType`; BUG-PDV-025 ajoute un fallback sur les paramètres système Revit de nom de type et de famille. À retester dans Revit 2025.4.

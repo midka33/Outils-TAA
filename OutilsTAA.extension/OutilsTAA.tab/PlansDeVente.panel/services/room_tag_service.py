@@ -80,9 +80,8 @@ class RoomTagService(object):
             .WhereElementIsElementType()
             .ToElements()
         ):
-            name = self._element_type_name(tag_type)
-            family = getattr(tag_type, "Family", None)
-            family_name = str(getattr(family, "Name", "") or "")
+            name = self._room_tag_type_name(tag_type)
+            family_name = self._room_tag_family_name(tag_type)
             result.append(
                 RoomTagTypeCandidate(
                     unique_id=str(getattr(tag_type, "UniqueId", "") or ""),
@@ -264,7 +263,7 @@ class RoomTagService(object):
         return RoomTagCreationResult(
             housing_key=housing.key,
             view_name=str(getattr(view, "Name", "") or ""),
-            tag_type_name=self._element_type_name(tag_type),
+            tag_type_name=self._room_tag_type_name(tag_type),
             created_count=created_count,
             adjusted_count=adjusted_count,
             warnings=warnings,
@@ -535,6 +534,86 @@ class RoomTagService(object):
         if element is None:
             raise ValueError(error_message)
         return element
+
+    @classmethod
+    def _room_tag_type_name(cls, tag_type):
+        """Nom de type robuste pour RoomTagType sous IronPython/pyRevit."""
+        if tag_type is None:
+            return ""
+
+        value = cls._element_type_name(tag_type)
+        if value:
+            return value
+
+        try:
+            from Autodesk.Revit.DB import BuiltInParameter
+            value = cls._parameter_text(
+                tag_type,
+                BuiltInParameter.SYMBOL_NAME_PARAM,
+            )
+            if value:
+                return value
+        except Exception:
+            pass
+
+        return "<Type d'étiquette sans nom>"
+
+    @classmethod
+    def _room_tag_family_name(cls, tag_type):
+        """Nom de famille robuste sans dépendre de Family.Name."""
+        if tag_type is None:
+            return ""
+
+        try:
+            value = getattr(tag_type, "FamilyName", None)
+            if value:
+                return str(value)
+        except Exception:
+            pass
+
+        try:
+            from Autodesk.Revit.DB import BuiltInParameter
+            value = cls._parameter_text(
+                tag_type,
+                BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM,
+            )
+            if value:
+                return value
+        except Exception:
+            pass
+
+        try:
+            family = getattr(tag_type, "Family", None)
+            if family is not None:
+                from Autodesk.Revit.DB import Element
+                value = Element.Name.GetValue(family)
+                if value:
+                    return str(value)
+        except Exception:
+            pass
+
+        return ""
+
+    @staticmethod
+    def _parameter_text(element, built_in_parameter):
+        try:
+            parameter = element.get_Parameter(built_in_parameter)
+        except Exception:
+            parameter = None
+        if parameter is None:
+            return ""
+
+        for getter_name in ("AsString", "AsValueString"):
+            getter = getattr(parameter, getter_name, None)
+            if getter is None:
+                continue
+            try:
+                value = getter()
+            except Exception:
+                value = None
+            if value:
+                return str(value)
+        return ""
 
     @staticmethod
     def _element_type_name(element_type):

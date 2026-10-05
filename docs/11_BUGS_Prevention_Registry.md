@@ -1011,6 +1011,34 @@ validation réelle dans Revit 2025.4 de l'affichage des noms dans la ComboBox.
 **Validation Revit :** confirmée le **5 octobre 2026** ; les noms des types de
 zones remplies sont correctement affichés et sélectionnables.
 
+### BUG-PDV-025 — Types d'étiquettes présents mais libellés vides
+
+**Symptôme :** dans l'Étape 05, la ComboBox **Type étiquette** contient des
+lignes sélectionnables mais visuellement vides.
+
+**Cause racine :** les `RoomTagType` sont bien collectés, mais leur nom de type
+et leur nom de famille ne sont pas toujours exposés de façon fiable par les
+propriétés CLR directes sous IronPython/pyRevit. Le correctif générique
+`Element.Name.GetValue` utilisé pour d'autres `ElementType` n'est pas
+suffisant à lui seul pour toutes les familles d'étiquettes.
+
+**Correction :** lecture en cascade :
+- `Element.Name.GetValue(tag_type)` ;
+- `BuiltInParameter.SYMBOL_NAME_PARAM` pour le nom du type ;
+- `FamilyName` puis `SYMBOL_FAMILY_NAME_PARAM` pour le nom de famille ;
+- `Element.Name.GetValue(family)` en dernier recours.
+
+Un libellé explicite `<Type d'étiquette sans nom>` empêche désormais une ligne
+de ComboBox totalement vide si Revit ne fournit aucun nom exploitable.
+
+**Règle préventive :** pour les `ElementType` affichés dans l'UI pyRevit,
+prévoir une lecture de nom propre à la catégorie lorsque la propriété héritée
+`Name` n'est pas suffisante. Une liste contenant des objets sans libellé doit
+être considérée comme un bug UI.
+
+**Anti-régression :** tests statiques imposant les paramètres système de nom de
+type/famille et le fallback non vide, puis validation réelle dans Revit 2025.4.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1085,6 +1113,7 @@ BUG-PDV-021
 BUG-PDV-022
 BUG-PDV-023
 BUG-PDV-024
+BUG-PDV-025
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

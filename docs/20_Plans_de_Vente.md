@@ -3081,3 +3081,18 @@ reste réservée à l'Étape 08.
 10. relancer sur la même vue et vérifier que les doublons sont bloqués.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+### Correctif Étape 05 — libellés des types d'étiquettes
+
+Le premier essai Revit 2025.4 de l'Étape 05 a montré que les
+`RoomTagType` étaient bien présents dans la ComboBox mais avec des lignes
+vides.
+
+Le service utilise désormais une lecture renforcée du nom de type et de famille
+avec les paramètres système Revit `SYMBOL_NAME_PARAM` et
+`SYMBOL_FAMILY_NAME_PARAM`, en complément de `Element.Name.GetValue`.
+
+Voir **BUG-PDV-025**.
+
+**À retester dans Revit 2025.4.**
