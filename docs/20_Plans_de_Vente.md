@@ -2750,3 +2750,65 @@ Le critère `SHARED_GUID` est obligatoire : un paramètre projet ou un paramètr
 Si ce paramètre partagé est présent, il est sélectionné automatiquement. S'il n'existe pas dans le projet, le premier paramètre texte disponible reste sélectionné afin de ne pas bloquer l'outil.
 
 Ce choix ne lance pas automatiquement l'analyse ; l'utilisateur conserve le contrôle du bouton **Analyser les logements**.
+
+
+## Prototype 04B — Plan de repérage
+
+Le prototype 04B crée une vue de repérage indépendante sans modifier la vue source.
+
+### Principe V1
+
+Pour un logement sur un seul niveau :
+
+```text
+Vue plan source
+      ↓ Duplicate
+PDV_<logement>_REP
+      +
+gabarit optionnel
+      +
+zones remplies sur les pièces du logement
+```
+
+Le nom est déterministe, par exemple `PDV_A001_REP`.
+
+### Configuration utilisateur
+
+L'interface permet de choisir :
+
+- la vue plan source du niveau du logement ;
+- un gabarit de plan d'étage, ou **Conserver la vue source** ;
+- un type de `FilledRegionType` pour la surbrillance.
+
+Les vues générées `PDV_...` ne sont pas reproposées comme vues sources, afin d'éviter les duplications en chaîne.
+
+### Surbrillance
+
+Chaque pièce du logement est lue avec `SpatialElementBoundaryLocation.Finish`.
+Ses boucles fermées sont transmises à `FilledRegion.Create` dans la vue de repérage.
+Le prototype crée une zone remplie par pièce afin de rester robuste lorsque le logement comporte plusieurs pièces disjointes ou des trous locaux.
+
+La V1 met en évidence toutes les pièces appartenant au logement détecté ; elle ne tente pas encore de distinguer graphiquement intérieur et extérieur dans le plan de repérage.
+
+### Sécurité
+
+- la vue source n'est jamais modifiée ;
+- le gabarit n'est appliqué qu'à la copie ;
+- la création de la vue et de toutes les zones remplies est regroupée dans une transaction courte ;
+- si `PDV_<logement>_REP` existe déjà, la création est bloquée jusqu'à la logique de mise à jour de l'Étape 08 ;
+- le prototype V1 attend actuellement un logement sur un seul niveau.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. analyser les logements puis sélectionner un logement ;
+2. choisir une **Vue source** de repérage du bon niveau ;
+3. choisir **Conserver la vue source** ou un gabarit de plan ;
+4. choisir un type de **Zone remplie** ;
+5. cliquer **Créer le plan de repérage** ;
+6. vérifier la création de `PDV_<logement>_REP` ;
+7. vérifier que la vue source d'origine est inchangée ;
+8. vérifier que le gabarit choisi est appliqué uniquement à la copie ;
+9. vérifier que toutes les pièces du logement sont surlignées au bon endroit ;
+10. relancer sur le même logement et vérifier que la collision de nom est bloquée.
+
+**Statut : À valider dans Revit 2025.4.**

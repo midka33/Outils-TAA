@@ -68,6 +68,27 @@
                             Margin="0,18,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="Analyze_Click"/>
+                    <Separator Margin="0,22,0,18"/>
+                    <TextBlock Text="Étape 04B — Plan de repérage"
+                               Style="{DynamicResource TAASectionTitle}"/>
+                    <TextBlock x:Name="LocationInfoText" Margin="0,0,0,10"
+                               Style="{DynamicResource TAASecondaryText}"/>
+                    <TextBlock Text="Vue source" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="LocationSourceCombo" DisplayMemberPath="Label"
+                              SelectionChanged="LocationChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <TextBlock Text="Gabarit" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="LocationTemplateCombo" DisplayMemberPath="Label"
+                              SelectionChanged="LocationChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <TextBlock Text="Zone remplie" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="LocationFillTypeCombo" DisplayMemberPath="Label"
+                              SelectionChanged="LocationChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <Button x:Name="CreateLocationPlanButton" Content="Créer le plan de repérage"
+                            Margin="0,14,0,0" HorizontalAlignment="Stretch"
+                            Style="{DynamicResource TAAPrimaryButton}"
+                            Click="CreateLocationPlan_Click"/>
                 </StackPanel>
             </Border>
 

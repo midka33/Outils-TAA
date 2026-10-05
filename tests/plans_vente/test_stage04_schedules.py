@@ -114,3 +114,53 @@ def test_window_uses_default_parameter_selector():
     text = WINDOW.read_text(encoding="utf-8")
     assert "preferred_housing_parameter_index" in text
     assert "context.parameters" in text
+
+
+LOCATION_SERVICE = PANEL / "services" / "location_plan_service.py"
+
+
+def test_location_plan_naming_and_revit_contract():
+    naming = ROOT / "OutilsTAA.extension" / "lib" / "plans_vente" / "location_naming.py"
+    naming_text = naming.read_text(encoding="utf-8")
+    service_text = LOCATION_SERVICE.read_text(encoding="utf-8")
+    ast.parse(naming_text)
+    ast.parse(service_text)
+    assert 'return "PDV_{}_REP"' in naming_text
+    for token in (
+        "ViewDuplicateOption.Duplicate",
+        "ViewTemplateId",
+        "FilledRegion.Create",
+        "SpatialElementBoundaryLocation.Finish",
+        "RevitTransaction",
+    ):
+        assert token in service_text
+
+
+def test_location_plan_ui_is_configurable_and_does_not_mix_sheet_placement():
+    xaml = XAML.read_text(encoding="utf-8")
+    window = WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    for name in (
+        "LocationSourceCombo",
+        "LocationTemplateCombo",
+        "LocationFillTypeCombo",
+        "CreateLocationPlanButton",
+    ):
+        assert 'x:Name="{}"'.format(name) in xaml
+    assert 'Click="CreateLocationPlan_Click"' in xaml
+    assert "def create_location_plan_prototype(" in controller
+    assert "Viewport" not in LOCATION_SERVICE.read_text(encoding="utf-8")
+    assert "ScheduleSheetInstance" not in LOCATION_SERVICE.read_text(encoding="utf-8")
+
+
+def test_location_plan_source_is_duplicated_and_generated_views_are_not_reused_as_sources():
+    text = LOCATION_SERVICE.read_text(encoding="utf-8")
+    assert 'if not item.name.startswith("PDV_")' in text
+    assert "source_view.Duplicate(ViewDuplicateOption.Duplicate)" in text
+    assert "source_view.Name =" not in text
+
+
+def test_location_plan_name_is_collision_blocking_until_stage08():
+    text = LOCATION_SERVICE.read_text(encoding="utf-8")
+    assert "_ensure_view_name_available" in text
+    assert "La mise à jour sera traitée à l'Étape 08." in text

@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 
 __title__ = "Plans de\nvente"
 __doc__ = (
-    "Détecte les logements, crée les vues cadrées et prépare les "
-    "nomenclatures de plans de vente."
+    "Détecte les logements et prépare vues, nomenclatures et plans "
+    "de repérage des plans de vente."
 )
 
 import os
@@ -26,6 +26,7 @@ for path in (LIB_DIR, PANEL_DIR, SERVICE_DIR, UI_DIR):
 from plans_vente.housing_grouper import HousingGrouper
 from crop_geometry_service import CropGeometryService
 from housing_analysis_service import HousingAnalysisService
+from location_plan_service import LocationPlanService
 from plan_view_service import PlanViewService
 from plans_vente_controller import PlansVenteController
 from prototype_view_service import PrototypeViewService
@@ -67,11 +68,13 @@ def main():
     )
 
     schedule_service = ScheduleService(document)
+    location_plan_service = LocationPlanService(document, plan_view_service)
 
     controller = PlansVenteController(
         analysis_service=analysis_service,
         prototype_view_service=prototype_view_service,
         schedule_service=schedule_service,
+        location_plan_service=location_plan_service,
     )
 
     window = PlansVenteWindow(controller)

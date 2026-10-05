@@ -93,3 +93,10 @@ Nommage : `PDV_<logement>_INT` / `PDV_<logement>_EXT`.
 Les modèles restent inchangés. Les autres filtres, champs, tris et mises en forme sont conservés par duplication. Prototype 04A validé dans Revit 2025.4 le 5 octobre 2026.
 
 Le paramètre partagé `N° Appartement` est sélectionné par défaut à l'ouverture lorsqu'il est disponible ; sinon le premier paramètre texte reste utilisé.
+
+
+### Prototype 04B — Plan de repérage
+
+Le module peut maintenant dupliquer une vue plan source en `PDV_<logement>_REP`, conserver sa présentation ou appliquer un gabarit choisi, puis surligner les pièces du logement avec un type de zone remplie sélectionné.
+
+La vue source reste inchangée. Validation réelle dans Revit 2025.4 requise avant de clôturer 04B.
