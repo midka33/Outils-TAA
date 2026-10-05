@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Étape 04 en cours : nomenclatures et repérage
+## État actuel — Étape 04 validée : nomenclatures et repérage
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -113,3 +113,13 @@ Les éléments générés portent maintenant un rôle et un ancrage explicites :
 
 Aucune coordonnée de feuille n'est encore appliquée. L'Étape 07 traduira ces
 ancrages sémantiques en positions réelles dans le modèle de feuille.
+
+
+### Étape 04 validée V1
+
+04A Nomenclatures et 04B Plan de repérage ont été validés dans Revit 2025.4.
+04C Contrat de placement est validé par tests purs.
+
+Le module dispose désormais des artefacts nécessaires à l'assemblage futur :
+vue logement, vue de repérage, nomenclatures intérieure/extérieure, avec rôles
+et ancrages explicites.

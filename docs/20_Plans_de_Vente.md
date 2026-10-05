@@ -2952,3 +2952,47 @@ La persistance durable de `GeneratedBy`, `HousingKey`, `TemplateId` et
 **04C ne nécessite pas de validation graphique Revit**, car il n'effectue aucune
 opération de placement ni transaction supplémentaire. Sa validation repose sur
 les tests du contrat et sur les résultats déjà validés de 04A/04B.
+
+
+## Clôture Étape 04 — 2026-10-05
+
+L'Étape 04 est considérée comme terminée pour la V1.
+
+### 04A — Nomenclatures
+
+Validé dans Revit 2025.4 :
+
+- duplication des modèles INT / EXT ;
+- conservation de la mise en forme, tris et filtres métier ;
+- filtre logement appliqué sur le paramètre choisi ;
+- modèles source inchangés ;
+- collisions bloquées.
+
+### 04B — Plan de repérage
+
+Validé dans Revit 2025.4 :
+
+- vue source préservée ;
+- gabarit optionnel ;
+- type de zone remplie configurable ;
+- une zone remplie globale ;
+- cloisons intérieures recouvertes ;
+- contour global fidèle au logement.
+
+### 04C — Contrat de placement
+
+Validé hors Revit :
+
+- rôles stables ;
+- `UniqueId` des éléments ;
+- types de placement explicites ;
+- ancrages sémantiques ;
+- absence de coordonnées de feuille codées en dur ;
+- contrôle des doublons de rôle/ancrage.
+
+La suite Plans de vente compte **92 tests hors Revit réussis** au moment de cette
+clôture.
+
+**Étape 04 — Nomenclatures et repérage : VALIDÉE V1.**
+
+Le placement réel sur feuille reste volontairement réservé à l'Étape 07.

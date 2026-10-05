@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : Étape 04 validée V1 — nomenclatures, plan de repérage et contrat de placement/ancrages sont prêts pour l'assemblage futur sur feuille.
 - Plans de vente : 04B Plan de repérage validé dans Revit 2025.4 avec une zone remplie globale continue couvrant le logement et ses cloisons intérieures.
 - Plans de vente : 04B utilise désormais une seule zone remplie globale issue du contour logement de l'Étape 03 à marge nulle, afin de surligner l'emprise continue et de passer sur les cloisons intérieures.
 - Plans de vente : le paramètre partagé `N° Appartement` est désormais présélectionné comme identifiant logement lorsqu'il est disponible ; 04A Nomenclatures validé dans Revit 2025.4.
