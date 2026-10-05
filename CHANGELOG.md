@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
 - Plans de vente : Étape 03 conservée comme validée V1 avec une dette de robustesse documentée (BUG-PDV-023) lorsque Revit rejette le contour final pour certaines marges ; consolidation reportée sans bloquer l'Étape 04.
 - Plans de vente : Étape 03 validée dans Revit 2025.4 le 2026-10-05 : vues dépendantes, détourage V1, groupes de vues principales par échelle et préservation de la vue source confirmés.
 - Plans de vente : détourage V1 considéré validé dans Revit 2025.4 ; les cas résiduels de gaines palières sont documentés comme limite connue afin de figer le moteur géométrique courant.

@@ -2,7 +2,7 @@
 
 Module Outils TAA pour Revit 2025.4 / pyRevit 5.x.
 
-## État actuel — Étape 03 validée / Étape 04 à démarrer
+## État actuel — Étape 04 en cours : nomenclatures et repérage
 
 Le premier incrément est volontairement en lecture seule :
 
@@ -70,3 +70,15 @@ L'Étape 03 reste validée V1, mais un cas Revit a confirmé que certaines marge
 peuvent produire un contour optimisé rejeté par `IsCropRegionShapeValid`.
 Le fallback final sera consolidé ultérieurement (BUG-PDV-023). Ce point ne
 bloque pas le démarrage de l'Étape 04.
+
+
+### Étape 04
+
+Ordre retenu :
+
+1. duplication et filtrage des nomenclatures modèles intérieure / extérieure ;
+2. création du plan de repérage ;
+3. préparation des rôles et ancrages pour l'assemblage feuille.
+
+Les nomenclatures modèles conservent la logique métier intérieur / extérieur ;
+le plugin ajoute uniquement le filtre du logement choisi.

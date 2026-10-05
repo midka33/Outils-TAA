@@ -2597,3 +2597,74 @@ Décision V1 :
   autre marge ou corrigé manuellement.
 
 Cette dette devra être traitée avant la stabilisation finale de la V1.
+
+
+## Ouverture Étape 04 — Nomenclatures et repérage
+
+Branche de travail : `feature/plans-de-vente-stage04-schedules-location`.
+
+L'Étape 04 est découpée en trois sous-étapes afin de conserver des prototypes
+Revit testables et indépendants.
+
+### 04A — Nomenclatures intérieure et extérieure
+
+La V1 utilise **deux nomenclatures modèles choisies par l'utilisateur** :
+
+- nomenclature modèle intérieure ;
+- nomenclature modèle extérieure.
+
+Ces nomenclatures modèles restent la source de vérité pour la présentation et
+pour la distinction métier intérieur / extérieur. Le plugin ne doit pas coder
+en dur une liste de noms de pièces comme `Balcon`, `Terrasse` ou `Loggia`.
+
+Pour un logement sélectionné, le module doit :
+
+1. dupliquer la nomenclature modèle ;
+2. conserver ses champs, tris, mise en forme et filtres métier existants ;
+3. identifier le champ correspondant au paramètre logement déjà choisi lors de
+   l'analyse ;
+4. remplacer ou ajouter uniquement le filtre de logement ;
+5. appliquer la valeur du logement ;
+6. nommer la copie de manière déterministe ;
+7. ne jamais modifier la nomenclature modèle.
+
+Si une nomenclature modèle ne contient pas le champ nécessaire au filtre
+logement, l'opération doit être bloquée avec un diagnostic clair.
+
+### 04B — Plan de repérage
+
+Le plan de repérage partira d'une vue plan de référence configurable. La V1 doit
+permettre de choisir :
+
+- la vue source de repérage ;
+- le gabarit à appliquer lorsque pertinent ;
+- le style/type de surbrillance du logement.
+
+La vue de repérage générée doit mettre en évidence le logement sans modifier la
+vue source.
+
+### 04C — Placement
+
+L'Étape 04 doit produire des éléments prêts à être placés sur une feuille :
+nomenclature intérieure, nomenclature extérieure et vue de repérage.
+
+Le placement définitif et la composition complète avec cartouche, vue logement,
+légendes et paramètres seront raccordés à l'Étape 07 — Assemblage feuille.
+L'Étape 04 doit néanmoins préparer des rôles et points d'ancrage stables afin
+que ce raccordement ne dépende pas d'une détection implicite.
+
+### Ordre de développement
+
+```text
+04A Nomenclatures
+        ↓
+validation Revit
+        ↓
+04B Plan de repérage
+        ↓
+validation Revit
+        ↓
+04C Contrat de placement / ancrages
+        ↓
+Étape 04 validée
+```
