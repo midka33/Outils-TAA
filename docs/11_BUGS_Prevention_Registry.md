@@ -942,6 +942,36 @@ simplification globale du polygone.
 structurel, limite de deux segments et cas complet avec deux lèvres résiduelles ;
 test adaptateur sur le diagnostic des segments absorbés.
 
+### BUG-PDV-023 — Crop optimisé rejeté selon certaines marges sans fallback final
+
+**Symptôme :** selon la marge saisie, Revit affiche
+`Le contour calculé n'est pas accepté par Revit comme crop.` et la création
+du prototype échoue. Un cas a été confirmé le 2026-10-05 à l'échelle 1:100
+avec une marge de 50 mm.
+
+**Cause racine :** le fallback rectangulaire existe lorsque la vue cible ne
+supporte pas les crops non rectangulaires, mais il n'est pas utilisé lorsque
+`ViewCropRegionShapeManager.IsCropRegionShapeValid(selected_loop)` rejette le
+contour optimisé après construction de la marge. Le service lève alors une
+erreur au lieu d'essayer le `fallback_curve_loop`.
+
+**Correction planifiée :** lors de la passe de consolidation de l'Étape 03,
+si le contour optimisé échoue au contrôle final, valider puis appliquer le
+rectangle de secours avant de déclarer un échec. Conserver en parallèle le
+diagnostic du contour optimisé afin d'identifier les marges/topologies qui
+produisent une boucle non acceptée.
+
+**Règle préventive :** tout chemin de génération d'un crop optimisé doit avoir
+un fallback final contrôlé au point exact où Revit valide la boucle. Un fallback
+présent uniquement sur un test de capacité amont n'est pas suffisant.
+
+**Anti-régression :** ajouter un test adaptateur où
+`CanHaveShape=True`, le contour optimisé est refusé par
+`IsCropRegionShapeValid`, mais le rectangle de secours est accepté ; vérifier
+que le rectangle est appliqué et qu'un avertissement remplace l'exception.
+Rejouer ensuite dans Revit les marges 20 / 50 / 200 / 500 mm sur les logements
+de référence.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1014,6 +1044,7 @@ BUG-PDV-019
 BUG-PDV-020
 BUG-PDV-021
 BUG-PDV-022
+BUG-PDV-023
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

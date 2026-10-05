@@ -62,3 +62,11 @@ encore effectué.
 L'Étape 03 a été validée dans Revit 2025.4 le 5 octobre 2026 : masters 1:50 / 1:100, réutilisation, dépendances et préservation de la vue source sont conformes.
 
 Prochaine étape : **Étape 04 — Nomenclatures et repérage**.
+
+
+### Dette connue : validation finale du crop selon la marge
+
+L'Étape 03 reste validée V1, mais un cas Revit a confirmé que certaines marges
+peuvent produire un contour optimisé rejeté par `IsCropRegionShapeValid`.
+Le fallback final sera consolidé ultérieurement (BUG-PDV-023). Ce point ne
+bloque pas le démarrage de l'Étape 04.

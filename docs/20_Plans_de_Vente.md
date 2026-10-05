@@ -2560,3 +2560,40 @@ Acquis :
 L'ajustement automatique de l'échelle à la feuille reste hors V1.
 
 **Prochaine étape officielle : Étape 04 — Nomenclatures et repérage.**
+
+
+### Dette de robustesse V1 — validation finale du crop selon la marge
+
+Un essai Revit 2025.4 du **5 octobre 2026** a montré qu'un logement peut encore
+échouer pour certaines valeurs de marge alors que le détourage fonctionne avec
+d'autres valeurs.
+
+Message observé :
+
+```text
+Le contour calculé n'est pas accepté par Revit comme crop.
+```
+
+Exemple constaté pendant la validation : vue logement à **1:100** avec une marge
+de **50 mm**. Ce cas ne remet pas en cause la validation fonctionnelle de
+l'Étape 03 pour la V1, mais il constitue une **dette de robustesse à consolider**.
+
+La cause technique identifiée est un trou dans le fallback actuel :
+`apply_to_view()` utilise le rectangle de secours lorsque la vue cible ne peut
+pas recevoir un crop non rectangulaire, mais si
+`IsCropRegionShapeValid(selected_loop)` rejette directement le contour optimisé,
+le service lève encore une erreur au lieu d'essayer ce rectangle de secours.
+
+Décision V1 :
+
+- ne pas rouvrir maintenant le moteur géométrique validé ;
+- conserver ce cas dans le registre de bugs ;
+- poursuivre l'Étape 04 ;
+- lors de la passe de consolidation, tenter le rectangle de secours si le
+  contour optimisé est rejeté au contrôle final Revit, puis poursuivre le
+  diagnostic géométrique des marges problématiques ;
+- ne pas considérer la correction manuelle ponctuelle d'un crop comme une
+  régression bloquante de la V1 tant que le logement peut être généré par une
+  autre marge ou corrigé manuellement.
+
+Cette dette devra être traitée avant la stabilisation finale de la V1.
