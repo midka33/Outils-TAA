@@ -8,6 +8,7 @@ import os
 from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
+from plans_vente.defaults import preferred_housing_parameter_index
 from plans_vente.view_grouping import normalize_scale
 
 
@@ -79,7 +80,9 @@ class PlansVenteWindow(forms.WPFWindow):
         self.HousingParameterCombo.ItemsSource = self._choices
 
         if self._choices:
-            self.HousingParameterCombo.SelectedIndex = 0
+            self.HousingParameterCombo.SelectedIndex = preferred_housing_parameter_index(
+                context.parameters
+            )
             self.AnalyzeButton.IsEnabled = True
             self.StatusText.Text = (
                 "Choisissez le paramètre logement puis lancez l'analyse."

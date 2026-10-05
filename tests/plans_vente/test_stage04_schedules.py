@@ -3,6 +3,10 @@ from pathlib import Path
 import ast
 import xml.etree.ElementTree as ET
 
+from plans_vente.defaults import (
+    DEFAULT_HOUSING_PARAMETER_NAME,
+    preferred_housing_parameter_index,
+)
 from plans_vente.schedule_naming import schedule_name
 
 
@@ -79,3 +83,34 @@ def test_generated_schedule_names_are_collision_checked_not_incremented():
     assert "_ensure_name_available" in text
     assert "La mise à jour des éléments existants sera traitée à l'Étape 08." in text
     assert "_unique_schedule_name" not in text
+
+
+class _Descriptor(object):
+    def __init__(self, name, identity_kind):
+        self.name = name
+        self.identity_kind = identity_kind
+
+
+def test_shared_numero_appartement_is_default_housing_parameter():
+    descriptors = [
+        _Descriptor("Appartement", "NAME"),
+        _Descriptor(DEFAULT_HOUSING_PARAMETER_NAME, "DEFINITION"),
+        _Descriptor(DEFAULT_HOUSING_PARAMETER_NAME, "SHARED_GUID"),
+        _Descriptor("Niveau", "BUILT_IN"),
+    ]
+    assert preferred_housing_parameter_index(descriptors) == 2
+
+
+def test_default_parameter_falls_back_without_shared_numero_appartement():
+    descriptors = [
+        _Descriptor(DEFAULT_HOUSING_PARAMETER_NAME, "DEFINITION"),
+        _Descriptor("Autre", "SHARED_GUID"),
+    ]
+    assert preferred_housing_parameter_index(descriptors) == 0
+    assert preferred_housing_parameter_index([]) == -1
+
+
+def test_window_uses_default_parameter_selector():
+    text = WINDOW.read_text(encoding="utf-8")
+    assert "preferred_housing_parameter_index" in text
+    assert "context.parameters" in text

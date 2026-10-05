@@ -2734,4 +2734,19 @@ Les deux nomenclatures sont créées dans une transaction courte commune : un é
 9. relancer sur le même logement et vérifier que la collision est bloquée ;
 10. vérifier qu'une nomenclature ne contenant pas le paramètre logement n'est pas proposée.
 
-**Statut : À valider dans Revit 2025.4.**
+**Statut : VALIDÉ dans Revit 2025.4 le 5 octobre 2026.**
+
+
+### Paramètre logement par défaut
+
+À l'ouverture de Plans de vente, le sélecteur **Paramètre identifiant le logement** cherche en priorité le paramètre partagé nommé exactement :
+
+```text
+N° Appartement
+```
+
+Le critère `SHARED_GUID` est obligatoire : un paramètre projet ou un paramètre par nom portant le même libellé ne doit pas être préféré au paramètre partagé.
+
+Si ce paramètre partagé est présent, il est sélectionné automatiquement. S'il n'existe pas dans le projet, le premier paramètre texte disponible reste sélectionné afin de ne pas bloquer l'outil.
+
+Ce choix ne lance pas automatiquement l'analyse ; l'utilisateur conserve le contrôle du bouton **Analyser les logements**.

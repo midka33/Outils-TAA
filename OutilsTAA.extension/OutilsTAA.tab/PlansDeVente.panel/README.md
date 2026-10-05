@@ -90,4 +90,6 @@ Le prototype permet maintenant de choisir deux nomenclatures modèles compatible
 
 Nommage : `PDV_<logement>_INT` / `PDV_<logement>_EXT`.
 
-Les modèles restent inchangés. Les autres filtres, champs, tris et mises en forme sont conservés par duplication. Validation réelle Revit 2025.4 requise.
+Les modèles restent inchangés. Les autres filtres, champs, tris et mises en forme sont conservés par duplication. Prototype 04A validé dans Revit 2025.4 le 5 octobre 2026.
+
+Le paramètre partagé `N° Appartement` est sélectionné par défaut à l'ouverture lorsqu'il est disponible ; sinon le premier paramètre texte reste utilisé.
