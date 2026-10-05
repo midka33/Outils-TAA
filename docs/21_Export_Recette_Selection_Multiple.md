@@ -2,7 +2,13 @@
 
 **Cible : Revit 2025.4 / pyRevit 5.x.**
 
-**Statut : à exécuter dans Revit.** Les tests Python ne valident pas WPF ni les fichiers natifs.
+**Statut : fonctionnement de la sélection multiple validé par l’utilisateur dans Revit le 5 octobre 2026.**
+
+Retour reçu après essai de la branche de la PR #11 : « très bien ça marche ».
+Ce retour valide le correctif testé, sans constituer un résultat détaillé pour
+chacun des scénarios MS-01 à MS-10 ci-dessous. Les scénarios non explicitement
+rapportés restent à vérifier selon les besoins de la recette avant release.
+Les tests Python ne valident pas WPF ni les fichiers natifs.
 
 Préparer un carnet **Plans** avec A01/A02/A03/A04 et un carnet **Coupes** avec
 B01/B02, dans cet ordre. Choisir un dossier de sortie de test. Préparer aussi

@@ -504,7 +504,7 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Règle préventive :** toutes les actions groupées et leur résumé doivent consommer le même état de sélection ; ne jamais confondre élément actif des réglages et périmètre d'action. Un repli clavier ne doit pas réactiver un élément explicitement désélectionné.
 
-**Anti-régression :** `tests/test_export_multiselection.py` exécute les handlers et les hooks Stage 07 ; sous-ensembles, ordre, carnets multiples, paramètres/destinations indépendants, collisions, annulation, Ctrl/Maj et sélection vide. Les anciens tests pointant encore sur `Export.pushbutton/script.py` sont réalignés sur le smartbutton actuel. Recette MS-01 à MS-10 à effectuer dans Revit ; aucun résultat Revit revendiqué.
+**Anti-régression :** `tests/test_export_multiselection.py` exécute les handlers et les hooks Stage 07 ; sous-ensembles, ordre, carnets multiples, paramètres/destinations indépendants, collisions, annulation, Ctrl/Maj et sélection vide. Les anciens tests pointant encore sur `Export.pushbutton/script.py` sont réalignés sur le smartbutton actuel. Fonctionnement de la sélection multiple confirmé par l’utilisateur dans Revit le 2026-10-05 après essai de la branche de la PR #11. Ce retour ne constitue pas une validation détaillée de chaque scénario MS-01 à MS-10.
 
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 

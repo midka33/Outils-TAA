@@ -106,4 +106,5 @@ les hooks Stage 07 ; le flux dossier conserve `PublicationBatchService`.
 Les deux flux consomment les mêmes copies de périmètre et le même moteur PDF/DWG.
 
 Voir `09_Export.md`, `20_Export_Tutoriel.md` et `21_Export_Recette_Selection_Multiple.md`.
-La validation de cette extension dans Revit reste à réaliser avant release.
+Le fonctionnement a été confirmé par l’utilisateur dans Revit le 2026-10-05
+(PR #11). La recette détaillée reste distincte de cette validation fonctionnelle.

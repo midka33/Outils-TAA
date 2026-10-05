@@ -47,6 +47,7 @@
 - [x] Raccorder la sélection Ctrl/Maj au résumé, à l'aperçu et à la publication.
 - [x] Tester hors Revit les sous-ensembles, l'ordre, les doublons et les réglages indépendants.
 - [x] Rédiger le [tutoriel utilisateur](docs/20_Export_Tutoriel.md).
+- [x] Validation utilisateur du fonctionnement de la sélection multiple dans Revit le 2026-10-05 (PR #11).
 - [ ] Valider MS-01 à MS-10 dans Revit 2025.4 : [recette](docs/21_Export_Recette_Selection_Multiple.md).
 - [ ] Valider le tutoriel avec l'utilisateur avant release.
 

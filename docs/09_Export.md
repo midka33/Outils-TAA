@@ -50,7 +50,9 @@ la surcouche de sélection de dossier devenue redondante est retirée.
 
 Voir [le tutoriel utilisateur](20_Export_Tutoriel.md) et
 [la recette Revit](21_Export_Recette_Selection_Multiple.md).
-**Statut : tests Python hors Revit ; validation WPF/PDF/DWG réelle à effectuer.**
+**Statut : 212 tests Python réussis ; fonctionnement de la sélection multiple
+confirmé par l’utilisateur dans Revit le 2026-10-05 sur la branche de la PR #11.**
+La recette détaillée MS-01 à MS-10 reste distincte de cette validation fonctionnelle.
 
 ## Héritage récursif des réglages
 

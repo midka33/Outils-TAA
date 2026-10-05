@@ -5,8 +5,9 @@
 Version du guide : 5 octobre 2026 — préparation de la V1.
 
 Ce guide décrit l'interface actuelle et le correctif de publication par sélection
-multiple livré avec ce document. Ce correctif doit encore être validé dans Revit
-avant la release.
+multiple livré avec ce document. Son fonctionnement a été confirmé par l’utilisateur dans Revit le
+5 octobre 2026 après essai de la branche de la PR #11. La recette détaillée reste
+un support de vérification avant release.
 
 ## 1. Première publication, pas à pas
 
