@@ -202,7 +202,7 @@ def _build_preview_stage07(window, targets):
 def _publish_targets_stage07(window, targets):
     all_results, all_errors, all_warnings = [], [], []
     all_success = True
-    output_directory = None
+    output_directories = []
     history = _history_service(window)
     for publication_set in targets:
         settings = window._resolve_settings(publication_set)
@@ -216,7 +216,8 @@ def _publish_targets_stage07(window, targets):
         if settings.modified_only and not candidates:
             all_warnings.append("{0} : aucune mise en page nouvelle ou modifiée à publier.".format(publication_set.name))
             continue
-        output_directory = settings.output_directory
+        if settings.output_directory not in output_directories:
+            output_directories.append(settings.output_directory)
         try:
             result = window.controller.publish(
                 publication_set.with_settings(settings), settings.output_directory,
@@ -238,9 +239,9 @@ def _publish_targets_stage07(window, targets):
         if target_success:
             history.record_publication(publication_set, states, successful=True,
                                        output_paths=[r.get("path") for r in result.get("results", []) if r.get("path")])
-    report = {"success": all_success, "carnet": "Publication : carnet/mise en page",
+    report = {"success": all_success, "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
               "results": all_results, "errors": all_errors, "warnings": all_warnings,
-              "output_directory": output_directory or ""}
+              "output_directory": "; ".join(output_directories)}
     publication_preview_integration.PublicationReportWindow(report, owner=window).ShowDialog()
 
 

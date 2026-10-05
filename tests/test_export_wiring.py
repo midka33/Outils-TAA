@@ -13,7 +13,7 @@ from publication_batch_service import PublicationBatchService
 
 def test_drag_drop_has_one_constructor_owner():
     sites = []
-    for relative in ['export_window.py', 'Export.pushbutton/script.py', 'services/publication_preview_integration.py']:
+    for relative in ['export_window.py', 'Export.smartbutton/script.py', 'services/publication_preview_integration.py']:
         tree = ast.parse((PANEL / relative).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'PublicationTreeDragDrop':

@@ -16,6 +16,7 @@ class PublicationTreeDragDrop(object):
         self.drag_node = None
         self.drag_started = False
         self.selected = []
+        self._selection_explicit = False
         self.drop_node = None
         self.drop_mode = None
         tree = window.PublicationTree
@@ -29,7 +30,7 @@ class PublicationTreeDragDrop(object):
 
     def _key_down(self, sender, args):
         if args.Key in (Key.Up, Key.Down, Key.Left, Key.Right, Key.Home, Key.End):
-            self._select([])
+            self._select([], fallback_to_native=True)
 
     def _item(self, source):
         current = source
@@ -99,7 +100,8 @@ class PublicationTreeDragDrop(object):
             return None
         return self._key(tag)
 
-    def _select(self, keys):
+    def _select(self, keys, fallback_to_native=False, notify=True):
+        self._selection_explicit = not fallback_to_native
         self.selected = []
         for key in keys:
             if key and key not in self.selected:
@@ -113,12 +115,14 @@ class PublicationTreeDragDrop(object):
                 else:
                     node.ClearValue(TreeViewItem.BackgroundProperty)
                     node.ClearValue(TreeViewItem.ForegroundProperty)
+        if notify:
+            self.window._publication_selection_changed()
 
     def selected_tags(self):
         """Utilise la sélection Ctrl/Maj ; repli sur la sélection native au clavier."""
         tags = [node.Tag for node in self._all()
                 if getattr(node, "Tag", None) and self._key(node.Tag) in self.selected]
-        if tags:
+        if tags or self._selection_explicit:
             return tags
         node = self.window.PublicationTree.SelectedItem
         return [node.Tag] if node is not None and getattr(node, "Tag", None) else []
@@ -143,7 +147,7 @@ class PublicationTreeDragDrop(object):
         self.drag_started = False
         key = self._valid_key(node) if node is not None else None
         if key is None:
-            self._select([])
+            self._select([], fallback_to_native=True)
             return
         modifiers = Keyboard.Modifiers
         if modifiers & ModifierKeys.Shift and self.selected:
@@ -283,7 +287,7 @@ class PublicationTreeDragDrop(object):
                 pass
         self.drop_node = None
         self.drop_mode = None
-        self._select(self.selected)
+        self._select(self.selected, fallback_to_native=not self._selection_explicit, notify=False)
 
     def _drag_over(self, sender, args):
         target = self._item(args.OriginalSource)

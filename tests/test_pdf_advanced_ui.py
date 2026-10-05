@@ -176,7 +176,7 @@ def test_preview_only_hides_confirmation_and_never_publishes(monkeypatch):
         PublicationPreviewWindow=lambda data,owner:dialog)
     monkeypatch.setitem(sys.modules,'publication_preview_integration',flow)
     fn=extract_method('export_window.py','ExportWindow','Preview_Click',{'Visibility':SimpleNamespace(Collapsed=0)})
-    window=SimpleNamespace(_selected_kind='CARNET',_selected_set='target')
+    window=SimpleNamespace(_publication_targets=lambda:['target'])
     fn(window,None,None)
     assert calls==[['target'],'show']
     assert dialog.ConfirmButton.Visibility==0 and dialog.ConfirmButton.IsDefault is False

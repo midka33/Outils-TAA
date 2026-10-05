@@ -20,6 +20,11 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
 
+## Guide utilisateur
+
+- [Export — tutoriel pas à pas](docs/20_Export_Tutoriel.md)
+- [Export — recette de la sélection multiple avant release](docs/21_Export_Recette_Selection_Multiple.md)
+
 ## Historique des noms
 
 Pour conserver la traçabilité du projet :
