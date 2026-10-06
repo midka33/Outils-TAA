@@ -3,7 +3,7 @@
 **Statut :** Validé dans Revit 2025.4 — prêt pour intégration dans `main`  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`  
-**Validation finale :** Revit 2025.4 / pyRevit 5.x — 1er octobre 2026
+**Validation finale :** Revit 2025.4 / pyRevit 5.x — 6 octobre 2026
 
 ---
 
@@ -223,7 +223,7 @@ Sécurités :
 - si Revit doit réaligner un ou plusieurs éléments lors du retour à l'état initial, la transaction est annulée ;
 - les destinations réellement readonly pour une autre raison restent refusées.
 
-Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Une validation réelle dans Revit 2025.4 reste requise après cette évolution.
+Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Le comportement a été validé dans Revit 2025.4 le 6 octobre 2026.
 
 ---
 
@@ -449,11 +449,11 @@ Bugs spécifiques actuellement capitalisés :
 - interface WPF ;
 - rapport ;
 - bouton pyRevit ;
-- CI hors Revit : **71 tests réussis**.
+- CI hors Revit : **78 tests réussis**.
 
 ### Validé dans Revit 2025.4
 
-Le 1er octobre 2026, l'utilisateur a confirmé le bon fonctionnement du module après le correctif visuel final, notamment :
+Le module a été validé dans Revit 2025.4. La campagne initiale a été confirmée le 1er octobre 2026, puis la gestion des paramètres de pièces alignés entre groupes a été validée le 6 octobre 2026, notamment :
 
 - apparition et lisibilité de l'icône **Plan 2×2 + somme Σ** dans le ruban ;
 - chargement de la fenêtre WPF ;
@@ -463,7 +463,8 @@ Le 1er octobre 2026, l'utilisateur a confirmé le bon fonctionnement du module a
 - résolution et écriture des paramètres ;
 - transaction / Undo ;
 - persistance ;
-- comportement général du module.
+- comportement général du module ;
+- écriture dans un paramètre de pièce aligné par type de groupe, avec restauration de l'alignement après calcul.
 
 La campagne de validation est archivée dans :
 
