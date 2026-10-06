@@ -141,3 +141,5 @@ Le premier essai Étape 05 a révélé des libellés vides pour certains `RoomTa
 BUG-PDV-025 renforcé : lecture `ALL_MODEL_TYPE_NAME` / `ALL_MODEL_FAMILY_NAME`, nettoyage des chaînes et fallback final sur l'ElementId afin qu'aucune ligne de type d'étiquette ne puisse rester vide.
 
 BUG-PDV-025 : la ComboBox des types d'étiquettes utilise désormais une liste de chaînes simples pour la ComboBox et retrouve l'objet Revit par index, sans `DisplayMemberPath` IronPython/WPF.
+
+Étape 05 : `OfClass(RoomTagType)` est supprimé. Les types sont collectés via `FamilySymbol + OST_RoomTags`, et les erreurs API ne sont plus masquées par un compteur à zéro.

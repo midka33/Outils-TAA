@@ -1016,11 +1016,18 @@ zones remplies sont correctement affichés et sélectionnables.
 **Symptôme :** dans l'Étape 05, la ComboBox **Type étiquette** contient des
 lignes sélectionnables mais visuellement vides.
 
-**Cause racine :** les `RoomTagType` sont bien collectés, mais leur nom de type
-et leur nom de famille ne sont pas toujours exposés de façon fiable par les
-propriétés CLR directes sous IronPython/pyRevit. Le correctif générique
-`Element.Name.GetValue` utilisé pour d'autres `ElementType` n'est pas
-suffisant à lui seul pour toutes les familles d'étiquettes.
+**Cause racine finalement identifiée :** la collecte utilisait
+`FilteredElementCollector.OfClass(RoomTagType)`. Or `RoomTagType` n'est pas
+une classe compatible avec `ElementClassFilter` / `OfClass` dans le modèle
+natif Revit. Le collector échouait avant même la création des candidats.
+
+Une deuxième erreur masquait ce diagnostic : l'exception de collecte était
+convertie en `candidates = []`, puis le texte d'erreur était écrasé par le
+rafraîchissement de l'interface. Le résultat visible était donc simplement
+`0 type(s) d'étiquette disponible(s)`.
+
+Les recherches précédentes sur les noms et le binding WPF étaient utiles pour
+durcir l'UI, mais ne pouvaient pas résoudre l'absence réelle de candidats.
 
 **Correction initiale insuffisante :** une première lecture en cascade utilisant
 `Element.Name.GetValue`, `SYMBOL_NAME_PARAM`, `FamilyName` et
@@ -1062,6 +1069,14 @@ liste parallèle et retrouvés par `SelectedIndex`. Aucun
 **Règle préventive complémentaire :** lorsqu'une ComboBox WPF affiche des lignes
 présentes mais vides alors que les libellés Python sont garantis, contourner la
 réflexion WPF/IronPython et fournir directement des chaînes à `ItemsSource`.
+
+**Correction racine :** collecter les types avec
+`FamilySymbol + OST_RoomTags + WhereElementIsElementType()`, puis valider le
+type sélectionné avec sa classe parente `FamilySymbol` et sa catégorie. Ne
+jamais utiliser `OfClass(RoomTagType)`.
+
+L'interface conserve maintenant l'exception de collecte et l'affiche
+explicitement ; un vrai zéro est distingué d'une erreur API.
 
 ## 5. Identifiants des bugs
 

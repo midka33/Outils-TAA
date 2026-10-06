@@ -63,6 +63,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._location_fill_choices = []
         self._room_tag_type_choices = []
         self._room_tag_type_labels = []
+        self._room_tag_type_error = ""
         self._room_tag_view_choices = []
         self._active_descriptor = None
 
@@ -76,8 +77,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._clear_schedule_selection()
         self._load_location_static_choices()
         self._clear_location_source_selection()
-        self._load_room_tag_types()
         self._clear_room_tag_views()
+        self._load_room_tag_types()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -662,10 +663,11 @@ class PlansVenteWindow(forms.WPFWindow):
             self._update_room_tag_button_state()
 
     def _load_room_tag_types(self):
+        self._room_tag_type_error = ""
         try:
             candidates = self.controller.room_tag_types()
         except Exception as error:
-            self.RoomTagInfoText.Text = str(error)
+            self._room_tag_type_error = str(error) or repr(error)
             candidates = []
 
         self._room_tag_type_choices = [
@@ -687,13 +689,18 @@ class PlansVenteWindow(forms.WPFWindow):
             0 if self._room_tag_type_labels else -1
         )
 
-        if self._room_tag_type_labels:
+        if self._room_tag_type_error:
+            self.RoomTagInfoText.Text = (
+                "Erreur de collecte des types d'étiquettes : {}"
+            ).format(self._room_tag_type_error)
+        elif self._room_tag_type_labels:
             self.RoomTagInfoText.Text = "{} type(s) d'étiquette chargé(s).".format(
                 len(self._room_tag_type_labels)
             )
         else:
             self.RoomTagInfoText.Text = (
-                "Aucun type d'étiquette de pièce n'a été trouvé dans le projet."
+                "0 type d'étiquette de pièce trouvé dans le document hôte. "
+                "Chargez au moins une famille de catégorie Étiquette de pièce."
             )
 
     def _load_room_tag_views(self, housing):
@@ -716,7 +723,11 @@ class PlansVenteWindow(forms.WPFWindow):
             0 if self._room_tag_view_choices else -1
         )
 
-        if self._room_tag_view_choices:
+        if self._room_tag_type_error:
+            self.RoomTagInfoText.Text = (
+                "Erreur de collecte des types d'étiquettes : {}"
+            ).format(self._room_tag_type_error)
+        elif self._room_tag_view_choices:
             self.RoomTagInfoText.Text = (
                 "Le centre est testé dans la pièce ; le moteur recherche une "
                 "position alternative en cas de débordement ou collision. "
@@ -724,8 +735,9 @@ class PlansVenteWindow(forms.WPFWindow):
             ).format(len(self._room_tag_type_labels))
         else:
             self.RoomTagInfoText.Text = (
-                "Créez d'abord une vue logement avec le contour optimisé."
-            )
+                "Créez d'abord une vue logement avec le contour optimisé. "
+                "{} type(s) d'étiquette disponible(s)."
+            ).format(len(self._room_tag_type_labels))
         self._update_room_tag_button_state()
 
     def _clear_room_tag_views(self):

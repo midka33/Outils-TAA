@@ -3126,3 +3126,29 @@ Ce changement isole définitivement l'affichage du comportement de réflexion
 IronPython/WPF.
 
 **À retester dans Revit 2025.4.**
+
+
+#### Correction racine du collector RoomTagType
+
+Le compteur `0 type(s) d'étiquette disponible(s)` a permis d'isoler le
+problème réel : le service utilisait `OfClass(RoomTagType)`.
+
+Le collector est remplacé par :
+
+```text
+FamilySymbol
++ OST_RoomTags
++ WhereElementIsElementType
+```
+
+La validation du type sélectionné utilise également la classe parente
+`FamilySymbol` et la catégorie `OST_RoomTags`.
+
+L'interface distingue maintenant :
+
+- une **erreur de collecte API**, dont le message est conservé et affiché ;
+- un **vrai zéro**, signifiant qu'aucune famille d'étiquette de pièce n'est
+  chargée dans le document hôte ;
+- un nombre positif de types utilisables.
+
+**À valider dans Revit 2025.4.**

@@ -81,13 +81,20 @@ class RoomTagService(object):
         self.document = document
 
     def list_tag_types(self):
-        from Autodesk.Revit.DB import FilteredElementCollector
-        from Autodesk.Revit.DB.Architecture import RoomTagType
+        from Autodesk.Revit.DB import (
+            BuiltInCategory,
+            FamilySymbol,
+            FilteredElementCollector,
+        )
 
+        # RoomTagType ne peut pas être utilisé avec ElementClassFilter / OfClass.
+        # On collecte sa classe native parente FamilySymbol puis la catégorie
+        # OST_RoomTags, qui identifie les vrais types d'étiquettes de pièces.
         result = []
         for tag_type in (
             FilteredElementCollector(self.document)
-            .OfClass(RoomTagType)
+            .OfClass(FamilySymbol)
+            .OfCategory(BuiltInCategory.OST_RoomTags)
             .WhereElementIsElementType()
             .ToElements()
         ):
@@ -177,9 +184,11 @@ class RoomTagService(object):
 
         self._validate_target_view(view, housing.key, level_name)
 
-        from Autodesk.Revit.DB.Architecture import RoomTagType
-        if not isinstance(tag_type, RoomTagType):
-            raise ValueError("Le type d'étiquette sélectionné n'est plus valide.")
+        if not self._is_room_tag_type(tag_type):
+            raise ValueError(
+                "Le type d'étiquette sélectionné n'est plus un type "
+                "d'étiquette de pièce du document hôte."
+            )
 
         rooms = []
         for unique_id in housing.room_unique_ids:
@@ -546,6 +555,28 @@ class RoomTagService(object):
         if element is None:
             raise ValueError(error_message)
         return element
+
+    @classmethod
+    def _is_room_tag_type(cls, tag_type):
+        if tag_type is None:
+            return False
+
+        try:
+            from Autodesk.Revit.DB import (
+                BuiltInCategory,
+                ElementId,
+                FamilySymbol,
+            )
+            if not isinstance(tag_type, FamilySymbol):
+                return False
+
+            category = getattr(tag_type, "Category", None)
+            if category is None:
+                return False
+
+            return category.Id == ElementId(BuiltInCategory.OST_RoomTags)
+        except Exception:
+            return False
 
     @classmethod
     def _room_tag_type_name(cls, tag_type):

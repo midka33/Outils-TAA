@@ -44,7 +44,8 @@ def test_room_tag_service_uses_verified_revit_api_contract():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
     for token in (
-        "RoomTagType",
+        "FamilySymbol",
+        "BuiltInCategory.OST_RoomTags",
         "NewRoomTag",
         "LinkElementId",
         "UV(",
@@ -139,3 +140,32 @@ def test_room_tag_type_combo_uses_plain_strings_not_displaymemberpath():
     assert "self.RoomTagTypeCombo.ItemsSource = self._room_tag_type_labels" in window
     assert "type_index = int(self.RoomTagTypeCombo.SelectedIndex)" in window
     assert "Type d'étiquette #{}" in window
+
+
+
+def test_room_tag_types_use_supported_family_symbol_category_collector():
+    text = SERVICE.read_text(encoding="utf-8")
+    start = text.index("    def list_tag_types")
+    end = text.index("    def target_views_for_housing")
+    block = text[start:end]
+
+    assert ".OfClass(FamilySymbol)" in block
+    assert ".OfCategory(BuiltInCategory.OST_RoomTags)" in block
+    assert ".WhereElementIsElementType()" in block
+    assert ".OfClass(RoomTagType)" not in block
+    assert "from Autodesk.Revit.DB.Architecture import RoomTagType" not in block
+
+
+def test_room_tag_selected_type_is_validated_by_family_symbol_and_category():
+    text = SERVICE.read_text(encoding="utf-8")
+    assert "def _is_room_tag_type(" in text
+    assert "isinstance(tag_type, FamilySymbol)" in text
+    assert "ElementId(BuiltInCategory.OST_RoomTags)" in text
+
+
+def test_room_tag_collection_errors_are_not_silently_replaced_by_zero_types():
+    text = WINDOW.read_text(encoding="utf-8")
+    assert 'self._room_tag_type_error = ""' in text
+    assert "str(error) or repr(error)" in text
+    assert "Erreur de collecte des types d'étiquettes" in text
+    assert "0 type d'étiquette de pièce trouvé dans le document hôte" in text
