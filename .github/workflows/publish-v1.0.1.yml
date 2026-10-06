@@ -1,0 +1,160 @@
+name: Publish Outils TAA v1.0.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v1.0.1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare release package
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "Outils-TAA_v1.0.1"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          Copy-Item "OutilsTAA.extension" (Join-Path $stage "OutilsTAA.extension") -Recurse
+
+          # La release v1.0.1 distribue uniquement Export + Calculs des pieces.
+          $plansVente = Join-Path $stage "OutilsTAA.extension\OutilsTAA.tab\PlansDeVente.panel"
+          if (Test-Path $plansVente) {
+            Remove-Item $plansVente -Recurse -Force
+          }
+
+          Copy-Item "docs\release\Tutoriel_Export_v1.0.1.md" $stage
+          Copy-Item "docs\release\Tutoriel_Calculs_Pieces_v1.0.1.md" $stage
+
+          @'
+          OUTILS TAA - RELEASE 1.0.1
+
+          Modules :
+          - Export
+          - Calculs des pieces
+
+          Nouveaute v1.0.1 :
+          - Calculs des pieces prend en charge les parametres de pieces alignes par type de groupe.
+
+          Compatibilite :
+          - Autodesk Revit 2025.4
+          - pyRevit 5.x
+          '@ | Set-Content (Join-Path $stage "LISEZ_MOI.txt") -Encoding UTF8
+
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath "Outils-TAA_v1.0.1.zip" -Force
+
+          $installer = @'
+          @echo off
+          setlocal
+          title Installation Outils TAA v1.0.1
+          set "ROOT=%APPDATA%\pyRevit\Extensions\Outils-TAA"
+          set "DEST=%ROOT%\OutilsTAA.extension"
+          set "TMP=%TEMP%\OutilsTAA_v101"
+
+          echo Outils TAA v1.0.1 - installation utilisateur
+          echo.
+
+          if exist "%TMP%" rmdir /S /Q "%TMP%"
+          mkdir "%TMP%"
+
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/midka33/Outils-TAA/releases/download/v1.0.1/Outils-TAA_v1.0.1.zip' -OutFile '%TMP%\release.zip'; Expand-Archive -Path '%TMP%\release.zip' -DestinationPath '%TMP%\release' -Force"
+          if errorlevel 1 goto :error
+
+          if exist "%ROOT%" (
+            if exist "%ROOT%_backup" rmdir /S /Q "%ROOT%_backup"
+            move "%ROOT%" "%ROOT%_backup" >nul 2>&1
+          )
+
+          mkdir "%ROOT%" >nul 2>&1
+          xcopy "%TMP%\release\OutilsTAA.extension" "%DEST%\" /E /I /Y >nul
+
+          echo.
+          echo Installation terminee.
+          echo.
+          echo Si necessaire, ajouter ce dossier dans pyRevit ^> Settings ^> Custom Extension Directories :
+          echo %ROOT%
+          echo.
+          echo Fermez puis relancez Revit, ou utilisez Reload dans pyRevit.
+          goto :end
+
+          :error
+          echo.
+          echo Echec de l'installation. Verifiez la connexion Internet.
+
+          :end
+          if exist "%TMP%" rmdir /S /Q "%TMP%"
+          pause
+          '@
+
+          Set-Content -Path "INSTALLER_Outils_TAA_v1.0.1.cmd" -Value $installer -Encoding ASCII
+
+      - name: Publish or update GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @'
+          # Outils TAA v1.0.1
+
+          Release corrective de **Calculs des pieces**.
+
+          ## Correctif principal
+          - prise en charge des pieces placees dans des groupes lorsque le parametre destination est aligne par type de groupe ;
+          - deverrouillage temporaire du parametre pendant la transaction ;
+          - restauration automatique de l'alignement avant validation ;
+          - rollback de securite si Revit doit realigner des valeurs divergentes.
+
+          Ce comportement a ete valide dans Revit 2025.4 le 6 octobre 2026.
+
+          ## Modules distribues
+          - **Export**
+          - **Calculs des pieces**
+
+          Le module Plans de vente reste hors de cette release.
+
+          ## Compatibilite
+          - Autodesk Revit 2025.4
+          - pyRevit 5.x
+
+          ## Installation / mise a jour
+          1. Telecharger `INSTALLER_Outils_TAA_v1.0.1.cmd`.
+          2. Fermer Revit.
+          3. Lancer l'installateur.
+          4. Relancer Revit ou utiliser Reload dans pyRevit.
+
+          Aucun droit administrateur n'est requis.
+
+          ## Validation
+          - 78 tests automatises hors Revit reussis ;
+          - validation reelle du correctif groupes dans Revit 2025.4.
+
+          ## Tutoriels
+          Les tutoriels Export et Calculs des pieces sont joints a cette release et inclus dans le ZIP.
+          '@
+
+          Set-Content -Path "release-notes.md" -Value $notes -Encoding UTF8
+
+          $assets = @(
+            "Outils-TAA_v1.0.1.zip",
+            "INSTALLER_Outils_TAA_v1.0.1.cmd",
+            "docs/release/Tutoriel_Export_v1.0.1.md",
+            "docs/release/Tutoriel_Calculs_Pieces_v1.0.1.md"
+          )
+
+          gh release view v1.0.1 *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release v1.0.1 deja existante : mise a jour."
+            gh release edit v1.0.1 --title "Outils TAA v1.0.1" --notes-file "release-notes.md"
+            gh release upload v1.0.1 @assets --clobber
+          }
+          else {
+            Write-Host "Creation de la release v1.0.1."
+            gh release create v1.0.1 @assets --title "Outils TAA v1.0.1" --notes-file "release-notes.md" --target "${{ github.sha }}"
+          }
