@@ -26,7 +26,6 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
-- Calculs des pièces : gestion des pièces en groupes lorsque le paramètre destination est aligné par type de groupe ; déverrouillage temporaire via `SetAllowVaryBetweenGroups`, restauration dans la même transaction et rollback si Revit doit réaligner des valeurs.
 - Plans de vente : BUG-PDV-024 corrige les libellés vides des types de zones remplies sous IronPython/pyRevit en utilisant `Element.Name.GetValue`.
 - Export : publication Ctrl/Maj de plusieurs feuilles/carnets ; résumé, aperçu et export partagent le même périmètre, sans doublons parent/enfant. Désélection vide respectée, copies sans modification des carnets, destinations multiples dans le rapport. Fonctionnement confirmé par l’utilisateur dans Revit le 2026-10-05 (PR #11) ; recette détaillée distincte avant release.
 - Ruban Export : le titre API `Export` reste non vide et le texte est masqué uniquement après création du contrôle via un smartbutton `__selfinit__` (`ShowText = False`) ; le panneau conserve « Export » et l’icône vectorielle agrandie. La tentative précédente avec un titre blanc a été retirée car Revit la refusait au rechargement. Validation finale Revit du ruban confirmée le 2026-10-01.
@@ -134,6 +133,12 @@ Le format suit les principes de *Keep a Changelog*.
 - Le drag-and-drop utilise désormais un `DataObject` WPF explicite et une opération repository dédiée au déplacement de plusieurs carnets en conservant leur ordre.
 - Le réglage `modified_only` est désormais totalement intégré à l'interface, à la prévisualisation, à la publication simple et multiple et à l'historique ; la validation réelle dans Revit 2025.4 reste obligatoire.
 - Stage 08 reste volontairement isolé : son résolveur ne dépend ni de Revit, ni de WPF, ni du moteur PDF/DWG, et n'est pas appelé par le workflow de publication actuel.
+
+## [1.0.1] - 2026-10-06
+
+### Fixed
+- Calculs des pièces : prise en charge des pièces placées dans des groupes lorsque le paramètre destination est aligné par type de groupe. Outils TAA déverrouille temporairement l'écriture, restaure l'alignement dans la même transaction et annule l'opération si Revit doit réaligner des valeurs.
+- Validation réelle confirmée dans Revit 2025.4 le 6 octobre 2026 ; 78 tests automatisés hors Revit réussis.
 
 ## [0.1.0] - 2026-07-21
 
