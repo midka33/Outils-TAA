@@ -347,7 +347,7 @@ class GroupedWorkflowTests(unittest.TestCase):
 
         self.assertFalse(report.is_success)
         self.assertIsNotNone(report.transaction_error)
-        self.assertIn("réalign", report.transaction_error.lower())
+        self.assertIn("alignement", report.transaction_error.lower())
         self.assertTrue(transactions[0].rolled_back)
         self.assertFalse(transactions[0].committed)
         self.assertEqual([True, False], definition.calls)
