@@ -456,7 +456,68 @@ Attendu : la restauration de l'alignement doit provoquer l'annulation complète 
 
 Le paramètre destination aligné par type de groupe a été correctement écrit, puis son alignement a été restauré après le calcul.
 
-## 26. Clôture
+## 26. TEST-CALC-22 — Divergences entre occurrences d'un même type de groupe
+
+Ce test valide la résolution interactive ajoutée après TEST-CALC-21.
+
+### Préparation
+
+1. Utiliser au moins trois occurrences d'un même type de groupe contenant la même pièce correspondante.
+2. Faire en sorte que le calcul produise au moins deux valeurs différentes pour le paramètre destination.
+3. Conserver le paramètre destination configuré avec des valeurs alignées par type de groupe.
+
+Exemple :
+
+```text
+Occurrence 1 → 42,35
+Occurrence 2 → 42,60
+Occurrence 3 → 42,35
+```
+
+### TEST-CALC-22A — Conserver les résultats exacts
+
+Choisir **Conserver les résultats exacts et laisser le paramètre varier**.
+
+#### Attendu
+
+- les trois valeurs calculées sont conservées ;
+- le paramètre reste configuré pour permettre des valeurs différentes entre occurrences de groupes ;
+- aucune valeur n'est harmonisée automatiquement ;
+- le rapport indique que le paramètre reste variable.
+
+### TEST-CALC-22B — Conserver l'alignement et choisir une valeur
+
+Choisir **Conserver l'alignement et choisir les valeurs**.
+
+#### Attendu
+
+- une fenêtre affiche le type de groupe et la pièce concernée ;
+- toutes les valeurs trouvées sont proposées avec leur nombre d'occurrences ;
+- la valeur la plus fréquente est présélectionnée ;
+- l'utilisateur peut sélectionner une autre valeur, y compris une valeur minoritaire ;
+- la valeur choisie est appliquée à toutes les occurrences correspondantes ;
+- le paramètre revient à l'état aligné par type de groupe ;
+- le rapport indique l'harmonisation effectuée.
+
+### TEST-CALC-22C — Annuler
+
+Choisir **Annuler**.
+
+#### Attendu
+
+- aucune transaction d'écriture n'est ouverte ;
+- aucune valeur n'est modifiée ;
+- le paramètre conserve son état initial.
+
+### Sécurité complémentaire
+
+Après un choix d'alignement, si Revit signale encore un réalignement imprévu lors de la restauration, la transaction doit être annulée intégralement.
+
+**Statut : À VALIDER dans Revit 2025.4 avant fusion de la PR #15.**
+
+---
+
+## 27. Clôture
 
 **Date de clôture initiale :** 1er octobre 2026  
 **Validation complémentaire groupes :** 6 octobre 2026  
