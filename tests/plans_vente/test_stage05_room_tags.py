@@ -125,7 +125,8 @@ def test_room_tag_type_label_never_becomes_visually_empty():
 def test_room_tag_ui_reports_loaded_type_count():
     text = WINDOW.read_text(encoding="utf-8")
     assert "type(s) d'étiquette chargé(s)" in text
-    assert "Aucun type d'étiquette de pièce n'a été trouvé" in text
+    assert "0 type d'étiquette de pièce trouvé dans le document hôte" in text
+    assert "Erreur de collecte des types d'étiquettes" in text
 
 
 
