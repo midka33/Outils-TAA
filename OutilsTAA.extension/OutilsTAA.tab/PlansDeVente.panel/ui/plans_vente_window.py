@@ -62,6 +62,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._location_template_choices = []
         self._location_fill_choices = []
         self._room_tag_type_choices = []
+        self._room_tag_type_labels = []
         self._room_tag_view_choices = []
         self._active_descriptor = None
 
@@ -572,8 +573,13 @@ class PlansVenteWindow(forms.WPFWindow):
         row = self.HousingGrid.SelectedItem
         housing = getattr(row, "Housing", None) if row is not None else None
         view_item = self.RoomTagViewCombo.SelectedItem
-        type_item = self.RoomTagTypeCombo.SelectedItem
+        type_index = int(self.RoomTagTypeCombo.SelectedIndex)
         view = getattr(view_item, "Candidate", None) if view_item is not None else None
+        type_item = (
+            self._room_tag_type_choices[type_index]
+            if 0 <= type_index < len(self._room_tag_type_choices)
+            else None
+        )
         tag_type = getattr(type_item, "Candidate", None) if type_item is not None else None
 
         if housing is None or view is None or tag_type is None:
@@ -666,14 +672,24 @@ class PlansVenteWindow(forms.WPFWindow):
             RoomTagChoice(candidate)
             for candidate in candidates
         ]
-        self.RoomTagTypeCombo.ItemsSource = self._room_tag_type_choices
+        self._room_tag_type_labels = []
+        for index, choice in enumerate(self._room_tag_type_choices):
+            label = str(getattr(choice, "Label", "") or "").strip()
+            if not label:
+                label = "Type d'étiquette #{}".format(index + 1)
+            self._room_tag_type_labels.append(label)
+
+        # Ne pas utiliser DisplayMemberPath ici : sous IronPython/WPF, le
+        # binding sur les wrappers Python peut rendre des lignes présentes mais
+        # visuellement vides. Des chaînes simples sont affichées directement.
+        self.RoomTagTypeCombo.ItemsSource = self._room_tag_type_labels
         self.RoomTagTypeCombo.SelectedIndex = (
-            0 if self._room_tag_type_choices else -1
+            0 if self._room_tag_type_labels else -1
         )
 
-        if self._room_tag_type_choices:
+        if self._room_tag_type_labels:
             self.RoomTagInfoText.Text = "{} type(s) d'étiquette chargé(s).".format(
-                len(self._room_tag_type_choices)
+                len(self._room_tag_type_labels)
             )
         else:
             self.RoomTagInfoText.Text = (
@@ -703,8 +719,9 @@ class PlansVenteWindow(forms.WPFWindow):
         if self._room_tag_view_choices:
             self.RoomTagInfoText.Text = (
                 "Le centre est testé dans la pièce ; le moteur recherche une "
-                "position alternative en cas de débordement ou collision."
-            )
+                "position alternative en cas de débordement ou collision. "
+                "{} type(s) d'étiquette disponible(s)."
+            ).format(len(self._room_tag_type_labels))
         else:
             self.RoomTagInfoText.Text = (
                 "Créez d'abord une vue logement avec le contour optimisé."

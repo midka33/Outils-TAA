@@ -125,3 +125,17 @@ def test_room_tag_ui_reports_loaded_type_count():
     text = WINDOW.read_text(encoding="utf-8")
     assert "type(s) d'étiquette chargé(s)" in text
     assert "Aucun type d'étiquette de pièce n'a été trouvé" in text
+
+
+
+def test_room_tag_type_combo_uses_plain_strings_not_displaymemberpath():
+    xaml = XAML.read_text(encoding="utf-8")
+    window = WINDOW.read_text(encoding="utf-8")
+    start = xaml.index('x:Name="RoomTagTypeCombo"')
+    snippet = xaml[start:start + 350]
+
+    assert "DisplayMemberPath" not in snippet
+    assert "self._room_tag_type_labels" in window
+    assert "self.RoomTagTypeCombo.ItemsSource = self._room_tag_type_labels" in window
+    assert "type_index = int(self.RoomTagTypeCombo.SelectedIndex)" in window
+    assert "Type d'étiquette #{}" in window

@@ -3110,3 +3110,19 @@ recours un libellé `Type d'étiquette #<ElementId>`.
 L'interface indique également le nombre de types chargés.
 
 **À retester dans Revit 2025.4.**
+
+
+#### Correctif UI définitif — liste de chaînes simples
+
+Après un deuxième essai réel, les types étaient bien chargés et disposaient
+d'un libellé de secours, mais `DisplayMemberPath="Label"` continuait à produire
+des lignes blanches dans WPF.
+
+La ComboBox **Type étiquette** ne passe donc plus par un objet Python exposé au
+binding WPF. Son `ItemsSource` est maintenant une liste de chaînes simples.
+Le candidat Revit correspondant est retrouvé par l'index sélectionné.
+
+Ce changement isole définitivement l'affichage du comportement de réflexion
+IronPython/WPF.
+
+**À retester dans Revit 2025.4.**

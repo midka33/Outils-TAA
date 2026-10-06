@@ -139,3 +139,5 @@ Validation réelle dans Revit 2025.4 requise.
 Le premier essai Étape 05 a révélé des libellés vides pour certains `RoomTagType`; BUG-PDV-025 ajoute un fallback sur les paramètres système Revit de nom de type et de famille. À retester dans Revit 2025.4.
 
 BUG-PDV-025 renforcé : lecture `ALL_MODEL_TYPE_NAME` / `ALL_MODEL_FAMILY_NAME`, nettoyage des chaînes et fallback final sur l'ElementId afin qu'aucune ligne de type d'étiquette ne puisse rester vide.
+
+BUG-PDV-025 : la ComboBox des types d'étiquettes utilise désormais une liste de chaînes simples pour la ComboBox et retrouve l'objet Revit par index, sans `DisplayMemberPath` IronPython/WPF.

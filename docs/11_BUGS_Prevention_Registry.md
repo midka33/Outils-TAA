@@ -1048,6 +1048,21 @@ prévoir une lecture de nom propre à la catégorie lorsque la propriété héri
 **Anti-régression :** tests statiques imposant les paramètres système de nom de
 type/famille et le fallback non vide, puis validation réelle dans Revit 2025.4.
 
+**Deuxième essai Revit :** malgré des libellés désormais garantis non vides côté
+service, la ComboBox affichait encore plusieurs lignes blanches. Cela démontre
+que le problème restant se situe dans le binding WPF
+`DisplayMemberPath="Label"` sur le wrapper Python `RoomTagChoice`, et non dans
+la collecte ou le nom Revit.
+
+**Correction UI :** la ComboBox reçoit désormais directement une liste de
+chaînes simples. Les objets `RoomTagTypeCandidate` sont conservés dans une
+liste parallèle et retrouvés par `SelectedIndex`. Aucun
+`DisplayMemberPath` n'est utilisé pour les types d'étiquettes.
+
+**Règle préventive complémentaire :** lorsqu'une ComboBox WPF affiche des lignes
+présentes mais vides alors que les libellés Python sont garantis, contourner la
+réflexion WPF/IronPython et fournir directement des chaînes à `ItemsSource`.
+
 ## 5. Identifiants des bugs
 
 ```text
