@@ -220,6 +220,20 @@ class GroupedParameterServiceTests(unittest.TestCase):
         self.assertTrue(values[0].group_unlockable)
         self.assertTrue(values[0].write_supported)
 
+    def test_descriptor_round_trip_preserves_group_unlockable(self):
+        original = descriptor(
+            "Total",
+            "Double",
+            writable=False,
+            group_unlockable=True,
+        )
+
+        restored = RoomParameterDescriptor.from_dict(original.to_dict())
+
+        self.assertFalse(restored.writable)
+        self.assertTrue(restored.group_unlockable)
+        self.assertTrue(restored.write_supported)
+
     def test_validator_accepts_group_unlockable_target(self):
         validator = RoomParameterValidator()
         source = descriptor("Surface", "Double")
