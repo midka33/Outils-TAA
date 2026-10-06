@@ -387,7 +387,7 @@ python -m pytest tests/calculation -q
 Exécution validée après ajout de la gestion des paramètres de groupes :
 
 ```text
-77 passed
+78 passed
 ```
 
 Les tests couvrent notamment :
