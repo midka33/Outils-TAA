@@ -671,6 +671,15 @@ class PlansVenteWindow(forms.WPFWindow):
             0 if self._room_tag_type_choices else -1
         )
 
+        if self._room_tag_type_choices:
+            self.RoomTagInfoText.Text = "{} type(s) d'étiquette chargé(s).".format(
+                len(self._room_tag_type_choices)
+            )
+        else:
+            self.RoomTagInfoText.Text = (
+                "Aucun type d'étiquette de pièce n'a été trouvé dans le projet."
+            )
+
     def _load_room_tag_views(self, housing):
         self._clear_room_tag_views()
         if housing is None:

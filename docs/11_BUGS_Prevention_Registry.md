@@ -1022,14 +1022,23 @@ propriétés CLR directes sous IronPython/pyRevit. Le correctif générique
 `Element.Name.GetValue` utilisé pour d'autres `ElementType` n'est pas
 suffisant à lui seul pour toutes les familles d'étiquettes.
 
-**Correction :** lecture en cascade :
-- `Element.Name.GetValue(tag_type)` ;
-- `BuiltInParameter.SYMBOL_NAME_PARAM` pour le nom du type ;
-- `FamilyName` puis `SYMBOL_FAMILY_NAME_PARAM` pour le nom de famille ;
-- `Element.Name.GetValue(family)` en dernier recours.
+**Correction initiale insuffisante :** une première lecture en cascade utilisant
+`Element.Name.GetValue`, `SYMBOL_NAME_PARAM`, `FamilyName` et
+`SYMBOL_FAMILY_NAME_PARAM` n'a pas résolu le cas réel : la ComboBox restait
+visuellement vide dans Revit 2025.4.
 
-Un libellé explicite `<Type d'étiquette sans nom>` empêche désormais une ligne
-de ComboBox totalement vide si Revit ne fournit aucun nom exploitable.
+**Correction renforcée :**
+- normalisation systématique des chaînes avec `strip()` ;
+- `Element.Name.GetValue(tag_type)` ;
+- `BuiltInParameter.ALL_MODEL_TYPE_NAME` puis `SYMBOL_NAME_PARAM` ;
+- `FamilyName` ;
+- `ALL_MODEL_FAMILY_NAME` puis `SYMBOL_FAMILY_NAME_PARAM` ;
+- nom de la famille par `Element.Name.GetValue(family)` ;
+- fallback final garanti `Type d'étiquette #<ElementId>`.
+
+Le libellé final est désormais construit de façon à ne **jamais** être vide.
+L'interface affiche aussi le nombre de types effectivement chargés pour
+distinguer immédiatement un problème de collecte d'un problème de libellé.
 
 **Règle préventive :** pour les `ElementType` affichés dans l'UI pyRevit,
 prévoir une lecture de nom propre à la catégorie lorsque la propriété héritée

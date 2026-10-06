@@ -3096,3 +3096,17 @@ avec les paramètres système Revit `SYMBOL_NAME_PARAM` et
 Voir **BUG-PDV-025**.
 
 **À retester dans Revit 2025.4.**
+
+
+#### Correctif renforcé BUG-PDV-025
+
+Le premier correctif n'a pas suffi dans le projet réel : les éléments de la
+ComboBox restaient présents mais sans texte.
+
+La deuxième passe utilise explicitement `ALL_MODEL_TYPE_NAME` et
+`ALL_MODEL_FAMILY_NAME`, normalise tous les textes et garantit en dernier
+recours un libellé `Type d'étiquette #<ElementId>`.
+
+L'interface indique également le nombre de types chargés.
+
+**À retester dans Revit 2025.4.**

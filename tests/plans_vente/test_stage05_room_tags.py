@@ -104,7 +104,9 @@ def test_base_collision_logic_is_ready_for_future_dimension_exclusion_boxes():
 def test_tag_type_names_use_ironpython_safe_element_type_name():
     text = SERVICE.read_text(encoding="utf-8")
     assert "Element.Name.GetValue(element_type)" in text
+    assert "BuiltInParameter.ALL_MODEL_TYPE_NAME" in text
     assert "BuiltInParameter.SYMBOL_NAME_PARAM" in text
+    assert "BuiltInParameter.ALL_MODEL_FAMILY_NAME" in text
     assert "BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM" in text
     assert "FamilyName" in text
     assert "_room_tag_type_name(tag_type)" in text
@@ -113,4 +115,13 @@ def test_tag_type_names_use_ironpython_safe_element_type_name():
 
 def test_room_tag_type_label_never_becomes_visually_empty():
     text = SERVICE.read_text(encoding="utf-8")
-    assert "<Type d'étiquette sans nom>" in text
+    assert "Type d'étiquette #{}" in text
+    assert "element_id_value" in text
+    assert "str(value).strip()" in text
+
+
+
+def test_room_tag_ui_reports_loaded_type_count():
+    text = WINDOW.read_text(encoding="utf-8")
+    assert "type(s) d'étiquette chargé(s)" in text
+    assert "Aucun type d'étiquette de pièce n'a été trouvé" in text

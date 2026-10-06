@@ -12,16 +12,27 @@ from plans_vente.tag_positioning import (
 
 
 class RoomTagTypeCandidate(object):
-    def __init__(self, unique_id, name, family_name=""):
+    def __init__(self, unique_id, name, family_name="", element_id_value=None):
         self.unique_id = unique_id or ""
         self.name = name or ""
         self.family_name = family_name or ""
+        self.element_id_value = element_id_value
 
     @property
     def label(self):
-        if self.family_name and self.family_name != self.name:
-            return "{} — {}".format(self.family_name, self.name)
-        return self.name
+        family_name = str(self.family_name or "").strip()
+        type_name = str(self.name or "").strip()
+
+        if family_name and type_name and family_name != type_name:
+            return "{} — {}".format(family_name, type_name)
+        if type_name:
+            return type_name
+        if family_name:
+            return family_name
+
+        if self.element_id_value is not None:
+            return "Type d'étiquette #{}".format(self.element_id_value)
+        return "Type d'étiquette"
 
 
 class RoomTagViewCandidate(object):
@@ -87,6 +98,7 @@ class RoomTagService(object):
                     unique_id=str(getattr(tag_type, "UniqueId", "") or ""),
                     name=name,
                     family_name=family_name,
+                    element_id_value=self._element_id_value(tag_type.Id),
                 )
             )
 
@@ -547,16 +559,22 @@ class RoomTagService(object):
 
         try:
             from Autodesk.Revit.DB import BuiltInParameter
-            value = cls._parameter_text(
-                tag_type,
+            for built_in in (
+                BuiltInParameter.ALL_MODEL_TYPE_NAME,
                 BuiltInParameter.SYMBOL_NAME_PARAM,
-            )
-            if value:
-                return value
+            ):
+                value = cls._parameter_text(tag_type, built_in)
+                if value:
+                    return value
         except Exception:
             pass
 
-        return "<Type d'étiquette sans nom>"
+        try:
+            return "Type d'étiquette #{}".format(
+                cls._element_id_value(tag_type.Id)
+            )
+        except Exception:
+            return "Type d'étiquette"
 
     @classmethod
     def _room_tag_family_name(cls, tag_type):
@@ -565,20 +583,21 @@ class RoomTagService(object):
             return ""
 
         try:
-            value = getattr(tag_type, "FamilyName", None)
+            value = cls._clean_text(getattr(tag_type, "FamilyName", None))
             if value:
-                return str(value)
+                return value
         except Exception:
             pass
 
         try:
             from Autodesk.Revit.DB import BuiltInParameter
-            value = cls._parameter_text(
-                tag_type,
+            for built_in in (
+                BuiltInParameter.ALL_MODEL_FAMILY_NAME,
                 BuiltInParameter.SYMBOL_FAMILY_NAME_PARAM,
-            )
-            if value:
-                return value
+            ):
+                value = cls._parameter_text(tag_type, built_in)
+                if value:
+                    return value
         except Exception:
             pass
 
@@ -586,16 +605,25 @@ class RoomTagService(object):
             family = getattr(tag_type, "Family", None)
             if family is not None:
                 from Autodesk.Revit.DB import Element
-                value = Element.Name.GetValue(family)
+                value = cls._clean_text(Element.Name.GetValue(family))
                 if value:
-                    return str(value)
+                    return value
         except Exception:
             pass
 
         return ""
 
     @staticmethod
-    def _parameter_text(element, built_in_parameter):
+    def _clean_text(value):
+        if value is None:
+            return ""
+        try:
+            return str(value).strip()
+        except Exception:
+            return ""
+
+    @classmethod
+    def _parameter_text(cls, element, built_in_parameter):
         try:
             parameter = element.get_Parameter(built_in_parameter)
         except Exception:
@@ -611,27 +639,28 @@ class RoomTagService(object):
                 value = getter()
             except Exception:
                 value = None
+            value = cls._clean_text(value)
             if value:
-                return str(value)
+                return value
         return ""
 
-    @staticmethod
-    def _element_type_name(element_type):
+    @classmethod
+    def _element_type_name(cls, element_type):
         if element_type is None:
             return ""
 
         try:
             from Autodesk.Revit.DB import Element
-            value = Element.Name.GetValue(element_type)
+            value = cls._clean_text(Element.Name.GetValue(element_type))
             if value:
-                return str(value)
+                return value
         except Exception:
             pass
 
         try:
-            value = getattr(element_type, "Name", None)
+            value = cls._clean_text(getattr(element_type, "Name", None))
             if value:
-                return str(value)
+                return value
         except Exception:
             pass
 
