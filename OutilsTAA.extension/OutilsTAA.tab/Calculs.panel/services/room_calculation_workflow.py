@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
+from calculation.group_alignment import GroupAlignmentResolution
 from calculation.models import RoomCalculationItem
 from calculation.workflow_models import (
     CalculationExecutionReport,
@@ -33,6 +34,7 @@ class PreparedCalculation(object):
         self.total_rooms = int(total_rooms)
         self.filtered_rooms = int(filtered_rooms)
         self.warnings = list(warnings or [])
+        self.group_alignment_analysis = None
 
 
 class RoomCalculationWorkflow(object):
@@ -120,9 +122,9 @@ class RoomCalculationWorkflow(object):
         ):
             warnings.append(
                 "Le paramètre destination '{}' est aligné par type de groupe. "
-                "Outils TAA autorisera temporairement les valeurs variables "
-                "pendant l'écriture puis restaurera l'alignement avant de "
-                "valider la transaction.".format(request.target_parameter.name)
+                "Outils TAA analysera les occurrences correspondantes avant "
+                "l'écriture et restaurera l'alignement si les valeurs sont "
+                "compatibles.".format(request.target_parameter.name)
             )
 
         return PreparedCalculation(
@@ -135,11 +137,198 @@ class RoomCalculationWorkflow(object):
             warnings=warnings,
         )
 
-    def execute(self, prepared, progress=None):
+    def analyze_group_alignment(self, prepared):
+        """Détecte avant transaction les valeurs incompatibles entre groupes."""
+        valid, failed = self._prepare_valid_entries(prepared)
+        if failed:
+            # Les erreurs locales restent gérées au moment de l'exécution.
+            pass
+
+        if self.grouped_parameter_service is None:
+            prepared.group_alignment_analysis = None
+            return None
+
+        analysis = self.grouped_parameter_service.analyze_conflicts(
+            valid_entries=valid,
+            target_descriptor=prepared.request.target_parameter,
+            parameter_service=self.parameter_service,
+            value_formatter=lambda value: self._format_group_value(
+                prepared,
+                value,
+            ),
+        )
+        prepared.group_alignment_analysis = analysis
+        return analysis
+
+    def execute(
+        self,
+        prepared,
+        progress=None,
+        group_resolution=None,
+    ):
+        valid, failed = self._prepare_valid_entries(
+            prepared,
+            progress=progress,
+        )
+
+        if not valid:
+            return CalculationExecutionReport(
+                failed_results=failed,
+                skipped=prepared.result.skipped,
+                warnings=prepared.warnings,
+            )
+
+        analysis = prepared.group_alignment_analysis
+        if analysis is None and self.grouped_parameter_service is not None:
+            analysis = self.grouped_parameter_service.analyze_conflicts(
+                valid_entries=valid,
+                target_descriptor=prepared.request.target_parameter,
+                parameter_service=self.parameter_service,
+                value_formatter=lambda value: self._format_group_value(
+                    prepared,
+                    value,
+                ),
+            )
+            prepared.group_alignment_analysis = analysis
+
+        if analysis is not None and analysis.has_conflicts:
+            if group_resolution is None:
+                return CalculationExecutionReport(
+                    failed_results=failed,
+                    skipped=prepared.result.skipped,
+                    warnings=prepared.warnings,
+                    transaction_error=(
+                        "Des occurrences d'un même type de groupe produisent "
+                        "des valeurs différentes. Un choix utilisateur est "
+                        "nécessaire avant l'écriture."
+                    ),
+                )
+            if group_resolution.mode == GroupAlignmentResolution.CANCEL:
+                return CalculationExecutionReport(
+                    failed_results=failed,
+                    skipped=prepared.result.skipped,
+                    warnings=prepared.warnings,
+                )
+
+        successful = []
+        temporary_success = []
+        report_warnings = list(prepared.warnings)
+        harmonized_count = 0
+
+        try:
+            with RevitTransaction(
+                self.document,
+                self.TRANSACTION_NAME,
+                transaction_factory=self.transaction_factory,
+            ):
+                definitions = self._get_group_override_definitions(valid)
+                enabled_definitions = self._enable_group_override(definitions)
+
+                for operation, room, prepared_value, parameter in valid:
+                    try:
+                        self.writer.write_value(
+                            room,
+                            prepared.request.target_parameter,
+                            prepared_value,
+                        )
+                        temporary_success.append(
+                            WriteResult(
+                                operation.room_key,
+                                True,
+                                "Valeur écrite.",
+                                operation.group_value,
+                            )
+                        )
+                    except Exception as error:
+                        failed.append(
+                            WriteResult(
+                                operation.room_key,
+                                False,
+                                str(error),
+                                operation.group_value,
+                            )
+                        )
+
+                keep_variable = (
+                    analysis is not None
+                    and analysis.has_conflicts
+                    and group_resolution is not None
+                    and group_resolution.mode
+                    == GroupAlignmentResolution.KEEP_VARIABLE
+                )
+
+                if (
+                    analysis is not None
+                    and analysis.has_conflicts
+                    and group_resolution is not None
+                    and group_resolution.mode
+                    == GroupAlignmentResolution.ALIGN_SELECTED
+                ):
+                    harmonized_count = self._apply_selected_alignment(
+                        prepared,
+                        analysis,
+                        group_resolution,
+                    )
+
+                if keep_variable:
+                    report_warnings.append(
+                        "Le paramètre '{}' reste configuré pour permettre des "
+                        "valeurs différentes entre les occurrences de groupes."
+                        .format(prepared.request.target_parameter.name)
+                    )
+                else:
+                    realigned = self._restore_group_alignment(
+                        enabled_definitions
+                    )
+                    if realigned:
+                        raise ValidationError(
+                            "La restauration de l'alignement par type de groupe "
+                            "aurait encore modifié {} élément(s). Aucune "
+                            "modification n'a été conservée.".format(
+                                len(realigned)
+                            )
+                        )
+
+            successful = temporary_success
+        except Exception as error:
+            rollback_message = "Transaction annulée : {}.".format(error)
+            for operation, room, prepared_value, parameter in valid:
+                failed.append(
+                    WriteResult(
+                        operation.room_key,
+                        False,
+                        rollback_message,
+                        operation.group_value,
+                    )
+                )
+            return CalculationExecutionReport(
+                success_results=[],
+                failed_results=self._deduplicate_failed_results(failed),
+                skipped=prepared.result.skipped,
+                warnings=report_warnings,
+                transaction_error=str(error),
+            )
+
+        if harmonized_count:
+            report_warnings.append(
+                "{} membre(s) de groupe ont été harmonisé(s) avec les valeurs "
+                "choisies afin de conserver l'alignement du paramètre.".format(
+                    harmonized_count
+                )
+            )
+
+        return CalculationExecutionReport(
+            success_results=successful,
+            failed_results=failed,
+            skipped=prepared.result.skipped,
+            warnings=report_warnings,
+        )
+
+    def _prepare_valid_entries(self, prepared, progress=None):
         valid = []
         failed = []
-
         total_ops = len(prepared.operations)
+
         for index, operation in enumerate(prepared.operations, 1):
             room = prepared.room_by_key.get(operation.room_key)
             if room is None:
@@ -180,89 +369,61 @@ class RoomCalculationWorkflow(object):
             if progress is not None:
                 progress(index, total_ops)
 
-        if not valid:
-            return CalculationExecutionReport(
-                failed_results=failed,
-                skipped=prepared.result.skipped,
-                warnings=prepared.warnings,
-            )
+        return valid, failed
 
-        successful = []
-        temporary_success = []
+    def _apply_selected_alignment(
+        self,
+        prepared,
+        analysis,
+        group_resolution,
+    ):
+        written = 0
 
-        try:
-            with RevitTransaction(
-                self.document,
-                self.TRANSACTION_NAME,
-                transaction_factory=self.transaction_factory,
-            ):
-                definitions = self._get_group_override_definitions(valid)
-                enabled_definitions = self._enable_group_override(definitions)
-
-                for operation, room, prepared_value, parameter in valid:
-                    try:
-                        self.writer.write_value(
-                            room,
-                            prepared.request.target_parameter,
-                            prepared_value,
-                        )
-                        temporary_success.append(
-                            WriteResult(
-                                operation.room_key,
-                                True,
-                                "Valeur écrite.",
-                                operation.group_value,
-                            )
-                        )
-                    except Exception as error:
-                        failed.append(
-                            WriteResult(
-                                operation.room_key,
-                                False,
-                                str(error),
-                                operation.group_value,
-                            )
-                        )
-
-                realigned = self._restore_group_alignment(
-                    enabled_definitions
-                )
-                if realigned:
-                    raise ValidationError(
-                        "La restauration de l'alignement par type de groupe "
-                        "aurait modifié {} élément(s). Les occurrences de groupe "
-                        "ne produisent donc pas toutes la même valeur ; aucune "
-                        "modification n'a été conservée.".format(
-                            len(realigned)
-                        )
-                    )
-
-            successful = temporary_success
-        except Exception as error:
-            rollback_message = "Transaction annulée : {}.".format(error)
-            for operation, room, prepared_value, parameter in valid:
-                failed.append(
-                    WriteResult(
-                        operation.room_key,
-                        False,
-                        rollback_message,
-                        operation.group_value,
+        for conflict in analysis.conflicts:
+            if conflict.key not in group_resolution.selections:
+                raise ValidationError(
+                    "Aucune valeur n'a été choisie pour '{}' — '{}'.".format(
+                        conflict.group_type_name,
+                        conflict.member_label,
                     )
                 )
-            return CalculationExecutionReport(
-                success_results=[],
-                failed_results=self._deduplicate_failed_results(failed),
-                skipped=prepared.result.skipped,
-                warnings=prepared.warnings,
-                transaction_error=str(error),
-            )
 
-        return CalculationExecutionReport(
-            success_results=successful,
-            failed_results=failed,
-            skipped=prepared.result.skipped,
-            warnings=prepared.warnings,
-        )
+            selected_value = group_resolution.selected_value(conflict)
+            for element in conflict.elements:
+                self.writer.write_value(
+                    element,
+                    prepared.request.target_parameter,
+                    selected_value,
+                )
+                written += 1
+
+        return written
+
+    def _format_group_value(self, prepared, value):
+        if value is None:
+            return "(vide)"
+
+        target = prepared.request.target_parameter
+        if target.storage_type == "Double":
+            unit_type_id = (
+                target.unit_type_id
+                or prepared.request.source_parameter.unit_type_id
+            )
+            display_value = value
+            if unit_type_id:
+                try:
+                    display_value = self.writer.unit_service.from_internal(
+                        value,
+                        unit_type_id=unit_type_id,
+                    )
+                except Exception:
+                    display_value = value
+
+            text = "{0:.3f}".format(display_value)
+            text = text.rstrip("0").rstrip(".")
+            return text.replace(".", ",")
+
+        return str(value)
 
     def _validate_target_on_room(self, room, target_descriptor):
         parameter = self.parameter_service.get_parameter(
