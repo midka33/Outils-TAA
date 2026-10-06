@@ -123,10 +123,8 @@ class GroupValueSelectionWindow(forms.WPFWindow):
             selections[key] = conflict.candidates[index].value
 
         self.selections = selections
-        self.DialogResult = True
         self.Close()
 
     def Cancel_Click(self, sender, args):
         self.selections = None
-        self.DialogResult = False
         self.Close()
