@@ -7,10 +7,11 @@ import os
 
 from pyrevit import forms
 
-from System.Windows import Dock, FontWeights, TextWrapping, Thickness
+from System.Windows import FontWeights, TextWrapping, Thickness
 from System.Windows.Controls import (
     Border,
     ComboBox,
+    Dock,
     DockPanel,
     StackPanel,
     TextBlock,
