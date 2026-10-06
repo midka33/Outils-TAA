@@ -21,6 +21,7 @@ class RoomParameterDescriptor(object):
         data_type_id=None,
         unit_type_id=None,
         writable=True,
+        group_unlockable=False,
     ):
         self.name = name or ""
         self.identity_kind = identity_kind or self.KIND_NAME
@@ -29,6 +30,7 @@ class RoomParameterDescriptor(object):
         self.data_type_id = data_type_id
         self.unit_type_id = unit_type_id
         self.writable = bool(writable)
+        self.group_unlockable = bool(group_unlockable)
 
     @property
     def identity_key(self):
@@ -37,6 +39,11 @@ class RoomParameterDescriptor(object):
     @property
     def is_numeric(self):
         return self.storage_type in ("Double", "Integer")
+
+    @property
+    def write_supported(self):
+        """True si l'écriture est directe ou déverrouillable pour un groupe."""
+        return self.writable or self.group_unlockable
 
     def to_dict(self):
         return {
@@ -47,6 +54,7 @@ class RoomParameterDescriptor(object):
             "data_type_id": self.data_type_id,
             "unit_type_id": self.unit_type_id,
             "writable": self.writable,
+            "group_unlockable": self.group_unlockable,
         }
 
     @classmethod
@@ -60,4 +68,5 @@ class RoomParameterDescriptor(object):
             data_type_id=data.get("data_type_id"),
             unit_type_id=data.get("unit_type_id"),
             writable=data.get("writable", True),
+            group_unlockable=data.get("group_unlockable", False),
         )
