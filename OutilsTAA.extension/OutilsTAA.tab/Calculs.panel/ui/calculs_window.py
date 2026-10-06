@@ -287,6 +287,24 @@ class CalculsWindow(forms.WPFWindow):
                     message += "- {}\n".format(warning)
                 message += "\n"
 
+            if group_resolution is not None:
+                if (
+                    group_resolution.mode
+                    == GroupAlignmentResolution.KEEP_VARIABLE
+                ):
+                    message += (
+                        "Stratégie groupes : conserver les résultats exacts ; "
+                        "le paramètre restera variable entre occurrences.\n\n"
+                    )
+                elif (
+                    group_resolution.mode
+                    == GroupAlignmentResolution.ALIGN_SELECTED
+                ):
+                    message += (
+                        "Stratégie groupes : conserver l'alignement avec les "
+                        "valeurs choisies.\n\n"
+                    )
+
             message += "Écrire ces résultats dans « {} » ?".format(
                 request.target_parameter.name
             )
