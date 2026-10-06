@@ -20,7 +20,7 @@ Cette campagne valide les comportements impossibles à certifier hors Revit :
 - transaction / Undo ;
 - persistance.
 
-La CI hors Revit a validé **71 tests**. Le 1er octobre 2026, l'utilisateur a confirmé que les tests fonctionnels Revit ainsi que la revalidation visuelle finale étaient OK.
+La CI hors Revit a validé **78 tests**. Le 1er octobre 2026, l'utilisateur a confirmé les tests fonctionnels Revit et la revalidation visuelle finale. Le 6 octobre 2026, le TEST-CALC-21 sur les pièces groupées et les paramètres alignés par type de groupe a également été confirmé fonctionnel dans Revit 2025.4.
 
 ---
 
@@ -452,11 +452,14 @@ Créer si possible un cas où deux occurrences du même type de groupe produirai
 
 Attendu : la restauration de l'alignement doit provoquer l'annulation complète de la transaction avec un message explicite, et aucune valeur calculée ne doit être conservée.
 
-Ce test doit être validé dans Revit 2025.4 avant de considérer l'évolution groupes comme validée en production.
+**Résultat : VALIDÉ dans Revit 2025.4 le 6 octobre 2026.**
+
+Le paramètre destination aligné par type de groupe a été correctement écrit, puis son alignement a été restauré après le calcul.
 
 ## 26. Clôture
 
-**Date :** 1er octobre 2026  
+**Date de clôture initiale :** 1er octobre 2026  
+**Validation complémentaire groupes :** 6 octobre 2026  
 **Résultat :** VALIDÉ
 
 Le module Calculs des pièces est validé dans Revit 2025.4 / pyRevit 5.x et peut être intégré dans `main`.
