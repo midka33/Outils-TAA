@@ -417,7 +417,44 @@ Les deux contrôles ont été confirmés OK. La campagne est considérée close.
 
 ---
 
-## 25. Clôture
+## 25. TEST-CALC-21 — Pièces dans un groupe avec paramètre aligné
+
+Ce test valide l'évolution ajoutée après la campagne initiale.
+
+### Préparation
+
+1. Créer ou utiliser un groupe Revit contenant plusieurs pièces.
+2. Placer au moins deux occurrences du même type de groupe.
+3. Utiliser comme destination un paramètre de projet non intégré appliqué aux pièces.
+4. Vérifier que ce paramètre est configuré pour conserver la même valeur entre les occurrences du groupe (valeurs alignées par type de groupe).
+5. Utiliser un paramètre de regroupement et une source donnant le même résultat attendu sur les occurrences du même type de groupe.
+
+### Action
+
+1. Ouvrir **Calculs des pièces**.
+2. Vérifier que le paramètre destination aligné reste proposé.
+3. Lancer le calcul.
+4. Vérifier l'avertissement indiquant le déverrouillage temporaire.
+5. Confirmer l'écriture.
+
+### Attendu
+
+- le calcul s'exécute sans demander à l'utilisateur de modifier manuellement la règle de groupe ;
+- la valeur est écrite dans les pièces groupées ;
+- après l'opération, le paramètre est toujours configuré avec des valeurs alignées par type de groupe ;
+- une seule transaction **Outils TAA - Calculs des pièces** est créée ;
+- Undo restaure l'état antérieur ;
+- aucune occurrence de groupe n'est modifiée de manière inattendue.
+
+### Cas de sécurité
+
+Créer si possible un cas où deux occurrences du même type de groupe produiraient des résultats différents.
+
+Attendu : la restauration de l'alignement doit provoquer l'annulation complète de la transaction avec un message explicite, et aucune valeur calculée ne doit être conservée.
+
+Ce test doit être validé dans Revit 2025.4 avant de considérer l'évolution groupes comme validée en production.
+
+## 26. Clôture
 
 **Date :** 1er octobre 2026  
 **Résultat :** VALIDÉ

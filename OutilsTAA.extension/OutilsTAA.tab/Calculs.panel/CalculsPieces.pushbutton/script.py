@@ -29,6 +29,7 @@ from calculation.room_filter import RoomFilter
 from calculation_controller import CalculationController
 from calculation_settings_service import CalculationSettingsService
 from room_calculation_workflow import RoomCalculationWorkflow
+from grouped_parameter_service import GroupedParameterService
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
 from room_parameter_validator import RoomParameterValidator
@@ -53,7 +54,10 @@ def main():
         return
 
     collector_service = RoomCollectorService(document)
-    parameter_service = RoomParameterService()
+    grouped_parameter_service = GroupedParameterService(document)
+    parameter_service = RoomParameterService(
+        grouped_parameter_service=grouped_parameter_service
+    )
     parameter_validator = RoomParameterValidator()
     unit_service = RoomUnitService()
     writer = RoomWriter(parameter_service, unit_service)
@@ -66,6 +70,7 @@ def main():
         room_filter=RoomFilter(),
         calculator=RoomCalculator(),
         writer=writer,
+        grouped_parameter_service=grouped_parameter_service,
     )
 
     settings_service = CalculationSettingsService()

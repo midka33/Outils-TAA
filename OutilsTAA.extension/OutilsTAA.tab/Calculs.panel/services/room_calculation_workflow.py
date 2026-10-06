@@ -49,6 +49,7 @@ class RoomCalculationWorkflow(object):
         room_filter,
         calculator,
         writer,
+        grouped_parameter_service=None,
         transaction_factory=None,
     ):
         self.document = document
@@ -58,6 +59,7 @@ class RoomCalculationWorkflow(object):
         self.room_filter = room_filter
         self.calculator = calculator
         self.writer = writer
+        self.grouped_parameter_service = grouped_parameter_service
         self.transaction_factory = transaction_factory
 
     def prepare(self, request, progress=None):
@@ -111,6 +113,18 @@ class RoomCalculationWorkflow(object):
                     )
                 )
 
+        warnings = list(validation.warnings)
+        if self._selection_requires_group_override(
+            filtered,
+            request.target_parameter,
+        ):
+            warnings.append(
+                "Le paramètre destination '{}' est aligné par type de groupe. "
+                "Outils TAA autorisera temporairement les valeurs variables "
+                "pendant l'écriture puis restaurera l'alignement avant de "
+                "valider la transaction.".format(request.target_parameter.name)
+            )
+
         return PreparedCalculation(
             request=request,
             result=result,
@@ -118,7 +132,7 @@ class RoomCalculationWorkflow(object):
             operations=operations,
             total_rooms=len(rooms),
             filtered_rooms=len(filtered),
-            warnings=validation.warnings,
+            warnings=warnings,
         )
 
     def execute(self, prepared, progress=None):
@@ -146,11 +160,13 @@ class RoomCalculationWorkflow(object):
                     operation.value,
                     prepared.request.output_unit_type_id,
                 )
-                self._validate_target_on_room(
+                parameter = self._validate_target_on_room(
                     room,
                     prepared.request.target_parameter,
                 )
-                valid.append((operation, room, prepared_value))
+                valid.append(
+                    (operation, room, prepared_value, parameter)
+                )
             except Exception as error:
                 failed.append(
                     WriteResult(
@@ -180,7 +196,10 @@ class RoomCalculationWorkflow(object):
                 self.TRANSACTION_NAME,
                 transaction_factory=self.transaction_factory,
             ):
-                for operation, room, prepared_value in valid:
+                definitions = self._get_group_override_definitions(valid)
+                enabled_definitions = self._enable_group_override(definitions)
+
+                for operation, room, prepared_value, parameter in valid:
                     try:
                         self.writer.write_value(
                             room,
@@ -205,21 +224,34 @@ class RoomCalculationWorkflow(object):
                             )
                         )
 
+                realigned = self._restore_group_alignment(
+                    enabled_definitions
+                )
+                if realigned:
+                    raise ValidationError(
+                        "La restauration de l'alignement par type de groupe "
+                        "aurait modifié {} élément(s). Les occurrences de groupe "
+                        "ne produisent donc pas toutes la même valeur ; aucune "
+                        "modification n'a été conservée.".format(
+                            len(realigned)
+                        )
+                    )
+
             successful = temporary_success
         except Exception as error:
             rollback_message = "Transaction annulée : {}.".format(error)
-            for item in temporary_success:
+            for operation, room, prepared_value, parameter in valid:
                 failed.append(
                     WriteResult(
-                        item.room_key,
+                        operation.room_key,
                         False,
                         rollback_message,
-                        item.group_value,
+                        operation.group_value,
                     )
                 )
             return CalculationExecutionReport(
                 success_results=[],
-                failed_results=failed,
+                failed_results=self._deduplicate_failed_results(failed),
                 skipped=prepared.result.skipped,
                 warnings=prepared.warnings,
                 transaction_error=str(error),
@@ -233,19 +265,100 @@ class RoomCalculationWorkflow(object):
         )
 
     def _validate_target_on_room(self, room, target_descriptor):
-        parameter = self.parameter_service.get_parameter(room, target_descriptor)
+        parameter = self.parameter_service.get_parameter(
+            room,
+            target_descriptor,
+        )
         if parameter is None:
             raise ValidationError(
                 "Le paramètre destination '{}' est absent.".format(
                     target_descriptor.name
                 )
             )
-        if not self.parameter_service.is_writable(parameter):
-            raise ValidationError(
-                "Le paramètre destination '{}' est en lecture seule.".format(
-                    target_descriptor.name
-                )
+
+        if self.parameter_service.is_writable(parameter):
+            return parameter
+
+        if (
+            self.grouped_parameter_service is not None
+            and self.grouped_parameter_service.can_temporarily_unlock(
+                room,
+                parameter,
             )
+        ):
+            return parameter
+
+        raise ValidationError(
+            "Le paramètre destination '{}' est en lecture seule.".format(
+                target_descriptor.name
+            )
+        )
+
+    def _selection_requires_group_override(
+        self,
+        rooms,
+        target_descriptor,
+    ):
+        if self.grouped_parameter_service is None:
+            return False
+
+        for room in rooms or []:
+            try:
+                parameter = self.parameter_service.get_parameter(
+                    room,
+                    target_descriptor,
+                )
+            except Exception:
+                continue
+
+            if (
+                parameter is not None
+                and self.grouped_parameter_service.requires_temporary_override(
+                    room,
+                    parameter,
+                )
+            ):
+                return True
+
+        return False
+
+    def _get_group_override_definitions(self, valid):
+        if self.grouped_parameter_service is None:
+            return []
+
+        pairs = [
+            (room, parameter)
+            for operation, room, prepared_value, parameter in valid
+        ]
+        return self.grouped_parameter_service.get_required_definitions(pairs)
+
+    def _enable_group_override(self, definitions):
+        if self.grouped_parameter_service is None or not definitions:
+            return []
+        return self.grouped_parameter_service.enable_temporary_override(
+            definitions
+        )
+
+    def _restore_group_alignment(self, definitions):
+        if self.grouped_parameter_service is None or not definitions:
+            return []
+        return self.grouped_parameter_service.restore_group_alignment(
+            definitions
+        )
+
+    @staticmethod
+    def _deduplicate_failed_results(results):
+        values = []
+        seen = set()
+
+        for item in results or []:
+            key = (item.room_key, item.message, item.group_value)
+            if key in seen:
+                continue
+            seen.add(key)
+            values.append(item)
+
+        return values
 
     @staticmethod
     def _room_key(room, fallback_index):

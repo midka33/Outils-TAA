@@ -46,7 +46,12 @@ class RoomParameterValidator(object):
                         descriptor.storage_type,
                     )
                 )
-            if not descriptor.writable:
+            write_supported = getattr(
+                descriptor,
+                "write_supported",
+                descriptor.writable,
+            )
+            if not write_supported:
                 errors.append(
                     "Le paramètre de destination '{}' est en lecture seule.".format(
                         descriptor.name

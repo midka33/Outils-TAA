@@ -785,6 +785,27 @@ Cela réduit :
 - les temps de transaction ;
 - les problèmes liés au document Revit.
 
+## 24.1 États Revit temporaires dans une transaction
+
+Lorsqu'une opération doit modifier temporairement un réglage du modèle pour
+permettre une écriture, l'état initial doit être restauré **dans la même
+transaction** avant le commit.
+
+Exemple : un paramètre de projet aligné entre les occurrences d'un groupe peut
+être passé temporairement en « valeurs variables entre groupes », écrit, puis
+remis dans son état initial avant validation de la transaction.
+
+Règles :
+
+- ne jamais laisser un état technique temporaire actif après l'opération ;
+- mémoriser ou déduire explicitement l'état à restaurer ;
+- si la restauration provoque des modifications secondaires non prévues par
+  Revit, considérer l'opération comme non sûre et effectuer un rollback ;
+- ne pas tenter de modifier les règles de variation des paramètres Revit
+  intégrés, cette capacité étant réservée aux paramètres non intégrés ;
+- couvrir le cycle **activation → écriture → restauration → rollback éventuel**
+  par des tests hors Revit et une recette réelle dans Revit.
+
 ---
 
 # 25. Lecture / calcul / écriture
