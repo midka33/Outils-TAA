@@ -477,12 +477,19 @@ class RoomTagService(object):
         return True
 
     def _existing_room_tags(self, view):
-        from Autodesk.Revit.DB import FilteredElementCollector
-        from Autodesk.Revit.DB.Architecture import RoomTag
+        from Autodesk.Revit.DB import (
+            BuiltInCategory,
+            FilteredElementCollector,
+            SpatialElementTag,
+        )
 
+        # RoomTag n'est pas compatible avec ElementClassFilter / OfClass.
+        # Revit recommande de collecter via la classe native parente
+        # SpatialElementTag puis de restreindre à la catégorie OST_RoomTags.
         return list(
             FilteredElementCollector(self.document, view.Id)
-            .OfClass(RoomTag)
+            .OfClass(SpatialElementTag)
+            .OfCategory(BuiltInCategory.OST_RoomTags)
             .WhereElementIsNotElementType()
             .ToElements()
         )

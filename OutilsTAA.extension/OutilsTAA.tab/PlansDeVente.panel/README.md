@@ -143,3 +143,5 @@ BUG-PDV-025 renforcé : lecture `ALL_MODEL_TYPE_NAME` / `ALL_MODEL_FAMILY_NAME`,
 BUG-PDV-025 : la ComboBox des types d'étiquettes utilise désormais une liste de chaînes simples pour la ComboBox et retrouve l'objet Revit par index, sans `DisplayMemberPath` IronPython/WPF.
 
 Étape 05 : `OfClass(RoomTagType)` est supprimé. Les types sont collectés via `FamilySymbol + OST_RoomTags`, et les erreurs API ne sont plus masquées par un compteur à zéro.
+
+BUG-PDV-026 : le contrôle des étiquettes existantes utilise désormais `SpatialElementTag + OST_RoomTags` au lieu de `OfClass(RoomTag)`.

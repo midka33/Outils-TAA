@@ -3152,3 +3152,22 @@ L'interface distingue maintenant :
 - un nombre positif de types utilisables.
 
 **À valider dans Revit 2025.4.**
+
+
+#### Correctif création — collector des RoomTag existants
+
+Après correction de la collecte des types, le premier clic sur
+**Créer les étiquettes** a révélé le même piège API sur les instances :
+`OfClass(RoomTag)` est refusé par Revit.
+
+Le contrôle anti-doublon collecte désormais les instances via :
+
+```text
+SpatialElementTag
++ OST_RoomTags
++ WhereElementIsNotElementType
+```
+
+Voir **BUG-PDV-026**.
+
+**À retester dans Revit 2025.4.**

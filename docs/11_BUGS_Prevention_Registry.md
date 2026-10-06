@@ -1078,6 +1078,33 @@ jamais utiliser `OfClass(RoomTagType)`.
 L'interface conserve maintenant l'exception de collecte et l'affiche
 explicitement ; un vrai zéro est distingué d'une erreur API.
 
+### BUG-PDV-026 — Collector des RoomTag existants incompatible avec OfClass
+
+**Symptôme :** après correction de la liste des types d'étiquettes, la création
+échoue avant toute transaction avec le message Revit indiquant que
+`Autodesk.Revit.DB.Architecture.RoomTag` existe dans l'API mais pas dans le
+modèle objet natif et recommandant `Autodesk.Revit.DB.SpatialElementTag`.
+
+**Cause racine :** le contrôle anti-doublon utilisait encore
+`FilteredElementCollector(...).OfClass(RoomTag)` dans
+`_existing_room_tags()`. Comme pour `RoomTagType`, cette classe spécialisée
+n'est pas compatible avec `ElementClassFilter`.
+
+**Correction :** collecter les instances avec
+`SpatialElementTag + OST_RoomTags + WhereElementIsNotElementType()`.
+Les objets retournés restent les instances d'étiquettes de pièces et peuvent
+être post-traités via `TaggedLocalRoomId`.
+
+**Règle préventive :** pour les étiquettes spatiales Revit, utiliser les classes
+natives supportées par les filtres (`FamilySymbol` pour les types,
+`SpatialElementTag` pour les instances), puis restreindre avec
+`OST_RoomTags`. Ne jamais utiliser `OfClass(RoomTagType)` ni
+`OfClass(RoomTag)`.
+
+**Anti-régression :** test statique imposant
+`SpatialElementTag + OST_RoomTags` dans `_existing_room_tags()`, puis
+validation réelle dans Revit 2025.4 de la création des étiquettes.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1153,6 +1180,7 @@ BUG-PDV-022
 BUG-PDV-023
 BUG-PDV-024
 BUG-PDV-025
+BUG-PDV-026
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

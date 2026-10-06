@@ -26,6 +26,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Plans de vente : BUG-PDV-026 remplace `OfClass(RoomTag)` par `SpatialElementTag + OST_RoomTags` pour collecter les étiquettes existantes sans erreur Revit.
 - Plans de vente : le collector des étiquettes de pièces utilise désormais `FamilySymbol + OST_RoomTags` au lieu de `OfClass(RoomTagType)`, et les erreurs de collecte restent visibles dans l'interface.
 - Plans de vente : la ComboBox des types d'étiquettes utilise directement des chaînes et un mapping par index, supprimant le binding `DisplayMemberPath` responsable des lignes vides sous IronPython/WPF.
 - Plans de vente : BUG-PDV-025 renforcé après second essai Revit ; les noms de types d'étiquettes utilisent désormais `ALL_MODEL_TYPE_NAME` / `ALL_MODEL_FAMILY_NAME`, chaînes nettoyées et fallback garanti sur l'ElementId.

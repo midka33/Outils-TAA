@@ -170,3 +170,17 @@ def test_room_tag_collection_errors_are_not_silently_replaced_by_zero_types():
     assert "str(error) or repr(error)" in text
     assert "Erreur de collecte des types d'étiquettes" in text
     assert "0 type d'étiquette de pièce trouvé dans le document hôte" in text
+
+
+
+def test_existing_room_tags_use_supported_spatial_element_tag_collector():
+    text = SERVICE.read_text(encoding="utf-8")
+    start = text.index("    def _existing_room_tags")
+    end = text.index("    def _already_tagged_room_ids")
+    block = text[start:end]
+
+    assert ".OfClass(SpatialElementTag)" in block
+    assert ".OfCategory(BuiltInCategory.OST_RoomTags)" in block
+    assert ".WhereElementIsNotElementType()" in block
+    assert ".OfClass(RoomTag)" not in block
+    assert "from Autodesk.Revit.DB.Architecture import RoomTag" not in block
