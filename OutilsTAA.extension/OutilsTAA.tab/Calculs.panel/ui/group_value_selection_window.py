@@ -7,7 +7,7 @@ import os
 
 from pyrevit import forms
 
-from System.Windows import Thickness
+from System.Windows import Dock, FontWeights, TextWrapping, Thickness
 from System.Windows.Controls import (
     Border,
     ComboBox,
@@ -81,21 +81,21 @@ class GroupValueSelectionWindow(forms.WPFWindow):
                 combo.Style = self.FindResource("TAAComboBox")
             except Exception:
                 pass
-            DockPanel.SetDock(combo, 1)
+            DockPanel.SetDock(combo, Dock.Right)
             dock.Children.Add(combo)
 
             labels = StackPanel()
 
             group_text = TextBlock()
             group_text.Text = conflict.group_type_name
-            group_text.FontWeight = self._semi_bold()
-            group_text.TextWrapping = 2
+            group_text.FontWeight = FontWeights.SemiBold
+            group_text.TextWrapping = TextWrapping.Wrap
             labels.Children.Add(group_text)
 
             member_text = TextBlock()
             member_text.Text = conflict.member_label
             member_text.Margin = Thickness(0, 3, 0, 0)
-            member_text.TextWrapping = 2
+            member_text.TextWrapping = TextWrapping.Wrap
             member_text.Foreground = self.FindResource(
                 "TAASecondaryTextBrush"
             )
@@ -105,14 +105,6 @@ class GroupValueSelectionWindow(forms.WPFWindow):
             border.Child = dock
             self.ConflictRowsPanel.Children.Add(border)
             self._combos[conflict.key] = (combo, conflict)
-
-    @staticmethod
-    def _semi_bold():
-        try:
-            from System.Windows import FontWeights
-            return FontWeights.SemiBold
-        except Exception:
-            return None
 
     def Apply_Click(self, sender, args):
         selections = {}
