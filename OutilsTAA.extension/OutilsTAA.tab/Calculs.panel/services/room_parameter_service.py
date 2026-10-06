@@ -23,6 +23,9 @@ class RoomParameterService(object):
 
     NUMERIC_STORAGE_TYPES = ("Double", "Integer")
 
+    def __init__(self, grouped_parameter_service=None):
+        self.grouped_parameter_service = grouped_parameter_service
+
     def get_parameter_names(self, rooms, numeric_only=False):
         """Compatibilité : retourne une liste de noms uniques triés."""
         names = {}
@@ -46,7 +49,7 @@ class RoomParameterService(object):
 
         for room in rooms or []:
             for parameter in getattr(room, "Parameters", []) or []:
-                descriptor = self.create_descriptor(parameter)
+                descriptor = self.create_descriptor(parameter, room=room)
                 if descriptor is None or not descriptor.name:
                     continue
                 if numeric_only and not descriptor.is_numeric:
@@ -56,20 +59,35 @@ class RoomParameterService(object):
                 if existing is None:
                     descriptors[descriptor.identity_key] = descriptor
                 else:
-                    # Un paramètre proposé comme destination doit rester
-                    # considéré non sûr si une occurrence observée est readonly.
-                    existing.writable = existing.writable and descriptor.writable
+                    # Une destination doit rester sûre sur toutes les occurrences
+                    # observées. Un readonly dû uniquement à l'alignement d'un
+                    # groupe reste admissible car le workflow le déverrouille
+                    # temporairement dans la transaction.
+                    existing_supported = existing.write_supported
+                    current_supported = descriptor.write_supported
+                    existing.writable = (
+                        existing.writable and descriptor.writable
+                    )
+                    existing.group_unlockable = (
+                        existing_supported
+                        and current_supported
+                        and not existing.writable
+                    )
 
         values = list(descriptors.values())
         if writable_only:
-            values = [descriptor for descriptor in values if descriptor.writable]
+            values = [
+                descriptor
+                for descriptor in values
+                if descriptor.write_supported
+            ]
 
         return sorted(
             values,
             key=lambda item: (item.name.lower(), item.identity_key),
         )
 
-    def create_descriptor(self, parameter):
+    def create_descriptor(self, parameter, room=None):
         if parameter is None:
             return None
 
@@ -95,6 +113,20 @@ class RoomParameterService(object):
             identity_kind = RoomParameterDescriptor.KIND_NAME
             identity_value = name
 
+        writable = self.is_writable(parameter)
+        group_unlockable = False
+        if (
+            not writable
+            and room is not None
+            and self.grouped_parameter_service is not None
+        ):
+            group_unlockable = (
+                self.grouped_parameter_service.can_temporarily_unlock(
+                    room,
+                    parameter,
+                )
+            )
+
         return RoomParameterDescriptor(
             name=name,
             identity_kind=identity_kind,
@@ -102,7 +134,8 @@ class RoomParameterService(object):
             storage_type=self.get_storage_type_name(parameter),
             data_type_id=get_parameter_data_type_id(parameter),
             unit_type_id=get_parameter_unit_type_id(parameter),
-            writable=self.is_writable(parameter),
+            writable=writable,
+            group_unlockable=group_unlockable,
         )
 
     def get_parameter(self, room, parameter_reference):
