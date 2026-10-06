@@ -384,10 +384,10 @@ Une CI dédiée exécute :
 python -m pytest tests/calculation -q
 ```
 
-Dernière exécution validée avant la campagne Revit :
+Exécution validée après ajout de la gestion des paramètres de groupes :
 
 ```text
-71 passed
+77 passed
 ```
 
 Les tests couvrent notamment :
@@ -405,6 +405,7 @@ Les tests couvrent notamment :
 - unités ;
 - préparation et écriture ;
 - transaction / rollback ;
+- paramètres de pièces alignés par type de groupe, restauration et rollback de sécurité ;
 - persistance ;
 - migration des réglages historiques ;
 - contrôleur ;
