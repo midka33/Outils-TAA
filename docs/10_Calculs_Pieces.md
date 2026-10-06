@@ -178,7 +178,7 @@ Si seul le nom est disponible et que plusieurs paramètres portent ce nom, la r�
 Une destination doit :
 
 - exister ;
-- ne pas être `ReadOnly` ;
+- être directement écrivable **ou** être temporairement déverrouillable lorsqu'un blocage provient de l'alignement des groupes ;
 - utiliser un type d'écriture pris en charge ;
 - rester compatible avec les règles de type définies par le validateur.
 
@@ -191,6 +191,39 @@ String
 ```
 
 `ElementId` n'est pas une destination autorisée.
+
+### 7.3 Pièces appartenant à des groupes
+
+Les pièces placées dans des groupes restent dans le périmètre de calcul.
+
+Pour un paramètre de projet non intégré configuré avec des valeurs **alignées par type de groupe**, Revit peut empêcher l'écriture directe sur les pièces groupées. Le module gère ce cas de façon transactionnelle :
+
+```text
+État initial : valeurs alignées par type de groupe
+        ↓
+Transaction Revit
+        ↓
+Autoriser temporairement les valeurs variables
+        ↓
+Écriture des résultats
+        ↓
+Restaurer l'alignement par type de groupe
+        ↓
+Contrôle des éléments réalignés par Revit
+        ↓
+Commit si aucun réalignement inattendu
+```
+
+La logique s'appuie sur `InternalDefinition.VariesAcrossGroups` et `SetAllowVaryBetweenGroups()`.
+
+Sécurités :
+
+- les paramètres Revit intégrés ne sont jamais déverrouillés par cette logique ;
+- l'état initial est restauré dans la même transaction que l'écriture ;
+- si Revit doit réaligner un ou plusieurs éléments lors du retour à l'état initial, la transaction est annulée ;
+- les destinations réellement readonly pour une autre raison restent refusées.
+
+Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Une validation réelle dans Revit 2025.4 reste requise après cette évolution.
 
 ---
 
@@ -367,7 +400,7 @@ Les tests couvrent notamment :
 - paramètres String / Integer / Double / ElementId ;
 - identités GUID / ForgeTypeId / définition ;
 - homonymes ;
-- ReadOnly ;
+- ReadOnly et déverrouillage temporaire des paramètres alignés entre groupes ;
 - compatibilité source / destination ;
 - unités ;
 - préparation et écriture ;
@@ -393,7 +426,8 @@ Bugs spécifiques actuellement capitalisés :
 - `BUG-CALCULS-001` — collision du module générique `models` ;
 - `BUG-CALCULS-002` — état writable filtré avant agrégation ;
 - `BUG-CALCULS-003` — échappements de chaînes corrompant le code Python généré ;
-- `BUG-CALCULS-004` — dossier de tests masquant le package métier `calculation`.
+- `BUG-CALCULS-004` — dossier de tests masquant le package métier `calculation` ;
+- `BUG-CALCULS-005` — écriture impossible dans les paramètres alignés entre occurrences de groupes.
 
 ---
 
