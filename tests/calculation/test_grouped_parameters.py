@@ -19,6 +19,7 @@ for path in (LIB_DIR, PANEL_DIR, SERVICE_DIR):
     if path not in sys.path:
         sys.path.insert(0, path)
 
+from calculation.group_alignment import GroupAlignmentAnalysis
 from calculation.parameter_descriptor import RoomParameterDescriptor
 from calculation.room_calculator import RoomCalculator
 from calculation.room_filter import RoomFilter
@@ -336,6 +337,7 @@ class GroupedWorkflowTests(unittest.TestCase):
         request = self._request(parameter_service, rooms)
 
         prepared = workflow.prepare(request)
+        prepared.group_alignment_analysis = GroupAlignmentAnalysis([])
         report = workflow.execute(prepared)
 
         self.assertTrue(report.is_success)
@@ -346,7 +348,7 @@ class GroupedWorkflowTests(unittest.TestCase):
         self.assertFalse(definition.VariesAcrossGroups)
         self.assertTrue(transactions[0].committed)
         self.assertTrue(
-            any("temporairement" in warning for warning in prepared.warnings)
+            any("aligné" in warning for warning in prepared.warnings)
         )
 
     def test_realignment_on_restore_rolls_back_transaction(self):
@@ -357,6 +359,7 @@ class GroupedWorkflowTests(unittest.TestCase):
         request = self._request(parameter_service, rooms)
 
         prepared = workflow.prepare(request)
+        prepared.group_alignment_analysis = GroupAlignmentAnalysis([])
         report = workflow.execute(prepared)
 
         self.assertFalse(report.is_success)
