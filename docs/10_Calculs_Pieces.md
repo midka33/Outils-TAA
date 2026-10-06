@@ -1,6 +1,6 @@
 # Calculs des pièces
 
-**Statut :** Validé dans Revit 2025.4 — prêt pour intégration dans `main`  
+**Statut :** Base v1.0.1 validée — résolution interactive des divergences en validation  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`  
 **Validation finale :** Revit 2025.4 / pyRevit 5.x — 6 octobre 2026
@@ -495,4 +495,4 @@ La campagne de validation est archivée dans :
 docs/18_Calculs_Pieces_Tests_Revit.md
 ```
 
-Le module est considéré comme validé pour intégration dans `main`.
+La base v1.0.1 reste validée dans Revit 2025.4. La résolution interactive des divergences entre occurrences de groupes reste sur branche dédiée jusqu'à validation de TEST-CALC-22.
