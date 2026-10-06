@@ -1,6 +1,6 @@
 # Calculs des pièces — Campagne de validation Revit 2025.4
 
-**Statut :** Validé — campagne clôturée  
+**Statut :** Validation historique OK — TEST-CALC-22 à valider  
 **Branche :** `feature/calculs-pieces-migration`  
 **Environnement :** Revit 2025.4 / pyRevit 5.x  
 **Prérequis :** travailler sur une copie d'un projet ou une maquette de test.
@@ -20,7 +20,7 @@ Cette campagne valide les comportements impossibles à certifier hors Revit :
 - transaction / Undo ;
 - persistance.
 
-La CI hors Revit a validé **78 tests**. Le 1er octobre 2026, l'utilisateur a confirmé les tests fonctionnels Revit et la revalidation visuelle finale. Le 6 octobre 2026, le TEST-CALC-21 sur les pièces groupées et les paramètres alignés par type de groupe a également été confirmé fonctionnel dans Revit 2025.4.
+La CI stable avait validé **78 tests**. La branche de résolution des divergences valide désormais **84 tests hors Revit**. Le 1er octobre 2026, l'utilisateur a confirmé les tests fonctionnels Revit et la revalidation visuelle finale. Le 6 octobre 2026, le TEST-CALC-21 sur les pièces groupées et les paramètres alignés par type de groupe a également été confirmé fonctionnel dans Revit 2025.4. TEST-CALC-22 reste à valider pour la nouvelle résolution interactive.
 
 ---
 
