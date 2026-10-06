@@ -806,6 +806,28 @@ Règles :
 - couvrir le cycle **activation → écriture → restauration → rollback éventuel**
   par des tests hors Revit et une recette réelle dans Revit.
 
+## 24.2 Normalisation destructive et choix utilisateur
+
+Lorsqu'une contrainte Revit impose d'harmoniser plusieurs valeurs et que cette
+harmonisation remplacerait des résultats métier valides, l'outil ne doit pas
+choisir silencieusement la valeur à conserver.
+
+Le comportement attendu est :
+
+- analyser les valeurs avant la transaction lorsque c'est possible ;
+- présenter les valeurs réellement rencontrées et leur fréquence ;
+- une valeur majoritaire peut être présélectionnée pour aider l'utilisateur,
+  mais elle ne doit jamais être imposée automatiquement ;
+- laisser l'utilisateur choisir explicitement la valeur à appliquer ou une
+  stratégie alternative préservant les résultats exacts ;
+- proposer une annulation sans modification ;
+- conserver un rollback de sécurité si l'état final réel diffère encore de
+  l'état attendu.
+
+Cette règle s'applique notamment aux paramètres alignés entre occurrences de
+groupes, mais également à toute future opération de normalisation susceptible
+d'écraser une valeur calculée ou saisie.
+
 ---
 
 # 25. Lecture / calcul / écriture
