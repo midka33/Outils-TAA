@@ -26,6 +26,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Calculs des pièces : gestion des pièces en groupes lorsque le paramètre destination est aligné par type de groupe ; déverrouillage temporaire via `SetAllowVaryBetweenGroups`, restauration dans la même transaction et rollback si Revit doit réaligner des valeurs.
 - Plans de vente : BUG-PDV-024 corrige les libellés vides des types de zones remplies sous IronPython/pyRevit en utilisant `Element.Name.GetValue`.
 - Export : publication Ctrl/Maj de plusieurs feuilles/carnets ; résumé, aperçu et export partagent le même périmètre, sans doublons parent/enfant. Désélection vide respectée, copies sans modification des carnets, destinations multiples dans le rapport. Fonctionnement confirmé par l’utilisateur dans Revit le 2026-10-05 (PR #11) ; recette détaillée distincte avant release.
 - Ruban Export : le titre API `Export` reste non vide et le texte est masqué uniquement après création du contrôle via un smartbutton `__selfinit__` (`ShowText = False`) ; le panneau conserve « Export » et l’icône vectorielle agrandie. La tentative précédente avec un titre blanc a été retirée car Revit la refusait au rechargement. Validation finale Revit du ruban confirmée le 2026-10-01.
