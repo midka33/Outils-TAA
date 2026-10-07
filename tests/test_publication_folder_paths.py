@@ -104,7 +104,8 @@ def test_preview_matches_export_and_uses_format_folders(
         pdf_dir = base
         dwg_dir = base
 
-    assert (pdf_dir / 'Plans-A1.pdf').is_file()
+    expected_pdf = 'Plans.pdf' if pdf_combined else 'Plans-A1.pdf'
+    assert (pdf_dir / expected_pdf).is_file()
     assert (dwg_dir / 'Plans-A1.dwg').is_file()
 
     if create_carnet_folder:
