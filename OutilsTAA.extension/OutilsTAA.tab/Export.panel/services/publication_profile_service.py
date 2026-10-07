@@ -17,7 +17,7 @@ class PublicationProfileService(object):
         "PDF séparés": {"pdf_enabled": True, "pdf_mode": "SEPARATE", "dwg_enabled": False, "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True},
         "DWG seul": {"pdf_enabled": False, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True},
         "PDF combiné + DWG": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True}
-
+    }
 
     def __init__(self, storage_path=None):
         self.storage_path = storage_path or self._default_storage_path()
@@ -68,7 +68,7 @@ class PublicationProfileService(object):
 
     @staticmethod
     def _settings_to_dict(settings):
-        """Un profil stocke des valeurs concrètes, jamais None pour les booléens/modes."""
+        """Un profil stocke des valeurs concrètes pour les réglages actifs."""
         result = {
             "pdf_enabled": True if settings.pdf_enabled is None else bool(settings.pdf_enabled),
             "pdf_mode": settings.pdf_mode or "COMBINED",
