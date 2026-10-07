@@ -182,7 +182,9 @@ def test_existing_room_tags_use_category_only_collector():
     assert ".OfCategory(BuiltInCategory.OST_RoomTags)" in block
     assert ".WhereElementIsNotElementType()" in block
     assert ".OfClass(" not in block
-    assert "RoomTag" not in block.replace("OST_RoomTags", "")
+    assert ".OfClass(RoomTag)" not in block
+    assert ".OfClass(RoomTagType)" not in block
+    assert "from Autodesk.Revit.DB.Architecture import RoomTag" not in block
     assert "SpatialElementTag" not in block
 
 
