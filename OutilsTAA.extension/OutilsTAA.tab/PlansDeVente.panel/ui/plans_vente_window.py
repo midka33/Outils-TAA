@@ -806,9 +806,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Vue logement : {}\n"
                 "Type de cote : {}\n"
                 "Pièces : {}\n\n"
-                "Prototype 06D : les faces de murs et les lignes de séparation "
-                "de pièces participent aux dimensions principales. Quand une "
-                "deuxième paire manque, le moteur tente une longueur de mur dominante. "
+                "Prototype 06E : pour une séparation de pièce, le moteur cherche "
+                "d'abord une arête de sol superposée et l'utilise comme référence "
+                "de cote. À défaut, il conserve la séparation avec avertissement. "
                 "Une pièce atypique ne bloque plus les autres."
             ).format(
                 housing.key,
@@ -952,9 +952,9 @@ class PlansVenteWindow(forms.WPFWindow):
             ).format(self._dimension_type_error)
         elif self._dimension_view_choices:
             self.DimensionInfoText.Text = (
-                "Prototype 06D : faces opposées et séparations de pièces en "
-                "priorité, puis longueur dominante en secours. "
-                "{} type(s) disponible(s)."
+                "Prototype 06E : faces de murs en priorité ; pour les "
+                "séparations, substitution par une arête de sol superposée "
+                "quand elle est fiable. {} type(s) disponible(s)."
             ).format(len(self._dimension_type_labels))
         else:
             self.DimensionInfoText.Text = (
