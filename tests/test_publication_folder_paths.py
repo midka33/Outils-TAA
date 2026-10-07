@@ -28,30 +28,39 @@ def folder_target():
 
 @pytest.mark.parametrize('scope', ['folder', 'set', 'sheet'])
 @pytest.mark.parametrize('pdf_combined', [True, False])
-@pytest.mark.parametrize('dwg_combined', [True, False])
-def test_preview_matches_export_and_creates_only_needed_folders(tmp_path, pdf_combined, dwg_combined, scope):
+@pytest.mark.parametrize('create_carnet_folder', [True, False])
+def test_preview_matches_export_and_uses_format_folders(
+        tmp_path, pdf_combined, create_carnet_folder, scope):
     original, target, _, _ = folder_target()
     if scope != "folder":
         target = original
+
     settings = PublicationSettings.defaults()
     settings.output_directory = str(tmp_path)
     settings.filename_template = '{carnet}-{numero}'
     settings.pdf_mode = 'COMBINED' if pdf_combined else 'SEPARATE'
-    settings.dwg_mode = 'COMBINED' if dwg_combined else 'SEPARATE'
+    settings.separate_carnet_subfolder = create_carnet_folder
     target = target.with_settings(settings)
+
     view = SimpleNamespace(Id=1, CanBePrinted=True)
-    service = PublicationService(SimpleNamespace(GetElement=lambda key: view))
+    service = PublicationService(
+        SimpleNamespace(GetElement=lambda key: view))
     delivered = []
+
     class Exporter:
         def __init__(self, extension):
             self.extension = extension
+
         def export(self, ids, directory, filename, setup_name=None, **kwargs):
             path = Path(directory) / (filename + self.extension)
             assert path.parent.is_dir()
             path.write_text('export simulé')
             delivered.append(str(path))
             return True
-        def export_named_separate(self, ids, directory, filenames, export_quality=300, settings=None):
+
+        def export_named_separate(
+                self, ids, directory, filenames,
+                export_quality=300, settings=None, **kwargs):
             assert export_quality == 300
             paths = []
             for filename in filenames:
@@ -60,28 +69,80 @@ def test_preview_matches_export_and_creates_only_needed_folders(tmp_path, pdf_co
                 paths.append(str(path))
             delivered.extend(paths)
             return paths
+
     service.pdf_service = Exporter('.pdf')
     service.dwg_service = Exporter('.dwg')
-    preview = PublicationPreviewService(service, service.filename_service).build(target, settings)
+
+    preview = PublicationPreviewService(
+        service, service.filename_service).build(target, settings)
     assert preview['errors'] == []
     assert list(tmp_path.iterdir()) == []
-    result = service.publish(target, str(tmp_path), export_pdf=True, export_dwg=True,
-                             pdf_combined=pdf_combined, dwg_combined=dwg_combined)
+
+    result = service.publish(
+        target, str(tmp_path), export_pdf=True, export_dwg=True,
+        pdf_combined=pdf_combined)
     assert result['success'], result['errors']
+
+    # Une seule feuille : PDF et DWG ont un chemin exact et identique
+    # entre aperçu et publication.
     assert sorted(row.Path for row in preview['rows']) == sorted(delivered)
-    assert sorted(row['path'] for row in result['results']) == sorted(delivered)
-    base = tmp_path / 'DCE' / 'Architecture' if scope == 'folder' else tmp_path
-    for extension, combined in (('.pdf', pdf_combined), ('.dwg', dwg_combined)):
-        assert ((base if combined else base / 'Plans') / ('Plans-A1' + extension)).is_file()
-    assert (base / 'Plans').exists() is (not pdf_combined or not dwg_combined)
+    assert sorted(
+        row['path'] for row in result['results']
+        if row.get('path')
+    ) == sorted(delivered)
+
+    base = (
+        tmp_path / 'DCE' / 'Architecture'
+        if scope == 'folder'
+        else tmp_path
+    )
+
+    if create_carnet_folder:
+        pdf_dir = base / 'Plans' / 'PDF'
+        dwg_dir = base / 'Plans' / 'DWG'
+    else:
+        pdf_dir = base
+        dwg_dir = base
+
+    assert (pdf_dir / 'Plans-A1.pdf').is_file()
+    assert (dwg_dir / 'Plans-A1.dwg').is_file()
+
+    if create_carnet_folder:
+        assert (base / 'Plans').is_dir()
+        assert pdf_dir.is_dir()
+        assert dwg_dir.is_dir()
+    else:
+        assert not (base / 'Plans').exists()
+
     assert not hasattr(original, 'publication_folder_parts')
 
 
 def test_selected_subfolder_and_custom_destination(tmp_path):
     original, target, window, child = folder_target()
     sub = _folder_targets(window, child)[0]
-    assert publication_directory(sub, str(tmp_path / 'autre'), False) == str(tmp_path / 'autre/Architecture/Plans')
-    assert publication_directory(original, str(tmp_path), False) == str(tmp_path / "Plans")
+    settings = PublicationSettings.defaults()
+
+    assert publication_directory(
+        sub,
+        str(tmp_path / 'autre'),
+        settings=settings,
+        format_name='PDF',
+    ) == str(tmp_path / 'autre' / 'Architecture' / 'Plans' / 'PDF')
+
+    assert publication_directory(
+        original,
+        str(tmp_path),
+        settings=settings,
+        format_name='DWG',
+    ) == str(tmp_path / 'Plans' / 'DWG')
+
+    settings.separate_carnet_subfolder = False
+    assert publication_directory(
+        sub,
+        str(tmp_path / 'autre'),
+        settings=settings,
+        format_name='PDF',
+    ) == str(tmp_path / 'autre' / 'Architecture')
 
 
 @pytest.mark.parametrize('name,expected', [('PC:09*', 'PC_09_'), ('../Plans', '.._Plans'),
