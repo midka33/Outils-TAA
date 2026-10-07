@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 
 """Placement contrôlé des étiquettes de pièces du plan de vente."""
 
+ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-category-only-v3"
+
 from common.transaction import RevitTransaction
 from plans_vente.tag_positioning import (
     boxes_overlap,
@@ -79,6 +81,7 @@ class RoomTagService(object):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
+        self.build_id = ROOM_TAG_SERVICE_BUILD
 
     def list_tag_types(self):
         from Autodesk.Revit.DB import (
@@ -480,15 +483,13 @@ class RoomTagService(object):
         from Autodesk.Revit.DB import (
             BuiltInCategory,
             FilteredElementCollector,
-            SpatialElementTag,
         )
 
-        # RoomTag n'est pas compatible avec ElementClassFilter / OfClass.
-        # Revit recommande de collecter via la classe native parente
-        # SpatialElementTag puis de restreindre à la catégorie OST_RoomTags.
+        # Filtrage volontairement uniquement par catégorie.
+        # Cela évite complètement ElementClassFilter sur les classes spécialisées
+        # d'étiquettes spatiales, qui est la source des erreurs RoomTag/RoomTagType.
         return list(
             FilteredElementCollector(self.document, view.Id)
-            .OfClass(SpatialElementTag)
             .OfCategory(BuiltInCategory.OST_RoomTags)
             .WhereElementIsNotElementType()
             .ToElements()

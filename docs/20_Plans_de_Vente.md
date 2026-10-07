@@ -3171,3 +3171,21 @@ SpatialElementTag
 Voir **BUG-PDV-026**.
 
 **À retester dans Revit 2025.4.**
+
+
+#### Correctif runtime — service d'étiquettes rechargé
+
+Un nouvel essai a montré le message de l'ancien `OfClass(RoomTag)` alors que
+ce collector n'existait plus dans la branche active.
+
+Pour supprimer toute ambiguïté entre code Git et code exécuté :
+
+- `_existing_room_tags()` filtre désormais uniquement par
+  `OST_RoomTags`, sans aucun `OfClass` ;
+- `room_tag_service` est rechargé explicitement au lancement du bouton ;
+- les erreurs affichent le build
+  `stage05-room-tags-category-only-v3`.
+
+Voir **BUG-PDV-027**.
+
+**À retester dans Revit 2025.4.**

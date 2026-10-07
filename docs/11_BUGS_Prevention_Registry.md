@@ -1105,6 +1105,36 @@ natives supportées par les filtres (`FamilySymbol` pour les types,
 `SpatialElementTag + OST_RoomTags` dans `_existing_room_tags()`, puis
 validation réelle dans Revit 2025.4 de la création des étiquettes.
 
+### BUG-PDV-027 — Revit exécute encore un ancien collector RoomTag après correction
+
+**Symptôme :** après fusion du correctif BUG-PDV-026, Revit affiche encore le
+message demandant d'utiliser `SpatialElementTag`, alors que la branche Git ne
+contient plus aucun `OfClass(RoomTag)` ni `OfClass(RoomTagType)`.
+
+**Constat :** le code du dépôt et le code observé à l'exécution ne correspondent
+pas. Le scénario est compatible avec un module `room_tag_service` conservé
+dans le cache du moteur Python pyRevit/IronPython ou avec une ancienne copie de
+module chargée pendant la session.
+
+**Correction défensive :**
+- le collector d'instances n'utilise désormais **aucun `OfClass`** :
+  uniquement `OST_RoomTags + WhereElementIsNotElementType()` ;
+- le point d'entrée pyRevit force explicitement `reload(room_tag_service)`
+  avant d'instancier `RoomTagService` ;
+- le service expose un identifiant de build
+  `stage05-room-tags-category-only-v3` ;
+- toute erreur de création affiche cet identifiant pour vérifier immédiatement
+  quel service est réellement exécuté.
+
+**Règle préventive :** pour un module pyRevit modifié fréquemment pendant le
+développement, lorsqu'un message runtime contredit le contenu du fichier chargé,
+vérifier le cache de modules Python et fournir un identifiant de build dans les
+diagnostics critiques.
+
+**Anti-régression :** tests imposant l'absence totale de `OfClass` dans le
+collector des instances, le reload explicite du module et l'affichage du build
+dans les erreurs.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1181,6 +1211,7 @@ BUG-PDV-023
 BUG-PDV-024
 BUG-PDV-025
 BUG-PDV-026
+BUG-PDV-027
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

@@ -145,3 +145,5 @@ BUG-PDV-025 : la ComboBox des types d'étiquettes utilise désormais une liste d
 Étape 05 : `OfClass(RoomTagType)` est supprimé. Les types sont collectés via `FamilySymbol + OST_RoomTags`, et les erreurs API ne sont plus masquées par un compteur à zéro.
 
 BUG-PDV-026 : le contrôle des étiquettes existantes utilise désormais `SpatialElementTag + OST_RoomTags` au lieu de `OfClass(RoomTag)`.
+
+BUG-PDV-027 : le service d'étiquettes est maintenant rechargé explicitement par le bouton pyRevit ; le collector d'instances est catégorie-only et les erreurs affichent le build `stage05-room-tags-category-only-v3`.

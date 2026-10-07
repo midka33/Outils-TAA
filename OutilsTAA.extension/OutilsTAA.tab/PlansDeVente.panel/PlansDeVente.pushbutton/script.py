@@ -32,7 +32,19 @@ from plans_vente_controller import PlansVenteController
 from prototype_view_service import PrototypeViewService
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
-from room_tag_service import RoomTagService
+
+# pyRevit peut conserver des modules Python dans le moteur entre deux reloads
+# d'extension. On force le rechargement du service d'étiquettes pour garantir
+# que le code exécuté correspond au fichier présent sur disque.
+try:
+    from importlib import reload as _reload_module
+except ImportError:
+    _reload_module = reload
+
+import room_tag_service as _room_tag_service
+_room_tag_service = _reload_module(_room_tag_service)
+RoomTagService = _room_tag_service.RoomTagService
+
 from schedule_service import ScheduleService
 from plans_vente_window import PlansVenteWindow
 

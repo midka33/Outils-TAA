@@ -654,8 +654,9 @@ class PlansVenteWindow(forms.WPFWindow):
             )
         except Exception as error:
             self.StatusText.Text = "Échec de la création des étiquettes."
+            build_id = self.controller.room_tag_build_id()
             forms.alert(
-                str(error),
+                "{}\n\nMoteur étiquettes : {}".format(error, build_id),
                 title="Plans de vente — Étiquettes",
                 warn_icon=True,
             )

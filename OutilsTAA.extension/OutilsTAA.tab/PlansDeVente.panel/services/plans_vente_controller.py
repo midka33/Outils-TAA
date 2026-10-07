@@ -100,3 +100,11 @@ class PlansVenteController(object):
             target_view_unique_id,
             room_tag_type_unique_id,
         )
+
+
+    def room_tag_build_id(self):
+        return getattr(
+            self.room_tag_service,
+            "build_id",
+            "room-tag-service-build-inconnu",
+        )

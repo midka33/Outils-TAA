@@ -173,14 +173,34 @@ def test_room_tag_collection_errors_are_not_silently_replaced_by_zero_types():
 
 
 
-def test_existing_room_tags_use_supported_spatial_element_tag_collector():
+def test_existing_room_tags_use_category_only_collector():
     text = SERVICE.read_text(encoding="utf-8")
     start = text.index("    def _existing_room_tags")
     end = text.index("    def _already_tagged_room_ids")
     block = text[start:end]
 
-    assert ".OfClass(SpatialElementTag)" in block
     assert ".OfCategory(BuiltInCategory.OST_RoomTags)" in block
     assert ".WhereElementIsNotElementType()" in block
-    assert ".OfClass(RoomTag)" not in block
-    assert "from Autodesk.Revit.DB.Architecture import RoomTag" not in block
+    assert ".OfClass(" not in block
+    assert "RoomTag" not in block.replace("OST_RoomTags", "")
+    assert "SpatialElementTag" not in block
+
+
+
+def test_room_tag_service_is_explicitly_reloaded_by_pyrevit_entrypoint():
+    script = (
+        PANEL / "PlansDeVente.pushbutton" / "script.py"
+    ).read_text(encoding="utf-8")
+    assert "import room_tag_service as _room_tag_service" in script
+    assert "_reload_module(_room_tag_service)" in script
+    assert "RoomTagService = _room_tag_service.RoomTagService" in script
+
+
+def test_room_tag_runtime_reports_build_id_on_creation_error():
+    service = SERVICE.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    window = WINDOW.read_text(encoding="utf-8")
+    assert 'ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-category-only-v3"' in service
+    assert "self.build_id = ROOM_TAG_SERVICE_BUILD" in service
+    assert "def room_tag_build_id(" in controller
+    assert "Moteur étiquettes : {}" in window
