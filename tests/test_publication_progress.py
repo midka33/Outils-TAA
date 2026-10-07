@@ -120,16 +120,24 @@ def test_batch_global_plan_and_real_delivery(tmp_path, native_api, combined, wit
     assert len(document.calls) == 2  # un seul appel PDF par carnet, dans les deux modes
     assert all(call[0] == [3, 1, 2] for call in document.calls)
     assert all(call[2] == threading.get_ident() for call in document.calls)
-    assert len(dwg_calls) == (6 if dwg else 0)
+    assert len(dwg_calls) == (2 if dwg else 0)
     pdf_rows = [r for r in report['results'] if r['format'] == 'PDF']
     assert all(Path(row['path']).is_file() for row in pdf_rows)
     for value in targets:
+        pdf_directory = Path(
+            value.publication_settings.output_directory,
+            value.name,
+            'PDF',
+        )
         if combined:
-            assert Path(value.publication_settings.output_directory, value.name + '-A3.pdf').read_bytes() == bytes([3, 1, 2])
+            assert (pdf_directory / (
+                value.name + '-A3.pdf'
+            )).read_bytes() == bytes([3, 1, 2])
         else:
             for i in (3, 1, 2):
-                assert Path(value.publication_settings.output_directory, value.name,
-                            value.name + '-A' + str(i) + '.pdf').read_bytes() == bytes([i])
+                assert (pdf_directory / (
+                    value.name + '-A' + str(i) + '.pdf'
+                )).read_bytes() == bytes([i])
     assert Path(tmp_path / 'history.json').is_file()
     assert progress.state['current'] == progress.state['total']
     assert progress.state['percent'] == 100
@@ -368,7 +376,11 @@ def test_business_layers_have_no_ui_import_or_background_thread():
 def test_delivery_progress_completes_only_after_rollback(tmp_path, native_api):
     value = target(tmp_path, combined=False)
     value._publication_items = value.items
-    output = Path(value.publication_settings.output_directory, value.name)
+    output = Path(
+        value.publication_settings.output_directory,
+        value.name,
+        'PDF',
+    )
     output.mkdir(parents=True)
     existing = output / 'Plans-A3.pdf'
     existing.write_bytes(b'ancien PDF')
@@ -422,9 +434,9 @@ def test_dwg_only_waits_for_group_before_finishing(tmp_path):
     service.dwg_service = SimpleNamespace(export=lambda *a, **kw: snapshots.append(dict(progress.state)) or True)
     report = PublicationBatchService(service).publish([value], lambda t: t.publication_settings, progress=progress)
     progress.finish(report)
-    assert report['success'] and len(snapshots) == 3
-    assert all(s['phase'] == 'Export DWG' and s['percent'] < 100 for s in snapshots)
-    assert len({s['percent'] for s in snapshots}) == 1
+    assert report['success'] and len(snapshots) == 1
+    assert snapshots[0]['phase'] == 'Export DWG'
+    assert snapshots[0]['percent'] < 100
 
 
 def test_cleanup_error_preserves_original_exception(tmp_path, caplog):
