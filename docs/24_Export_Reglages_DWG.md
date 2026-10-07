@@ -1,144 +1,238 @@
-# Export — configurations DWG, vues et liens
+# Export — configurations DWG, vues, liens et stratégie automatique
 
-Statut : implémenté et testé hors Revit ; **recette Revit 2025.4 en attente**.
-Branche : `feature/export-dwg-settings`, issue de main v1.0.2 (`b2b6da4`).
-Aucune validation du rendu, des XRefs ou de l'ouverture native dans Revit n'est revendiquée.
+**Statut :** implémenté et testé hors Revit ; **recette Revit 2025.4 en attente**.  
+**Branche :** `feature/export-dwg-settings`.  
+Aucune validation du rendu WPF, des XRefs ou de l'ouverture native dans Revit n'est
+revendiquée avant la recette utilisateur.
 
-## Trois réglages distincts
+## 1. Choix réellement exposés à l'utilisateur
 
-| Réglage | Rôle | Valeur par défaut |
+Le bloc DWG ne présente plus de choix technique « Par feuille / Lot Revit ».
+
+Les choix utilisateur sont uniquement :
+
+| Réglage | Rôle | Défaut |
 |---|---|---|
-| Configuration DWG Revit | Base native : calques, couleurs, lignes, hachures, textes, unités, coordonnées, solides, version et autres propriétés | Vide : nouvelles options Revit |
-| Sortie : Par feuille / Lot Revit | Organisation des appels, noms/préfixes et destinations TAA | Par feuille |
-| Fusionner les vues et les liens dans le DWG | `DWGExportOptions.MergedViews`, indépendant du mode de sortie | Activé |
+| Publier DWG | Active la sortie DWG | Oui |
+| Configuration DWG Revit | Preset natif Revit : calques, lignes, hachures, unités, version, etc. | Réglages Revit par défaut |
+| Fusionner les vues et les liens dans le DWG | Pilote `DWGExportOptions.MergedViews` | Oui |
+| Forcer les couleurs vraies | Surcharge `Colors` avec `ExportColorMode.TrueColor` | Oui |
 
-`SEPARATE` reste un appel par feuille, avec son nom et le sous-dossier de carnet
-si demandé. `COMBINED`, désormais libellé **Lot Revit**, reste un appel avec tous
-les identifiants et le préfixe du carnet, dans le dossier parent. Ces valeurs
-persistées, les modèles de noms, les chemins, l'ordre et les périmètres ne changent pas.
-Le lot natif ne fusionne pas plusieurs feuilles indépendantes en un seul DWG.
+La stratégie d'appel à Revit est un détail d'implémentation et n'est plus présentée
+comme un réglage métier.
 
-## Analyse API et limites de vérification
+## 2. Stratégie DWG automatique
 
-L'explication Autodesk *MergedViews and Exporting to a Single DWG* précise le cas
-d'une feuille contenant plusieurs vues : `False` produit des DWG de vues référencés
-par le DWG de feuille ; `True` intègre les vues au DWG de feuille. Cette explication
-lève l'ambiguïté de l'ancien commentaire « fusion via XRefs » du service TAA.
-Le réglage est associé à l'option native des vues sur feuilles et liens ; les liens
-Revit imbriqués doivent être vérifiés par la recette sur les projets de l'agence.
+Le résultat métier attendu reste :
 
-Le guide API Autodesk **2025** confirme que `PostCommand` ne s'exécute qu'après
-le retour du contexte API. La référence publique Autodesk du membre
-`ExportOptionsExportSetupsDWGOrDXF` consultée est celle de **2026**, pas une preuve
-binaire de 2025.4. La référence API Autodesk spécifique 2025.4 n'était pas accessible
-pendant cette analyse. Le code vérifie donc réellement l'existence du membre dans
-l'API chargée, son identifiant et `CanPostCommand` avant fermeture, puis à nouveau
-avant publication de la commande. Le test Revit 2025.4 reste obligatoire.
+```text
+1 feuille Revit = 1 DWG
+```
 
-Sources primaires consultées :
+Le moteur choisit automatiquement :
 
-- [Autodesk : MergedViews et export d'une feuille](https://blog.autodesk.io/mergedviews-and-exporting-to-a-single-dwg/)
-- [Autodesk : option native vues/liens et MergedViews](https://blog.autodesk.io/api-access-to-export-views-on-sheets-and-links-as-external-references-settings-in-exporting-revit-fi/)
-- [Guide API Revit 2025 : Commands](https://help.autodesk.com/cloudhelp/2025/CHS/Revit-API/files/Revit_API_Developers_Guide/Advanced_Topics/Revit_API_Revit_API_Developers_Guide_Advanced_Topics_Commands_html.html)
-- [Référence Autodesk 2026 : PostableCommand](https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/f6ccdc1b-6ac3-9c49-d0bb-8a7d1877eab0.htm)
-- [Autodesk : images exportées comme ressources externes](https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/Is-it-possible-to-export-to-DWG-file-without-images-as-references-from-Revit.html)
-- [pyRevit : get_envvar / set_envvar](https://docs.pyrevitlabs.io/reference/pyrevit/script/)
+```text
+1 feuille
+→ 1 appel Revit simple
+→ 1 DWG
 
-Les images raster ne sont pas incorporées par cette case. D'autres ressources
-peuvent rester externes. Il n'existe donc aucune promesse « un seul fichier » ou
-« aucun XRef garanti ». Les tests Python vérifient les contrats et les valeurs
-transmises, pas le contenu d'un fichier produit par Revit.
+plusieurs feuilles
+→ 1 appel Revit avec toutes les feuilles
+→ Revit produit 1 DWG par feuille
+```
 
-## Audit des surcharges du preset
+Le lot natif sert à réduire le nombre d'appels à l'API. Il ne fusionne pas plusieurs
+feuilles en un seul DWG.
 
-La liste provient toujours de `DWGExportOptions.GetPredefinedSetupNames(document)`.
-Le preset sélectionné est chargé par `GetPredefinedOptions(document, setup_name)`.
-Un nom absent ou supprimé reste visible et mémorisé ; un export avec ce nom échoue
-explicitement, sans repli silencieux sur d'autres réglages.
+L'ordre des identifiants reste celui du périmètre métier transmis à
+`Document.Export`, dans une `List[ElementId]` .NET typée.
 
-| Propriété DWG | Surcharge TAA après chargement |
+### Compatibilité `dwg_mode`
+
+Le champ historique `dwg_mode` reste accepté dans `PublicationSettings.FIELDS`
+et peut encore être lu/réécrit dans les anciens JSON afin de ne pas casser les
+stockages existants.
+
+En revanche :
+
+- il n'apparaît plus dans l'interface ;
+- il ne fait plus partie des champs actifs de l'héritage UI ;
+- il n'est plus enregistré dans les nouveaux profils ;
+- il n'influence plus le nombre d'appels DWG, les chemins ou `MergedViews`.
+
+## 3. Fusion des vues et liens
+
+`MergedViews` est indépendant de la stratégie d'appel.
+
+```text
+Fusion activée
+→ MergedViews = True
+
+Fusion désactivée
+→ MergedViews = False
+```
+
+Le comportement visé est celui du réglage natif Revit relatif aux vues placées sur
+les feuilles et aux références externes.
+
+Les images raster et certaines ressources peuvent rester externes. Outils TAA ne
+promet donc jamais « aucun XRef » ni « un DWG totalement autonome ».
+
+## 4. Configuration DWG native Revit
+
+La liste est lue avec :
+
+```python
+DWGExportOptions.GetPredefinedSetupNames(document)
+```
+
+Le preset sélectionné est chargé avec :
+
+```python
+DWGExportOptions.GetPredefinedOptions(document, setup_name)
+```
+
+Après chargement, Outils TAA ne surcharge que :
+
+| Propriété | Condition |
 |---|---|
-| `MergedViews` | Toujours : valeur effective de `dwg_merge_views` |
-| `Colors` | Seulement si « Forcer les couleurs vraies » est coché : `ExportColorMode.TrueColor` |
-| Toute autre propriété et tables du preset | Conservées |
+| `MergedViews` | toujours, à partir de `dwg_merge_views` |
+| `Colors` | uniquement si « Forcer les couleurs vraies » est coché |
 
-Le comportement historique True Color reste activé par défaut, pour ne pas modifier
-les couleurs livrées. Décocher la case préserve exactement `Colors` du preset,
-y compris un choix de couleurs par vue. `TrueColor` n'est pas remplacé par
-`TrueColorPerView`. L'ancien `except: pass` a été supprimé : une surcharge de couleurs
-impossible devient une erreur DWG dans le rapport. Sans preset, Revit fournit ses
-options par défaut, auxquelles s'appliquent les mêmes surcharges explicites.
-Aucun preset natif enregistré n'est modifié par l'export ; seule l'instance des
-options retournée à TAA est adaptée.
+Toutes les autres propriétés du preset restent celles de Revit.
 
-## Héritage et compatibilité
+Un preset supprimé ou renommé n'est jamais remplacé silencieusement par un autre :
+l'export doit signaler explicitement l'erreur.
 
-`dwg_merge_views` est un champ de `PublicationSettings.FIELDS` :
-`None` = hériter, `True` = fusion, `False` = références externes.
-Le résolveur existant traite défaut → profil → dossiers ancêtres → carnet.
-Les profils intégrés et nouveaux profils appliquent True par défaut ; un profil
-personnalisé peut enregistrer False. Dans l'UI actuelle, appliquer un profil copie
-ses valeurs dans le carnet sélectionné, comme pour les autres options (pas de liaison
-permanente au profil).
+## 5. Accès aux réglages DWG natifs
 
-La migration est additive, à la lecture : un ancien JSON sans ce champ donne
-`None` dans le dossier/carnet/profil lu, puis True au niveau du défaut résolu.
-Aucune réécriture n'a lieu à l'ouverture et aucune surcharge héritée n'est figée.
-Les autres champs restent inchangés ; le schéma des carnets reste 6 et celui des
-profils 1, compatibles avec un champ nullable supplémentaire. Enregistrer un carnet
-sérialise ce champ comme les autres, y compris sa valeur `null` d'héritage.
+Le bouton engrenage ouvre la commande native Revit de configuration DWG/DXF.
 
-**Changement volontaire pour les anciens exports séparés :** auparavant, le mode
-séparé imposait `MergedViews=False`. Sans nouveau champ, il résout maintenant True,
-conformément au défaut demandé. Décocher la case rétablit les références externes
-sans modifier noms, destinations ou mode de sortie.
+Séquence retenue :
 
-## Fenêtre native et retour
+1. vérifier que la commande est disponible et postable ;
+2. sauvegarder l'état temporaire utile d'Export ;
+3. fermer la fenêtre WPF modale ;
+4. rendre la main à Revit ;
+5. poster la commande native ;
+6. après fermeture des réglages Revit, l'utilisateur rouvre Export ;
+7. les presets sont relus et l'état temporaire est restauré.
 
-1. Le bouton engrenage vérifie le membre API, `LookupPostableCommandId` et
-   `CanPostCommand`. Une incompatibilité laisse Export ouvert avec un diagnostic.
-2. Il sauvegarde l'état temporaire : carnets non persistants, ordre de leurs feuilles,
-   réglages, sélection multiple, élément actif et branches dépliées. Si cette
-   sauvegarde échoue, Export reste ouvert et l'erreur est affichée/journalisée.
-3. Il ferme réellement la fenêtre Export (`Close`). Le smartbutton récupère la main
-   **après** `ShowDialog`, appelle `UIApplication.PostCommand`, puis termine.
-4. Revit peut alors ouvrir sa fenêtre native. Aucun second dialogue Export n'est
-   ouvert pendant cette commande ; aucun timer, abonnement Idling ou remplacement
-   `AddInCommandBinding.Executed` n'est utilisé.
-5. Fermer les réglages Revit, puis **rouvrir Export avec le bouton du ruban**.
-   Les configurations sont relues automatiquement et l'état temporaire est restauré.
-   Le bouton **Actualiser** permet aussi une relecture explicite de la liste.
+Cette approche évite deux dialogues modaux concurrents et ne repose ni sur un timer,
+ni sur Idling, ni sur un thread de fond.
 
-Le cache est un JSON temporaire, avec un simple chemin dans les envvars pyRevit.
-Sa clé associe le stockage du projet, le processus Revit et le document ouvert.
-Aucun objet Revit/WPF n'est conservé entre exécutions. Le fichier est supprimé après
-restauration réussie. Ce cache sert uniquement à l'aller-retour DWG ; les carnets
-persistants continuent d'utiliser le dépôt normal. Un arrêt de Revit avant le retour
-peut laisser un fichier temporaire orphelin ; il n'est pas restauré dans une autre
-session. Les carnets temporaires ne deviennent pas des carnets permanents.
+Le bouton **Actualiser** relit également les presets sans fermer Export.
 
-`CanPostCommand` vérifie la possibilité de poster, pas la disponibilité future de
-la commande. Une exception immédiate est affichée/journalisée. Si Revit refuse
-ultérieurement l'exécution, il peut ne fournir aucun retour API : rouvrir Export
-récupère tout de même la sélection et permet de réessayer. La réouverture manuelle
-évite de présumer la fin du dialogue natif par un événement non fiable.
+## 6. Organisation des dossiers
 
-## Workflow réellement actif et rapport
+La case est désormais libellée :
 
-`Export.smartbutton/script.py` installe `_install_stage07_hooks` : publication
-simple/multiple via `_publish_targets_stage07`, dossier via
-`_preview_then_publish_folder_stage07` et `PublicationBatchService`.
-Les hooks actifs, l'intégration de secours et `CarnetController` transmettent tous
-`dwg_merge_views` jusqu'à `PublicationService` puis `DwgExportService.export`.
-`Document.Export` reçoit toujours une `List[ElementId]` .NET ordonnée.
+> **Créer un dossier au nom du carnet**
 
-L'aperçu indique la configuration et l'état des références. Un lot de plusieurs feuilles
-est annoncé comme un **préfixe** dont Revit détermine les noms finaux. Le rapport
-conserve sa structure ; sa ligne de lot de plusieurs feuilles présente le répertoire réel
-au lieu d'un chemin DWG supposé. Aucun faux fichier n'est ajouté à `files` ou à
-l'historique pour ce lot. Les annexes ne sont pas inventoriées : un avertissement
-précise qu'elles peuvent subsister, sans affirmer leur présence effective.
-Les vérifications de collisions ne peuvent pas couvrir les suffixes natifs et annexes.
+Lorsqu'elle est cochée :
 
-Les appels PDF, leur moteur, leur nommage et le plan de progression 0–100 % ne sont
-pas modifiés. Recette détaillée : [25_Export_Recette_DWG.md](25_Export_Recette_DWG.md).
+```text
+Destination/
+└── Nom du carnet/
+    ├── PDF/
+    │   └── fichiers PDF
+    └── DWG/
+        ├── fichiers DWG
+        └── PNG/JPG/autres annexes éventuelles
+```
+
+Ce comportement est indépendant :
+
+- du PDF combiné ou séparé ;
+- du nombre de feuilles DWG ;
+- de la stratégie d'appel Revit.
+
+Lorsqu'elle est décochée, les fichiers restent directement dans la destination issue
+de l'arborescence de publication.
+
+`publication_paths.py` est la source commune à l'aperçu et à l'exécution afin que
+les chemins affichés soient les chemins réellement utilisés.
+
+## 7. Aperçu et rapport
+
+### Une feuille DWG
+
+L'aperçu peut connaître le chemin exact du DWG et l'affiche.
+
+### Plusieurs feuilles DWG
+
+L'aperçu indique :
+
+- stratégie : **Automatique** ;
+- nombre de feuilles / DWG attendus ;
+- dossier DWG cible.
+
+Les noms finaux étant déterminés par Revit pour le lot, Outils TAA ne fabrique pas
+de faux chemins individuels.
+
+Une ligne de lot représente un **répertoire**, pas un fichier. Elle est donc exclue
+du contrôle de collision fichier-à-fichier entre carnets. Les collisions réelles
+de fichiers dont le nom est connu continuent d'être contrôlées.
+
+## 8. Interface compacte
+
+La suppression de « Par feuille / Lot Revit » réduit la hauteur du panneau.
+
+Contrat UI :
+
+- fenêtre cible : 1320 × 760 unités WPF ;
+- Segoe UI 13 px conservé ;
+- contrôles courants de 28–32 px ;
+- marges verticales réduites avant toute réduction de typographie ;
+- footer Résumé / Aperçu / Publier hors du ScrollViewer ;
+- ScrollViewer conservé comme sécurité uniquement.
+
+Sur un écran **1920 × 1080**, à 100 % puis 125 % de mise à l'échelle Windows, les
+réglages courants doivent être accessibles sans défilement vertical obligatoire.
+Ce point reste à vérifier réellement dans Revit.
+
+## 9. Héritage et migration
+
+`dwg_merge_views` reste nullable et héritable :
+
+- `None` → hériter ;
+- `True` → fusion ;
+- `False` → références externes lorsque Revit le permet.
+
+Un ancien JSON sans `dwg_merge_views` conserve `None` au niveau local puis résout
+vers le défaut `True`, sans réécriture automatique du fichier à l'ouverture.
+
+L'ancien `dwg_mode` peut rester présent dans le stockage, mais il est ignoré pour
+le comportement actuel.
+
+## 10. Progression
+
+La progression 0–100 % de la v1.0.2 reste fondée sur des opérations réelles.
+
+Un lot DWG de plusieurs feuilles correspond à une opération Revit réelle. Le plugin
+ne simule pas une progression feuille par feuille pendant l'appel natif bloquant.
+
+## 11. Limites à valider dans Revit 2025.4
+
+Les tests Python valident le contrat logiciel mais pas :
+
+- le contenu réel des DWG ;
+- le comportement exact des XRefs ;
+- les ressources raster ;
+- le rendu WPF à 100 % / 125 % ;
+- la commande native de configuration dans Revit 2025.4.
+
+La recette de référence est :
+[`docs/25_Export_Recette_DWG.md`](25_Export_Recette_DWG.md).
+
+## Sources techniques déjà utilisées pour cette évolution
+
+- Autodesk : *MergedViews and Exporting to a Single DWG* ;
+- Autodesk : réglage d'export des vues/liens comme références externes ;
+- Guide API Revit 2025 : commandes postables ;
+- référence `PostableCommand` consultée par l'évolution initiale ;
+- documentation Autodesk sur les images raster exportées comme ressources externes.
+
+La validation de ces comportements reste complétée par la recette réelle Revit
+2025.4 : aucune documentation ne remplace le test du build réellement utilisé par
+l'agence.
