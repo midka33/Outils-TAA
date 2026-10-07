@@ -3448,3 +3448,60 @@ Build de test : `stage06d-dimensions-room-separators-v4`.
 5. déplacer une ligne de séparation et contrôler l'associativité de la cote.
 
 **Statut : À retester dans Revit 2025.4.**
+
+
+## Correctif 06E — substitution séparateur par bord de sol
+
+Retour Revit sur un logement réel : les cotes de terrasse deviennent
+invisibles lorsque la catégorie des lignes de séparation de pièces est
+masquée dans la vue.
+
+Le moteur 06E conserve la ligne de séparation comme géométrie de repérage,
+mais cherche d'abord une arête de sol réellement superposée à cette limite.
+
+### Hiérarchie de référence
+
+```text
+Mur
+→ face finie du mur
+
+Séparation de pièce
+→ rechercher une arête de sol parallèle, proche et suffisamment superposée
+→ si trouvée : utiliser Edge.Reference du sol
+→ sinon : conserver GeometryCurve.Reference de la séparation en dernier recours
+```
+
+### Contrôles de fiabilité
+
+Le bord de sol candidat doit respecter :
+
+- tolérance angulaire : 3° ;
+- distance XY maximale : 20 mm ;
+- recouvrement minimal avec la limite de pièce : 60 % ;
+- sol porté par le même niveau en priorité ;
+- recherche de secours seulement sur un niveau voisin à moins de 500 mm ;
+- arête projetée minimale : 100 mm.
+
+La géométrie des sols est rechargée avec `Options.ComputeReferences = True`
+afin d'obtenir de vraies références Revit associatives.
+
+Un cache par niveau évite de recalculer toutes les arêtes de sol pour chaque
+pièce d'un logement.
+
+Si aucune arête fiable n'est trouvée, le moteur conserve la référence de la
+séparation et ajoute un avertissement indiquant que la cote peut disparaître
+si cette catégorie est masquée dans la vue.
+
+Build de test : `stage06e-dimensions-floor-edge-substitution-v5`.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre un logement avec terrasse / balcon délimité par séparateurs ;
+2. laisser les lignes de séparation invisibles dans la vue ;
+3. vérifier que les cotes restent visibles quand une arête de sol coïncide ;
+4. vérifier que la cote référence bien le bord du sol et non le séparateur ;
+5. déplacer le bord du sol et contrôler l'associativité ;
+6. vérifier qu'une séparation sans sol correspondant produit un avertissement ;
+7. vérifier qu'aucune arête de sol proche mais non superposée n'est choisie.
+
+**Statut : À retester dans Revit 2025.4.**
