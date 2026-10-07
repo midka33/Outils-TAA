@@ -144,11 +144,14 @@ Publier deux feuilles en DWG.
 
 ### Attendu
 
-- deux DWG de feuille sont produits par Revit ;
-- le plugin peut les envoyer dans un seul appel natif ;
-- aucune attente d'un DWG unique ne doit être créée par l'interface ;
-- l'aperçu indique le nombre de DWG attendus et le dossier cible ;
-- le rapport ne fabrique pas un faux chemin de fichier unique.
+- deux DWG de feuille sont produits par Revit dans un lot natif ;
+- Outils TAA les rapproche ensuite des deux feuilles ;
+- chaque DWG principal est renommé selon le modèle TAA ;
+- le mot natif « Feuille » ne doit pas apparaître dans les noms finaux sauf s'il
+  fait réellement partie du modèle TAA ;
+- l'aperçu affiche les deux noms finaux avant publication ;
+- le rapport affiche les deux chemins finaux réellement livrés ;
+- aucune attente d'un DWG unique ne doit être créée par l'interface.
 
 ## TEST-DWG-UX-07 — Fusion des vues/liens
 
@@ -201,10 +204,12 @@ Pour un DWG d'une seule feuille, le chemin exact doit pointer vers :
 NomCarnet/DWG/nom.dwg
 ```
 
-Pour plusieurs feuilles DWG, l'aperçu doit afficher le dossier `NomCarnet/DWG`
-et le nombre de DWG attendus sans inventer les noms finaux natifs.
+Pour plusieurs feuilles DWG, l'aperçu doit afficher **une ligne par mise en page**
+avec le nom final TAA attendu dans `NomCarnet/DWG`.
 
-Après publication, comparer les chemins avec le disque.
+Après publication, comparer ligne par ligne les chemins de l'aperçu, du rapport et
+du disque. Aucun suffixe de nommage natif Revit ne doit subsister sur les DWG
+principaux.
 
 ## TEST-DWG-UX-10 — Périmètres multiples
 
@@ -229,7 +234,10 @@ Publier PDF + DWG sur plusieurs feuilles.
 ### Attendu
 
 - progression monotone ;
-- pas de progression feuille par feuille simulée pendant un appel natif DWG ;
+- pendant l'appel natif, la barre avance uniquement si Revit émet réellement
+  `ProgressChanged` ; sinon elle peut rester stable ;
+- après l'appel, la phase Livraison DWG affiche exactement `X / Y mises en page` ;
+- le libellé de la mise en page courante change à chaque DWG réellement livré ;
 - aucun 100 % avant la fin des opérations prévues ;
 - la fenêtre se ferme avant le rapport final.
 
@@ -254,6 +262,37 @@ puis refaire avec :
 - les deux anciennes valeurs produisent la même stratégie actuelle ;
 - `dwg_merge_views`, destination, profil, carnet et héritage restent préservés ;
 - l'ouverture seule ne détruit pas l'ancien stockage.
+
+## TEST-DWG-UX-12B — Nommage réel observé dans le projet agence
+
+Utiliser le modèle de nommage réellement employé, par exemple :
+
+```text
+ALTA VERDE_TR1_ARC_TAA_{numero}_{nom}
+```
+
+avec plusieurs feuilles.
+
+### Attendu
+
+Pour les DWG :
+
+```text
+ALTA VERDE_TR1_ARC_TAA_A1101_<nom feuille>.dwg
+ALTA VERDE_TR1_ARC_TAA_A1102_<nom feuille>.dwg
+```
+
+et **pas** :
+
+```text
+... - Feuille - A1101 - ...
+```
+
+Pour le PDF combiné, le nom doit être au niveau carnet. Les variables propres aux
+feuilles ne doivent pas reprendre automatiquement A1101 ou la première feuille.
+
+Consigner le nom exact obtenu afin de valider la règle de remplacement des variables
+de feuille par le carnet.
 
 ## TEST-DWG-SETUP-13 — Configuration native Revit
 
