@@ -806,9 +806,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Vue logement : {}\n"
                 "Type de cote : {}\n"
                 "Pièces : {}\n\n"
-                "Prototype 06A : seules les limites droites portées par des murs "
-                "et associées à des faces finies fiables sont utilisées. "
-                "Si une pièce ne fournit pas deux axes fiables, l'opération est annulée."
+                "Prototype 06B : les paires de faces parallèles sont privilégiées. "
+                "Quand une deuxième paire manque, le moteur tente une longueur "
+                "de mur dominante. Une pièce atypique ne bloque plus les autres."
             ).format(
                 housing.key,
                 view.name,
@@ -830,10 +830,15 @@ class PlansVenteWindow(forms.WPFWindow):
                 dimension_type_unique_id=dimension_type.unique_id,
             )
 
-            status = "{} cote(s) créée(s) dans {} pour {} pièce(s).".format(
+            status = (
+                "{} cote(s) créée(s) dans {} — {} pièce(s) complètes, "
+                "{} partielle(s), {} ignorée(s)."
+            ).format(
                 result.created_count,
                 result.view_name,
-                result.room_count,
+                result.full_room_count,
+                result.partial_room_count,
+                result.skipped_room_count,
             )
             if result.warning_count:
                 status += " {} avertissement(s).".format(result.warning_count)
@@ -844,14 +849,20 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Logement : {}\n"
                 "Vue : {}\n"
                 "Type : {}\n"
-                "Pièces : {}\n"
-                "Cotes créées : {}"
+                "Pièces analysées : {}\n"
+                "Cotes créées : {}\n"
+                "Pièces avec 2 cotes : {}\n"
+                "Pièces avec 1 cote : {}\n"
+                "Pièces sans cote : {}"
             ).format(
                 result.housing_key,
                 result.view_name,
                 result.dimension_type_name,
                 result.room_count,
                 result.created_count,
+                result.full_room_count,
+                result.partial_room_count,
+                result.skipped_room_count,
             )
             if result.warnings:
                 message += "\n\nAvertissements :\n- " + "\n- ".join(result.warnings)
@@ -940,8 +951,9 @@ class PlansVenteWindow(forms.WPFWindow):
             ).format(self._dimension_type_error)
         elif self._dimension_view_choices:
             self.DimensionInfoText.Text = (
-                "Prototype 06A : deux dimensions principales par pièce, "
-                "sur faces finies de murs. {} type(s) disponible(s)."
+                "Prototype 06B : faces opposées en priorité, puis longueur "
+                "dominante en secours pour les pièces non orthogonales. "
+                "{} type(s) disponible(s)."
             ).format(len(self._dimension_type_labels))
         else:
             self.DimensionInfoText.Text = (
