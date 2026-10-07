@@ -3410,3 +3410,41 @@ Build de test : `stage06c-dimensions-compute-references-v3`.
 5. vérifier que les cotes restent associatives après déplacement d'un mur.
 
 **Statut : À retester dans Revit 2025.4.**
+
+
+## Correctif 06D — lignes de séparation de pièces
+
+Un essai sur un logement réel avec pièce extérieure a montré un défaut de
+positionnement des cotations au droit des lignes de séparation de pièces.
+
+Cause : le moteur 06C ne conservait comme limites cotables que les segments
+portés par des murs. Les `BoundarySegment` produits par les lignes de
+séparation étaient donc ignorés, ce qui faussait la géométrie disponible
+pour rechercher la largeur / longueur principale de la pièce.
+
+Le moteur 06D traite désormais les éléments de catégorie
+`OST_RoomSeparationLines` comme de vraies limites de pièce pour la recherche
+des dimensions principales.
+
+Pour ces séparations :
+
+- la géométrie du segment de pièce est conservée ;
+- `GeometryCurve.Reference` est utilisée comme référence de cote ;
+- la séparation peut former une paire parallèle avec un mur ou une autre
+  séparation ;
+- elle n'est pas utilisée comme longueur de secours, car la courbe Revit
+  peut dépasser la portion réellement utilisée par la pièce.
+
+Build de test : `stage06d-dimensions-room-separators-v4`.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre le logement réel comportant une pièce extérieure ;
+2. vérifier que les cotes se placent désormais sur les vraies limites de la
+   pièce, y compris du côté des lignes de séparation ;
+3. vérifier qu'une séparation parallèle à un mur opposé produit la largeur
+   attendue ;
+4. vérifier que les pièces intérieures déjà validées ne régressent pas ;
+5. déplacer une ligne de séparation et contrôler l'associativité de la cote.
+
+**Statut : À retester dans Revit 2025.4.**
