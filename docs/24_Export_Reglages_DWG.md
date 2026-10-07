@@ -37,12 +37,24 @@ Le moteur choisit automatiquement :
 → 1 DWG
 
 plusieurs feuilles
-→ 1 appel Revit avec toutes les feuilles
-→ Revit produit 1 DWG par feuille
+→ 1 appel Revit avec toutes les feuilles dans un dossier temporaire
+→ Revit produit 1 DWG par feuille avec son nom natif
+→ Outils TAA associe chaque DWG à sa feuille
+→ renommage selon le modèle TAA
+→ livraison dans NomCarnet/DWG/
 ```
 
 Le lot natif sert à réduire le nombre d'appels à l'API. Il ne fusionne pas plusieurs
 feuilles en un seul DWG.
+
+Les noms natifs produits par Revit ne sont plus considérés comme les noms finaux.
+Le rapprochement se fait de manière conservatrice à partir du numéro de feuille,
+avec le nom de feuille comme désambiguïsation. Le code ne dépend pas du mot
+« Feuille » ajouté par certaines localisations/version de Revit.
+
+Si une association est ambiguë ou impossible, la livraison échoue explicitement :
+Outils TAA ne renomme jamais un DWG au hasard. Les fichiers temporaires sont
+conservés pour diagnostic.
 
 L'ordre des identifiants reste celui du périmètre métier transmis à
 `Document.Export`, dans une `List[ElementId]` .NET typée.
@@ -157,22 +169,29 @@ les chemins affichés soient les chemins réellement utilisés.
 
 ### Une feuille DWG
 
-L'aperçu peut connaître le chemin exact du DWG et l'affiche.
+L'aperçu connaît le nom final TAA et l'affiche.
 
 ### Plusieurs feuilles DWG
 
-L'aperçu indique :
+Le plugin connaît désormais les **noms finaux attendus** avant l'appel Revit, car
+les fichiers natifs sont renommés après export.
+
+L'aperçu affiche donc une ligne par feuille avec :
 
 - stratégie : **Automatique** ;
-- nombre de feuilles / DWG attendus ;
-- dossier DWG cible.
+- numéro et nom de la feuille ;
+- nom DWG final selon le modèle TAA ;
+- chemin final dans `NomCarnet/DWG/`.
 
-Les noms finaux étant déterminés par Revit pour le lot, Outils TAA ne fabrique pas
-de faux chemins individuels.
+Les collisions de noms TAA sont ainsi détectables avant publication.
 
-Une ligne de lot représente un **répertoire**, pas un fichier. Elle est donc exclue
-du contrôle de collision fichier-à-fichier entre carnets. Les collisions réelles
-de fichiers dont le nom est connu continuent d'être contrôlées.
+Le rapport final contient également une ligne par DWG principal livré, avec son
+chemin réel. Les PNG/JPG/XRefs ou autres fichiers auxiliaires ne sont pas inventés
+dans l'aperçu ; ils sont déplacés dans le même dossier DWG lorsqu'ils sont produits
+par Revit.
+
+Le préfixe natif Revit et ses libellés éventuels comme « Feuille » ne doivent jamais
+apparaître dans le nom final d'un DWG principal.
 
 ## 8. Interface compacte
 
@@ -207,10 +226,24 @@ le comportement actuel.
 
 ## 10. Progression
 
-La progression 0–100 % de la v1.0.2 reste fondée sur des opérations réelles.
+La progression 0–100 % reste fondée sur des opérations réelles.
 
-Un lot DWG de plusieurs feuilles correspond à une opération Revit réelle. Le plugin
-ne simule pas une progression feuille par feuille pendant l'appel natif bloquant.
+Pendant l'appel natif DWG, `RevitNativeProgressBridge` relaie temporairement
+`Application.ProgressChanged` lorsque Revit fournit des données utilisables.
+Aucune progression n'est inventée si Revit reste silencieux.
+
+Après le retour de `Document.Export`, Outils TAA contrôle le rapprochement,
+renommage et déplacement. Cette phase affiche donc une progression exacte :
+
+```text
+A1101 — Bât A - Niveau 1
+1 / 5 mises en page
+
+A1102 — Bât A - Niveau 2
+2 / 5 mises en page
+```
+
+Le compteur avance uniquement après livraison réelle du DWG correspondant.
 
 ## 11. Limites à valider dans Revit 2025.4
 
