@@ -140,7 +140,7 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
     run = method('Export.smartbutton/script.py', None, '_publish_targets_stage07', ns)
     preview = build(window, targets)
     assert not preview['errors']
-    assert preview['count'] == (4 if combined else 5)
+    assert preview['count'] == (5 if combined else 6)
     run(window, targets)
     assert previews == published
     assert [len(t[1]) for t in published] == [2, 1]
