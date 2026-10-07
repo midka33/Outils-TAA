@@ -12,11 +12,11 @@ class PublicationProfileService(object):
     SCHEMA_VERSION = 1
 
     DEFAULT_PROFILES = {
-        "PDF + DWG": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
-        "PDF seul": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": False, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
-        "PDF séparés": {"pdf_enabled": True, "pdf_mode": "SEPARATE", "dwg_enabled": False, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
-        "DWG seul": {"pdf_enabled": False, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True},
-        "PDF + DWG combinés": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "COMBINED", "dwg_setup_name": None, "dwg_true_color": True}
+        "PDF + DWG": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True},
+        "PDF seul": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": False, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True},
+        "PDF séparés": {"pdf_enabled": True, "pdf_mode": "SEPARATE", "dwg_enabled": False, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True},
+        "DWG seul": {"pdf_enabled": False, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "SEPARATE", "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True},
+        "PDF + DWG combinés": {"pdf_enabled": True, "pdf_mode": "COMBINED", "dwg_enabled": True, "dwg_mode": "COMBINED", "dwg_setup_name": None, "dwg_true_color": True, "dwg_merge_views": True}
     }
 
     def __init__(self, storage_path=None):
@@ -76,7 +76,8 @@ class PublicationProfileService(object):
             "dwg_enabled": True if settings.dwg_enabled is None else bool(settings.dwg_enabled),
             "dwg_mode": settings.dwg_mode or "SEPARATE",
             "dwg_setup_name": settings.dwg_setup_name,
-            "dwg_true_color": True if settings.dwg_true_color is None else bool(settings.dwg_true_color)
+            "dwg_true_color": True if settings.dwg_true_color is None else bool(settings.dwg_true_color),
+            "dwg_merge_views": True if settings.dwg_merge_views is None else bool(settings.dwg_merge_views)
         }
 
         for field, default in pdf_defaults().items():

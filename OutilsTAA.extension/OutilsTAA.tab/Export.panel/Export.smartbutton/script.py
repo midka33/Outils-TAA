@@ -230,6 +230,7 @@ def _publish_targets_stage07(window, targets):
                     pdf_combined=settings.pdf_mode == "COMBINED",
                     dwg_combined=settings.dwg_mode == "COMBINED",
                     dwg_setup_name=settings.dwg_setup_name,
+                    dwg_merge_views=settings.dwg_merge_views,
                     dwg_true_color=settings.dwg_true_color, items=candidates,
                     progress=target_progress)
             except Exception as exc:
@@ -307,7 +308,26 @@ def main():
     controller = CarnetController(export_service, carnet_service, parameter_service,
                                    repository, publication_service)
     window = ExportWindow(controller, repository)
+    from pyrevit import script, forms
+    from dwg_ui_session import DwgUiSession, restore
+    from dwg_setup_command import post_settings
+    window._ui_application = __revit__
+    window._dwg_ui_session = DwgUiSession(repository, revit.doc, script)
+    try:
+        restore(window, window._dwg_ui_session.load())
+        window._dwg_ui_session.clear()
+    except Exception as exc:
+        script.get_logger().exception("Restauration du retour DWG impossible")
+        forms.alert("Impossible de restaurer la sélection après les réglages DWG :\n{}".format(exc), title="Export DWG")
     window.ShowDialog()
+    if getattr(window, "_open_dwg_settings", False):
+        try:
+            post_settings(__revit__)
+        except Exception as exc:
+            script.get_logger().exception("Commande native DWG refusée")
+            forms.alert("Revit n'a pas pu ouvrir les réglages DWG :\n{}\nRouvrez Export pour retrouver votre sélection."
+                        .format(exc), title="Export DWG")
+    # Rendre la main à Revit pour exécuter la commande postée.
 
 
 if __name__ == "__main__":

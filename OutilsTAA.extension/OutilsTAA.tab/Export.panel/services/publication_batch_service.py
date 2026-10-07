@@ -43,6 +43,7 @@ class PublicationBatchService(object):
                     pdf_combined=settings.pdf_mode == "COMBINED",
                     dwg_combined=settings.dwg_mode == "COMBINED",
                     dwg_setup_name=settings.dwg_setup_name,
+                    dwg_merge_views=settings.dwg_merge_views,
                     dwg_true_color=settings.dwg_true_color,
                     items=items, **progress_kwargs(target_progress))
             except Exception as exc:

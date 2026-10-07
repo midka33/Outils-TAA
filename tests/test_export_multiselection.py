@@ -104,6 +104,7 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
         parent.publication_settings.output_directory = str(tmp_path / str(index))
         parent.publication_settings.pdf_mode = 'COMBINED' if combined else 'SEPARATE'
         parent.publication_settings.dwg_mode = 'COMBINED' if combined else 'SEPARATE'
+        parent.publication_settings.dwg_merge_views = index == 1
     tags = [sheet(first, 0), sheet(first, 2), sheet(second, 1)]
     targets = publication_targets(tags, lambda f: [])
     service = SimpleNamespace(sort_items=lambda target: target.items,
@@ -121,6 +122,7 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
     def publish(target, directory, **kwargs):
         published.append((target.id, kwargs['items'], directory))
         assert kwargs['pdf_combined'] is combined and kwargs['dwg_combined'] is combined
+        assert kwargs['dwg_merge_views'] is (target.id == second.id)
         return {'success': True, 'results': []}
     merge = method('services/publication_preview_integration.py', None, '_merge_previews', {'os': __import__('os')})
     flow = SimpleNamespace(PublicationProgressSession=lambda *args: MagicMock(), PublicationPreviewService=Preview, _merge_previews=merge,

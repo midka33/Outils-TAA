@@ -6,7 +6,21 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Added
+- Export DWG : case « Fusionner les vues et les liens dans le DWG », indépendante
+  du mode de sortie, persistante et héritable (`dwg_merge_views`, True par défaut).
+- Export DWG : engrenage vers les configurations natives Revit après fermeture
+  d'Export ; réouverture manuelle avec restauration des carnets temporaires et de
+  la sélection, relecture automatique des presets et bouton Actualiser.
+- Analyse DWG et recette TEST-DWG-SETUP-01 à 12. **Validation Revit 2025.4 attendue.**
+
+
 ### Changed
+- Export DWG : ancien « Combiné » renommé « Lot Revit », noms et destinations
+  conservés ; rapport multif feuille sur le répertoire au lieu d'un faux fichier
+  unique. Preset natif conservé sauf MergedViews et True Color explicitement demandé.
+  Les anciens réglages sans le champ fusion héritent désormais de True, y compris
+  en sortie séparée. Une surcharge True Color impossible remonte une erreur.
 - Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
 - Plans de vente : le paramètre partagé `N° Appartement` est désormais présélectionné comme identifiant logement lorsqu'il est disponible ; 04A Nomenclatures validé dans Revit 2025.4.
 - Plans de vente : 04B utilise désormais une seule zone remplie globale issue du contour logement de l'Étape 03 à marge nulle, afin de surligner l'emprise continue et de passer sur les cloisons intérieures.
@@ -69,7 +83,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Persistance JSON des carnets manuels.
 - Tests unitaires du moteur de création et de persistance des carnets.
 - Service PDF natif Revit avec publication combinée ou séparée.
-- Service DWG natif Revit avec publication séparée ou combinée via `MergedViews`.
+- Service DWG natif Revit avec publication séparée ou combinée (couplage historique à `MergedViews`, corrigé dans Unreleased).
 - Orchestrateur de publication avec validation des feuilles, contrôle `CanBePrinted` et rapport synthétique.
 - Fenêtre WPF dédiée au rapport de publication avec une ligne par fichier produit.
 - Détection des fichiers PDF/DWG produits pour alimenter le rapport de publication.

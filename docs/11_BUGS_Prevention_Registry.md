@@ -528,6 +528,32 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** `tests/test_export_multiselection.py` exécute les handlers et les hooks Stage 07 ; sous-ensembles, ordre, carnets multiples, paramètres/destinations indépendants, collisions, annulation, Ctrl/Maj et sélection vide. Les anciens tests pointant encore sur `Export.pushbutton/script.py` sont réalignés sur le smartbutton actuel. Fonctionnement de la sélection multiple confirmé par l’utilisateur dans Revit le 2026-10-05 après essai de la branche de la PR #11. Ce retour ne constitue pas une validation détaillée de chaque scénario MS-01 à MS-10.
 
+### BUG-EXPORT-041 — Mode de sortie confondu avec la fusion des vues DWG
+
+**Symptôme :** les exports Par feuille imposent des références externes, tandis que
+le mode Combiné laisse croire qu'un carnet entier produit un DWG unique.
+
+**Cause racine :** `PublicationService` déduit `MergedViews` de `dwg_combined` et
+`DwgExportService` décrit à tort une fusion de feuilles. Le rapport devine le chemin
+unique d'un lot multif feuille sans connaître les suffixes natifs.
+
+**Correction :** réglage `dwg_merge_views` explicite, nullable et héritable, défaut
+True ; propagation par tous les hooks réellement actifs. Preset natif conservé,
+seules deux surcharges explicites autorisées. Libellé Lot Revit et répertoire dans
+le rapport multif feuille. Commande de configuration postée après fermeture modale,
+avec cache temporaire de la sélection et réouverture manuelle.
+
+**Règle préventive :** distinguer organisation de la publication, références d'une
+feuille et options du preset. Ne jamais dériver `MergedViews` de `dwg_mode`, promettre
+un DWG autonome, figer les réglages hérités au rafraîchissement ou poster une commande
+sans rendre la main à Revit. La disponibilité future n'est pas garantie par
+`CanPostCommand` ; journaliser/afficher les erreurs immédiates.
+
+**Anti-régression :** `tests/test_export_dwg_settings.py`, tests de sélection multiple
+sur le smartbutton actif et suite complète Export/PDF/progression. Recette
+TEST-DWG-SETUP-01 à 12 dans `docs/25_Export_Recette_DWG.md` : **en attente de validation
+utilisateur dans Revit 2025.4**, notamment vues, liens, raster et fenêtre native.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
@@ -1072,6 +1098,8 @@ BUG-EXPORT-033
 BUG-EXPORT-037
 BUG-EXPORT-038
 BUG-EXPORT-039
+BUG-EXPORT-040
+BUG-EXPORT-041
 BUG-EXPORT-036
 BUG-EXPORT-035
 BUG-EXPORT-034

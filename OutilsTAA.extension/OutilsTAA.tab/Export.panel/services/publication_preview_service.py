@@ -89,7 +89,7 @@ class PublicationPreviewService(object):
                 getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
                 item.sheet_name if item is not None else "Publication du carnet",
-                fmt, "Combiné" if mode == "COMBINED" else "Séparé", filename, path, status))
+                fmt, ("Lot Revit" if fmt == "DWG" else "Combiné") if mode == "COMBINED" else "Séparé", filename, path, status))
 
         has_candidates = bool(candidates)
         if settings.pdf_enabled and has_candidates:
@@ -106,6 +106,12 @@ class PublicationPreviewService(object):
                     add_row("PDF", "SEPARATE", item, filename, unknown)
 
         if settings.dwg_enabled and has_candidates:
+            warnings.append("DWG — configuration : {} ; vues/liens : {}. Des ressources annexes peuvent subsister."
+                            .format(settings.dwg_setup_name or "réglages Revit par défaut",
+                                    "fusionnés" if settings.dwg_merge_views is not False else "références externes"))
+            if settings.dwg_mode == "COMBINED" and len(candidates) > 1:
+                warnings.append("DWG — lot Revit : le nom affiché est un préfixe ; plusieurs DWG seront produits. "
+                                "Les noms finaux et leurs collisions ne peuvent pas être vérifiés ici.")
             if settings.dwg_mode == "COMBINED":
                 filename, unknown = self.filename_service.filename(
                     settings.filename_template or "{carnet}", publication_set,

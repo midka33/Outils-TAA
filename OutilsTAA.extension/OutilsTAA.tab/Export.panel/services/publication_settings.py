@@ -15,7 +15,7 @@ class PublicationSettings(object):
 
     FIELDS = (
         "pdf_enabled", "pdf_mode", "pdf_quality", "dwg_enabled", "dwg_mode",
-        "dwg_setup_name", "dwg_true_color", "output_directory",
+        "dwg_setup_name", "dwg_true_color", "dwg_merge_views", "output_directory",
         "filename_template", "separate_carnet_subfolder"
     ) + PDF_OPTION_FIELDS
 
@@ -25,7 +25,7 @@ class PublicationSettings(object):
                  pdf_mode=None, dwg_enabled=None, dwg_mode=None,
                  dwg_setup_name=None, dwg_true_color=None,
                  filename_template=None, modified_only=None, pdf_quality=None,
-                 separate_carnet_subfolder=None, **pdf_options):
+                 separate_carnet_subfolder=None, dwg_merge_views=None, **pdf_options):
         unknown = set(pdf_options) - set(PDF_OPTION_FIELDS)
         if unknown:
             raise TypeError("Réglage PDF inconnu : " + ", ".join(sorted(unknown)))
@@ -40,6 +40,7 @@ class PublicationSettings(object):
         self.dwg_mode = dwg_mode
         self.dwg_setup_name = dwg_setup_name
         self.dwg_true_color = dwg_true_color
+        self.dwg_merge_views = dwg_merge_views
         self.filename_template = filename_template
         # Le paramètre historique est accepté mais ignoré en V1.
 
@@ -53,7 +54,7 @@ class PublicationSettings(object):
         return cls(output_directory=None, pdf_enabled=True,
                    pdf_mode="COMBINED", dwg_enabled=True,
                    dwg_mode="SEPARATE", dwg_setup_name=None,
-                   dwg_true_color=True, filename_template="{carnet}",
+                   dwg_true_color=True, dwg_merge_views=True, filename_template="{carnet}",
                    modified_only=False, pdf_quality=300,
                    separate_carnet_subfolder=True, **pdf_defaults())
 

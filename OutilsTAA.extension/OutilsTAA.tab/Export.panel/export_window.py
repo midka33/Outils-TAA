@@ -3,7 +3,9 @@
 
 import os
 
-from pyrevit import forms
+from pyrevit import forms, script
+from dwg_setup_command import command_id
+from dwg_ui_session import capture
 from taa_ui_theme import apply_theme
 from System import Guid
 from System.Windows import FontWeights, Thickness, VerticalAlignment, HorizontalAlignment, Visibility
@@ -69,13 +71,44 @@ class ExportWindow(forms.WPFWindow):
         self.ProfileCombo.ItemsSource = self.profile_service.list_profiles()
         self.ProfileCombo.SelectedIndex = -1
 
+    def _select_dwg_setup(self, name):
+        # Conserver le nom d'un preset supprimé : l'export signalera l'erreur.
+        # Ne jamais remplacer silencieusement les réglages par les valeurs Revit.
+        name = name or ""
+        values = list(self.DwgSetupCombo.ItemsSource or [""])
+        if name not in values:
+            values.append(name)
+            self.DwgSetupCombo.ItemsSource = values
+        self.DwgSetupCombo.SelectedItem = name
+
     def _load_dwg_setups(self):
+        previous = self.DwgSetupCombo.SelectedItem or ""
+        loading = self._loading_settings
+        self._loading_settings = True
         try:
             setups = self.controller.publication_service.dwg_service.get_predefined_setups()
-        except Exception:
-            setups = []
-        self.DwgSetupCombo.ItemsSource = [""] + list(setups)
-        self.DwgSetupCombo.SelectedIndex = 0
+            self.DwgSetupCombo.ItemsSource = [""] + list(setups)
+            self._select_dwg_setup(previous)
+        except Exception as exc:
+            script.get_logger().exception("Lecture des configurations DWG impossible")
+            forms.alert("Impossible de lire les configurations DWG Revit :\n{}".format(exc), title="Export DWG")
+        finally:
+            self._loading_settings = loading
+
+    def RefreshDwgSetups_Click(self, sender, args):
+        self._load_dwg_setups()
+
+    def DwgSettings_Click(self, sender, args):
+        try:
+            # Vérifier avant de fermer ; poster uniquement après ShowDialog.
+            command_id(self._ui_application)
+            self._dwg_ui_session.save(capture(self))
+            self._open_dwg_settings = True
+            self.Close()
+        except Exception as exc:
+            self._open_dwg_settings = False
+            script.get_logger().exception("Ouverture des réglages DWG impossible")
+            forms.alert("Impossible d'ouvrir les réglages DWG Revit :\n{}".format(exc), title="Export DWG")
 
     def _refresh_tree(self):
         self._folders = self.controller.list_folders()
@@ -314,9 +347,10 @@ class ExportWindow(forms.WPFWindow):
             self.DwgCombinedRadio.IsChecked = effective.dwg_mode == "COMBINED"
             self.DwgSeparateRadio.IsChecked = effective.dwg_mode == "SEPARATE"
             self.DwgTrueColorCheckBox.IsChecked = effective.dwg_true_color
+            self.DwgMergeViewsCheckBox.IsChecked = effective.dwg_merge_views
             self.OutputDirectoryTextBox.Text = effective.output_directory or ""
             self.FilenameTemplateTextBox.Text = effective.filename_template or "{carnet}"
-            self.DwgSetupCombo.SelectedItem = effective.dwg_setup_name or ""
+            self._select_dwg_setup(effective.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
             self._update_inheritance_info(self._selected_set)
         finally:
@@ -343,9 +377,10 @@ class ExportWindow(forms.WPFWindow):
             self.DwgCombinedRadio.IsChecked = settings.dwg_mode == "COMBINED"
             self.DwgSeparateRadio.IsChecked = settings.dwg_mode == "SEPARATE"
             self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
+            self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
             self.OutputDirectoryTextBox.Text = settings.output_directory or ""
             self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
-            self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
+            self._select_dwg_setup(settings.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
             self._update_folder_inheritance_info(folder)
             self.ProfileInfoText.Text = "Réglages effectifs : les valeurs non définies ici proviennent des dossiers parents."
@@ -394,7 +429,7 @@ class ExportWindow(forms.WPFWindow):
 
     @staticmethod
     def _field_label(field):
-        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_mode": "mode DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "output_directory": "destination", "filename_template": "nommage"}
+        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_mode": "mode DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
         labels["separate_carnet_subfolder"] = "sous-dossier du carnet"
         return labels.get(field, field)
@@ -431,6 +466,7 @@ class ExportWindow(forms.WPFWindow):
             "dwg_mode": "COMBINED" if self.DwgCombinedRadio.IsChecked else "SEPARATE",
             "dwg_setup_name": self.DwgSetupCombo.SelectedItem or None,
             "dwg_true_color": bool(self.DwgTrueColorCheckBox.IsChecked),
+            "dwg_merge_views": bool(self.DwgMergeViewsCheckBox.IsChecked),
             "output_directory": (self.OutputDirectoryTextBox.Text or "").strip() or None,
             "filename_template": self.FilenameTemplateTextBox.Text or "{carnet}"
         }
@@ -477,6 +513,7 @@ class ExportWindow(forms.WPFWindow):
         settings.dwg_mode = values.get("dwg_mode", "SEPARATE")
         settings.dwg_setup_name = values.get("dwg_setup_name")
         settings.dwg_true_color = bool(values.get("dwg_true_color", True))
+        settings.dwg_merge_views = values.get("dwg_merge_views") is not False
         self._selected_set.publication_settings = settings
         self._loading_settings = True
         try:
@@ -489,7 +526,8 @@ class ExportWindow(forms.WPFWindow):
             self.DwgCombinedRadio.IsChecked = settings.dwg_mode == "COMBINED"
             self.DwgSeparateRadio.IsChecked = settings.dwg_mode == "SEPARATE"
             self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
-            self.DwgSetupCombo.SelectedItem = settings.dwg_setup_name or ""
+            self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
+            self._select_dwg_setup(settings.dwg_setup_name)
         finally:
             self._loading_settings = False
         if self._selected_set.persistent:
@@ -575,6 +613,7 @@ class ExportWindow(forms.WPFWindow):
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
             "DwgCheckBox": "dwg_enabled", "DwgCombinedRadio": "dwg_mode", "DwgSeparateRadio": "dwg_mode",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
+            "DwgMergeViewsCheckBox": "dwg_merge_views",
             "OutputDirectoryTextBox": "output_directory", "FilenameTemplateTextBox": "filename_template"
         }
         field = mapping.get(getattr(sender, "Name", ""))

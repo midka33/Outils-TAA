@@ -2616,3 +2616,22 @@ techniques nombreuses ont un dialogue dédié avec Annuler/Appliquer.
 Le pied d'actions reste hors du ScrollViewer. Celui-ci est conservé comme secours.
 La mesure WPF dépend des DPI et des thèmes Windows : un budget de hauteur ou un
 XML valide ne remplace jamais le contrôle réel à 1920 × 1080, 100 % et 125 %.
+
+## Export — bloc DWG et réglages natifs
+
+Le bloc DWG sépare Publier, Configuration DWG Revit, Sortie, puis la case
+« Fusionner les vues et les liens dans le DWG ». Les choix de sortie sont
+« Par feuille » et « Lot Revit » ; le tooltip de ce dernier explique le préfixe
+commun et l'absence de fusion des feuilles. Garder les noms de contrôles historiques
+pour préserver leurs handlers ; `SettingsChanged` reste leur propriétaire canonique.
+
+L'engrenage réutilise `TaaSettingsIcon` et annonce dans son infobulle la fermeture
+d'Export puis sa réouverture manuelle. Le bouton Actualiser est adjacent à la liste.
+La liste s'étire dans un DockPanel ; le texte de la case de fusion peut revenir à
+la ligne. La couleur vraie est présentée comme une surcharge : « Forcer les couleurs
+vraies ». Son infobulle précise que décocher conserve les couleurs du preset.
+Aucune UI TAA ne recrée les calques, unités ou autres pages natives Revit.
+
+L'aperçu/rapport utilisent « Lot Revit » pour le DWG uniquement ; les libellés PDF
+restent inchangés. Ne pas promettre « aucun XRef » ni un fichier autonome garanti.
+Contrôle visuel WPF et échelle Windows : recette Revit 2025.4 encore à effectuer.

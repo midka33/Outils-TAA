@@ -607,14 +607,15 @@ Chaque carnet persistant mémorise ses réglages de publication lorsqu'ils sont 
 PDF : activé / désactivé
 PDF : combiné / séparé
 DWG : activé / désactivé
-DWG : combiné / séparé
+DWG : Par feuille / Lot Revit (valeurs internes SEPARATE / COMBINED)
+DWG : fusion des vues/liens activée / désactivée
 ```
 
 ### 6.2 Configuration DWG
 
 Le carnet peut mémoriser le nom d'une configuration DWG native Revit.
 
-Le réglage **Couleur vraie / True Color** reste une préférence TAA lorsque l'option est réellement disponible dans la configuration utilisée.
+La case **Forcer les couleurs vraies** surcharge `Colors` avec `ExportColorMode.TrueColor`. Décochée, elle conserve les couleurs du preset. La case **Fusionner les vues et les liens dans le DWG** pilote séparément `MergedViews`, activée par défaut.
 
 ### 6.3 Destination
 
@@ -1082,20 +1083,32 @@ Les réglages effectivement exposés par l'API Revit doivent être vérifiés su
 
 ## 14. DWG
 
-Les deux modes sont conservés :
+La configuration native Revit reste la base des options : liste par
+`DWGExportOptions.GetPredefinedSetupNames`, chargement par `GetPredefinedOptions`.
+TAA surcharge seulement `MergedViews` et, si demandé, `Colors` (True Color).
+Une configuration native devenue indisponible reste mémorisée et provoque une
+erreur explicite à l'export, sans remplacement silencieux.
 
-- combiné ;
-- séparé.
+La **sortie** conserve l'organisation métier existante : **Par feuille** (`SEPARATE`)
+ou **Lot Revit** (`COMBINED`, ancien libellé « Combiné »). Un lot ne fusionne pas
+plusieurs feuilles dans un DWG unique. Les identifiants ordonnés sont toujours
+transmis à `Document.Export` dans une `List[ElementId]` .NET typée.
 
-Export réutilise autant que possible les configurations `ExportDWGSettings` natives de Revit.
+La case **Fusionner les vues et les liens dans le DWG** est indépendante de cette
+organisation. Cochée, `MergedViews=True` ; décochée, `MergedViews=False` et références
+externes lorsque applicable. Le défaut demandé est True, aussi pour les anciens
+réglages sans champ `dwg_merge_views`. Images et autres annexes peuvent subsister.
 
-Les identifiants sont transmis à `Document.Export` dans une collection .NET
-`List[ElementId]`, compatible avec l'argument `ICollection[ElementId]` requis
-pour le DWG sous IronPython, dans les deux modes.
+L'engrenage ferme Export avant de poster la commande de configurations DWG/DXF
+native. Fermer celle-ci puis rouvrir Export : liste rechargée, carnets temporaires
+et sélection restaurés dans le même document/session. **Actualiser** relit aussi
+la liste sans modifier les surcharges héritées. La disponibilité réelle du membre
+API est vérifiée au clic ; l'ouverture native reste à valider dans Revit 2025.4.
 
-La préférence TAA est **Couleur vraie / True Color**, sous réserve de la configuration et de l'API réellement disponibles.
-
-Une configuration native devenue indisponible ne doit jamais être remplacée silencieusement.
+L'aperçu précise preset et références. Pour plusieurs feuilles en Lot Revit, le nom
+est un préfixe, et le rapport affiche le dossier au lieu d'un DWG supposé unique.
+Analyse, surcharges et limites : [24_Export_Reglages_DWG.md](24_Export_Reglages_DWG.md).
+Recette non encore validée : [25_Export_Recette_DWG.md](25_Export_Recette_DWG.md).
 
 ---
 
@@ -1712,3 +1725,12 @@ https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/
 Cette référence publiée décrit l'API 2026 ; le contrôle de présence est donc aussi
 réalisé à l'exécution sur Revit 2025.4. L'environnement de développement ne contient
 pas sa DLL et ne permet pas de certifier l'exécution réelle des membres.
+
+## Réglages DWG indépendants — 2026-10-07
+
+Ajout de `dwg_merge_views` nullable/héritable à tous les niveaux. `None` continue
+d'hériter ; la résolution applique True sans réécrire les anciens JSON. L'UI ne
+sauvegarde que le champ modifié. Les profils personnalisés conservent False.
+Les hooks du smartbutton, le batch dossier et le chemin de secours transmettent
+la même valeur. Les réglages PDF et la progression existante sont inchangés.
+Statut : tests hors Revit uniquement ; validation utilisateur Revit 2025.4 attendue.

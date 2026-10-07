@@ -2180,3 +2180,26 @@ MAINTENABLE
 Les chapitres suivants s'appuieront sur ces standards.
 
 Le chapitre **04 — UI Guidelines** définira notamment les règles précises applicables aux interfaces WPF, aux fenêtres, boutons, listes, messages, couleurs, états, progression et cohérence visuelle des outils TAA.
+
+## Export DWG — séparation obligatoire des responsabilités
+
+- `dwg_mode` organise les appels, préfixes et chemins ; il ne doit jamais déterminer
+  `DWGExportOptions.MergedViews`. Celui-ci reçoit exclusivement le booléen effectif
+  `dwg_merge_views` (défaut True), transmis aussi par les hooks du smartbutton.
+- Charger le preset natif avant les surcharges. Seules `MergedViews` et `Colors`
+  (si True Color explicite) sont écrasées. Aucune exception silencieuse pour une
+  surcharge demandée, aucun remplacement silencieux d'un preset supprimé.
+- Un champ absent reste `None` au niveau héritable. Ne pas sérialiser le résultat
+  résolu dans les réglages locaux à l'ouverture ou au rafraîchissement des listes.
+- Les commandes natives Revit sont postées après retour de `ShowDialog`, puis
+  retour du contexte API. Ne pas simuler leur fin avec un timer/Idling ni remplacer
+  la commande avec un handler `Executed`. Vérifier le membre et `CanPostCommand`,
+  sans assimiler ce contrôle à une garantie d'exécution future.
+- L'aller-retour DWG conserve uniquement un chemin de cache dans les envvars
+  pyRevit ; le JSON temporaire ne contient aucun objet API/WPF et reste isolé par
+  document/session. La réouverture d'Export est manuelle, sa relecture des presets
+  automatique. Échec de sauvegarde : ne pas fermer la fenêtre.
+- Un lot de plusieurs feuilles ne représente pas un DWG unique. Rapporter le répertoire
+  si les noms natifs ne sont pas connus ; ne pas inventer de liste des annexes.
+
+Contrats et limites : [24_Export_Reglages_DWG.md](24_Export_Reglages_DWG.md).

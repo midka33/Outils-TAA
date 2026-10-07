@@ -82,7 +82,8 @@ class CarnetController(object):
 
     def publish(self, publication_set, output_directory, export_pdf=True,
                 export_dwg=False, pdf_combined=True, dwg_combined=False,
-                dwg_setup_name=None, dwg_true_color=True, items=None, progress=None):
+                dwg_setup_name=None, dwg_true_color=True, items=None, progress=None,
+                dwg_merge_views=True):
         """Publie un carnet, éventuellement limité aux mises en page candidates."""
         if self.publication_service is None:
             raise RuntimeError("Le service de publication n'est pas configuré.")
@@ -91,4 +92,5 @@ class CarnetController(object):
             publication_set, output_directory, export_pdf=export_pdf,
             export_dwg=export_dwg, pdf_combined=pdf_combined,
             dwg_combined=dwg_combined, dwg_setup_name=dwg_setup_name,
-            dwg_true_color=dwg_true_color, items=items, **progress_kwargs(progress))
+            dwg_true_color=dwg_true_color, items=items,
+            dwg_merge_views=dwg_merge_views, **progress_kwargs(progress))

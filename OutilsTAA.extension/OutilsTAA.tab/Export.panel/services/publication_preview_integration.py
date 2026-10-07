@@ -239,6 +239,7 @@ def install_preview_on_export_window(export_window_class):
             "DwgSeparateRadio": "dwg_mode",
             "DwgSetupCombo": "dwg_setup_name",
             "DwgTrueColorCheckBox": "dwg_true_color",
+            "DwgMergeViewsCheckBox": "dwg_merge_views",
             "FilenameTemplateTextBox": "filename_template"
         }
         field = mapping.get(name)
@@ -379,6 +380,7 @@ def _publish_targets(window, targets):
                     pdf_combined=settings.pdf_mode == "COMBINED",
                     dwg_combined=settings.dwg_mode == "COMBINED",
                     dwg_setup_name=settings.dwg_setup_name,
+                    dwg_merge_views=settings.dwg_merge_views,
                     dwg_true_color=settings.dwg_true_color, progress=target_progress)
             except Exception as exc:
                 result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
