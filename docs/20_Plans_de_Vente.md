@@ -3361,3 +3361,52 @@ Les avertissements indiquent les pièces pour lesquelles une cote de secours n'a
 7. déplacer un mur et vérifier l'associativité des cotes créées.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 06C — références d'extrémité et limite courbe
+
+Retour Revit sur le logement B213 : 4 pièces analysées, 4 cotes créées,
+2 pièces correctement cotées et 2 pièces sans cote.
+
+Le plan de test met en évidence deux cas qui restaient mal traités :
+
+- une pièce dont une limite extérieure est courbe ;
+- une pièce non orthogonale avec mur biais.
+
+Deux causes ont été corrigées.
+
+### 1. Une paire parallèle ne nécessite pas quatre segments droits
+
+Le moteur géométrique exigeait au minimum quatre segments droits avant de
+chercher une paire parallèle. Cette contrainte était trop forte : une pièce
+avec trois limites droites et une limite courbe peut parfaitement fournir
+une paire de faces finies parallèles exploitable.
+
+Le seuil est désormais ramené à deux segments exploitables.
+
+### 2. Références d'extrémité réelles du mur
+
+Les courbes issues de `Room.GetBoundarySegments(...)` ne fournissent pas
+toujours des références d'extrémité utilisables pour une cote associative.
+
+Le moteur recharge maintenant la géométrie native du mur avec
+`Options.ComputeReferences = True`, retrouve la face latérale finie la plus
+proche de la limite de pièce, puis extrait les références des arêtes
+verticales de cette face.
+
+Cette méthode fournit des références Revit réelles pour les cotes de
+longueur de secours sur les pièces non orthogonales.
+
+Build de test : `stage06c-dimensions-compute-references-v3`.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre le logement B213 ;
+2. vérifier que les deux pièces déjà correctes conservent leurs deux cotes ;
+3. vérifier que la pièce avec limite courbe reçoit au moins la cote entre
+   les deux faces parallèles restantes ;
+4. vérifier que la pièce avec mur biais reçoit une cote de longueur de
+   secours ;
+5. vérifier que les cotes restent associatives après déplacement d'un mur.
+
+**Statut : À retester dans Revit 2025.4.**
