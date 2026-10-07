@@ -103,7 +103,10 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
     for index, parent in enumerate((first, second)):
         parent.publication_settings.output_directory = str(tmp_path / str(index))
         parent.publication_settings.pdf_mode = 'COMBINED' if combined else 'SEPARATE'
-        parent.publication_settings.dwg_mode = 'COMBINED' if combined else 'SEPARATE'
+        # Valeur legacy volontairement variable : elle ne doit plus piloter l'export.
+        parent.publication_settings.dwg_mode = (
+            'COMBINED' if combined else 'SEPARATE'
+        )
         parent.publication_settings.dwg_merge_views = index == 1
     tags = [sheet(first, 0), sheet(first, 2), sheet(second, 1)]
     targets = publication_targets(tags, lambda f: [])
@@ -121,7 +124,8 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
             return preview_service.build(target, settings, **kwargs)
     def publish(target, directory, **kwargs):
         published.append((target.id, kwargs['items'], directory))
-        assert kwargs['pdf_combined'] is combined and kwargs['dwg_combined'] is combined
+        assert kwargs['pdf_combined'] is combined
+        assert 'dwg_combined' not in kwargs
         assert kwargs['dwg_merge_views'] is (target.id == second.id)
         return {'success': True, 'results': []}
     merge = method('services/publication_preview_integration.py', None, '_merge_previews', {'os': __import__('os')})
@@ -136,7 +140,7 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
     run = method('Export.smartbutton/script.py', None, '_publish_targets_stage07', ns)
     preview = build(window, targets)
     assert not preview['errors']
-    assert preview['count'] == (4 if combined else 6)
+    assert preview['count'] == (4 if combined else 5)
     run(window, targets)
     assert previews == published
     assert [len(t[1]) for t in published] == [2, 1]
