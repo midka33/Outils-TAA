@@ -17,6 +17,7 @@ class FilenameService(object):
         "carnet", "numero", "nom", "nom_complet", "projet",
         "date", "indice", "dossier"
     )
+    SHEET_TOKENS = ("numero", "nom", "nom_complet", "indice")
 
     def __init__(self, document=None, output_service=None):
         self.document = document
@@ -100,6 +101,67 @@ class FilenameService(object):
 
         value = self.TOKEN_PATTERN.sub(replace, template)
         return self.sanitize(value), unknown
+
+    def resolve_carnet(self, template, publication_set, folder_name=None):
+        """Résout un nom de livrable global sans prendre la première feuille.
+
+        Les variables propres à une feuille ne sont pas déterministes pour un
+        PDF combiné. Si le modèle en contient, la première variable de feuille
+        est remplacée par le nom du carnet et les suivantes sont supprimées.
+        Les variables projet/date/dossier restent résolues normalement.
+        """
+        template = (template or "{carnet}").strip()
+        already_has_carnet = "{carnet}" in template
+        inserted_carnet = already_has_carnet
+
+        def replace_sheet_token(match):
+            token = match.group(1).strip()
+            scope, separator, selector = token.partition(":")
+
+            is_sheet_token = token in self.SHEET_TOKENS
+            is_sheet_parameter = (
+                scope in NamingParameters.SCOPES
+                and not scope.startswith("info_projet")
+            )
+            if not is_sheet_token and not is_sheet_parameter:
+                return match.group(0)
+
+            nonlocal_state[0] = True
+            if not inserted_state[0]:
+                inserted_state[0] = True
+                return "{carnet}"
+            return ""
+
+        # Listes utilisées au lieu de nonlocal pour compatibilité IronPython 2.
+        nonlocal_state = [False]
+        inserted_state = [inserted_carnet]
+        collection_template = self.TOKEN_PATTERN.sub(
+            replace_sheet_token,
+            template,
+        )
+
+        value, unknown = self.resolve(
+            collection_template,
+            publication_set,
+            item=None,
+            folder_name=folder_name,
+        )
+
+        # Une suppression de variable de feuille peut laisser un séparateur
+        # final issu du modèle, par exemple "..._{numero}_{nom}".
+        value = re.sub(r"[_\-\s]+$", "", value).strip()
+        return self.sanitize(value), unknown
+
+    def carnet_filename(self, template, publication_set,
+                        folder_name=None, extension=".pdf"):
+        """Nom d'un livrable de carnet (PDF combiné, préfixe global...)."""
+        base, unknown = self.resolve_carnet(
+            template,
+            publication_set,
+            folder_name=folder_name,
+        )
+        ext = extension if extension.startswith(".") else "." + extension
+        return base + ext, unknown
 
     def sanitize(self, name):
         """Sécurise un nom selon les contraintes de fichiers Windows."""
