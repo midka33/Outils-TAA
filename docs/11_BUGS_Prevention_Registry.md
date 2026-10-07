@@ -603,6 +603,73 @@ réglages courants restent visibles sans scroll obligatoire en Full HD.
 absence des contrôles de mode, hauteur bornée, libellé dossier du carnet ; recette
 visuelle 1920 × 1080 à 100 % et 125 % dans `docs/25_Export_Recette_DWG.md`.
 
+### BUG-EXPORT-044 — PDF combiné nommé avec la première feuille
+
+**Symptôme :** un PDF combiné de plusieurs mises en page recevait un nom contenant
+le numéro et le nom de la première feuille, par exemple A1101, alors que le fichier
+représente le carnet entier.
+
+**Cause racine :** le contexte générique de `FilenameService` utilisait la première
+mise en page lorsque `item=None`. Un appel de nommage global pouvait donc résoudre
+silencieusement `{numero}` et `{nom}` avec cette feuille.
+
+**Correction :** ajout d'une résolution explicite au niveau carnet pour les
+livrables globaux. Les variables propres aux feuilles ne sont plus résolues avec
+l'élément 0 ; elles sont remplacées/neutralisées au profit de `{carnet}`.
+
+**Règle préventive :** tout fichier représentant plusieurs éléments doit avoir un
+contexte de nommage global explicite. `item=None` ne doit jamais signifier
+implicitement « prendre le premier élément » dans un workflow de publication globale.
+
+**Anti-régression :** tests PDF combiné, aperçu/publication et modèles contenant
+`{numero}` / `{nom}`.
+
+### BUG-EXPORT-045 — Le nom natif Revit « Feuille » fuit dans les DWG finaux
+
+**Symptôme :** après un lot DWG, les fichiers finaux contenaient le préfixe/suffixe
+natif Revit, par exemple `... - Feuille - A1101 - ...dwg`, en plus du modèle de
+nommage TAA.
+
+**Cause racine :** le lot Revit était performant mais les noms natifs produits par
+`Document.Export` étaient traités comme des noms finaux.
+
+**Correction :** export du lot dans un dossier temporaire, rapprochement conservateur
+des DWG principaux par numéro de feuille puis nom de feuille, renommage selon le
+moteur TAA, livraison avec sauvegarde/rollback, puis déplacement des ressources
+auxiliaires dans le dossier DWG.
+
+**Règle préventive :** lorsque l'API native contrôle le nom d'un fichier intermédiaire,
+ne jamais exposer ce nom comme contrat final si l'application possède son propre
+moteur de nommage. Toute association native→métier doit échouer en cas d'ambiguïté
+plutôt que s'appuyer sur l'ordre ou sur un mot localisé comme « Feuille ».
+
+**Anti-régression :** `tests/test_export_dwg_settings.py` vérifie notamment que les
+DWG natifs contenant « Feuille » deviennent des noms TAA exacts et que les PNG/JPG
+auxiliaires restent dans le dossier DWG.
+
+### BUG-EXPORT-046 — Progression bloquée pendant les exports longs
+
+**Symptôme :** la fenêtre passait d'une phase à la suivante en un seul saut ; pendant
+un export long, l'utilisateur ne savait pas si Revit avançait ni quelle mise en page
+était réellement traitée.
+
+**Cause racine :** le pourcentage ne tenait compte que des grandes unités terminées.
+Aucune fraction de l'unité native ni progression de livraison n'était remontée.
+
+**Correction :** fraction réelle issue de `Application.ProgressChanged`
+(`Position / UpperRange`) pendant les appels natifs, abonnement limité à la durée
+de `Document.Export`, puis progression exacte `X / Y mises en page` pendant les
+livraisons PDF/DWG contrôlées par Outils TAA.
+
+**Règle préventive :** une barre chiffrée doit être alimentée uniquement par une
+mesure réelle. Utiliser les événements natifs lorsqu'ils existent ; sinon accepter
+une phase temporairement stable. La progression fine par élément n'est autorisée
+que lorsque l'application sait réellement que cet élément est terminé.
+
+**Anti-régression :** tests de monotonie, bornes, progression native, progression
+`X / Y`, callback défaillant et désabonnement du bridge ; validation réelle
+`ProgressChanged` à effectuer dans Revit 2025.4.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
