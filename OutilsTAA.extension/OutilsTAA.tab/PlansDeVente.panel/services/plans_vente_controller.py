@@ -12,12 +12,14 @@ class PlansVenteController(object):
         schedule_service,
         location_plan_service,
         room_tag_service,
+        dimension_service,
     ):
         self.analysis_service = analysis_service
         self.prototype_view_service = prototype_view_service
         self.schedule_service = schedule_service
         self.location_plan_service = location_plan_service
         self.room_tag_service = room_tag_service
+        self.dimension_service = dimension_service
 
     def load_context(self):
         return self.analysis_service.load_context()
@@ -107,4 +109,30 @@ class PlansVenteController(object):
             self.room_tag_service,
             "build_id",
             "room-tag-service-build-inconnu",
+        )
+
+
+    def dimension_types(self):
+        return self.dimension_service.list_dimension_types()
+
+    def dimension_target_views(self, housing):
+        return self.dimension_service.target_views_for_housing(housing)
+
+    def create_dimensions(
+        self,
+        housing,
+        target_view_unique_id,
+        dimension_type_unique_id,
+    ):
+        return self.dimension_service.create_dimensions(
+            housing,
+            target_view_unique_id,
+            dimension_type_unique_id,
+        )
+
+    def dimension_build_id(self):
+        return getattr(
+            self.dimension_service,
+            "build_id",
+            "dimension-service-build-inconnu",
         )
