@@ -228,7 +228,6 @@ def _publish_targets_stage07(window, targets):
                     publication_set.with_settings(settings), settings.output_directory,
                     export_pdf=settings.pdf_enabled, export_dwg=settings.dwg_enabled,
                     pdf_combined=settings.pdf_mode == "COMBINED",
-                    dwg_combined=settings.dwg_mode == "COMBINED",
                     dwg_setup_name=settings.dwg_setup_name,
                     dwg_merge_views=settings.dwg_merge_views,
                     dwg_true_color=settings.dwg_true_color, items=candidates,
