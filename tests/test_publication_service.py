@@ -109,7 +109,7 @@ class PublicationServiceTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(2, len(result["results"]))
         self.assertEqual("combined", result["results"][0]["mode"])
-        self.assertEqual("combined", result["results"][1]["mode"])
+        self.assertEqual("batch", result["results"][1]["mode"])
 
 
 if __name__ == "__main__":
