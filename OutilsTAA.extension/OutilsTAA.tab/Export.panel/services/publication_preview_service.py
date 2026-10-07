@@ -175,6 +175,7 @@ class PublicationPreviewService(object):
                         "{} DWG attendus".format(len(candidates)),
                         row_directory,
                         "À PUBLIER",
+                        collision_check=False,
                     )
                 )
 
@@ -196,7 +197,10 @@ class PublicationPreviewService(object):
 class _PreviewRow(object):
     """Objet simple compatible avec les bindings WPF du DataGrid."""
 
-    def __init__(self, carnet, number, name, fmt, mode, filename, path, status):
+    def __init__(
+        self, carnet, number, name, fmt, mode, filename, path, status,
+        collision_check=True,
+    ):
         self.Carnet = carnet or "—"
         self.Number = number or "—"
         self.Name = name or "—"
@@ -205,6 +209,7 @@ class _PreviewRow(object):
         self.Filename = filename
         self.Path = path
         self.Status = status
+        self.CollisionCheck = bool(collision_check)
 
 
 def _state_summary(classified):
