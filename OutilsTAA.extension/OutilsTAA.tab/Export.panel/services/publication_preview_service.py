@@ -104,9 +104,14 @@ class PublicationPreviewService(object):
         has_candidates = bool(candidates)
         if settings.pdf_enabled and has_candidates:
             if settings.pdf_mode == "COMBINED":
-                filename, unknown = self.filename_service.filename(
-                    settings.filename_template or "{carnet}", publication_set,
-                    item=None, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
+                filename, unknown = self.filename_service.carnet_filename(
+                    settings.filename_template or "{carnet}",
+                    publication_set,
+                    folder_name=getattr(
+                        publication_set, "folder_name", None
+                    ),
+                    extension=".pdf",
+                )
                 add_row("PDF", "COMBINED", None, filename, unknown)
             else:
                 for item in candidates:
@@ -146,38 +151,28 @@ class PublicationPreviewService(object):
                     unknown,
                 )
             else:
-                row_directory = (
-                    publication_directory(
-                        publication_set,
-                        directory,
-                        settings=settings,
-                        format_name="DWG",
-                    )
-                    if directory
-                    else ""
-                )
                 warnings.append(
                     "DWG — stratégie automatique : {} feuilles seront "
-                    "envoyées en un seul lot Revit. Revit produit un DWG "
-                    "par feuille et détermine leurs noms finaux.".format(
-                        len(candidates)
-                    )
+                    "envoyées en un seul lot Revit puis renommées selon "
+                    "le modèle TAA.".format(len(candidates))
                 )
-                rows.append(
-                    _PreviewRow(
-                        getattr(publication_set, "name", "—"),
-                        "—",
-                        "Lot automatique Revit — {} feuilles".format(
-                            len(candidates)
+                for item in candidates:
+                    filename, unknown = self.filename_service.filename(
+                        settings.filename_template or "{carnet}",
+                        publication_set,
+                        item=item,
+                        folder_name=getattr(
+                            publication_set, "folder_name", None
                         ),
-                        "DWG",
-                        "Automatique",
-                        "{} DWG attendus".format(len(candidates)),
-                        row_directory,
-                        "À PUBLIER",
-                        collision_check=False,
+                        extension=".dwg",
                     )
-                )
+                    add_row(
+                        "DWG",
+                        "AUTOMATIC",
+                        item,
+                        filename,
+                        unknown,
+                    )
 
         if not settings.pdf_enabled and not settings.dwg_enabled:
             errors.append("Aucun format de publication n'est sélectionné.")
