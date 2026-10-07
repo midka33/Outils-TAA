@@ -108,7 +108,10 @@ def dominant_dimension_pairs(
             }
         )
 
-    if len(prepared) < 4:
+    # Deux limites suffisent pour former une cote entre faces opposées.
+    # L'ancien seuil à 4 excluait à tort les pièces dont une limite est courbe
+    # ou non exploitable mais qui possèdent tout de même une paire parallèle.
+    if len(prepared) < 2:
         return []
 
     tolerance = math.cos(math.radians(float(angle_tolerance_degrees)))
