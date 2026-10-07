@@ -52,7 +52,9 @@
             <Border Grid.Column="0" Background="{DynamicResource TAAPanelBrush}"
                     BorderBrush="{DynamicResource TAABorderBrush}"
                     BorderThickness="1" CornerRadius="6" Padding="16">
-                <StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
                     <TextBlock Text="Source" Style="{DynamicResource TAASectionTitle}"/>
                     <TextBlock Text="Paramètre identifiant le logement" Margin="0,4,0,6"
                                Foreground="{DynamicResource TAATextBrush}"/>
@@ -106,7 +108,8 @@
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateDimensions_Click"/>
-                </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Grid Grid.Column="2">
