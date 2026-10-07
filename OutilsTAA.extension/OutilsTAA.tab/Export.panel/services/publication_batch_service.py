@@ -14,7 +14,7 @@ class PublicationBatchService(object):
     def publish(self, targets, settings_resolver, folder_resolver=None,
                 history_service=None, progress=None):
         """Publie plusieurs carnets en respectant éventuellement leur sous-ensemble préparé."""
-        results, errors, warnings = [], [], []
+        results, errors, warnings, files = [], [], [], []
         all_success = True
         output_directories = []
 
@@ -56,6 +56,7 @@ class PublicationBatchService(object):
                            for error in result.get("errors", [])])
             warnings.extend(["{0} : {1}".format(target.name, warning)
                              for warning in result.get("warnings", [])])
+            files.extend(result.get("files", []) or [])
             target_success = bool(result.get("success"))
             all_success = all_success and target_success
 
@@ -75,4 +76,5 @@ class PublicationBatchService(object):
 
         return {"success": bool(targets) and all_success and not errors,
                 "results": results, "errors": errors, "warnings": warnings,
+                "files": files,
                 "output_directories": output_directories}
