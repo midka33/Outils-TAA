@@ -1088,6 +1088,40 @@ Les réglages effectivement exposés par l'API Revit doivent être vérifiés su
 
 ---
 
+## 13.1 Nommage des livrables de carnet
+
+Un fichier représentant **plusieurs mises en page**, notamment un PDF combiné, doit
+être nommé dans un contexte de **carnet** et non avec la première feuille du carnet.
+
+Si le modèle contient des variables propres à une feuille comme :
+
+```text
+{numero}
+{nom}
+{nom_complet}
+{indice}
+```
+
+elles ne doivent jamais être résolues implicitement avec la première mise en page.
+Pour un livrable global, le moteur remplace la première composante propre à une
+feuille par `{carnet}` si le modèle ne contient pas déjà le carnet, puis supprime
+les autres composantes de feuille devenues non déterministes.
+
+Exemple :
+
+```text
+Modèle :
+ALTA VERDE_TR1_ARC_TAA_{numero}_{nom}
+
+PDF séparé A1101 :
+ALTA VERDE_TR1_ARC_TAA_A1101_Bât A - Niveau 1.pdf
+
+PDF combiné du carnet A1000 Plan de niveaux :
+ALTA VERDE_TR1_ARC_TAA_A1000 Plan de niveaux.pdf
+```
+
+Le nom affiché dans l'aperçu doit être exactement celui transmis à l'export.
+
 ## 14. DWG
 
 La configuration native Revit reste la base des options : liste par
@@ -1100,8 +1134,21 @@ La stratégie d'appel DWG est désormais **automatique et invisible pour
 l'utilisateur** :
 
 - une seule feuille → appel Revit simple ;
-- plusieurs feuilles → un seul appel natif Revit contenant les identifiants ordonnés ;
-- Revit produit néanmoins un DWG par feuille ; un lot d'appel n'est pas un DWG unique.
+- plusieurs feuilles → un seul appel natif Revit dans un dossier temporaire ;
+- Revit produit un DWG principal par feuille avec son nom natif ;
+- Outils TAA rapproche les DWG principaux avec les feuilles ;
+- les DWG principaux sont renommés avec le modèle TAA puis livrés dans le dossier
+  final `DWG`.
+
+Cette étape de livraison empêche les suffixes natifs Revit, par exemple
+« Feuille », de devenir une partie permanente du nom final.
+
+Le rapprochement est conservateur : numéro de feuille obligatoire, nom de feuille
+utilisé pour lever une ambiguïté. Une association incertaine interrompt la livraison
+plutôt que de renommer le mauvais fichier.
+
+Les autres fichiers produits par Revit (PNG/JPG, XRefs ou autres annexes) sont
+également déplacés dans le dossier DWG sans être renommés arbitrairement.
 
 Le champ historique `dwg_mode` reste lisible dans les anciens stockages pour assurer
 la compatibilité, mais il n'influence plus l'exécution et n'est plus exposé dans l'UI.
@@ -1117,13 +1164,26 @@ et sélection restaurés dans le même document/session. **Actualiser** relit au
 la liste sans modifier les surcharges héritées. La disponibilité réelle du membre
 API est vérifiée au clic ; l'ouverture native reste à valider dans Revit 2025.4.
 
-L'aperçu précise preset et références. Pour plusieurs feuilles, il annonce la
-stratégie automatique et le nombre de DWG attendus ; le rapport affiche le dossier
-réel lorsque les noms finaux sont déterminés par Revit.
+L'aperçu précise preset et références. Pour plusieurs feuilles, il affiche une
+ligne par DWG avec le **nom final TAA** prévu. Le rapport reprend les chemins réels
+après rapprochement, renommage et livraison.
 Analyse, surcharges et limites : [24_Export_Reglages_DWG.md](24_Export_Reglages_DWG.md).
 Recette non encore validée : [25_Export_Recette_DWG.md](25_Export_Recette_DWG.md).
 
 ---
+
+### 14.1 Progression pendant l'export DWG
+
+Pendant `Document.Export`, Outils TAA s'abonne uniquement pour la durée de l'appel
+à `Application.ProgressChanged`. Lorsque Revit fournit `Position` et
+`UpperRange`, la barre 0–100 % avance à partir de cette donnée réelle.
+
+Après retour de l'API, le renommage/livraison est entièrement contrôlé par Outils TAA :
+la fenêtre affiche alors la mise en page réellement traitée et
+`X / Y mises en page`.
+
+Si Revit n'émet pas de progression native utile, le pourcentage reste stable pendant
+l'appel ; aucune progression feuille par feuille n'est simulée.
 
 ## 15. Organisation des dossiers de sortie
 
