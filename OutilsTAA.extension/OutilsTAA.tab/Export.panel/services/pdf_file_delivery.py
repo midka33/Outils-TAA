@@ -71,7 +71,8 @@ def reconcile_native_pdfs(staging, source_names):
                   os.path.join(staging, expected))
 
 
-def deliver_named_pdfs(output_directory, source_names, target_names, export_callback):
+def deliver_named_pdfs(output_directory, source_names, target_names, export_callback,
+                        progress_callback=None):
     """Exporte une fois puis livre les fichiers contrôlés avec restauration sur erreur.
 
     Le callback reçoit un répertoire neuf. Aucun ordre de fichiers n'est utilisé
@@ -103,6 +104,12 @@ def deliver_named_pdfs(output_directory, source_names, target_names, export_call
                 backups.append((backup, destination))
             os.rename(os.path.join(staging, source), destination)
             moved.append((destination, os.path.join(staging, source)))
+            if progress_callback is not None:
+                progress_callback(
+                    index + 1,
+                    len(source_names),
+                    destination,
+                )
     except Exception as exc:
         rollback_errors = []
         for destination, source in reversed(moved):
