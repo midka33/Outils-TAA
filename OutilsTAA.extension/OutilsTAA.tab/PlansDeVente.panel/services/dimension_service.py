@@ -514,26 +514,257 @@ class DimensionService(object):
                 )
                 continue
 
-            # Une ligne de séparation de pièce est une vraie limite de pièce.
-            # Elle doit participer à la recherche des deux dimensions
-            # principales, même si elle n'est pas portée par un mur.
-            reference = self._room_separator_reference(host)
-            if reference is None:
+            # Une ligne de séparation de pièce reste la géométrie de
+            # repérage, mais on essaie d'abord de remplacer sa référence par
+            # l'arête d'un sol réellement superposée. Ainsi la cote reste
+            # visible même si la catégorie des séparations est masquée.
+            separator_reference = self._room_separator_reference(host)
+            if separator_reference is None:
                 continue
 
-            # On utilise la séparation comme référence de distance, mais pas
-            # comme longueur de secours : la courbe de séparation peut dépasser
-            # la portion réellement utilisée par la pièce.
+            floor_match = self._matching_floor_edge_reference(room, curve)
+            if floor_match is not None:
+                floor_reference, floor_id = floor_match
+                result.append(
+                    _BoundaryReferenceCandidate(
+                        segment=segment,
+                        reference=floor_reference,
+                        element_id_value=self._element_id_value(floor_id),
+                        length_references=None,
+                        source_kind="floor_edge",
+                    )
+                )
+                continue
+
+            # Aucun bord de sol fiable : on conserve la séparation comme
+            # dernier recours. La cote pourra alors être masquée si cette
+            # catégorie est cachée dans la vue ; un avertissement sera renvoyé.
             result.append(
                 _BoundaryReferenceCandidate(
                     segment=segment,
-                    reference=reference,
+                    reference=separator_reference,
                     element_id_value=self._element_id_value(host.Id),
                     length_references=None,
+                    source_kind="separator",
                 )
             )
 
         return result
+
+    def _matching_floor_edge_reference(self, room, boundary_curve):
+        start = boundary_curve.GetEndPoint(0)
+        end = boundary_curve.GetEndPoint(1)
+        boundary_segment = (
+            float(start.X),
+            float(start.Y),
+            float(end.X),
+            float(end.Y),
+        )
+
+        tolerance = self._millimeters_to_internal(
+            self.FLOOR_EDGE_TOLERANCE_MM
+        )
+        best = None
+
+        for floor_segment, reference, floor_id, edge_z in self._floor_edges_for_room(
+            room
+        ):
+            metrics = segment_match_metrics(
+                boundary_segment,
+                floor_segment,
+                angle_tolerance_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                distance_tolerance=tolerance,
+                minimum_overlap_ratio=self.FLOOR_EDGE_MIN_OVERLAP_RATIO,
+            )
+            if metrics is None:
+                continue
+
+            # À géométrie XY équivalente, préférer l'arête dont l'altitude
+            # est la plus proche du niveau de la pièce.
+            level = getattr(room, "Level", None)
+            room_z = float(getattr(level, "Elevation", 0.0) or 0.0)
+            z_penalty = abs(float(edge_z) - room_z) * 0.02
+            score = float(metrics["score"]) + z_penalty
+
+            if best is None or score < best[0]:
+                best = (
+                    score,
+                    reference,
+                    floor_id,
+                )
+
+        if best is None:
+            return None
+        return (best[1], best[2])
+
+    def _floor_edges_for_room(self, room):
+        from Autodesk.Revit.DB import (
+            FilteredElementCollector,
+            Floor,
+            GeometryInstance,
+            Line,
+            Options,
+            Solid,
+            ViewDetailLevel,
+        )
+
+        room_level = getattr(room, "Level", None)
+        room_level_id = getattr(room, "LevelId", None)
+        room_level_key = (
+            self._element_id_value(room_level_id)
+            if room_level_id is not None
+            else -1
+        )
+
+        if room_level_key in self._floor_edge_cache:
+            return self._floor_edge_cache[room_level_key]
+
+        room_level_z = float(
+            getattr(room_level, "Elevation", 0.0) or 0.0
+        )
+        level_tolerance = self._millimeters_to_internal(
+            self.FLOOR_LEVEL_TOLERANCE_MM
+        )
+        min_length = self._millimeters_to_internal(
+            self.FLOOR_EDGE_MIN_LENGTH_MM
+        )
+
+        floors = list(
+            FilteredElementCollector(self.document)
+            .OfClass(Floor)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        )
+
+        same_level = []
+        nearby_level = []
+        for floor in floors:
+            floor_level_id = getattr(floor, "LevelId", None)
+            if (
+                room_level_id is not None
+                and floor_level_id is not None
+                and floor_level_id == room_level_id
+            ):
+                same_level.append(floor)
+                continue
+
+            try:
+                floor_level = self.document.GetElement(floor_level_id)
+                floor_level_z = float(
+                    getattr(floor_level, "Elevation", 0.0) or 0.0
+                )
+            except Exception:
+                continue
+
+            if abs(floor_level_z - room_level_z) <= level_tolerance:
+                nearby_level.append(floor)
+
+        candidate_floors = same_level if same_level else nearby_level
+
+        options = Options()
+        options.ComputeReferences = True
+        options.IncludeNonVisibleObjects = False
+        try:
+            options.DetailLevel = ViewDetailLevel.Fine
+        except Exception:
+            pass
+
+        edges = []
+        seen = set()
+
+        for floor in candidate_floors:
+            try:
+                geometry = floor.get_Geometry(options)
+            except Exception:
+                geometry = None
+            if geometry is None:
+                continue
+
+            for solid in self._geometry_solids(
+                geometry,
+                Solid,
+                GeometryInstance,
+            ):
+                try:
+                    solid_edges = list(solid.Edges or [])
+                except Exception:
+                    solid_edges = []
+
+                for edge in solid_edges:
+                    try:
+                        reference = edge.Reference
+                        curve = edge.AsCurve()
+                    except Exception:
+                        continue
+                    if reference is None or curve is None:
+                        continue
+                    if not isinstance(curve, Line):
+                        continue
+
+                    try:
+                        p0 = curve.GetEndPoint(0)
+                        p1 = curve.GetEndPoint(1)
+                    except Exception:
+                        continue
+
+                    dx = float(p1.X - p0.X)
+                    dy = float(p1.Y - p0.Y)
+                    dz = float(p1.Z - p0.Z)
+                    xy_length = math.sqrt((dx * dx) + (dy * dy))
+                    if xy_length < min_length:
+                        continue
+
+                    # Un bord de sol peut être légèrement en pente ; on écarte
+                    # seulement les arêtes essentiellement verticales.
+                    if abs(dz) > max(
+                        self._millimeters_to_internal(100.0),
+                        xy_length * 0.15,
+                    ):
+                        continue
+
+                    segment = (
+                        float(p0.X),
+                        float(p0.Y),
+                        float(p1.X),
+                        float(p1.Y),
+                    )
+                    edge_z = (
+                        float(p0.Z) + float(p1.Z)
+                    ) * 0.5
+
+                    # Le solide peut exposer plusieurs fois le même bord
+                    # projeté. On garde tout de même une arête par altitude.
+                    key = (
+                        round(segment[0], 6),
+                        round(segment[1], 6),
+                        round(segment[2], 6),
+                        round(segment[3], 6),
+                        round(edge_z, 6),
+                        self._element_id_value(floor.Id),
+                    )
+                    reverse_key = (
+                        round(segment[2], 6),
+                        round(segment[3], 6),
+                        round(segment[0], 6),
+                        round(segment[1], 6),
+                        round(edge_z, 6),
+                        self._element_id_value(floor.Id),
+                    )
+                    if key in seen or reverse_key in seen:
+                        continue
+                    seen.add(key)
+
+                    edges.append(
+                        (
+                            segment,
+                            reference,
+                            floor.Id,
+                            edge_z,
+                        )
+                    )
+
+        self._floor_edge_cache[room_level_key] = edges
+        return edges
 
     def _room_separator_reference(self, element):
         from Autodesk.Revit.DB import BuiltInCategory, ElementId
