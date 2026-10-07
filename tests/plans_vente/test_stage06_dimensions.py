@@ -3,7 +3,10 @@ from pathlib import Path
 import ast
 import xml.etree.ElementTree as ET
 
-from plans_vente.dimension_geometry import dominant_dimension_pairs
+from plans_vente.dimension_geometry import (
+    dominant_dimension_pairs,
+    representative_length_indexes,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -149,7 +152,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06-dimensions-finish-faces-v1"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06b-dimensions-fallback-length-v2"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
@@ -159,3 +162,47 @@ def test_documentation_closes_stage05_and_opens_stage06():
     assert "Étape 05 — Étiquettes de pièces : VALIDÉE V1." in text
     assert "## Ouverture Étape 06 — Cotations" in text
     assert "feature/plans-de-vente-stage06-dimensions" in text
+
+
+
+def test_non_parallel_room_gets_two_representative_length_directions():
+    segments = [
+        (0.0, 0.0, 6.0, 0.0),
+        (6.0, 0.0, 5.0, 4.0),
+        (5.0, 4.0, 0.8, 5.0),
+        (0.8, 5.0, 0.0, 0.0),
+    ]
+
+    assert dominant_dimension_pairs(segments) == []
+
+    indexes = representative_length_indexes(
+        segments,
+        angle_tolerance_degrees=12.0,
+        max_results=2,
+    )
+    assert len(indexes) == 2
+    assert indexes[0] == 0
+    assert indexes[0] != indexes[1]
+
+
+def test_stage06b_keeps_processing_when_one_room_is_atypical():
+    service = SERVICE.read_text(encoding="utf-8")
+    window = WINDOW.read_text(encoding="utf-8")
+
+    assert "for room, boundary_candidates, pairs, fallback_indexes in room_plans" in service
+    assert "with RevitTransaction(" in service
+    assert "partial_room_count" in service
+    assert "skipped_room_count" in service
+    assert "une seule dimension principale fiable" in service
+    assert "Une pièce atypique ne bloque plus les autres." in window
+
+
+def test_stage06b_uses_endpoint_or_finish_face_edges_for_length_fallback():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "GetEndPointReference(0)" in text
+    assert "GetEndPointReference(1)" in text
+    assert "face.EdgeLoops" in text
+    assert "edge.Reference" in text
+    assert "_length_dimension_line" in text
+    assert "room.IsPointInRoom(point)" in text
