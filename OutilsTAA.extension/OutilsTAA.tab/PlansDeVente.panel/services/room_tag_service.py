@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Placement contrôlé des étiquettes de pièces du plan de vente."""
 
-ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-category-only-v3"
+ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-probe-z-v4"
 
 from common.transaction import RevitTransaction
 from plans_vente.tag_positioning import (
@@ -303,7 +303,7 @@ class RoomTagService(object):
         occupied_boxes,
         padding,
     ):
-        from Autodesk.Revit.DB import LinkElementId, UV, XYZ
+        from Autodesk.Revit.DB import LinkElementId, UV
 
         first = candidates[0]
         tag = self.document.Create.NewRoomTag(
@@ -323,8 +323,12 @@ class RoomTagService(object):
         best = None
         for index, point in enumerate(candidates):
             if index > 0:
-                head = tag.TagHeadPosition
-                tag.TagHeadPosition = XYZ(point[0], point[1], head.Z)
+                self._set_tag_head_position(
+                    tag,
+                    room,
+                    point,
+                    probe_z,
+                )
 
             self.document.Regenerate()
             bbox = self._bounding_box_2d(tag, view)
@@ -353,11 +357,11 @@ class RoomTagService(object):
             raise RuntimeError("Aucune position d'étiquette n'a pu être évaluée.")
 
         _, chosen_index, chosen_point, fully_inside, collision = best
-        head = tag.TagHeadPosition
-        tag.TagHeadPosition = XYZ(
-            chosen_point[0],
-            chosen_point[1],
-            head.Z,
+        self._set_tag_head_position(
+            tag,
+            room,
+            chosen_point,
+            probe_z,
         )
         self.document.Regenerate()
 
@@ -367,6 +371,26 @@ class RoomTagService(object):
             )
 
         return tag, chosen_index, fully_inside, collision
+
+    def _set_tag_head_position(self, tag, room, point, probe_z):
+        from Autodesk.Revit.DB import XYZ
+
+        head_point = XYZ(
+            float(point[0]),
+            float(point[1]),
+            float(probe_z),
+        )
+        try:
+            inside = bool(room.IsPointInRoom(head_point))
+        except Exception:
+            inside = False
+
+        if not inside:
+            raise RuntimeError(
+                "La position calculée pour l'étiquette n'est pas dans la pièce."
+            )
+
+        tag.TagHeadPosition = head_point
 
     def _valid_candidate_points(self, room):
         from Autodesk.Revit.DB import XYZ
