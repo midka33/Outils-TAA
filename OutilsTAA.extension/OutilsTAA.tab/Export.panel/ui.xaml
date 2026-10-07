@@ -42,33 +42,33 @@
           </StackPanel>
         </Grid>
       </Border>
-      <Border Grid.Column="1" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="12" Margin="8,0,0,0" Style="{DynamicResource TaaCard}">
+      <Border Grid.Column="1" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="10" Margin="8,0,0,0" Style="{DynamicResource TaaCard}">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <TextBlock Grid.Row="0" Text="Réglages de publication" FontSize="16" FontWeight="Bold" Margin="0,0,0,10" />
+          <TextBlock Grid.Row="0" Text="Réglages de publication" FontSize="16" FontWeight="Bold" Margin="0,0,0,6" />
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="SettingsPanel">
-              <TextBlock Text="Réglages de l'élément actif ci-dessous ; chaque carnet conserve ses réglages en sélection multiple." FontSize="12" Foreground="{DynamicResource TaaSecondary}" TextWrapping="Wrap" Margin="0,0,0,6"/>
-              <TextBlock x:Name="SelectedNodeText" Text="Sélectionnez une publication." TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
-              <Grid Margin="0,0,0,6">
+              <TextBlock Text="Réglages de l'élément actif ; chaque carnet conserve ses réglages en sélection multiple." FontSize="12" Foreground="{DynamicResource TaaSecondary}" TextWrapping="Wrap" Margin="0,0,0,3"/>
+              <TextBlock x:Name="SelectedNodeText" Text="Sélectionnez une publication." TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+              <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock Text="Profil" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <ComboBox x:Name="ProfileCombo" Grid.Column="1" MinHeight="28" Padding="6,2" SelectionChanged="ProfileChanged" ToolTip="{Binding Text, ElementName=ProfileInfoText}"/>
                 <Button Grid.Column="2" Content="Enregistrer…" Click="SaveProfile_Click" MinHeight="28" Padding="8,3" Margin="6,0,0,0" ToolTip="Enregistrer les réglages comme profil"/>
                 <Button Grid.Column="3" Content="Supprimer" Click="DeleteProfile_Click" MinHeight="28" Padding="8,3" Margin="6,0,0,0" ToolTip="Supprimer le profil sélectionné"/>
               </Grid>
-              <TextBlock x:Name="ProfileInfoText" Text="" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TaaSecondary}" Margin="0,0,0,4" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-              <Grid x:Name="InheritanceRow" Margin="0,0,0,8" Visibility="Collapsed">
+              <TextBlock x:Name="ProfileInfoText" Text="" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TaaSecondary}" Margin="0,0,0,2" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+              <Grid x:Name="InheritanceRow" Margin="0,0,0,4" Visibility="Collapsed">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="InheritanceInfoText" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{DynamicResource TaaSecondary}" Margin="0,0,8,0"/>
                 <Button x:Name="RevertInheritanceButton" Grid.Column="1" Content="Revenir à l'héritage" Click="RevertInheritance_Click" MinHeight="30" Padding="8,3" IsEnabled="False" ToolTip="Effacer les surcharges de ce niveau uniquement"/>
               </Grid>
               <TextBlock Text="PDF" FontWeight="SemiBold" Margin="0,0,0,4"/>
-              <WrapPanel Margin="0,0,0,10">
+              <WrapPanel Margin="0,0,0,6">
                 <CheckBox x:Name="PdfCheckBox" Content="Publier" Checked="SettingsChanged" Unchecked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,12,4"/>
                 <RadioButton x:Name="PdfCombinedRadio" Content="Combiné" GroupName="PdfMode" IsChecked="True" Checked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,8,4"/>
                 <RadioButton x:Name="PdfSeparateRadio" Content="Séparé" GroupName="PdfMode" Checked="SettingsChanged" VerticalAlignment="Center" Margin="0,0,12,4"/>
@@ -81,27 +81,24 @@
                   <Path Data="{DynamicResource TaaSettingsIcon}" Width="16" Height="16" Stretch="Uniform" Stroke="{DynamicResource TaaAccentPressed}" StrokeThickness="1.7"/>
                 </Button>
               </WrapPanel>
-              <TextBlock Text="DWG" FontWeight="SemiBold" Margin="0,0,0,4"/>
-              <CheckBox x:Name="DwgCheckBox" Content="Publier" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,8"/>
-              <TextBlock Text="Configuration DWG Revit" Margin="0,0,0,4"/>
-              <DockPanel Margin="0,0,0,6">
+              <WrapPanel Margin="0,0,0,4">
+                <TextBlock Text="DWG" FontWeight="SemiBold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <CheckBox x:Name="DwgCheckBox" Content="Publier" Checked="SettingsChanged" Unchecked="SettingsChanged" VerticalAlignment="Center"/>
+              </WrapPanel>
+              <TextBlock Text="Configuration DWG Revit" Margin="0,0,0,3"/>
+              <DockPanel Margin="0,0,0,4">
                 <Button x:Name="DwgRefreshButton" DockPanel.Dock="Right" Click="RefreshDwgSetups_Click" MinHeight="28" Padding="8,2" Margin="6,0,0,0" Content="Actualiser" ToolTip="Relire les configurations DWG du projet"/>
                 <Button x:Name="DwgSettingsButton" DockPanel.Dock="Right" Click="DwgSettings_Click" Width="30" MinHeight="28" Padding="5" Margin="6,0,0,0" ToolTip="Modifier les configurations DWG Revit. Export se ferme ; rouvrez-le ensuite pour retrouver votre sélection." AutomationProperties.Name="Modifier les configurations DWG Revit">
                   <Path Data="{DynamicResource TaaSettingsIcon}" Width="16" Height="16" Stretch="Uniform" Stroke="{DynamicResource TaaAccentPressed}" StrokeThickness="1.7"/>
                 </Button>
                 <ComboBox x:Name="DwgSetupCombo" MinWidth="120" MinHeight="28" Padding="6,2" SelectionChanged="SettingsChanged" ToolTip="Configuration DWG Revit. Vide : réglages Revit par défaut."/>
               </DockPanel>
-              <WrapPanel Margin="0,0,0,6">
-                <TextBlock Text="Sortie" Margin="0,0,12,4"/>
-                <RadioButton x:Name="DwgSeparateRadio" Content="Par feuille" GroupName="DwgMode" IsChecked="True" Checked="SettingsChanged" Margin="0,0,12,4"/>
-                <RadioButton x:Name="DwgCombinedRadio" Content="Lot Revit" GroupName="DwgMode" Checked="SettingsChanged" Margin="0,0,0,4" ToolTip="Un appel Revit pour le carnet, avec le préfixe commun. Plusieurs feuilles restent plusieurs DWG. Ancien mode Combiné."/>
-              </WrapPanel>
-              <CheckBox x:Name="DwgMergeViewsCheckBox" IsChecked="True" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,6" ToolTip="Décoché : vues/liens exportés en références externes lorsque applicable. Les images et certaines ressources peuvent rester externes, même avec la fusion activée.">
+              <CheckBox x:Name="DwgMergeViewsCheckBox" IsChecked="True" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,4" ToolTip="Décoché : vues/liens exportés en références externes lorsque applicable. Les images et certaines ressources peuvent rester externes, même avec la fusion activée.">
                 <TextBlock Text="Fusionner les vues et les liens dans le DWG" TextWrapping="Wrap"/>
               </CheckBox>
-              <CheckBox x:Name="DwgTrueColorCheckBox" Content="Forcer les couleurs vraies" IsChecked="True" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,12" ToolTip="Coché : couleurs RVB des styles d'objets (réglage TAA historique). Décoché : conserver les couleurs de la configuration Revit, y compris ses couleurs par vue."/>
-              <TextBlock Text="Destination et nommage" FontWeight="SemiBold" Margin="0,0,0,8"/>
-              <Grid Margin="0,0,0,6">
+              <CheckBox x:Name="DwgTrueColorCheckBox" Content="Forcer les couleurs vraies" IsChecked="True" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,8" ToolTip="Coché : couleurs RVB des styles d'objets (réglage TAA historique). Décoché : conserver les couleurs de la configuration Revit, y compris ses couleurs par vue."/>
+              <TextBlock Text="Destination et nommage" FontWeight="SemiBold" Margin="0,0,0,4"/>
+              <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock Text="Destination" VerticalAlignment="Center"/>
                 <TextBox x:Name="OutputDirectoryTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" LostFocus="SettingsChanged" ToolTip="Dossier de publication"/>
@@ -109,13 +106,13 @@
                   <Path Data="{DynamicResource TaaFolderIcon}" Width="18" Height="16" Stretch="Uniform" Stroke="{DynamicResource TaaAccentPressed}" StrokeThickness="1.5"/>
                 </Button>
               </Grid>
-              <Grid Margin="0,0,0,6">
+              <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Text="Nom du fichier" VerticalAlignment="Center"/>
                 <TextBox x:Name="FilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Modèle de nommage. Les variables sont disponibles dans Options avancées."/>
               </Grid>
-              <TextBlock x:Name="FilenamePreviewText" Text="—" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Margin="100,0,0,8" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-              <CheckBox x:Name="CarnetSubfolderCheckBox" Content="Créer un sous-dossier pour ce carnet" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,10" ToolTip="Exports séparés uniquement. Par défaut, les feuilles sont regroupées dans un dossier au nom du carnet. Les exports combinés restent dans le dossier parent."/>
+              <TextBlock x:Name="FilenamePreviewText" Text="—" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Margin="100,0,0,4" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+              <CheckBox x:Name="CarnetSubfolderCheckBox" Content="Créer un dossier au nom du carnet" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,6" ToolTip="Coché : crée Nom du carnet/PDF et Nom du carnet/DWG, quel que soit le mode PDF. Décoché : écrit directement dans la destination issue de l'arborescence."/>
               <Expander x:Name="AdvancedOptions" Header="Options avancées" IsExpanded="False">
                 <Grid Margin="0,8,0,0">
                   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
