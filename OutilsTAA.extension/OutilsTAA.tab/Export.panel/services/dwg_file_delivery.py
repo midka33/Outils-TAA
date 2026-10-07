@@ -115,7 +115,7 @@ def _backup_destination(destination, backup_dir, backups):
 
 
 def deliver_named_dwgs(output_directory, items, target_names, export_callback,
-                        progress_callback=None):
+                        progress_callback=None, before_delivery_callback=None):
     """Exporte un lot une fois, puis renomme/livre chaque DWG avec rollback.
 
     Les fichiers auxiliaires non identifiés comme DWG principaux (XRefs, PNG,
@@ -139,6 +139,8 @@ def deliver_named_dwgs(output_directory, items, target_names, export_callback,
         source_names = reconcile_native_dwgs(staging, items)
         source_set = set(source_names)
         delivered = []
+        if before_delivery_callback is not None:
+            before_delivery_callback()
 
         for index, (item, source_name, target_name) in enumerate(
                 zip(items, source_names, target_names), 1):
