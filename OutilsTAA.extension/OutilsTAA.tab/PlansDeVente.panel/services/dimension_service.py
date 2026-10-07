@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06b-dimensions-fallback-length-v2"
+DIMENSION_SERVICE_BUILD = "stage06c-dimensions-compute-references-v3"
 
 import math
 
@@ -560,12 +560,14 @@ class DimensionService(object):
         except Exception:
             pass
 
-        # Sinon, on cherche les arêtes verticales pleine hauteur de la face
-        # finie la plus proche des deux extrémités du segment de pièce.
-        try:
-            face = wall.GetGeometryObjectFromReference(finish_reference)
-        except Exception:
-            face = None
+        # Les BoundarySegment de pièce ne portent généralement pas de
+        # références d'extrémité exploitables. On recharge donc la géométrie
+        # réelle du mur avec ComputeReferences=True, puis on retrouve la face
+        # latérale la plus proche de la limite finie de la pièce.
+        face = self._computed_side_face_with_references(
+            wall,
+            boundary_curve,
+        )
         if face is None:
             return None
 
@@ -605,11 +607,13 @@ class DimensionService(object):
                 dz = abs(float(p1.Z - p0.Z))
                 xy = math.sqrt((dx * dx) + (dy * dy))
 
+                # Les références recherchées sont les arêtes verticales qui
+                # matérialisent les extrémités de la face de finition en plan.
                 if dz <= 1e-9:
                     continue
                 if xy > max(1e-6, dz * 0.05):
                     continue
-                if wall_height > 1e-9 and dz < (wall_height * 0.45):
+                if wall_height > 1e-9 and dz < (wall_height * 0.35):
                     continue
 
                 x = (float(p0.X) + float(p1.X)) * 0.5
@@ -628,6 +632,101 @@ class DimensionService(object):
         if first is None or second is None:
             return None
         return (first, second)
+
+    def _computed_side_face_with_references(self, wall, boundary_curve):
+        from Autodesk.Revit.DB import (
+            GeometryInstance,
+            Options,
+            PlanarFace,
+            Solid,
+            ViewDetailLevel,
+        )
+
+        options = Options()
+        options.ComputeReferences = True
+        options.IncludeNonVisibleObjects = False
+        try:
+            options.DetailLevel = ViewDetailLevel.Fine
+        except Exception:
+            pass
+
+        try:
+            geometry = wall.get_Geometry(options)
+        except Exception:
+            geometry = None
+        if geometry is None:
+            return None
+
+        try:
+            midpoint = boundary_curve.Evaluate(0.5, True)
+            direction = boundary_curve.Direction.Normalize()
+        except Exception:
+            return None
+
+        best = None
+        for solid in self._geometry_solids(
+            geometry,
+            Solid,
+            GeometryInstance,
+        ):
+            try:
+                faces = list(solid.Faces or [])
+            except Exception:
+                faces = []
+
+            for face in faces:
+                if not isinstance(face, PlanarFace):
+                    continue
+
+                try:
+                    reference = face.Reference
+                    normal = face.FaceNormal.Normalize()
+                except Exception:
+                    continue
+                if reference is None:
+                    continue
+
+                # Face latérale verticale et parallèle à la limite de pièce.
+                if abs(float(normal.Z)) > 0.2:
+                    continue
+                if abs(float(normal.DotProduct(direction))) > 0.1:
+                    continue
+
+                try:
+                    vector = midpoint.Subtract(face.Origin)
+                    distance = abs(float(vector.DotProduct(normal)))
+                except Exception:
+                    continue
+
+                if best is None or distance < best[0]:
+                    best = (distance, face)
+
+        return best[1] if best is not None else None
+
+    def _geometry_solids(self, geometry, solid_type, instance_type):
+        for geometry_object in geometry:
+            if isinstance(geometry_object, solid_type):
+                try:
+                    if geometry_object.Volume > 1e-12:
+                        yield geometry_object
+                except Exception:
+                    yield geometry_object
+                continue
+
+            if isinstance(geometry_object, instance_type):
+                try:
+                    nested = geometry_object.GetInstanceGeometry()
+                except Exception:
+                    nested = None
+                if nested is None:
+                    continue
+
+                for solid in self._geometry_solids(
+                    nested,
+                    solid_type,
+                    instance_type,
+                ):
+                    yield solid
 
     @staticmethod
     def _nearest_xy_reference(
