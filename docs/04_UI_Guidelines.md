@@ -1094,6 +1094,18 @@ Analyse des pièces...
 196 / 248
 ```
 
+Règles supplémentaires pour une progression chiffrée :
+
+- un pourcentage de 0 à 100 % doit représenter des unités de travail réelles ;
+- la valeur doit être monotone et ne jamais reculer ;
+- 100 % signifie que toutes les unités prévues ont été traitées ;
+- ne pas simuler une progression fine à l'intérieur d'un appel API bloquant si l'application ne possède pas cette information ;
+- dans ce cas, afficher l'étape exacte en cours et laisser temporairement le pourcentage stable ;
+- un compteur doit nommer précisément ce qu'il compte : feuilles, fichiers, carnets ou unités ;
+- un temps restant ne doit être affiché que s'il repose sur une estimation mesurée et suffisamment fiable.
+
+Pour Export, la spécification de référence est `docs/22_Export_Progression.md`.
+
 ---
 
 # 56. ProgressBar
