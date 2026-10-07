@@ -46,11 +46,6 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
-- Export : fenêtre de progression globale de 0 à 100 %, fondée sur les opérations
-  réellement traitées, avec carnet, phase et compteur d'unités. Modes PDF groupés
-  conservés, livraison sécurisée et DWG inclus dans le plan, fermeture avant rapport.
-  Reporter optionnel sans WPF dans le moteur ; 257 tests Export réussis hors Revit.
-  Recette Revit 2025.4 requise avant fusion ; aucun temps restant ni annulation native.
 - Plans de vente : prototype 04A des nomenclatures intérieure/extérieure, avec sélection de modèles compatibles, duplication, filtre logement stable et collision de noms bloquante.
 - Plans de vente : prototype 04B du plan de repérage, avec vue source configurable, gabarit optionnel et surbrillance du logement par zones remplies.
 - Plans de vente : contrat de placement 04C avec rôles explicites, UniqueId Revit et ancrages sémantiques pour préparer l'assemblage de feuille sans heuristique de nommage.
@@ -138,6 +133,18 @@ Le format suit les principes de *Keep a Changelog*.
 - Le drag-and-drop utilise désormais un `DataObject` WPF explicite et une opération repository dédiée au déplacement de plusieurs carnets en conservant leur ordre.
 - Le réglage `modified_only` est désormais totalement intégré à l'interface, à la prévisualisation, à la publication simple et multiple et à l'historique ; la validation réelle dans Revit 2025.4 reste obligatoire.
 - Stage 08 reste volontairement isolé : son résolveur ne dépend ni de Revit, ni de WPF, ni du moteur PDF/DWG, et n'est pas appelé par le workflow de publication actuel.
+
+## [1.0.2] - 2026-10-07
+
+### Added
+- Export : fenêtre de progression globale de 0 à 100 %, fondée sur les opérations réellement traitées, avec carnet courant, phase et compteur d'unités.
+- Export : progression commune aux publications simples, sélections multiples et dossiers, sans simuler de progression feuille par feuille pendant un appel natif Revit opaque.
+- Export : fermeture de la fenêtre de progression avant l'ouverture du rapport final ; aucun temps restant artificiel, aucune annulation native non sûre.
+- Validation automatisée Export : 257 tests réussis hors Revit, GitHub Actions au vert.
+
+### Unchanged
+- Calculs des pièces conserve le comportement validé de la v1.0.1, notamment l'écriture temporaire dans les paramètres alignés par type de groupe avec rollback de sécurité en cas de valeurs divergentes.
+- La résolution interactive des divergences de groupes reste hors de cette release tant que TEST-CALC-22 n'est pas validé dans Revit 2025.4.
 
 ## [1.0.1] - 2026-10-06
 
