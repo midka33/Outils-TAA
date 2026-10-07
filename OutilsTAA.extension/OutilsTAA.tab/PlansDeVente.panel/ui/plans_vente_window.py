@@ -806,9 +806,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Vue logement : {}\n"
                 "Type de cote : {}\n"
                 "Pièces : {}\n\n"
-                "Prototype 06B : les paires de faces parallèles sont privilégiées. "
-                "Quand une deuxième paire manque, le moteur tente une longueur "
-                "de mur dominante. Une pièce atypique ne bloque plus les autres."
+                "Prototype 06D : les faces de murs et les lignes de séparation "
+                "de pièces participent aux dimensions principales. Quand une "
+                "deuxième paire manque, le moteur tente une longueur de mur dominante."
             ).format(
                 housing.key,
                 view.name,
@@ -951,8 +951,8 @@ class PlansVenteWindow(forms.WPFWindow):
             ).format(self._dimension_type_error)
         elif self._dimension_view_choices:
             self.DimensionInfoText.Text = (
-                "Prototype 06B : faces opposées en priorité, puis longueur "
-                "dominante en secours pour les pièces non orthogonales. "
+                "Prototype 06D : faces opposées et séparations de pièces en "
+                "priorité, puis longueur dominante en secours. "
                 "{} type(s) disponible(s)."
             ).format(len(self._dimension_type_labels))
         else:
