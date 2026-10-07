@@ -152,7 +152,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06c-dimensions-compute-references-v3"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06d-dimensions-room-separators-v4"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
@@ -234,3 +234,29 @@ def test_stage06c_reloads_wall_geometry_with_compute_references():
     assert "face.Reference" in text
     assert "edge.Reference" in text
     assert "_computed_side_face_with_references" in text
+
+
+
+def test_stage06d_room_separation_lines_are_dimension_candidates():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "BuiltInCategory.OST_RoomSeparationLines" in text
+    assert "def _room_separator_reference(" in text
+    assert "element.GeometryCurve" in text
+    assert "geometry_curve.Reference" in text
+    assert "length_references=None" in text
+
+
+def test_stage06d_keeps_room_separator_geometry_in_principal_pair_search():
+    # Une séparation de pièce verticale et un mur vertical opposé doivent
+    # pouvoir former la largeur principale d'une pièce extérieure.
+    segments = [
+        (0.0, 0.0, 6.0, 0.0),
+        (6.0, 0.0, 6.0, 3.0),   # mur
+        (6.0, 3.0, 0.0, 3.0),
+        (0.0, 3.0, 0.0, 0.0),   # séparation de pièce
+    ]
+
+    pairs = dominant_dimension_pairs(segments)
+    assert len(pairs) == 2
+    assert sorted(round(pair.distance, 6) for pair in pairs) == [3.0, 6.0]
