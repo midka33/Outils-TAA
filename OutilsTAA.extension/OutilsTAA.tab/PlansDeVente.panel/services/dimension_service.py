@@ -399,7 +399,7 @@ class DimensionService(object):
                 continue
 
             try:
-                vector = midpoint - face.Origin
+                vector = midpoint.Subtract(face.Origin)
                 distance = abs(float(vector.DotProduct(normal)))
             except Exception:
                 continue
