@@ -32,7 +32,7 @@ from publication_tree_drag_drop import PublicationTreeDragDrop
 class ExportWindow(forms.WPFWindow):
     """Interface principale de publication, organisée comme un Publisher."""
 
-    INHERITABLE_FIELDS = PublicationSettings.FIELDS
+    INHERITABLE_FIELDS = PublicationSettings.ACTIVE_FIELDS
 
     def __init__(self, controller, repository):
         self.controller = controller
@@ -344,8 +344,6 @@ class ExportWindow(forms.WPFWindow):
             self.PdfCombinedRadio.IsChecked = effective.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = effective.pdf_mode == "SEPARATE"
             self.DwgCheckBox.IsChecked = effective.dwg_enabled
-            self.DwgCombinedRadio.IsChecked = effective.dwg_mode == "COMBINED"
-            self.DwgSeparateRadio.IsChecked = effective.dwg_mode == "SEPARATE"
             self.DwgTrueColorCheckBox.IsChecked = effective.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = effective.dwg_merge_views
             self.OutputDirectoryTextBox.Text = effective.output_directory or ""
@@ -374,8 +372,6 @@ class ExportWindow(forms.WPFWindow):
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = settings.pdf_mode == "SEPARATE"
             self.DwgCheckBox.IsChecked = settings.dwg_enabled
-            self.DwgCombinedRadio.IsChecked = settings.dwg_mode == "COMBINED"
-            self.DwgSeparateRadio.IsChecked = settings.dwg_mode == "SEPARATE"
             self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
             self.OutputDirectoryTextBox.Text = settings.output_directory or ""
@@ -429,7 +425,7 @@ class ExportWindow(forms.WPFWindow):
 
     @staticmethod
     def _field_label(field):
-        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_mode": "mode DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage"}
+        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
         labels["separate_carnet_subfolder"] = "sous-dossier du carnet"
         return labels.get(field, field)
@@ -463,7 +459,6 @@ class ExportWindow(forms.WPFWindow):
             "pdf_enabled": bool(self.PdfCheckBox.IsChecked),
             "pdf_mode": "COMBINED" if self.PdfCombinedRadio.IsChecked else "SEPARATE",
             "dwg_enabled": bool(self.DwgCheckBox.IsChecked),
-            "dwg_mode": "COMBINED" if self.DwgCombinedRadio.IsChecked else "SEPARATE",
             "dwg_setup_name": self.DwgSetupCombo.SelectedItem or None,
             "dwg_true_color": bool(self.DwgTrueColorCheckBox.IsChecked),
             "dwg_merge_views": bool(self.DwgMergeViewsCheckBox.IsChecked),
@@ -510,7 +505,6 @@ class ExportWindow(forms.WPFWindow):
             setattr(settings, field, values.get(field, default))
         settings.pdf_mode = values.get("pdf_mode", "COMBINED")
         settings.dwg_enabled = bool(values.get("dwg_enabled", True))
-        settings.dwg_mode = values.get("dwg_mode", "SEPARATE")
         settings.dwg_setup_name = values.get("dwg_setup_name")
         settings.dwg_true_color = bool(values.get("dwg_true_color", True))
         settings.dwg_merge_views = values.get("dwg_merge_views") is not False
@@ -523,8 +517,6 @@ class ExportWindow(forms.WPFWindow):
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
             self.PdfSeparateRadio.IsChecked = settings.pdf_mode == "SEPARATE"
             self.DwgCheckBox.IsChecked = settings.dwg_enabled
-            self.DwgCombinedRadio.IsChecked = settings.dwg_mode == "COMBINED"
-            self.DwgSeparateRadio.IsChecked = settings.dwg_mode == "SEPARATE"
             self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
             self._select_dwg_setup(settings.dwg_setup_name)
@@ -611,7 +603,7 @@ class ExportWindow(forms.WPFWindow):
             "PdfQualityCombo": "pdf_quality",
             "CarnetSubfolderCheckBox": "separate_carnet_subfolder",
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
-            "DwgCheckBox": "dwg_enabled", "DwgCombinedRadio": "dwg_mode", "DwgSeparateRadio": "dwg_mode",
+            "DwgCheckBox": "dwg_enabled",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
             "DwgMergeViewsCheckBox": "dwg_merge_views",
             "OutputDirectoryTextBox": "output_directory", "FilenameTemplateTextBox": "filename_template"
