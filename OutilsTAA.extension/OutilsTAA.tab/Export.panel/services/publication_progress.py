@@ -73,7 +73,6 @@ class PublicationProgress(object):
 
         for index, target in enumerate(targets):
             value = settings[index]
-            item_count = len(getattr(target, "items", []) or [])
             keys = ["prepare"]
 
             if value.pdf_enabled:
@@ -83,8 +82,9 @@ class PublicationProgress(object):
 
             if value.dwg_enabled:
                 keys.append("dwg")
-                if item_count > 1:
-                    keys.append("dwg_delivery")
+                # Toujours planifiée : une feuille signale 1/1, un lot
+                # progresse réellement pendant le renommage/livraison.
+                keys.append("dwg_delivery")
 
             keys.append("finalize")
             self.targets.append(
