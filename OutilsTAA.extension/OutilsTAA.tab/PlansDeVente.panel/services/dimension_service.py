@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Prototype Étape 06 — deux cotations principales par pièce."""
+"""Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06-dimensions-finish-faces-v1"
+DIMENSION_SERVICE_BUILD = "stage06b-dimensions-fallback-length-v2"
+
+import math
 
 from common.transaction import RevitTransaction
-from plans_vente.dimension_geometry import dominant_dimension_pairs
+from plans_vente.dimension_geometry import (
+    dominant_dimension_pairs,
+    representative_length_indexes,
+)
 from plans_vente.tag_positioning import polygon_area
 
 
@@ -46,6 +51,9 @@ class DimensionCreationResult(object):
         dimension_type_name,
         created_count,
         room_count,
+        full_room_count=0,
+        partial_room_count=0,
+        skipped_room_count=0,
         warnings=None,
     ):
         self.housing_key = housing_key or ""
@@ -53,6 +61,9 @@ class DimensionCreationResult(object):
         self.dimension_type_name = dimension_type_name or ""
         self.created_count = int(created_count or 0)
         self.room_count = int(room_count or 0)
+        self.full_room_count = int(full_room_count or 0)
+        self.partial_room_count = int(partial_room_count or 0)
+        self.skipped_room_count = int(skipped_room_count or 0)
         self.warnings = list(warnings or [])
 
     @property
@@ -61,18 +72,27 @@ class DimensionCreationResult(object):
 
 
 class _BoundaryReferenceCandidate(object):
-    def __init__(self, segment, reference, element_id_value):
+    def __init__(
+        self,
+        segment,
+        reference,
+        element_id_value,
+        length_references=None,
+    ):
         self.segment = segment
         self.reference = reference
         self.element_id_value = element_id_value
+        self.length_references = length_references
 
 
 class DimensionService(object):
-    """Service Revit du premier prototype de l'Étape 06."""
+    """Service Revit de l'Étape 06."""
 
     ANGLE_TOLERANCE_DEGREES = 5.0
     MINIMUM_RELATIVE_LENGTH = 0.25
     PLACEMENT_FRACTION = 0.25
+    LENGTH_DIRECTION_TOLERANCE_DEGREES = 12.0
+    LENGTH_OFFSET_MM = 180.0
 
     def __init__(self, document):
         if document is None:
@@ -198,9 +218,10 @@ class DimensionService(object):
         for unique_id in housing.room_unique_ids:
             room = self.document.GetElement(unique_id)
             if room is None:
-                raise ValueError(
+                warnings.append(
                     "Une pièce du logement n'existe plus : {}.".format(unique_id)
                 )
+                continue
 
             boundary_candidates = self._room_boundary_candidates(room)
             segments = [candidate.segment for candidate in boundary_candidates]
@@ -212,55 +233,117 @@ class DimensionService(object):
                 max_results=2,
             )
 
-            room_label = (
-                getattr(room, "Number", "")
-                or getattr(room, "Name", "")
-                or str(getattr(room, "UniqueId", ""))
+            fallback_indexes = self._fallback_length_indexes(
+                boundary_candidates,
+                pairs,
+            )
+            room_plans.append(
+                (room, boundary_candidates, pairs, fallback_indexes)
             )
 
-            if len(pairs) < 2:
-                raise ValueError(
-                    "La pièce « {} » ne fournit pas encore deux paires de "
-                    "faces finies opposées fiables. Le prototype 06A gère "
-                    "pour l'instant les limites droites portées par des murs.".format(
+        created_count = 0
+        full_room_count = 0
+        partial_room_count = 0
+        skipped_room_count = 0
+
+        for room, boundary_candidates, pairs, fallback_indexes in room_plans:
+            room_label = self._room_label(room)
+            room_created = 0
+            used_length_indexes = set()
+
+            try:
+                with RevitTransaction(
+                    self.document,
+                    "Plans de vente - Cotations {} - {}".format(
+                        housing.key,
+                        room_label,
+                    ),
+                ):
+                    for pair in pairs:
+                        if room_created >= 2:
+                            break
+                        first = boundary_candidates[pair.first_index]
+                        second = boundary_candidates[pair.second_index]
+                        try:
+                            dimension = self._create_dimension(
+                                view,
+                                dimension_type,
+                                first.reference,
+                                second.reference,
+                                pair.line_start,
+                                pair.line_end,
+                                room,
+                            )
+                            if dimension is not None:
+                                room_created += 1
+                        except Exception as error:
+                            warnings.append(
+                                "{} : cote entre faces opposées non créée ({})".format(
+                                    room_label,
+                                    str(error) or repr(error),
+                                )
+                            )
+
+                    for index in fallback_indexes:
+                        if room_created >= 2:
+                            break
+                        if index in used_length_indexes:
+                            continue
+
+                        candidate = boundary_candidates[index]
+                        if not candidate.length_references:
+                            continue
+
+                        used_length_indexes.add(index)
+                        try:
+                            line_start, line_end = self._length_dimension_line(
+                                candidate,
+                                room,
+                            )
+                            dimension = self._create_dimension(
+                                view,
+                                dimension_type,
+                                candidate.length_references[0],
+                                candidate.length_references[1],
+                                line_start,
+                                line_end,
+                                room,
+                            )
+                            if dimension is not None:
+                                room_created += 1
+                        except Exception as error:
+                            warnings.append(
+                                "{} : cote de longueur de secours non créée ({})".format(
+                                    room_label,
+                                    str(error) or repr(error),
+                                )
+                            )
+            except Exception as error:
+                warnings.append(
+                    "{} : transaction de cotation annulée ({})".format(
+                        room_label,
+                        str(error) or repr(error),
+                    )
+                )
+                room_created = 0
+
+            created_count += room_created
+            if room_created >= 2:
+                full_room_count += 1
+            elif room_created == 1:
+                partial_room_count += 1
+                warnings.append(
+                    "{} : une seule dimension principale fiable a pu être créée.".format(
                         room_label
                     )
                 )
-
-            room_plans.append((room, boundary_candidates, pairs))
-
-        created_count = 0
-        with RevitTransaction(
-            self.document,
-            "Plans de vente - Cotations {}".format(housing.key),
-        ):
-            for room, boundary_candidates, pairs in room_plans:
-                for pair in pairs:
-                    first = boundary_candidates[pair.first_index]
-                    second = boundary_candidates[pair.second_index]
-                    dimension = self._create_dimension(
-                        view,
-                        dimension_type,
-                        first.reference,
-                        second.reference,
-                        pair.line_start,
-                        pair.line_end,
-                        room,
+            else:
+                skipped_room_count += 1
+                warnings.append(
+                    "{} : aucune dimension principale fiable n'a pu être créée.".format(
+                        room_label
                     )
-                    if dimension is None:
-                        raise RuntimeError(
-                            "Revit n'a pas créé une des cotations attendues."
-                        )
-                    created_count += 1
-
-        expected = len(room_plans) * 2
-        if created_count != expected:
-            warnings.append(
-                "{} cote(s) créée(s) au lieu de {}.".format(
-                    created_count,
-                    expected,
                 )
-            )
 
         return DimensionCreationResult(
             housing_key=housing.key,
@@ -268,8 +351,58 @@ class DimensionService(object):
             dimension_type_name=self._element_type_name(dimension_type),
             created_count=created_count,
             room_count=len(room_plans),
+            full_room_count=full_room_count,
+            partial_room_count=partial_room_count,
+            skipped_room_count=skipped_room_count,
             warnings=warnings,
         )
+
+    def _fallback_length_indexes(self, boundary_candidates, pairs):
+        segments = [candidate.segment for candidate in boundary_candidates]
+        result = []
+
+        # Avec une seule paire parallèle, sa plus longue limite fournit une
+        # longueur complémentaire naturelle à la distance entre les deux faces.
+        if len(pairs) == 1:
+            pair = pairs[0]
+            pair_indexes = [pair.first_index, pair.second_index]
+            pair_indexes.sort(
+                key=lambda index: self._segment_length(
+                    boundary_candidates[index].segment
+                ),
+                reverse=True,
+            )
+            for index in pair_indexes:
+                if boundary_candidates[index].length_references:
+                    result.append(index)
+
+        # Sans deux familles parallèles, on complète par les longueurs de murs
+        # dominantes, en évitant deux directions quasi parallèles.
+        for index in representative_length_indexes(
+            segments,
+            angle_tolerance_degrees=self.LENGTH_DIRECTION_TOLERANCE_DEGREES,
+            max_results=max(4, len(segments)),
+        ):
+            if index not in result:
+                result.append(index)
+
+        # Dernier filet de sécurité : garder aussi les autres limites longues
+        # munies de références d'extrémité.
+        remaining = list(range(len(boundary_candidates)))
+        remaining.sort(
+            key=lambda index: self._segment_length(
+                boundary_candidates[index].segment
+            ),
+            reverse=True,
+        )
+        for index in remaining:
+            if (
+                index not in result
+                and boundary_candidates[index].length_references
+            ):
+                result.append(index)
+
+        return result
 
     def _room_boundary_candidates(self, room):
         from Autodesk.Revit.DB import (
@@ -347,6 +480,12 @@ class DimensionService(object):
 
             start = curve.GetEndPoint(0)
             end = curve.GetEndPoint(1)
+            length_references = self._length_endpoint_references(
+                host,
+                reference,
+                curve,
+            )
+
             result.append(
                 _BoundaryReferenceCandidate(
                     segment=(
@@ -357,6 +496,7 @@ class DimensionService(object):
                     ),
                     reference=reference,
                     element_id_value=self._element_id_value(host.Id),
+                    length_references=length_references,
                 )
             )
 
@@ -408,6 +548,152 @@ class DimensionService(object):
                 best = (distance, reference)
 
         return best[1] if best is not None else None
+
+    def _length_endpoint_references(self, wall, finish_reference, boundary_curve):
+        # Certains Curve issus de Revit exposent directement des références
+        # d'extrémité utilisables. On les privilégie.
+        try:
+            first = boundary_curve.GetEndPointReference(0)
+            second = boundary_curve.GetEndPointReference(1)
+            if first is not None and second is not None:
+                return (first, second)
+        except Exception:
+            pass
+
+        # Sinon, on cherche les arêtes verticales pleine hauteur de la face
+        # finie la plus proche des deux extrémités du segment de pièce.
+        try:
+            face = wall.GetGeometryObjectFromReference(finish_reference)
+        except Exception:
+            face = None
+        if face is None:
+            return None
+
+        start = boundary_curve.GetEndPoint(0)
+        end = boundary_curve.GetEndPoint(1)
+
+        try:
+            bbox = wall.get_BoundingBox(None)
+            wall_height = max(
+                0.0,
+                float(bbox.Max.Z - bbox.Min.Z),
+            ) if bbox is not None else 0.0
+        except Exception:
+            wall_height = 0.0
+
+        edge_candidates = []
+        try:
+            edge_loops = list(face.EdgeLoops or [])
+        except Exception:
+            edge_loops = []
+
+        for edge_loop in edge_loops:
+            for edge in edge_loop:
+                try:
+                    edge_curve = edge.AsCurve()
+                    p0 = edge_curve.GetEndPoint(0)
+                    p1 = edge_curve.GetEndPoint(1)
+                    reference = edge.Reference
+                except Exception:
+                    continue
+
+                if reference is None:
+                    continue
+
+                dx = float(p1.X - p0.X)
+                dy = float(p1.Y - p0.Y)
+                dz = abs(float(p1.Z - p0.Z))
+                xy = math.sqrt((dx * dx) + (dy * dy))
+
+                if dz <= 1e-9:
+                    continue
+                if xy > max(1e-6, dz * 0.05):
+                    continue
+                if wall_height > 1e-9 and dz < (wall_height * 0.45):
+                    continue
+
+                x = (float(p0.X) + float(p1.X)) * 0.5
+                y = (float(p0.Y) + float(p1.Y)) * 0.5
+                edge_candidates.append((x, y, reference))
+
+        if len(edge_candidates) < 2:
+            return None
+
+        first = self._nearest_xy_reference(edge_candidates, start)
+        second = self._nearest_xy_reference(
+            edge_candidates,
+            end,
+            excluded_reference=first,
+        )
+        if first is None or second is None:
+            return None
+        return (first, second)
+
+    @staticmethod
+    def _nearest_xy_reference(
+        candidates,
+        point,
+        excluded_reference=None,
+    ):
+        best = None
+        for x_value, y_value, reference in candidates:
+            if (
+                excluded_reference is not None
+                and reference == excluded_reference
+            ):
+                continue
+            dx = x_value - float(point.X)
+            dy = y_value - float(point.Y)
+            distance = (dx * dx) + (dy * dy)
+            if best is None or distance < best[0]:
+                best = (distance, reference)
+        return best[1] if best is not None else None
+
+    def _length_dimension_line(self, candidate, room):
+        segment = candidate.segment
+        dx = float(segment[2]) - float(segment[0])
+        dy = float(segment[3]) - float(segment[1])
+        length = math.sqrt((dx * dx) + (dy * dy))
+        if length <= 1e-12:
+            raise RuntimeError("Segment de longueur nulle.")
+
+        tangent = (dx / length, dy / length)
+        normal = (-tangent[1], tangent[0])
+        offset = self._millimeters_to_internal(self.LENGTH_OFFSET_MM)
+
+        midpoint = (
+            (float(segment[0]) + float(segment[2])) * 0.5,
+            (float(segment[1]) + float(segment[3])) * 0.5,
+        )
+        probe_z = self._probe_z(room)
+
+        sign = 0.0
+        for candidate_sign in (1.0, -1.0):
+            point = self._xyz(
+                midpoint[0] + (normal[0] * offset * candidate_sign),
+                midpoint[1] + (normal[1] * offset * candidate_sign),
+                probe_z,
+            )
+            try:
+                if bool(room.IsPointInRoom(point)):
+                    sign = candidate_sign
+                    break
+            except Exception:
+                continue
+
+        shift_x = normal[0] * offset * sign
+        shift_y = normal[1] * offset * sign
+
+        return (
+            (
+                float(segment[0]) + shift_x,
+                float(segment[1]) + shift_y,
+            ),
+            (
+                float(segment[2]) + shift_x,
+                float(segment[3]) + shift_y,
+            ),
+        )
 
     def _create_dimension(
         self,
@@ -540,6 +826,20 @@ class DimensionService(object):
             return ""
 
     @staticmethod
+    def _room_label(room):
+        return (
+            getattr(room, "Number", "")
+            or getattr(room, "Name", "")
+            or str(getattr(room, "UniqueId", ""))
+        )
+
+    @staticmethod
+    def _segment_length(segment):
+        dx = float(segment[2]) - float(segment[0])
+        dy = float(segment[3]) - float(segment[1])
+        return math.sqrt((dx * dx) + (dy * dy))
+
+    @staticmethod
     def _single_level_name(housing):
         levels = list(getattr(housing, "level_names", []) or [])
         if len(levels) != 1:
@@ -557,3 +857,35 @@ class DimensionService(object):
         if value is not None:
             return int(value)
         return int(element_id.IntegerValue)
+
+    @staticmethod
+    def _millimeters_to_internal(value):
+        from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+        return UnitUtils.ConvertToInternalUnits(
+            float(value),
+            UnitTypeId.Millimeters,
+        )
+
+    @staticmethod
+    def _xyz(x_value, y_value, z_value):
+        from Autodesk.Revit.DB import XYZ
+        return XYZ(float(x_value), float(y_value), float(z_value))
+
+    @staticmethod
+    def _probe_z(room):
+        try:
+            bbox = room.get_BoundingBox(None)
+        except Exception:
+            bbox = None
+
+        if bbox is not None and bbox.Max.Z > bbox.Min.Z:
+            return (bbox.Min.Z + bbox.Max.Z) * 0.5
+
+        location = getattr(room, "Location", None)
+        point = getattr(location, "Point", None)
+        if point is not None:
+            return float(point.Z) + 1.0
+
+        level = getattr(room, "Level", None)
+        elevation = float(getattr(level, "Elevation", 0.0) or 0.0)
+        return elevation + 1.0
