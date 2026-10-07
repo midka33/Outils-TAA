@@ -50,6 +50,12 @@ class RoomTagChoice(object):
         self.Label = candidate.label
 
 
+class DimensionChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
 class PlansVenteWindow(forms.WPFWindow):
 
     def __init__(self, controller):
@@ -65,6 +71,10 @@ class PlansVenteWindow(forms.WPFWindow):
         self._room_tag_type_labels = []
         self._room_tag_type_error = ""
         self._room_tag_view_choices = []
+        self._dimension_type_choices = []
+        self._dimension_type_labels = []
+        self._dimension_type_error = ""
+        self._dimension_view_choices = []
         self._active_descriptor = None
 
         current_dir = os.path.dirname(__file__)
@@ -79,6 +89,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._clear_location_source_selection()
         self._clear_room_tag_views()
         self._load_room_tag_types()
+        self._clear_dimension_views()
+        self._load_dimension_types()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -198,6 +210,7 @@ class PlansVenteWindow(forms.WPFWindow):
         if housing is None:
             self._clear_prototype_selection()
             self._clear_room_tag_views()
+            self._clear_dimension_views()
             self._update_schedule_button_state()
             return
 
@@ -228,6 +241,7 @@ class PlansVenteWindow(forms.WPFWindow):
 
         self._load_location_sources(housing)
         self._load_room_tag_views(housing)
+        self._load_dimension_views(housing)
         self._update_schedule_button_state()
 
     def SourceViewChanged(self, sender, args):
@@ -329,6 +343,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 message += "\n\nAvertissement :\n{}".format(result.warning)
 
             self._load_room_tag_views(housing)
+            self._load_dimension_views(housing)
 
             forms.alert(
                 message,
@@ -755,6 +770,200 @@ class PlansVenteWindow(forms.WPFWindow):
             self.HousingGrid.SelectedItem is not None
             and self.RoomTagViewCombo.SelectedItem is not None
             and self.RoomTagTypeCombo.SelectedItem is not None
+        )
+
+    def DimensionChoiceChanged(self, sender, args):
+        self._update_dimension_button_state()
+
+    def CreateDimensions_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        view_item = self.DimensionViewCombo.SelectedItem
+        type_index = int(self.DimensionTypeCombo.SelectedIndex)
+        view = getattr(view_item, "Candidate", None) if view_item is not None else None
+        type_item = (
+            self._dimension_type_choices[type_index]
+            if 0 <= type_index < len(self._dimension_type_choices)
+            else None
+        )
+        dimension_type = (
+            getattr(type_item, "Candidate", None)
+            if type_item is not None
+            else None
+        )
+
+        if housing is None or view is None or dimension_type is None:
+            forms.alert(
+                "Sélectionnez un logement, une vue logement et un type de cote.",
+                title="Plans de vente — Cotations",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer deux cotations principales par pièce pour le logement « {} » ?\n\n"
+                "Vue logement : {}\n"
+                "Type de cote : {}\n"
+                "Pièces : {}\n\n"
+                "Prototype 06A : seules les limites droites portées par des murs "
+                "et associées à des faces finies fiables sont utilisées. "
+                "Si une pièce ne fournit pas deux axes fiables, l'opération est annulée."
+            ).format(
+                housing.key,
+                view.name,
+                dimension_type.label,
+                housing.room_count,
+            ),
+            title="Plans de vente — Cotations",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateDimensionsButton.IsEnabled = False
+        try:
+            result = self.controller.create_dimensions(
+                housing=housing,
+                target_view_unique_id=view.unique_id,
+                dimension_type_unique_id=dimension_type.unique_id,
+            )
+
+            status = "{} cote(s) créée(s) dans {} pour {} pièce(s).".format(
+                result.created_count,
+                result.view_name,
+                result.room_count,
+            )
+            if result.warning_count:
+                status += " {} avertissement(s).".format(result.warning_count)
+            self.StatusText.Text = status
+
+            message = (
+                "Cotations créées avec succès.\n\n"
+                "Logement : {}\n"
+                "Vue : {}\n"
+                "Type : {}\n"
+                "Pièces : {}\n"
+                "Cotes créées : {}"
+            ).format(
+                result.housing_key,
+                result.view_name,
+                result.dimension_type_name,
+                result.room_count,
+                result.created_count,
+            )
+            if result.warnings:
+                message += "\n\nAvertissements :\n- " + "\n- ".join(result.warnings)
+
+            forms.alert(
+                message,
+                title="Plans de vente — Cotations",
+                warn_icon=bool(result.warnings),
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création des cotations."
+            message = "{}\n\nMoteur cotations : {}".format(
+                str(error),
+                self.controller.dimension_build_id(),
+            )
+            forms.alert(
+                message,
+                title="Plans de vente — Cotations",
+                warn_icon=True,
+            )
+        finally:
+            self._update_dimension_button_state()
+
+    def _load_dimension_types(self):
+        self._dimension_type_choices = []
+        self._dimension_type_labels = []
+        self._dimension_type_error = ""
+        try:
+            candidates = self.controller.dimension_types()
+        except Exception as error:
+            self._dimension_type_error = str(error) or repr(error)
+            self.DimensionTypeCombo.ItemsSource = []
+            self.DimensionTypeCombo.SelectedIndex = -1
+            self.DimensionInfoText.Text = (
+                "Erreur de collecte des types de cote : {}"
+            ).format(self._dimension_type_error)
+            self._update_dimension_button_state()
+            return
+
+        self._dimension_type_choices = [
+            DimensionChoice(candidate)
+            for candidate in candidates
+        ]
+        self._dimension_type_labels = [
+            choice.Label or "Type de cote #{}".format(index + 1)
+            for index, choice in enumerate(self._dimension_type_choices)
+        ]
+        self.DimensionTypeCombo.ItemsSource = self._dimension_type_labels
+        self.DimensionTypeCombo.SelectedIndex = (
+            0 if self._dimension_type_labels else -1
+        )
+
+        if self._dimension_type_labels:
+            self.DimensionInfoText.Text = (
+                "{} type(s) de cote linéaire chargé(s)."
+            ).format(len(self._dimension_type_labels))
+        else:
+            self.DimensionInfoText.Text = (
+                "0 type de cote linéaire trouvé dans le document hôte."
+            )
+        self._update_dimension_button_state()
+
+    def _load_dimension_views(self, housing):
+        self._clear_dimension_views()
+        if housing is None:
+            return
+
+        try:
+            candidates = self.controller.dimension_target_views(housing)
+        except Exception as error:
+            self.DimensionInfoText.Text = str(error)
+            return
+
+        self._dimension_view_choices = [
+            DimensionChoice(candidate)
+            for candidate in candidates
+        ]
+        self.DimensionViewCombo.ItemsSource = self._dimension_view_choices
+        self.DimensionViewCombo.SelectedIndex = (
+            0 if self._dimension_view_choices else -1
+        )
+
+        if self._dimension_type_error:
+            self.DimensionInfoText.Text = (
+                "Erreur de collecte des types de cote : {}"
+            ).format(self._dimension_type_error)
+        elif self._dimension_view_choices:
+            self.DimensionInfoText.Text = (
+                "Prototype 06A : deux dimensions principales par pièce, "
+                "sur faces finies de murs. {} type(s) disponible(s)."
+            ).format(len(self._dimension_type_labels))
+        else:
+            self.DimensionInfoText.Text = (
+                "Créez d'abord une vue logement avec le contour optimisé. "
+                "{} type(s) de cote disponible(s)."
+            ).format(len(self._dimension_type_labels))
+        self._update_dimension_button_state()
+
+    def _clear_dimension_views(self):
+        self._dimension_view_choices = []
+        self.DimensionViewCombo.ItemsSource = []
+        self.DimensionViewCombo.SelectedIndex = -1
+        self.CreateDimensionsButton.IsEnabled = False
+        self.DimensionInfoText.Text = (
+            "Sélectionnez un logement puis une vue logement générée."
+        )
+
+    def _update_dimension_button_state(self):
+        self.CreateDimensionsButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.DimensionViewCombo.SelectedItem is not None
+            and self.DimensionTypeCombo.SelectedItem is not None
         )
 
     def _clear_prototype_selection(self):
