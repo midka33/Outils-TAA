@@ -14,6 +14,7 @@ PANEL = Path(__file__).resolve().parents[1] / 'OutilsTAA.extension/OutilsTAA.tab
 for part in ('models', 'services'):
     sys.path.insert(0, str(PANEL / part))
 from dwg_export_service import DwgExportService
+from dwg_file_delivery import deliver_named_dwgs, reconcile_native_dwgs
 from publication_settings import PublicationSettings
 from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
@@ -100,6 +101,22 @@ def target(tmp_path, mode='SEPARATE', merge=True):
                           set_id='plans', folder_id='default', publication_settings=settings)
 
 
+def simulated_native_batch(calls, item_names):
+    def export(view_ids, directory, filename, setup_name=None, **kwargs):
+        calls.append(((list(view_ids), directory, filename, setup_name), kwargs))
+        for view_id in list(view_ids):
+            number, name = item_names[int(view_id)]
+            Path(
+                directory,
+                '{0} - Feuille - {1} - {2}.dwg'.format(
+                    filename, number, name
+                ),
+            ).write_bytes(b'dwg')
+        Path(directory, 'logo-export.png').write_bytes(b'image')
+        return True
+    return export
+
+
 @pytest.mark.parametrize('legacy_mode', ['COMBINED', 'SEPARATE'])
 @pytest.mark.parametrize('merge', [True, False])
 @pytest.mark.parametrize('entry', ['batch', 'controller', 'direct'])
@@ -112,7 +129,11 @@ def test_legacy_mode_is_ignored_and_multi_sheet_uses_one_native_batch(
     service = PublicationService(doc)
     calls = []
     service.dwg_service = NS(
-        export=lambda *a, **kw: calls.append((a, kw)) or True)
+        export=simulated_native_batch(
+            calls,
+            {2: ('A2', 'Coupe'), 1: ('A1', 'Plan')},
+        )
+    )
 
     if entry == 'batch':
         result = PublicationBatchService(service).publish(
@@ -133,15 +154,27 @@ def test_legacy_mode_is_ignored_and_multi_sheet_uses_one_native_batch(
 
     assert result['success'], result.get('errors')
     assert len(calls) == 1
-    assert list(calls[0][0][0]) == [2, 1]
+    assert calls[0][0][0] == [2, 1]
     assert calls[0][1]['merged_views'] is merge
     assert calls[0][0][3] == 'TAA - DCE'
-    assert calls[0][0][1] == str(tmp_path / 'Plans' / 'DWG')
-    assert result['results'][0]['mode'] == 'batch'
-    assert result['results'][0]['path'] is None
-    assert result['results'][0]['directory'] == str(
-        tmp_path / 'Plans' / 'DWG')
-    assert not result.get('files')
+    # Le natif travaille dans un staging interne au dossier DWG.
+    assert Path(calls[0][0][1]).parent == tmp_path / 'Plans' / 'DWG'
+    assert Path(calls[0][0][1]).name.startswith('.taa-dwg-')
+
+    rows = result['results']
+    assert [row['mode'] for row in rows] == [
+        'batch-renamed', 'batch-renamed'
+    ]
+    assert [Path(row['path']).name for row in rows] == [
+        'Plans-A2.dwg', 'Plans-A1.dwg'
+    ]
+    assert all(
+        Path(row['path']).parent == tmp_path / 'Plans' / 'DWG'
+        for row in rows
+    )
+    assert all(Path(row['path']).is_file() for row in rows)
+    assert len(result.get('files', [])) == 2
+    assert (tmp_path / 'Plans' / 'DWG' / 'logo-export.png').is_file()
 
 
 def test_single_sheet_uses_one_simple_call_and_exact_target_path(tmp_path):
@@ -164,6 +197,67 @@ def test_single_sheet_uses_one_simple_call_and_exact_target_path(tmp_path):
     assert result['results'][0]['mode'] == 'single'
     assert result['results'][0]['path'].endswith(
         str(Path('Plans') / 'DWG' / 'Plans-A2.dwg'))
+
+
+def test_native_dwg_names_are_reconciled_without_relying_on_feuille(tmp_path):
+    staging = tmp_path / 'stage'
+    staging.mkdir()
+    (staging / 'préfixe quelconque - A1101 - Bât A Niveau 1.dwg').write_bytes(b'a')
+    (staging / 'préfixe quelconque - A1102 - Bât A Niveau 2.dwg').write_bytes(b'b')
+    items = [
+        NS(sheet_number='A1101', sheet_name='Bât A Niveau 1'),
+        NS(sheet_number='A1102', sheet_name='Bât A Niveau 2'),
+    ]
+    assert reconcile_native_dwgs(str(staging), items) == [
+        'préfixe quelconque - A1101 - Bât A Niveau 1.dwg',
+        'préfixe quelconque - A1102 - Bât A Niveau 2.dwg',
+    ]
+
+
+def test_delivery_renames_sheet_dwgs_and_keeps_auxiliaries(tmp_path):
+    output = tmp_path / 'DWG'
+    output.mkdir()
+    items = [
+        NS(sheet_number='A1101', sheet_name='Bât A Niveau 1'),
+        NS(sheet_number='A1102', sheet_name='Bât A Niveau 2'),
+    ]
+    progress = []
+
+    def export(staging):
+        Path(
+            staging,
+            'taa_dwg - Feuille - A1101 - Bât A Niveau 1.dwg',
+        ).write_bytes(b'1')
+        Path(
+            staging,
+            'taa_dwg - Feuille - A1102 - Bât A Niveau 2.dwg',
+        ).write_bytes(b'2')
+        Path(staging, 'logo.png').write_bytes(b'img')
+        return True
+
+    result = deliver_named_dwgs(
+        str(output),
+        items,
+        ['TAA_A1101_Bât A Niveau 1.dwg',
+         'TAA_A1102_Bât A Niveau 2.dwg'],
+        export,
+        progress_callback=lambda i, n, item, path: progress.append(
+            (i, n, item.sheet_number, Path(path).name)
+        ),
+    )
+
+    assert [Path(path).name for path in result['paths']] == [
+        'TAA_A1101_Bât A Niveau 1.dwg',
+        'TAA_A1102_Bât A Niveau 2.dwg',
+    ]
+    assert all(Path(path).is_file() for path in result['paths'])
+    assert [Path(path).name for path in result['auxiliary']] == ['logo.png']
+    assert (output / 'logo.png').is_file()
+    assert progress == [
+        (1, 2, 'A1101', 'TAA_A1101_Bât A Niveau 1.dwg'),
+        (2, 2, 'A1102', 'TAA_A1102_Bât A Niveau 2.dwg'),
+    ]
+    assert not any('Feuille' in path.name for path in output.glob('*.dwg'))
 
 
 @pytest.mark.parametrize('merge', [True, False, None])
@@ -379,9 +473,16 @@ def test_preview_explains_automatic_batch_and_references(tmp_path):
         service, service.filename_service).build(
             value, value.publication_settings)
 
-    assert preview['rows'][0].Mode == 'Automatique'
-    assert preview['rows'][0].Path == str(
-        tmp_path / 'Plans' / 'DWG')
+    assert [row.Mode for row in preview['rows']] == [
+        'Automatique', 'Automatique'
+    ]
+    assert [Path(row.Path).name for row in preview['rows']] == [
+        'Plans-A2.dwg', 'Plans-A1.dwg'
+    ]
+    assert all(
+        Path(row.Path).parent == tmp_path / 'Plans' / 'DWG'
+        for row in preview['rows']
+    )
     assert any('stratégie automatique' in w for w in preview['warnings'])
     assert any(
         'TAA - DCE' in w and 'références externes' in w
