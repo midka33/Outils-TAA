@@ -102,9 +102,11 @@ def test_subfolder_preview_and_export_use_effective_setting(tmp_path,combined,su
     settings.pdf_mode='COMBINED' if combined else 'SEPARATE'
     service=PublicationService(SimpleNamespace(GetElement=lambda key:SimpleNamespace(Id=1,CanBePrinted=True)))
     preview=PublicationPreviewService(service,service.filename_service).build(raw,settings)
-    expected=tmp_path/'Plans' if subfolder and not combined else tmp_path
+    expected=(tmp_path/'Plans'/'PDF') if subfolder else tmp_path
     assert Path(preview['rows'][0].Path).parent==expected
-    assert Path(publication_directory(raw.with_settings(settings),str(tmp_path),combined))==expected
+    assert Path(publication_directory(
+        raw.with_settings(settings), str(tmp_path), combined,
+        settings=settings, format_name='PDF'))==expected
     assert raw.publication_settings.separate_carnet_subfolder is None
 
 
