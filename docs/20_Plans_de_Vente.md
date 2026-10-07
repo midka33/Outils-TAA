@@ -2,12 +2,12 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.16
-**Statut :** Développement — prototypes géométriques  
+**Version :** 1.17
+**Statut :** Développement — Étape 06 Cotations  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-05
+**Date :** 2026-10-07
 
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
@@ -3080,7 +3080,7 @@ reste réservée à l'Étape 08.
    alternatives existent ;
 10. relancer sur la même vue et vérifier que les doublons sont bloqués.
 
-**Statut : À valider dans Revit 2025.4.**
+**Statut : VALIDÉ dans Revit 2025.4 le 7 octobre 2026.**
 
 
 ### Correctif Étape 05 — libellés des types d'étiquettes
@@ -3189,3 +3189,46 @@ Pour supprimer toute ambiguïté entre code Git et code exécuté :
 Voir **BUG-PDV-027**.
 
 **À retester dans Revit 2025.4.**
+
+
+## Clôture Étape 05 — 2026-10-07
+
+Validation utilisateur confirmée dans **Revit 2025.4 / pyRevit 5.x**.
+
+Points validés :
+
+- collecte des types d'étiquettes de pièces via `FamilySymbol + OST_RoomTags` ;
+- affichage fiable des types dans la ComboBox ;
+- création d'une étiquette par pièce dans la vue logement dépendante ;
+- type d'étiquette choisi par l'utilisateur ;
+- recherche de points intérieurs par `Room.IsPointInRoom(...)` ;
+- repositionnement possible lorsque l'emprise déborde ou entre en collision ;
+- anti-doublon sur les étiquettes déjà présentes ;
+- tête d'étiquette maintenue dans le volume de la pièce avec le `probe_z` validé ;
+- moteur validé : `stage05-room-tags-probe-z-v4`.
+
+Le correctif final remplace la réutilisation de `TagHeadPosition.Z` par le
+`probe_z` déjà contrôlé dans la pièce, puis revalide le point avant d'affecter
+`TagHeadPosition`.
+
+**Étape 05 — Étiquettes de pièces : VALIDÉE V1.**
+
+La suite se poursuit avec **Étape 06 — Cotations**.
+
+## Ouverture Étape 06 — Cotations
+
+Branche de travail prévue : `feature/plans-de-vente-stage06-dimensions`.
+
+Objectif V1 :
+
+1. proposer un type de cote configurable ;
+2. cibler une vue logement dépendante générée par Plans de vente ;
+3. rechercher deux dimensions principales par pièce ;
+4. privilégier les faces finies opposées ;
+5. ignorer les petits décrochements qui ne décrivent pas la dimension générale ;
+6. créer des cotes Revit associatives ;
+7. préparer des zones d'exclusion réutilisables par le moteur d'étiquettes.
+
+Le premier prototype 06A doit être volontairement testable sur des pièces
+simples avant d'élargir la robustesse aux pièces en L, murs composés,
+cloisons et murs non orthogonaux.
