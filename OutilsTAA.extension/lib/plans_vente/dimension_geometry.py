@@ -266,3 +266,70 @@ def representative_length_indexes(
             break
 
     return [item["index"] for item in selected]
+
+
+
+def segment_match_metrics(
+    reference_segment,
+    candidate_segment,
+    angle_tolerance_degrees=3.0,
+    distance_tolerance=0.1,
+    minimum_overlap_ratio=0.6,
+):
+    """Mesure si deux segments sont assez parallèles et superposés.
+
+    Retourne un dictionnaire avec distance, recouvrement et score, ou None si
+    le candidat n'est pas suffisamment proche. Les unités sont celles des
+    coordonnées fournies (pieds internes Revit côté service).
+    """
+    reference_direction = _canonical_direction(reference_segment)
+    candidate_direction = _canonical_direction(candidate_segment)
+    if reference_direction is None or candidate_direction is None:
+        return None
+
+    tolerance = math.cos(math.radians(float(angle_tolerance_degrees)))
+    if abs(_dot(reference_direction, candidate_direction)) < tolerance:
+        return None
+
+    reference_length = _length(reference_segment)
+    if reference_length <= 1e-12:
+        return None
+
+    normal = (-reference_direction[1], reference_direction[0])
+    reference_midpoint = _midpoint(reference_segment)
+    candidate_midpoint = _midpoint(candidate_segment)
+    delta = (
+        candidate_midpoint[0] - reference_midpoint[0],
+        candidate_midpoint[1] - reference_midpoint[1],
+    )
+    distance = abs(_dot(delta, normal))
+    if distance > float(distance_tolerance):
+        return None
+
+    reference_interval = _projection_interval(
+        reference_segment,
+        reference_direction,
+    )
+    candidate_interval = _projection_interval(
+        candidate_segment,
+        reference_direction,
+    )
+    overlap = max(
+        0.0,
+        min(reference_interval[1], candidate_interval[1])
+        - max(reference_interval[0], candidate_interval[0]),
+    )
+    overlap_ratio = overlap / reference_length
+    if overlap_ratio + 1e-12 < float(minimum_overlap_ratio):
+        return None
+
+    # Score faible = meilleur. La distance géométrique reste prioritaire,
+    # puis le manque de recouvrement départage les candidats quasi confondus.
+    score = distance + (
+        max(0.0, 1.0 - overlap_ratio) * float(distance_tolerance)
+    )
+    return {
+        "distance": distance,
+        "overlap_ratio": overlap_ratio,
+        "score": score,
+    }
