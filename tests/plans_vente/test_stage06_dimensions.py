@@ -324,4 +324,6 @@ def test_stage06e_warns_when_only_hidden_separator_reference_remains():
 
     assert "separator_fallback_used" in text
     assert "aucune arête de sol superposée fiable" in text
-    assert "La cote peut disparaître si les séparations sont masquées" in text
+    assert "La cote peut disparaître" in text
+    assert "séparations sont" in text
+    assert "masquées dans la vue" in text
