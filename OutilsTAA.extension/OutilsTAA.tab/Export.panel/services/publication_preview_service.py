@@ -91,11 +91,15 @@ class PublicationPreviewService(object):
             key = history_service.item_key(item) if item is not None and history_service is not None else None
             state = item_status.get(key, "UNKNOWN") if item is not None else "À PUBLIER"
             status = state if modified_only else ("⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK"))
+            if fmt == "DWG":
+                mode_label = "Automatique"
+            else:
+                mode_label = "Combiné" if mode == "COMBINED" else "Séparé"
             rows.append(_PreviewRow(
                 getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
                 item.sheet_name if item is not None else "Publication du carnet",
-                fmt, ("Lot Revit" if fmt == "DWG" else "Combiné") if mode == "COMBINED" else "Séparé", filename, path, status))
+                fmt, mode_label, filename, path, status))
 
         has_candidates = bool(candidates)
         if settings.pdf_enabled and has_candidates:
