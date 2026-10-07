@@ -13,11 +13,17 @@ class PublicationSettings(object):
     directement sérialisés comme hérités.
     """
 
+    # dwg_mode reste sérialisé uniquement pour lire sans rupture les anciens
+    # carnets/profils. La stratégie d'appel DWG est désormais automatique.
+    LEGACY_FIELDS = ("dwg_mode",)
     FIELDS = (
         "pdf_enabled", "pdf_mode", "pdf_quality", "dwg_enabled", "dwg_mode",
         "dwg_setup_name", "dwg_true_color", "dwg_merge_views", "output_directory",
         "filename_template", "separate_carnet_subfolder"
     ) + PDF_OPTION_FIELDS
+    ACTIVE_FIELDS = tuple(
+        field for field in FIELDS if field not in LEGACY_FIELDS
+    )
 
     PDF_QUALITIES = (72, 144, 300, 600, 1200, 2400, 3600, 4000)
 
@@ -68,8 +74,7 @@ class PublicationSettings(object):
             errors.append("Le dossier de destination est manquant.")
         if self.pdf_mode not in ("COMBINED", "SEPARATE"):
             errors.append("Le mode PDF est invalide.")
-        if self.dwg_mode not in ("COMBINED", "SEPARATE"):
-            errors.append("Le mode DWG est invalide.")
+        # dwg_mode est un champ legacy : sa valeur n'influence plus l'export.
         if self.pdf_enabled is None or self.dwg_enabled is None:
             errors.append("Les réglages PDF/DWG n'ont pas été résolus.")
         if self.pdf_enabled and self.pdf_quality not in self.PDF_QUALITIES:
