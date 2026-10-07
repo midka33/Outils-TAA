@@ -220,3 +220,46 @@ def dominant_dimension_pairs(
     candidates.sort(key=lambda item: item.score, reverse=True)
     limit = max(0, int(max_results or 0))
     return candidates[:limit] if limit else []
+
+
+
+def representative_length_indexes(
+    segments,
+    angle_tolerance_degrees=12.0,
+    max_results=2,
+):
+    """Retourne les segments longs les plus représentatifs par direction.
+
+    Une seule limite est conservée par famille de directions afin d'éviter de
+    proposer deux longueurs parallèles comme les deux dimensions principales.
+    """
+    values = list(segments or [])
+    prepared = []
+    for index, segment in enumerate(values):
+        length = _length(segment)
+        direction = _canonical_direction(segment)
+        if direction is None:
+            continue
+        prepared.append(
+            {
+                "index": index,
+                "length": length,
+                "direction": direction,
+            }
+        )
+
+    prepared.sort(key=lambda item: item["length"], reverse=True)
+    tolerance = math.cos(math.radians(float(angle_tolerance_degrees)))
+    selected = []
+
+    for item in prepared:
+        if any(
+            abs(_dot(item["direction"], existing["direction"])) >= tolerance
+            for existing in selected
+        ):
+            continue
+        selected.append(item)
+        if len(selected) >= int(max_results or 0):
+            break
+
+    return [item["index"] for item in selected]
