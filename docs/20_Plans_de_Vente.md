@@ -3232,3 +3232,73 @@ Objectif V1 :
 Le premier prototype 06A doit être volontairement testable sur des pièces
 simples avant d'élargir la robustesse aux pièces en L, murs composés,
 cloisons et murs non orthogonaux.
+
+
+## Prototype 06A — Deux cotations principales
+
+Implémentation préparée sur
+`feature/plans-de-vente-stage06-dimensions`.
+
+### Périmètre du premier prototype
+
+Pour un logement sélectionné, l'interface propose :
+
+- une vue logement dépendante `PDV PROTO - <logement> - ...` ;
+- un type de cote linéaire du document ;
+- l'action **Créer les cotations**.
+
+Le prototype travaille sur les limites de pièce en
+`SpatialElementBoundaryLocation.Finish`.
+
+Pour chaque pièce, il :
+
+1. conserve la boucle extérieure principale ;
+2. conserve les segments droits portés par des murs ;
+3. recherche sur ces murs la face latérale finie la plus proche via
+   `HostObjectUtils.GetSideFaces(...)` ;
+4. regroupe les limites par direction ;
+5. écarte les micro-segments relativement à leur propre famille de direction ;
+6. retient les deux paires de faces opposées les plus représentatives ;
+7. crée deux cotes linéaires associatives avec des `Reference` Revit réelles.
+
+La géométrie de sélection des deux axes est isolée dans
+`lib/plans_vente/dimension_geometry.py` afin d'être testable hors Revit.
+
+### Filtrage des petits décrochements
+
+Le seuil est calculé par famille de directions et non par rapport au plus long
+mur de la pièce.
+
+Ce choix est important pour qu'un couloir très long conserve malgré tout sa
+dimension transversale, tout en permettant d'écarter un petit segment de niche
+ou de décrochement.
+
+### Sécurité du prototype
+
+Le prototype 06A est volontairement strict :
+
+- uniquement des limites droites portées par des murs ;
+- uniquement des faces latérales Revit exploitables comme références ;
+- deux paires fiables obligatoires par pièce ;
+- si une pièce du logement ne fournit pas deux axes fiables, la création est
+  bloquée avant transaction ;
+- les cotes sont créées dans une transaction courte commune.
+
+Les arcs, séparateurs de pièces, poteaux et géométries atypiques seront élargis
+après validation du contrat de base.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. sélectionner un logement possédant une vue logement dépendante ;
+2. choisir un type de cote linéaire ;
+3. cliquer **Créer les cotations** ;
+4. vérifier la création de **deux cotes par pièce** ;
+5. vérifier que les cotes utilisent le type choisi ;
+6. déplacer légèrement un mur et vérifier que la cote reste associative ;
+7. vérifier que les références correspondent aux faces intérieures finies ;
+8. tester une pièce rectangulaire ;
+9. tester un couloir long et étroit ;
+10. tester une pièce avec petit décrochement et vérifier que le décrochement ne
+    devient pas la dimension principale.
+
+**Statut : À valider dans Revit 2025.4.**
