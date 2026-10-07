@@ -149,6 +149,25 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
     assert len(first.items) == len(second.items) == 3
 
 
+def test_dwg_batch_directories_are_not_false_file_collisions():
+    merge = method(
+        'services/publication_preview_integration.py',
+        None,
+        '_merge_previews',
+        {'os': __import__('os')},
+    )
+    shared = '/exports/DWG'
+    preview = merge([
+        {'rows': [SimpleNamespace(
+            Path=shared, CollisionCheck=False
+        )]},
+        {'rows': [SimpleNamespace(
+            Path=shared, CollisionCheck=False
+        )]},
+    ])
+    assert preview['errors'] == []
+
+
 def test_collisions_across_selected_carnets_block_confirmation():
     merge = method('services/publication_preview_integration.py', None, '_merge_previews', {'os': __import__('os')})
     preview = merge([{'rows': [SimpleNamespace(Path='/exports/Plans.pdf')]},
