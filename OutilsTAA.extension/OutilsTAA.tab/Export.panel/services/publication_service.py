@@ -164,7 +164,10 @@ class PublicationService(object):
         if export_pdf:
             quality = getattr(getattr(publication_set, "publication_settings", None), "pdf_quality", None) or 300
             pdf_directory = self._prepare_output_directory(
-                publication_directory(publication_set, output_directory, pdf_combined))
+                publication_directory(
+                    publication_set, output_directory, pdf_combined,
+                    settings=publication_set.publication_settings,
+                    format_name="PDF"))
             if pdf_combined:
                 filename, unknown = self._filename(publication_set, None, ".pdf")
                 if unknown:
@@ -226,46 +229,109 @@ class PublicationService(object):
                                     "sheet_key": getattr(item, "unique_id", None)})
 
         if export_dwg:
-            warnings.append("DWG — vues/liens : {}. Des ressources annexes (notamment les images) peuvent subsister."
-                            .format("fusionnés" if dwg_merge_views else "références externes"))
+            warnings.append(
+                "DWG — vues/liens : {}. Des ressources annexes "
+                "(notamment les images) peuvent subsister.".format(
+                    "fusionnés" if dwg_merge_views
+                    else "références externes"
+                )
+            )
             with operation(progress, "dwg", "Export DWG du carnet"):
                 dwg_directory = self._prepare_output_directory(
-                    publication_directory(publication_set, output_directory, dwg_combined))
+                    publication_directory(
+                        publication_set,
+                        output_directory,
+                        settings=publication_set.publication_settings,
+                        format_name="DWG",
+                    )
+                )
 
-                if dwg_combined:
-                    filename, unknown = self._filename(publication_set, None, ".dwg")
+                # Stratégie interne : l'utilisateur choisit le résultat métier,
+                # pas le nombre d'appels API. Une feuille = un appel simple ;
+                # plusieurs feuilles = un seul lot natif Revit.
+                if len(items) == 1:
+                    item = items[0]
+                    current_id = self._resolve_current_sheet_id(item)
+                    filename, unknown = self._filename(
+                        publication_set, item, ".dwg"
+                    )
                     if unknown:
-                        warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
+                        warnings.append(
+                            "Variables non résolues pour {} : {}.".format(
+                                item.sheet_number
+                                or item.sheet_name
+                                or "feuille",
+                                ", ".join(unknown),
+                            )
+                        )
                     path = os.path.join(dwg_directory, filename)
                     success = self._export_dwg(
-                        view_ids, dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
-                        merged_views=dwg_merge_views, true_color=dwg_true_color, errors=errors,
-                        context="carnet '{}' (lot Revit)".format(publication_set.name))
-                    if len(items) > 1:
-                        path = None
-                        warnings.append("DWG — lot de plusieurs feuilles : noms finaux définis par Revit dans {}."
-                                        .format(dwg_directory))
-                    if success and path:
+                        [current_id],
+                        dwg_directory,
+                        os.path.splitext(filename)[0],
+                        dwg_setup_name,
+                        merged_views=dwg_merge_views,
+                        true_color=dwg_true_color,
+                        errors=errors,
+                        context="feuille '{}' — {}".format(
+                            item.sheet_number or "sans numéro",
+                            item.sheet_name or "sans nom",
+                        ),
+                    )
+                    if success:
                         files.append(path)
-                    results.append({"success": bool(success), "format": "DWG", "mode": "combined",
-                                    "count": len(items), "path": path, "directory": dwg_directory})
+                    results.append(
+                        {
+                            "success": bool(success),
+                            "format": "DWG",
+                            "mode": "single",
+                            "count": 1,
+                            "path": path,
+                            "directory": dwg_directory,
+                            "sheet_key": getattr(item, "unique_id", None),
+                        }
+                    )
                 else:
-                    for item in items:
-                        current_id = self._resolve_current_sheet_id(item)
-                        filename, unknown = self._filename(publication_set, item, ".dwg")
-                        if unknown:
-                            warnings.append("Variables non résolues pour {} : {}.".format(
-                                item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
-                        path = os.path.join(dwg_directory, filename)
-                        success = self._export_dwg(
-                            [current_id], dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
-                            merged_views=dwg_merge_views, true_color=dwg_true_color, errors=errors,
-                            context="feuille '{}' — {}".format(
-                                item.sheet_number or "sans numéro", item.sheet_name or "sans nom"))
-                        if success:
-                            files.append(path)
-                        results.append({"success": bool(success), "format": "DWG", "mode": "separate",
-                                        "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
+                    filename, unknown = self._filename(
+                        publication_set, None, ".dwg"
+                    )
+                    if unknown:
+                        warnings.append(
+                            "DWG — les variables propres à une feuille ne "
+                            "peuvent pas définir individuellement les noms "
+                            "d'un lot natif Revit : {}.".format(
+                                ", ".join(unknown)
+                            )
+                        )
+                    success = self._export_dwg(
+                        view_ids,
+                        dwg_directory,
+                        os.path.splitext(filename)[0],
+                        dwg_setup_name,
+                        merged_views=dwg_merge_views,
+                        true_color=dwg_true_color,
+                        errors=errors,
+                        context="carnet '{}' (lot automatique Revit)".format(
+                            publication_set.name
+                        ),
+                    )
+                    warnings.append(
+                        "DWG — {} feuilles envoyées en un seul lot Revit ; "
+                        "Revit produit un DWG par feuille et détermine les "
+                        "noms finaux à partir du préfixe du carnet.".format(
+                            len(items)
+                        )
+                    )
+                    results.append(
+                        {
+                            "success": bool(success),
+                            "format": "DWG",
+                            "mode": "batch",
+                            "count": len(items),
+                            "path": None,
+                            "directory": dwg_directory,
+                        }
+                    )
         if any(not r.get("success") for r in results) and not errors:
             errors.append("Revit a signalé un échec pendant l'export.")
 
@@ -274,6 +340,8 @@ class PublicationService(object):
                 "warnings": warnings, "files": files}
 
     def publish_pdf(self, publication_set, output_directory, combined=True, items=None):
+        # combined est un argument legacy conservé pour compatibilité API.
+        # La stratégie DWG est désormais automatique selon le nombre de feuilles.
         items = self.sort_items(publication_set) if items is None else list(items)
         errors = self.validate_publication_set(publication_set)
         if errors:
