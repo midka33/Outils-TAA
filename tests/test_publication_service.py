@@ -23,6 +23,7 @@ for path in (MODEL_DIR, SERVICE_DIR):
 from publication_item import PublicationItem
 from publication_set import PublicationSet
 from publication_service import PublicationService
+from publication_settings import PublicationSettings
 
 
 class FakeView(object):
@@ -106,7 +107,11 @@ class PublicationServiceTests(unittest.TestCase):
                          [item.sheet_number for item in sorted_items])
 
     def test_publish_exécute_pdf_et_dwg(self):
-        carnet = PublicationSet("DCE", self.items)
+        settings = PublicationSettings.defaults()
+        settings.filename_template = "{carnet}-{numero}"
+        carnet = PublicationSet(
+            "DCE", self.items, publication_settings=settings
+        )
         output = tempfile.mkdtemp()
 
         result = self.service.publish(
