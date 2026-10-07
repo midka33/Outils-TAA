@@ -7,6 +7,7 @@ from pdf_export_service import PdfExportService
 from dwg_export_service import DwgExportService
 from filename_service import FilenameService
 from publication_paths import publication_directory
+from publication_progress import operation, progress_kwargs
 
 
 class PublicationService(object):
@@ -145,7 +146,8 @@ class PublicationService(object):
 
     def _publish_items(self, publication_set, items, output_directory,
                        export_pdf=True, export_dwg=False, pdf_combined=True,
-                       dwg_combined=False, dwg_setup_name=None, dwg_true_color=True):
+                       dwg_combined=False, dwg_setup_name=None, dwg_true_color=True,
+                       progress=None):
         """Publie uniquement les éléments fournis sans modifier le carnet source."""
         if not items:
             return {"success": True, "results": [], "errors": [], "warnings": [], "files": []}
@@ -155,6 +157,9 @@ class PublicationService(object):
         results = []
         files = []
         view_ids = self._current_view_ids(publication_set, items)
+        if progress is not None:
+            progress.begin("prepare", "Validation et résolution des feuilles")
+            progress.end("prepare")
 
         if export_pdf:
             quality = getattr(getattr(publication_set, "publication_settings", None), "pdf_quality", None) or 300
@@ -167,7 +172,8 @@ class PublicationService(object):
                 try:
                     success = self.pdf_service.export(view_ids, pdf_directory,
                                                        os.path.splitext(filename)[0], combined=True,
-                                                       export_quality=quality, settings=publication_set.publication_settings)
+                                                       export_quality=quality, settings=publication_set.publication_settings,
+                                                       **progress_kwargs(progress))
                 except Exception as exc:
                     errors.append("PDF combiné — erreur Revit : {}".format(
                         self._revit_exception_message(exc)))
@@ -206,7 +212,8 @@ class PublicationService(object):
                 if separate_ids:
                     try:
                         paths = self.pdf_service.export_named_separate(
-                            separate_ids, pdf_directory, filenames, export_quality=quality, settings=publication_set.publication_settings)
+                            separate_ids, pdf_directory, filenames, export_quality=quality,
+                            settings=publication_set.publication_settings, **progress_kwargs(progress))
                     except Exception as exc:
                         errors.append("PDF séparé — erreur : {}".format(
                             self._revit_exception_message(exc)))
@@ -219,40 +226,40 @@ class PublicationService(object):
                                     "sheet_key": getattr(item, "unique_id", None)})
 
         if export_dwg:
-            dwg_directory = self._prepare_output_directory(
-                publication_directory(publication_set, output_directory, dwg_combined))
+            with operation(progress, "dwg", "Export DWG du carnet"):
+                dwg_directory = self._prepare_output_directory(
+                    publication_directory(publication_set, output_directory, dwg_combined))
 
-            if dwg_combined:
-                filename, unknown = self._filename(publication_set, None, ".dwg")
-                if unknown:
-                    warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
-                path = os.path.join(dwg_directory, filename)
-                success = self._export_dwg(
-                    view_ids, dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
-                    merged_views=True, true_color=dwg_true_color, errors=errors,
-                    context="carnet '{}' (combiné)".format(publication_set.name))
-                if success:
-                    files.append(path)
-                results.append({"success": bool(success), "format": "DWG", "mode": "combined",
-                                "count": len(items), "path": path})
-            else:
-                for item in items:
-                    current_id = self._resolve_current_sheet_id(item)
-                    filename, unknown = self._filename(publication_set, item, ".dwg")
+                if dwg_combined:
+                    filename, unknown = self._filename(publication_set, None, ".dwg")
                     if unknown:
-                        warnings.append("Variables non résolues pour {} : {}.".format(
-                            item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
+                        warnings.append("Variables non résolues dans le nom DWG : {}.".format(", ".join(unknown)))
                     path = os.path.join(dwg_directory, filename)
                     success = self._export_dwg(
-                        [current_id], dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
-                        merged_views=False, true_color=dwg_true_color, errors=errors,
-                        context="feuille '{}' — {}".format(
-                            item.sheet_number or "sans numéro", item.sheet_name or "sans nom"))
+                        view_ids, dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
+                        merged_views=True, true_color=dwg_true_color, errors=errors,
+                        context="carnet '{}' (combiné)".format(publication_set.name))
                     if success:
                         files.append(path)
-                    results.append({"success": bool(success), "format": "DWG", "mode": "separate",
-                                    "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
-
+                    results.append({"success": bool(success), "format": "DWG", "mode": "combined",
+                                    "count": len(items), "path": path})
+                else:
+                    for item in items:
+                        current_id = self._resolve_current_sheet_id(item)
+                        filename, unknown = self._filename(publication_set, item, ".dwg")
+                        if unknown:
+                            warnings.append("Variables non résolues pour {} : {}.".format(
+                                item.sheet_number or item.sheet_name or "feuille", ", ".join(unknown)))
+                        path = os.path.join(dwg_directory, filename)
+                        success = self._export_dwg(
+                            [current_id], dwg_directory, os.path.splitext(filename)[0], dwg_setup_name,
+                            merged_views=False, true_color=dwg_true_color, errors=errors,
+                            context="feuille '{}' — {}".format(
+                                item.sheet_number or "sans numéro", item.sheet_name or "sans nom"))
+                        if success:
+                            files.append(path)
+                        results.append({"success": bool(success), "format": "DWG", "mode": "separate",
+                                        "count": 1, "path": path, "sheet_key": getattr(item, "unique_id", None)})
         if any(not r.get("success") for r in results) and not errors:
             errors.append("Revit a signalé un échec pendant l'export.")
 
@@ -281,7 +288,7 @@ class PublicationService(object):
 
     def publish(self, publication_set, output_directory, export_pdf=True,
                 export_dwg=False, pdf_combined=True, dwg_combined=False,
-                dwg_setup_name=None, dwg_true_color=True, items=None):
+                dwg_setup_name=None, dwg_true_color=True, items=None, progress=None):
         """Exécute les formats demandés, éventuellement sur un sous-ensemble de feuilles."""
         if not export_pdf and not export_dwg:
             return {"success": False, "carnet": getattr(publication_set, "name", None),
@@ -297,7 +304,8 @@ class PublicationService(object):
         result = self._publish_items(publication_set, list(items), output_directory,
                                      export_pdf=export_pdf, export_dwg=export_dwg,
                                      pdf_combined=pdf_combined, dwg_combined=dwg_combined,
-                                     dwg_setup_name=dwg_setup_name, dwg_true_color=dwg_true_color)
+                                     dwg_setup_name=dwg_setup_name, dwg_true_color=dwg_true_color,
+                                     **progress_kwargs(progress))
         result["carnet"] = publication_set.name if publication_set else None
         result["output_directory"] = output_directory
         return result

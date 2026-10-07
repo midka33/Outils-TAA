@@ -1,0 +1,27 @@
+name: Export — tests hors Revit
+
+on:
+  push:
+    branches: ["feature/export-progress-ui"]
+  pull_request:
+    paths:
+      - "OutilsTAA.extension/OutilsTAA.tab/Export.panel/**"
+      - "tests/test_*.py"
+      - ".github/workflows/export-progress-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --disable-pip-version-check pytest
+      - name: Suite complète Export et contrats de progression
+        run: >-
+          python -m pytest tests OutilsTAA.extension/OutilsTAA.tab/Export.panel/tests
+          --ignore=tests/calculation --ignore=tests/plans_vente --import-mode=importlib -q

@@ -94,38 +94,32 @@ accent orange pastel, sélection pêche et pictogrammes vectoriels.
 Les actions et le périmètre fonctionnel restent ceux de la V1 ; les maquettes ne
 réintroduisent pas les options différées en V2. Validation graphique et non-régression Revit 2025.4 confirmées le 2026-10-01 ; voir `docs/18_Export_Charte_UI_V1.md`.
 
-## Progression de publication — cible d'évolution du 2026-10-07
+## Progression de publication — implémentation à valider dans Revit
 
-Après confirmation de l'aperçu et avant le premier traitement long, Export doit ouvrir
-une fenêtre WPF dédiée affichant une progression globale **de 0 à 100 %**.
+Après confirmation de l'aperçu, une fenêtre dédiée affiche une progression globale
+**de 0 à 100 %**, le carnet courant, l'opération réelle, le nombre d'unités traitées
+et la phase. Charte TAA : Segoe UI, fond clair, accent `#FD8B5A`.
 
-La cible visuelle reprend la charte TAA : fond clair, Segoe UI, orange UI `#FD8B5A`,
-pourcentage fortement visible et contexte de publication.
+Le plan couvre tous les carnets : préparation, appel PDF, livraison des PDF séparés,
+DWG éventuel, historique et rapport. Il ne repart pas à zéro entre deux carnets.
+Les modes PDF combiné et séparé conservent chacun **un seul appel natif par carnet**.
+Pendant cet appel, « Export PDF Revit » reste affiché et la valeur peut rester fixe.
+Le compteur indique des unités, sans simuler des feuilles ni un temps restant.
 
-Informations minimales :
+La fenêtre se ferme avant le rapport existant ; en cas d'exception fatale, elle
+signale l'interruption et restaure la fenêtre Export. Il n'y a pas d'annulation
+ni d'export déplacé sur un thread de fond. 100 % signifie que toutes les unités
+ont été traitées, y compris celles classées en échec/non exécutées après erreur :
+le rapport reste la source de vérité sur les succès et les fichiers.
 
-- pourcentage global ;
-- carnet courant ;
-- élément / fichier courant lorsque l'information est réellement connue ;
-- compteur d'unités traitées ;
-- phase courante : préparation, export PDF, assemblage/livraison, finalisation.
+`PublicationProgress` est indépendant de WPF. Le reporter optionnel traverse
+`CarnetController`, `PublicationBatchService`, `PublicationService` et
+`PdfExportService`. Les hooks Stage 07 du smartbutton et les fonctions de repli
+sont raccordés. Les noms, destinations, sélections et règles d'historique sont conservés.
 
-La progression doit être fondée sur des unités de travail réelles et ne doit jamais
-simuler une progression feuille par feuille pendant un appel natif Revit opaque.
-Pour un export combiné ou séparé exécuté en un seul appel `Document.Export`, le
-pourcentage peut rester stable pendant l'appel si Revit ne fournit pas de granularité
-fiable. L'interface est mise à jour avant et après l'appel.
-
-Le temps restant est volontairement optionnel et ne doit pas être affiché sans mesure
-fiable. Un bouton d'annulation ne doit être proposé que si l'annulation peut être
-gérée sans laisser la publication dans un état incohérent.
-
-Architecture cible : reporter/callback de progression optionnel entre
-`PublicationBatchService`, `PublicationService`, `PdfExportService` et une fenêtre
-WPF dédiée, afin de préserver la testabilité du moteur hors Revit.
-
-Voir la spécification détaillée et la maquette :
-[`docs/22_Export_Progression.md`](22_Export_Progression.md).
+**Validation : 257 tests Python réussis ; recette Revit 2025.4 encore requise.**
+Voir [la spécification et l'implémentation](22_Export_Progression.md) et
+[la recette de progression](23_Export_Recette_Progression.md).
 
 ## Ruban Revit — bouton Export graphique seul
 

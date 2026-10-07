@@ -1105,6 +1105,13 @@ Règles supplémentaires pour une progression chiffrée :
 - un temps restant ne doit être affiché que s'il repose sur une estimation mesurée et suffisamment fiable.
 
 Pour Export, la spécification de référence est `docs/22_Export_Progression.md`.
+L'implémentation utilise une fenêtre dédiée après confirmation, possédée par Export,
+avec restauration de son état et fermeture dans un `finally` avant le rapport.
+Le compteur porte le libellé « unités ». Les quatre repères de phase ne promettent
+pas un assemblage inexistant : « Livraison » concerne les PDF séparés seulement.
+La version initiale n'affiche ni temps restant ni bouton Annuler ; la croix est
+neutralisée pendant la publication. Une valeur fixe durant l'appel natif est normale.
+Le rendu réel est soumis à la recette Revit 2025.4 avant fusion.
 
 ---
 

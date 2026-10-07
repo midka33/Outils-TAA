@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
+from unittest.mock import MagicMock
+
 import pytest
 
 PANEL = Path(__file__).resolve().parents[1] / 'OutilsTAA.extension/OutilsTAA.tab/Export.panel'
@@ -84,7 +86,7 @@ def test_unchanged_sheets_reach_preview_and_publication(scope, tmp_path):
             assert targets[0]._publication_items == items
             observed.append('publish')
             return {'success': True}
-    integration = SimpleNamespace(PublicationPreviewService=Preview,
+    integration = SimpleNamespace(PublicationProgressSession=lambda *args: MagicMock(), PublicationPreviewService=Preview,
         PublicationPreviewWindow=Dialog, PublicationReportWindow=Dialog,
         PublicationBatchService=Batch, _merge_previews=lambda previews: previews[0])
     window = SimpleNamespace(_resolve_settings=lambda target: settings,

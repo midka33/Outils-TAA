@@ -1039,6 +1039,15 @@ Traitement des pièces...
 
 La progression doit être utile et ne doit pas être affichée pour une opération instantanée.
 
+Pour les publications Export, le contrat commun est enrichi par un plan d'opérations
+à dénominateur fixe (`services/publication_progress.py`). Les services reçoivent un
+reporter optionnel sans importer WPF. Compter les appels/traitements réellement
+terminés ; distinguer explicitement les unités empêchées par une erreur. Ne jamais
+transformer un export natif groupé en N appels pour animer une barre.
+Les rafraîchissements UI se font aux frontières des appels, sur le thread autorisé,
+avec garde contre la réentrance. Le cycle de fermeture/restauration appartient à
+une seule session UI et doit préserver l'exception d'origine.
+
 ---
 
 # 34. Paramètres utilisateur
