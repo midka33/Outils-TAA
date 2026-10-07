@@ -247,6 +247,27 @@ class DimensionService(object):
                 boundary_candidates,
                 pairs,
             )
+
+            separator_fallback_used = False
+            for pair in pairs:
+                for index in (pair.first_index, pair.second_index):
+                    if (
+                        boundary_candidates[index].source_kind
+                        == "separator"
+                    ):
+                        separator_fallback_used = True
+                        break
+                if separator_fallback_used:
+                    break
+
+            if separator_fallback_used:
+                warnings.append(
+                    "{} : aucune arête de sol superposée fiable n'a été "
+                    "trouvée pour une séparation de pièce utilisée par une "
+                    "cote. La cote peut disparaître si les séparations sont "
+                    "masquées dans la vue.".format(self._room_label(room))
+                )
+
             room_plans.append(
                 (room, boundary_candidates, pairs, fallback_indexes)
             )
