@@ -3302,3 +3302,62 @@ après validation du contrat de base.
     devient pas la dimension principale.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Prototype 06B — Pièces non orthogonales et résultat partiel
+
+Premier retour Revit 2025.4 du prototype 06A :
+
+- les pièces rectangulaires produisent correctement leurs deux cotations ;
+- les pièces qui ne fournissent pas deux familles de murs parallèles étaient refusées.
+
+Le moteur 06B étend donc le comportement sans abandonner la priorité aux dimensions intérieures finies.
+
+### Stratégie de cotation
+
+Ordre de priorité par pièce :
+
+```text
+2 familles de faces parallèles fiables
+        ↓
+2 cotes entre faces finies
+
+1 seule famille parallèle fiable
+        ↓
+1 cote entre faces finies
++
+1 longueur dominante de mur en secours
+
+aucune famille parallèle fiable
+        ↓
+jusqu'à 2 longueurs de murs dominantes,
+sur des directions différentes
+```
+
+La cote de longueur de secours recherche d'abord des références d'extrémité Revit sur la courbe. Si elles ne sont pas disponibles, elle recherche les arêtes verticales de la face finie correspondant aux extrémités de la limite de pièce.
+
+La ligne de cote est décalée vers l'intérieur de la pièce lorsque `Room.IsPointInRoom(...)` permet d'identifier le bon côté.
+
+### Tolérance aux pièces atypiques
+
+Une pièce atypique ne bloque plus la cotation du logement entier.
+
+Chaque pièce est traitée dans une transaction courte indépendante. Le résultat distingue :
+
+- pièce complète : 2 cotes ;
+- pièce partielle : 1 cote ;
+- pièce ignorée : 0 cote.
+
+Les avertissements indiquent les pièces pour lesquelles une cote de secours n'a pas pu être créée.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre le logement du premier test 06A ;
+2. vérifier que les pièces rectangulaires conservent leurs deux cotes ;
+3. vérifier qu'une pièce avec une seule paire de murs parallèles reçoit une cote entre faces et une cote de longueur ;
+4. vérifier qu'une pièce sans paire parallèle tente deux longueurs dominantes ;
+5. vérifier qu'une pièce non résolue ne bloque pas les autres pièces ;
+6. contrôler visuellement que les longueurs correspondent bien aux limites finies attendues ;
+7. déplacer un mur et vérifier l'associativité des cotes créées.
+
+**Statut : À valider dans Revit 2025.4.**
