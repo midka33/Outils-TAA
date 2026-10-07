@@ -7,6 +7,7 @@ from pdf_file_delivery import (deliver_named_pdfs, validate_names,
 from filename_service import FilenameService
 from pdf_options import apply_options
 from publication_progress import operation, progress_kwargs
+from revit_native_progress import RevitNativeProgressBridge
 
 
 class PdfExportService(object):
@@ -90,11 +91,13 @@ class PdfExportService(object):
         apply_options(options, settings)
 
         with operation(progress, "pdf", "Export PDF Revit"):
-            return self.document.Export(
-                output_directory,
-                list(sheet_ids),
-                options
-            )
+            with RevitNativeProgressBridge(
+                    self.document, progress, "pdf"):
+                return self.document.Export(
+                    output_directory,
+                    list(sheet_ids),
+                    options
+                )
 
     def export_named_separate(self, sheet_ids, output_directory, filenames,
                               export_quality=300, settings=None, progress=None):
@@ -119,19 +122,58 @@ class PdfExportService(object):
                 **progress_kwargs(progress))
             if success:
                 if progress is not None:
-                    progress.begin("delivery", "Rapprochement et livraison des PDF")
+                    progress.begin(
+                        "pdf_delivery",
+                        "Rapprochement et livraison des PDF",
+                    )
                 reconcile_native_pdfs(directory, source_names)
             return success
 
+        labels = []
+        for sheet_id in sheet_ids:
+            sheet = self.document.GetElement(sheet_id)
+            number = getattr(sheet, "SheetNumber", "") or ""
+            name = getattr(sheet, "Name", "") or getattr(
+                sheet, "SheetName", "") or ""
+            labels.append(
+                "{0} — {1}".format(number, name).strip(" —")
+                or "Mise en page"
+            )
+
+        def delivered(index, total, path):
+            if progress is None:
+                return
+            label = labels[index - 1] if index - 1 < len(labels) else (
+                "Mise en page {0}".format(index)
+            )
+            progress.detail(
+                "pdf_delivery",
+                index,
+                total,
+                label,
+                detail_label="mises en page",
+                message="PDF livré : {0}".format(
+                    os.path.basename(path)
+                ),
+            )
+
         try:
             paths = deliver_named_pdfs(
-                output_directory, source_names, filenames, export_and_match)
+                output_directory,
+                source_names,
+                filenames,
+                export_and_match,
+                progress_callback=delivered,
+            )
         except Exception:
             if progress is not None:
-                progress.end_if_started("delivery", "Échec de livraison — voir le rapport")
+                progress.end_if_started(
+                    "pdf_delivery",
+                    "Échec de livraison — voir le rapport",
+                )
             raise
         if progress is not None:
-            progress.end_if_started("delivery")
+            progress.end_if_started("pdf_delivery")
         return paths
 
     def export_separate(self, sheet_ids, output_directory,
@@ -165,11 +207,13 @@ class PdfExportService(object):
         apply_options(options, settings)
 
         with operation(progress, "pdf", "Export PDF Revit"):
-            return self.document.Export(
-                output_directory,
-                list(sheet_ids),
-                options
-            )
+            with RevitNativeProgressBridge(
+                    self.document, progress, "pdf"):
+                return self.document.Export(
+                    output_directory,
+                    list(sheet_ids),
+                    options
+                )
 
     def export(self, sheet_ids, output_directory, filename=None,
                combined=True, export_quality=300, settings=None, progress=None):
