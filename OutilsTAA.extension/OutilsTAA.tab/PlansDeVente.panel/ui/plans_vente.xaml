@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Étape 05 · Étiquettes de pièces"
+                <TextBlock Text="Étape 06 · Cotations intérieures"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -89,6 +89,23 @@
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateLocationPlan_Click"/>
+                    <Separator Margin="0,22,0,18"/>
+                    <TextBlock Text="Étape 06A — Cotations"
+                               Style="{DynamicResource TAASectionTitle}"/>
+                    <TextBlock x:Name="DimensionInfoText" Margin="0,0,0,10"
+                               Style="{DynamicResource TAASecondaryText}"/>
+                    <TextBlock Text="Vue logement" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="DimensionViewCombo" DisplayMemberPath="Label"
+                              SelectionChanged="DimensionChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <TextBlock Text="Type de cote" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="DimensionTypeCombo"
+                              SelectionChanged="DimensionChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <Button x:Name="CreateDimensionsButton" Content="Créer les cotations"
+                            Margin="0,14,0,0" HorizontalAlignment="Stretch"
+                            Style="{DynamicResource TAAPrimaryButton}"
+                            Click="CreateDimensions_Click"/>
                 </StackPanel>
             </Border>
 
