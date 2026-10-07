@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from plans_vente.dimension_geometry import (
     dominant_dimension_pairs,
     representative_length_indexes,
+    segment_match_metrics,
 )
 
 
@@ -152,7 +153,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06d-dimensions-room-separators-v4"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06e-dimensions-floor-edge-substitution-v5"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
@@ -260,3 +261,67 @@ def test_stage06d_keeps_room_separator_geometry_in_principal_pair_search():
     pairs = dominant_dimension_pairs(segments)
     assert len(pairs) == 2
     assert sorted(round(pair.distance, 6) for pair in pairs) == [3.0, 6.0]
+
+
+
+def test_floor_edge_matching_requires_parallel_close_and_overlapping_segments():
+    boundary = (0.0, 0.0, 5.0, 0.0)
+
+    match = segment_match_metrics(
+        boundary,
+        (0.2, 0.02, 4.8, 0.02),
+        angle_tolerance_degrees=3.0,
+        distance_tolerance=0.05,
+        minimum_overlap_ratio=0.60,
+    )
+    assert match is not None
+    assert match["overlap_ratio"] > 0.90
+
+    too_far = segment_match_metrics(
+        boundary,
+        (0.2, 0.20, 4.8, 0.20),
+        angle_tolerance_degrees=3.0,
+        distance_tolerance=0.05,
+        minimum_overlap_ratio=0.60,
+    )
+    assert too_far is None
+
+    too_short = segment_match_metrics(
+        boundary,
+        (0.0, 0.01, 2.0, 0.01),
+        angle_tolerance_degrees=3.0,
+        distance_tolerance=0.05,
+        minimum_overlap_ratio=0.60,
+    )
+    assert too_short is None
+
+
+def test_stage06e_replaces_room_separator_reference_with_matching_floor_edge():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _matching_floor_edge_reference(" in text
+    assert "def _floor_edges_for_room(" in text
+    assert "FilteredElementCollector(self.document)" in text
+    assert ".OfClass(Floor)" in text
+    assert "options.ComputeReferences = True" in text
+    assert "segment_match_metrics(" in text
+    assert 'source_kind="floor_edge"' in text
+    assert 'source_kind="separator"' in text
+
+
+def test_stage06e_floor_edge_match_has_geometry_safety_thresholds():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.0" in text
+    assert "FLOOR_EDGE_TOLERANCE_MM = 20.0" in text
+    assert "FLOOR_EDGE_MIN_OVERLAP_RATIO = 0.60" in text
+    assert "FLOOR_LEVEL_TOLERANCE_MM = 500.0" in text
+    assert "FLOOR_EDGE_MIN_LENGTH_MM = 100.0" in text
+
+
+def test_stage06e_warns_when_only_hidden_separator_reference_remains():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "separator_fallback_used" in text
+    assert "aucune arête de sol superposée fiable" in text
+    assert "La cote peut disparaître si les séparations sont masquées" in text
