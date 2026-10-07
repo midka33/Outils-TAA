@@ -69,7 +69,13 @@ class PublicationPreviewService(object):
         generated_paths = {}
 
         def add_row(fmt, mode, item, filename, unknown):
-            row_directory = publication_directory(publication_set, directory, mode == "COMBINED", settings=settings) if directory else ""
+            row_directory = publication_directory(
+                publication_set,
+                directory,
+                mode == "COMBINED",
+                settings=settings,
+                format_name=fmt,
+            ) if directory else ""
             path = os.path.join(row_directory, filename) if row_directory else filename
             normalized = os.path.normcase(os.path.abspath(path)) if directory else os.path.normcase(filename)
             duplicate = normalized in generated_paths
@@ -106,23 +112,67 @@ class PublicationPreviewService(object):
                     add_row("PDF", "SEPARATE", item, filename, unknown)
 
         if settings.dwg_enabled and has_candidates:
-            warnings.append("DWG — configuration : {} ; vues/liens : {}. Des ressources annexes peuvent subsister."
-                            .format(settings.dwg_setup_name or "réglages Revit par défaut",
-                                    "fusionnés" if settings.dwg_merge_views is not False else "références externes"))
-            if settings.dwg_mode == "COMBINED" and len(candidates) > 1:
-                warnings.append("DWG — lot Revit : le nom affiché est un préfixe ; plusieurs DWG seront produits. "
-                                "Les noms finaux et leurs collisions ne peuvent pas être vérifiés ici.")
-            if settings.dwg_mode == "COMBINED":
+            warnings.append(
+                "DWG — configuration : {} ; vues/liens : {}. "
+                "Des ressources annexes peuvent subsister.".format(
+                    settings.dwg_setup_name
+                    or "réglages Revit par défaut",
+                    "fusionnés"
+                    if settings.dwg_merge_views is not False
+                    else "références externes",
+                )
+            )
+
+            if len(candidates) == 1:
+                item = candidates[0]
                 filename, unknown = self.filename_service.filename(
-                    settings.filename_template or "{carnet}", publication_set,
-                    item=None, folder_name=getattr(publication_set, "folder_name", None), extension=".dwg")
-                add_row("DWG", "COMBINED", None, filename, unknown)
+                    settings.filename_template or "{carnet}",
+                    publication_set,
+                    item=item,
+                    folder_name=getattr(
+                        publication_set, "folder_name", None
+                    ),
+                    extension=".dwg",
+                )
+                add_row(
+                    "DWG",
+                    "SINGLE",
+                    item,
+                    filename,
+                    unknown,
+                )
             else:
-                for item in candidates:
-                    filename, unknown = self.filename_service.filename(
-                        settings.filename_template or "{carnet}", publication_set,
-                        item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".dwg")
-                    add_row("DWG", "SEPARATE", item, filename, unknown)
+                row_directory = (
+                    publication_directory(
+                        publication_set,
+                        directory,
+                        settings=settings,
+                        format_name="DWG",
+                    )
+                    if directory
+                    else ""
+                )
+                warnings.append(
+                    "DWG — stratégie automatique : {} feuilles seront "
+                    "envoyées en un seul lot Revit. Revit produit un DWG "
+                    "par feuille et détermine leurs noms finaux.".format(
+                        len(candidates)
+                    )
+                )
+                rows.append(
+                    _PreviewRow(
+                        getattr(publication_set, "name", "—"),
+                        "—",
+                        "Lot automatique Revit — {} feuilles".format(
+                            len(candidates)
+                        ),
+                        "DWG",
+                        "Automatique",
+                        "{} DWG attendus".format(len(candidates)),
+                        row_directory,
+                        "À PUBLIER",
+                    )
+                )
 
         if not settings.pdf_enabled and not settings.dwg_enabled:
             errors.append("Aucun format de publication n'est sélectionné.")
