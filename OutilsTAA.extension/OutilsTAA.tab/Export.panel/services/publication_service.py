@@ -304,6 +304,26 @@ class PublicationService(object):
                     )
                 if success:
                     files.append(path)
+                    if progress is not None:
+                        progress.begin(
+                            "dwg_delivery",
+                            "Validation du DWG exporté",
+                        )
+                        label = "{0} — {1}".format(
+                            item.sheet_number or "",
+                            item.sheet_name or "",
+                        ).strip(" —") or "Mise en page"
+                        progress.detail(
+                            "dwg_delivery",
+                            1,
+                            1,
+                            label,
+                            detail_label="mises en page",
+                            message="DWG prêt : {0}".format(
+                                os.path.basename(path)
+                            ),
+                        )
+                        progress.end("dwg_delivery")
                 results.append(
                     {
                         "success": bool(success),
