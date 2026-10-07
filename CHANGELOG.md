@@ -16,11 +16,19 @@ Le format suit les principes de *Keep a Changelog*.
 
 
 ### Changed
-- Export DWG : ancien « Combiné » renommé « Lot Revit », noms et destinations
-  conservés ; rapport multif feuille sur le répertoire au lieu d'un faux fichier
-  unique. Preset natif conservé sauf MergedViews et True Color explicitement demandé.
-  Les anciens réglages sans le champ fusion héritent désormais de True, y compris
-  en sortie séparée. Une surcharge True Color impossible remonte une erreur.
+- Export DWG : suppression du choix technique « Par feuille / Lot Revit ». La
+  stratégie est automatique : une feuille utilise un appel simple, plusieurs feuilles
+  un lot natif Revit ; le résultat métier reste un DWG par feuille. Le champ
+  historique `dwg_mode` reste lisible mais n'influence plus l'exécution.
+- Export : « Créer un dossier au nom du carnet » produit désormais
+  `NomCarnet/PDF/` et `NomCarnet/DWG/` quel que soit le mode PDF ou la stratégie
+  DWG. Aperçu et publication partagent le même constructeur de chemins.
+- Export UI : bloc DWG compacté et choix technique supprimé afin de conserver les
+  réglages courants accessibles sans scroll vertical obligatoire sur la cible
+  1920 × 1080. Le ScrollViewer reste uniquement un secours.
+- Export DWG : preset natif conservé sauf MergedViews et True Color explicitement
+  demandé. Les anciens réglages sans le champ fusion héritent de True. Une surcharge
+  True Color impossible remonte une erreur.
 - Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
 - Plans de vente : le paramètre partagé `N° Appartement` est désormais présélectionné comme identifiant logement lorsqu'il est disponible ; 04A Nomenclatures validé dans Revit 2025.4.
 - Plans de vente : 04B utilise désormais une seule zone remplie globale issue du contour logement de l'Étape 03 à marge nulle, afin de surligner l'emprise continue et de passer sur les cloisons intérieures.
