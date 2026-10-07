@@ -126,14 +126,12 @@ class FilenameService(object):
             if not is_sheet_token and not is_sheet_parameter:
                 return match.group(0)
 
-            nonlocal_state[0] = True
             if not inserted_state[0]:
                 inserted_state[0] = True
                 return "{carnet}"
             return ""
 
         # Listes utilisées au lieu de nonlocal pour compatibilité IronPython 2.
-        nonlocal_state = [False]
         inserted_state = [inserted_carnet]
         collection_template = self.TOKEN_PATTERN.sub(
             replace_sheet_token,
