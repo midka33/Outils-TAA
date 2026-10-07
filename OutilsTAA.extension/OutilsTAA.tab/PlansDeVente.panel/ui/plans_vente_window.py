@@ -808,7 +808,8 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Pièces : {}\n\n"
                 "Prototype 06D : les faces de murs et les lignes de séparation "
                 "de pièces participent aux dimensions principales. Quand une "
-                "deuxième paire manque, le moteur tente une longueur de mur dominante."
+                "deuxième paire manque, le moteur tente une longueur de mur dominante. "
+                "Une pièce atypique ne bloque plus les autres."
             ).format(
                 housing.key,
                 view.name,
