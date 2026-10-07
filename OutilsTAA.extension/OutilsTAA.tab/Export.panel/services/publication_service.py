@@ -340,8 +340,6 @@ class PublicationService(object):
                 "warnings": warnings, "files": files}
 
     def publish_pdf(self, publication_set, output_directory, combined=True, items=None):
-        # combined est un argument legacy conservé pour compatibilité API.
-        # La stratégie DWG est désormais automatique selon le nombre de feuilles.
         items = self.sort_items(publication_set) if items is None else list(items)
         errors = self.validate_publication_set(publication_set)
         if errors:
@@ -351,6 +349,8 @@ class PublicationService(object):
 
     def publish_dwg(self, publication_set, output_directory, setup_name=None,
                     combined=False, true_color=True, items=None, dwg_merge_views=True):
+        # combined est conservé pour compatibilité avec les anciens appels.
+        # La stratégie réelle dépend uniquement du nombre de feuilles.
         items = self.sort_items(publication_set) if items is None else list(items)
         errors = self.validate_publication_set(publication_set)
         if errors:
@@ -364,7 +364,7 @@ class PublicationService(object):
                 export_dwg=False, pdf_combined=True, dwg_combined=False,
                 dwg_setup_name=None, dwg_true_color=True, items=None, progress=None,
                 dwg_merge_views=True):
-        """Exécute les formats demandés, éventuellement sur un sous-ensemble de feuilles."""
+        """Exécute les formats demandés ; dwg_combined est un argument legacy."""
         if not export_pdf and not export_dwg:
             return {"success": False, "carnet": getattr(publication_set, "name", None),
                     "output_directory": output_directory, "results": [],
