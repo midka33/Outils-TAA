@@ -3,6 +3,8 @@
 
 import os
 
+from revit_native_progress import RevitNativeProgressBridge
+
 
 class DwgExportService(object):
     """Exécute les exports DWG natifs à partir d'une configuration Revit."""
@@ -80,9 +82,15 @@ class DwgExportService(object):
                            setup_name, merged_views, true_color)
 
     def export(self, view_ids, output_directory, filename, setup_name=None,
-               merged_views=True, true_color=False):
+               merged_views=True, true_color=False, progress=None):
         """Exporte la collection typée, avec le preset et deux surcharges au plus."""
         self._validate(view_ids, output_directory, filename)
         options = self._get_options(setup_name, merged_views, true_color)
-        return self.document.Export(output_directory, filename,
-                                    self._to_element_ids(view_ids), options)
+        with RevitNativeProgressBridge(
+                self.document, progress, "dwg"):
+            return self.document.Export(
+                output_directory,
+                filename,
+                self._to_element_ids(view_ids),
+                options,
+            )
