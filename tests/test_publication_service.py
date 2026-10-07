@@ -51,9 +51,21 @@ class FakePdfService(object):
 
 
 class FakeDwgService(object):
-    """Simule le service DWG pour tester l'orchestrateur."""
+    """Simule le nommage natif Revit d'un lot DWG."""
 
-    def export(self, *args, **kwargs):
+    def export(self, view_ids, output_directory, filename,
+               setup_name=None, **kwargs):
+        labels = {
+            1: ("A101", "Plan RDC"),
+            2: ("A102", "Plan R+1"),
+        }
+        for view_id in list(view_ids):
+            number, name = labels[int(view_id)]
+            native = "{} - Feuille - {} - {}.dwg".format(
+                filename, number, name
+            )
+            with open(os.path.join(output_directory, native), "wb") as stream:
+                stream.write(b"dwg")
         return True
 
 
@@ -107,9 +119,19 @@ class PublicationServiceTests(unittest.TestCase):
         )
 
         self.assertTrue(result["success"])
-        self.assertEqual(2, len(result["results"]))
+        self.assertEqual(3, len(result["results"]))
         self.assertEqual("combined", result["results"][0]["mode"])
-        self.assertEqual("batch", result["results"][1]["mode"])
+        self.assertEqual(
+            ["batch-renamed", "batch-renamed"],
+            [row["mode"] for row in result["results"][1:]],
+        )
+        self.assertEqual(
+            ["DCE-A101.dwg", "DCE-A102.dwg"],
+            [
+                os.path.basename(row["path"])
+                for row in result["results"][1:]
+            ],
+        )
 
 
 if __name__ == "__main__":
