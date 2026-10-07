@@ -100,36 +100,70 @@ def target(tmp_path, mode='SEPARATE', merge=True):
                           set_id='plans', folder_id='default', publication_settings=settings)
 
 
-@pytest.mark.parametrize('mode', ['COMBINED', 'SEPARATE'])
+@pytest.mark.parametrize('legacy_mode', ['COMBINED', 'SEPARATE'])
 @pytest.mark.parametrize('merge', [True, False])
 @pytest.mark.parametrize('entry', ['batch', 'controller', 'direct'])
-def test_merge_independent_of_output_mode_and_preserves_order(tmp_path, mode, merge, entry):
-    value = target(tmp_path, mode, merge)
+def test_legacy_mode_is_ignored_and_multi_sheet_uses_one_native_batch(
+        tmp_path, legacy_mode, merge, entry):
+    value = target(tmp_path, legacy_mode, merge)
     value._publication_items = value.items
-    doc = NS(GetElement=lambda key: NS(Id=int(str(key).lstrip('u')), CanBePrinted=True))
+    doc = NS(GetElement=lambda key: NS(
+        Id=int(str(key).lstrip('u')), CanBePrinted=True))
     service = PublicationService(doc)
     calls = []
-    service.dwg_service = NS(export=lambda *a, **kw: calls.append((a, kw)) or True)
+    service.dwg_service = NS(
+        export=lambda *a, **kw: calls.append((a, kw)) or True)
+
     if entry == 'batch':
-        result = PublicationBatchService(service).publish([value], lambda t: t.publication_settings)
+        result = PublicationBatchService(service).publish(
+            [value], lambda t: t.publication_settings)
     elif entry == 'controller':
-        controller = CarnetController(NS(document=doc), None, None, publication_service=service)
-        result = controller.publish(value, str(tmp_path), export_pdf=False, export_dwg=True,
-                                    dwg_combined=mode == 'COMBINED', dwg_merge_views=merge,
-                                    dwg_setup_name='TAA - DCE', items=value.items)
+        controller = CarnetController(
+            NS(document=doc), None, None, publication_service=service)
+        result = controller.publish(
+            value, str(tmp_path), export_pdf=False, export_dwg=True,
+            dwg_combined=legacy_mode == 'COMBINED',
+            dwg_merge_views=merge, dwg_setup_name='TAA - DCE',
+            items=value.items)
     else:
-        result = service.publish_dwg(value, str(tmp_path), 'TAA - DCE',
-                                     combined=mode == 'COMBINED', dwg_merge_views=merge, items=value.items)
+        result = service.publish_dwg(
+            value, str(tmp_path), 'TAA - DCE',
+            combined=legacy_mode == 'COMBINED',
+            dwg_merge_views=merge, items=value.items)
+
     assert result['success'], result.get('errors')
-    assert [i for a, kw in calls for i in a[0]] == [2, 1]
-    assert len(calls) == (1 if mode == 'COMBINED' else 2)
-    assert all(kw['merged_views'] is merge and a[3] == 'TAA - DCE' for a, kw in calls)
-    assert all(a[1] == str(tmp_path if mode == 'COMBINED' else tmp_path / 'Plans') for a, kw in calls)
-    assert [a[2] for a, kw in calls] == (['Plans-A2'] if mode == 'COMBINED' else ['Plans-A2', 'Plans-A1'])
-    if mode == 'COMBINED':
-        assert result['results'][0]['path'] is None
-        assert result['results'][0]['directory'] == str(tmp_path)
-        assert not result.get('files')  # pas de fichier imaginaire à transmettre à l'historique
+    assert len(calls) == 1
+    assert list(calls[0][0][0]) == [2, 1]
+    assert calls[0][1]['merged_views'] is merge
+    assert calls[0][0][3] == 'TAA - DCE'
+    assert calls[0][0][1] == str(tmp_path / 'Plans' / 'DWG')
+    assert result['results'][0]['mode'] == 'batch'
+    assert result['results'][0]['path'] is None
+    assert result['results'][0]['directory'] == str(
+        tmp_path / 'Plans' / 'DWG')
+    assert not result.get('files')
+
+
+def test_single_sheet_uses_one_simple_call_and_exact_target_path(tmp_path):
+    value = target(tmp_path, 'COMBINED', True)
+    value.items = value.items[:1]
+    doc = NS(GetElement=lambda key: NS(
+        Id=int(str(key).lstrip('u')), CanBePrinted=True))
+    service = PublicationService(doc)
+    calls = []
+    service.dwg_service = NS(
+        export=lambda *a, **kw: calls.append((a, kw)) or True)
+
+    result = service.publish_dwg(
+        value, str(tmp_path), 'TAA - DCE', items=value.items)
+
+    assert result['success']
+    assert len(calls) == 1
+    assert list(calls[0][0][0]) == [2]
+    assert calls[0][0][1] == str(tmp_path / 'Plans' / 'DWG')
+    assert result['results'][0]['mode'] == 'single'
+    assert result['results'][0]['path'].endswith(
+        str(Path('Plans') / 'DWG' / 'Plans-A2.dwg'))
 
 
 @pytest.mark.parametrize('merge', [True, False, None])
@@ -145,7 +179,10 @@ def test_settings_repository_and_profile_roundtrip(tmp_path, merge):
     assert value.publication_settings.copy().to_dict()['dwg_merge_views'] is merge
     profiles = PublicationProfileService(str(tmp_path / 'profiles.json'))
     profiles.save('Custom', value.publication_settings)
-    assert PublicationProfileService(profiles.storage_path).get('Custom')['dwg_merge_views'] is (merge is not False)
+    saved_profile = PublicationProfileService(
+        profiles.storage_path).get('Custom')
+    assert saved_profile['dwg_merge_views'] is (merge is not False)
+    assert 'dwg_mode' not in saved_profile
 
 
 @pytest.mark.parametrize('mode', ['COMBINED', 'SEPARATE'])
@@ -274,6 +311,11 @@ def test_gear_closes_only_after_command_check_and_state_save(can_save):
 def test_xaml_and_modal_command_order_contract():
     root = ET.parse(PANEL / 'ui.xaml').getroot()
     names = {e.get('{http://schemas.microsoft.com/winfx/2006/xaml}Name'): e for e in root.iter()}
+    assert 'DwgSeparateRadio' not in names
+    assert 'DwgCombinedRadio' not in names
+    assert root.get('Height') == '760'
+    assert float(root.get('Height')) <= 800
+    assert names['CarnetSubfolderCheckBox'].get('Content') == 'Créer un dossier au nom du carnet'
     assert names['DwgSettingsButton'].get('Click') == 'DwgSettings_Click'
     assert names['DwgRefreshButton'].get('Click') == 'RefreshDwgSetups_Click'
     assert names['DwgMergeViewsCheckBox'].get('Checked') == 'SettingsChanged'
@@ -329,13 +371,22 @@ def test_roundtrip_restores_temporary_booklets_selection_and_order(tmp_path):
     assert value.source is None  # sérialisation non destructive
 
 
-def test_preview_explains_batch_prefix_and_references(tmp_path):
+def test_preview_explains_automatic_batch_and_references(tmp_path):
     value = target(tmp_path, 'COMBINED', False)
-    service = PublicationService(NS(GetElement=lambda key: NS(Id=key, CanBePrinted=True)))
-    preview = PublicationPreviewService(service, service.filename_service).build(value, value.publication_settings)
-    assert preview['rows'][0].Mode == 'Lot Revit'
-    assert any('préfixe' in w for w in preview['warnings'])
-    assert any('TAA - DCE' in w and 'références externes' in w for w in preview['warnings'])
+    service = PublicationService(
+        NS(GetElement=lambda key: NS(Id=key, CanBePrinted=True)))
+    preview = PublicationPreviewService(
+        service, service.filename_service).build(
+            value, value.publication_settings)
+
+    assert preview['rows'][0].Mode == 'Automatique'
+    assert preview['rows'][0].Path == str(
+        tmp_path / 'Plans' / 'DWG')
+    assert any('stratégie automatique' in w for w in preview['warnings'])
+    assert any(
+        'TAA - DCE' in w and 'références externes' in w
+        for w in preview['warnings']
+    )
 
 
 @pytest.mark.parametrize('kind', ['FOLDER', 'CARNET'])
