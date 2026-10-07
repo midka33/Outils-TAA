@@ -1,6 +1,6 @@
 # Calculs des pièces
 
-**Statut :** Validé dans Revit 2025.4 — prêt pour intégration dans `main`  
+**Statut :** Base v1.0.1 validée — résolution interactive des divergences en validation  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`  
 **Validation finale :** Revit 2025.4 / pyRevit 5.x — 6 octobre 2026
@@ -196,12 +196,16 @@ String
 
 Les pièces placées dans des groupes restent dans le périmètre de calcul.
 
-Pour un paramètre de projet non intégré configuré avec des valeurs **alignées par type de groupe**, Revit peut empêcher l'écriture directe sur les pièces groupées. Le module gère ce cas de façon transactionnelle :
+Pour un paramètre de projet non intégré configuré avec des valeurs **alignées par type de groupe**, Revit peut empêcher l'écriture directe sur les pièces groupées. Le module analyse désormais les membres correspondants entre les différentes occurrences d'un même type de groupe avant toute transaction.
+
+La correspondance s'appuie sur l'ordre retourné par `Group.GetMemberIds()`, afin d'identifier le même membre dans les différentes instances du type de groupe.
+
+#### Cas 1 — toutes les valeurs projetées sont identiques
+
+Le comportement reste automatique :
 
 ```text
 État initial : valeurs alignées par type de groupe
-        ↓
-Transaction Revit
         ↓
 Autoriser temporairement les valeurs variables
         ↓
@@ -209,21 +213,39 @@ Autoriser temporairement les valeurs variables
         ↓
 Restaurer l'alignement par type de groupe
         ↓
-Contrôle des éléments réalignés par Revit
-        ↓
-Commit si aucun réalignement inattendu
+Commit
 ```
 
-La logique s'appuie sur `InternalDefinition.VariesAcrossGroups` et `SetAllowVaryBetweenGroups()`.
+#### Cas 2 — des valeurs différentes sont détectées
+
+L'outil ne choisit plus silencieusement une valeur et n'annule plus automatiquement le calcul. L'utilisateur choisit entre trois stratégies :
+
+1. **Conserver les résultats exacts**  
+   Les valeurs calculées sont conservées telles quelles et le paramètre reste durablement configuré pour permettre des valeurs différentes entre les occurrences de groupes.
+
+2. **Conserver l'alignement et choisir les valeurs**  
+   Une fenêtre présente, pour chaque membre correspondant concerné :
+   - le type de groupe Revit ;
+   - la pièce correspondante ;
+   - toutes les valeurs rencontrées ;
+   - le nombre d'occurrences de chaque valeur.
+
+   La valeur la plus fréquente est **présélectionnée uniquement comme aide**, mais elle n'est jamais imposée. L'utilisateur peut sélectionner n'importe quelle valeur proposée. La valeur retenue est ensuite appliquée à toutes les occurrences correspondantes avant restauration de l'alignement.
+
+3. **Annuler**  
+   Aucune modification n'est écrite.
+
+La logique continue de s'appuyer sur `InternalDefinition.VariesAcrossGroups` et `SetAllowVaryBetweenGroups()`.
 
 Sécurités :
 
 - les paramètres Revit intégrés ne sont jamais déverrouillés par cette logique ;
-- l'état initial est restauré dans la même transaction que l'écriture ;
-- si Revit doit réaligner un ou plusieurs éléments lors du retour à l'état initial, la transaction est annulée ;
+- l'analyse des divergences est réalisée avant l'ouverture de la transaction ;
+- les occurrences non incluses par un filtre de calcul sont également prises en compte avec leur valeur existante afin de ne pas provoquer un réalignement imprévu ;
+- si l'utilisateur choisit de conserver l'alignement et que Revit signale malgré tout un réalignement résiduel, la transaction est annulée ;
 - les destinations réellement readonly pour une autre raison restent refusées.
 
-Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Le comportement a été validé dans Revit 2025.4 le 6 octobre 2026.
+Le comportement automatique sans divergence a été validé dans Revit 2025.4 le 6 octobre 2026. La nouvelle résolution interactive des divergences doit être validée dans Revit 2025.4 avant fusion dans `main`.
 
 ---
 
@@ -387,7 +409,7 @@ python -m pytest tests/calculation -q
 Exécution validée après ajout de la gestion des paramètres de groupes :
 
 ```text
-78 passed
+84 passed
 ```
 
 Les tests couvrent notamment :
@@ -405,7 +427,7 @@ Les tests couvrent notamment :
 - unités ;
 - préparation et écriture ;
 - transaction / rollback ;
-- paramètres de pièces alignés par type de groupe, restauration et rollback de sécurité ;
+- paramètres de pièces alignés par type de groupe, détection des divergences, choix utilisateur et rollback de sécurité ;
 - persistance ;
 - migration des réglages historiques ;
 - contrôleur ;
@@ -428,7 +450,8 @@ Bugs spécifiques actuellement capitalisés :
 - `BUG-CALCULS-002` — état writable filtré avant agrégation ;
 - `BUG-CALCULS-003` — échappements de chaînes corrompant le code Python généré ;
 - `BUG-CALCULS-004` — dossier de tests masquant le package métier `calculation` ;
-- `BUG-CALCULS-005` — écriture impossible dans les paramètres alignés entre occurrences de groupes.
+- `BUG-CALCULS-005` — écriture impossible dans les paramètres alignés entre occurrences de groupes ;
+- `BUG-CALCULS-006` — divergence entre occurrences entraînant un rollback systématique sans choix utilisateur.
 
 ---
 
@@ -449,7 +472,7 @@ Bugs spécifiques actuellement capitalisés :
 - interface WPF ;
 - rapport ;
 - bouton pyRevit ;
-- CI hors Revit : **78 tests réussis**.
+- CI hors Revit : **84 tests réussis** sur la branche de résolution des divergences.
 
 ### Validé dans Revit 2025.4
 
@@ -472,4 +495,4 @@ La campagne de validation est archivée dans :
 docs/18_Calculs_Pieces_Tests_Revit.md
 ```
 
-Le module est considéré comme validé pour intégration dans `main`.
+La base v1.0.1 reste validée dans Revit 2025.4. La résolution interactive des divergences entre occurrences de groupes reste sur branche dédiée jusqu'à validation de TEST-CALC-22.

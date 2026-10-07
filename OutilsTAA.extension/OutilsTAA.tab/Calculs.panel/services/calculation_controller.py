@@ -84,8 +84,20 @@ class CalculationController(object):
     def prepare(self, request, progress=None):
         return self.workflow.prepare(request, progress=progress)
 
-    def execute(self, prepared, progress=None):
-        return self.workflow.execute(prepared, progress=progress)
+    def analyze_group_alignment(self, prepared):
+        return self.workflow.analyze_group_alignment(prepared)
+
+    def execute(
+        self,
+        prepared,
+        progress=None,
+        group_resolution=None,
+    ):
+        return self.workflow.execute(
+            prepared,
+            progress=progress,
+            group_resolution=group_resolution,
+        )
 
     def unit_options(self, source_descriptor):
         return self.unit_service.get_unit_options(source_descriptor)

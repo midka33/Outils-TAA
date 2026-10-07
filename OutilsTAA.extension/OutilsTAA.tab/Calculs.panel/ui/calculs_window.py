@@ -8,7 +8,9 @@ import os
 from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
+from calculation.group_alignment import GroupAlignmentResolution
 from calculation_report_window import CalculationReportWindow
+from group_value_selection_window import GroupValueSelectionWindow
 
 
 class ParameterChoice(object):
@@ -249,6 +251,24 @@ class CalculsWindow(forms.WPFWindow):
                 self.StatusText.Text = "Aucun résultat à écrire."
                 return
 
+            group_resolution = None
+            alignment_analysis = self.controller.analyze_group_alignment(
+                prepared
+            )
+            if (
+                alignment_analysis is not None
+                and alignment_analysis.has_conflicts
+            ):
+                group_resolution = self._resolve_group_conflicts(
+                    alignment_analysis,
+                    request.target_parameter.name,
+                )
+                if group_resolution is None:
+                    self.StatusText.Text = (
+                        "Calcul annulé : divergences entre groupes."
+                    )
+                    return
+
             message = (
                 "{0} pièce(s) analysée(s)\n"
                 "{1} pièce(s) après filtre\n"
@@ -266,6 +286,24 @@ class CalculsWindow(forms.WPFWindow):
                 for warning in prepared.warnings:
                     message += "- {}\n".format(warning)
                 message += "\n"
+
+            if group_resolution is not None:
+                if (
+                    group_resolution.mode
+                    == GroupAlignmentResolution.KEEP_VARIABLE
+                ):
+                    message += (
+                        "Stratégie groupes : conserver les résultats exacts ; "
+                        "le paramètre restera variable entre occurrences.\n\n"
+                    )
+                elif (
+                    group_resolution.mode
+                    == GroupAlignmentResolution.ALIGN_SELECTED
+                ):
+                    message += (
+                        "Stratégie groupes : conserver l'alignement avec les "
+                        "valeurs choisies.\n\n"
+                    )
 
             message += "Écrire ces résultats dans « {} » ?".format(
                 request.target_parameter.name
@@ -287,6 +325,7 @@ class CalculsWindow(forms.WPFWindow):
             report = self.controller.execute(
                 prepared,
                 progress=self._write_progress,
+                group_resolution=group_resolution,
             )
             self.ProgressBar.Value = 100
 
@@ -321,6 +360,57 @@ class CalculsWindow(forms.WPFWindow):
             )
         finally:
             self.CalculateButton.IsEnabled = True
+
+    def _resolve_group_conflicts(self, analysis, target_name):
+        exact_label = (
+            "Conserver les résultats exacts et laisser le paramètre varier"
+        )
+        aligned_label = (
+            "Conserver l'alignement et choisir les valeurs"
+        )
+        cancel_label = "Annuler"
+
+        message = (
+            "{} divergence(s) ont été détectée(s) entre des occurrences "
+            "d'un même type de groupe pour le paramètre « {} ».\n\n"
+            "Vous pouvez conserver les résultats calculés exacts, ce qui "
+            "laissera durablement le paramètre en mode valeurs variables, "
+            "ou conserver l'alignement et choisir la valeur à appliquer "
+            "pour chaque membre concerné."
+        ).format(
+            analysis.conflict_count,
+            target_name,
+        )
+
+        choice = forms.alert(
+            message,
+            title="Calculs des pièces — Groupes différents",
+            options=[
+                exact_label,
+                aligned_label,
+                cancel_label,
+            ],
+            warn_icon=True,
+        )
+
+        if choice == exact_label:
+            return GroupAlignmentResolution.keep_variable()
+
+        if choice == aligned_label:
+            window = GroupValueSelectionWindow(
+                analysis,
+                owner=self,
+            )
+            window.ShowDialog()
+
+            if window.selections is None:
+                return None
+
+            return GroupAlignmentResolution.align_selected(
+                window.selections
+            )
+
+        return None
 
     def _calculation_progress(self, current, total):
         if total:

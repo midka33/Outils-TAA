@@ -59,6 +59,26 @@ def test_xaml_event_handlers_exist_on_window_class():
     assert handlers.issubset(methods)
 
 
+def test_group_value_selection_xaml_handlers_exist():
+    xaml_path = os.path.join(UI_DIR, "group_value_selection.xaml")
+    python_path = os.path.join(
+        UI_DIR,
+        "group_value_selection_window.py",
+    )
+    methods = _method_names(python_path)
+
+    root = ET.parse(xaml_path).getroot()
+    handlers = set()
+    for element in root.iter():
+        value = element.attrib.get("Click")
+        if value:
+            handlers.add(value)
+
+    assert root is not None
+    assert handlers == {"Apply_Click", "Cancel_Click"}
+    assert handlers.issubset(methods)
+
+
 def test_report_xaml_event_handler_exists():
     xaml_path = os.path.join(UI_DIR, "calculation_report.xaml")
     python_path = os.path.join(UI_DIR, "calculation_report_window.py")
@@ -106,6 +126,7 @@ def test_python_ui_files_are_syntax_valid():
     for filename in (
         "calculs_window.py",
         "calculation_report_window.py",
+        "group_value_selection_window.py",
     ):
         ast.parse(_read(os.path.join(UI_DIR, filename)))
 
@@ -114,6 +135,18 @@ def test_python_ui_files_are_syntax_valid():
         "services",
         "room_calculation_workflow.py",
     )))
+
+
+def test_group_conflict_choice_is_wired_before_write():
+    window_path = os.path.join(UI_DIR, "calculs_window.py")
+    text = _read(window_path)
+
+    assert "analyze_group_alignment" in text
+    assert "GroupAlignmentResolution.keep_variable" in text
+    assert "GroupAlignmentResolution.align_selected" in text
+    assert "GroupValueSelectionWindow" in text
+    assert "Conserver les résultats exacts" in text
+    assert "Conserver l'alignement" in text
 
 
 def test_unit_selector_is_contextual_and_warnings_are_shown_before_write():

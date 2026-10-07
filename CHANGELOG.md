@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Calculs des pièces : lorsqu'un paramètre aligné par type de groupe reçoit des valeurs divergentes, l'utilisateur peut désormais conserver les résultats exacts en laissant le paramètre varier, conserver l'alignement en choisissant lui-même la valeur par membre correspondant, ou annuler. La valeur majoritaire est seulement présélectionnée.
 - Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
 - Plans de vente : le paramètre partagé `N° Appartement` est désormais présélectionné comme identifiant logement lorsqu'il est disponible ; 04A Nomenclatures validé dans Revit 2025.4.
 - Plans de vente : 04B utilise désormais une seule zone remplie globale issue du contour logement de l'Étape 03 à marge nulle, afin de surligner l'emprise continue et de passer sur les cloisons intérieures.

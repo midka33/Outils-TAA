@@ -79,8 +79,16 @@ class FakeWorkflow(object):
     def prepare(self, request, progress=None):
         return ("prepared", request)
 
-    def execute(self, prepared, progress=None):
-        return ("executed", prepared)
+    def analyze_group_alignment(self, prepared):
+        return ("analysis", prepared)
+
+    def execute(
+        self,
+        prepared,
+        progress=None,
+        group_resolution=None,
+    ):
+        return ("executed", prepared, group_resolution)
 
 
 class FakeSettings(object):
@@ -154,9 +162,11 @@ class CalculationControllerTests(unittest.TestCase):
         )
 
         prepared = self.controller.prepare(request)
+        analysis = self.controller.analyze_group_alignment(prepared)
         executed = self.controller.execute(prepared)
 
         self.assertEqual("prepared", prepared[0])
+        self.assertEqual("analysis", analysis[0])
         self.assertEqual("executed", executed[0])
         self.assertEqual(["AUTO", "Surface"], self.controller.unit_options(source))
         self.assertEqual({"x": 1}, self.controller.load_settings())
