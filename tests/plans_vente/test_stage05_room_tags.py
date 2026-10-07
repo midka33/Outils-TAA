@@ -202,7 +202,23 @@ def test_room_tag_runtime_reports_build_id_on_creation_error():
     service = SERVICE.read_text(encoding="utf-8")
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
-    assert 'ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-category-only-v3"' in service
+    assert 'ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-probe-z-v4"' in service
     assert "self.build_id = ROOM_TAG_SERVICE_BUILD" in service
     assert "def room_tag_build_id(" in controller
     assert "Moteur étiquettes : {}" in window
+
+
+def test_room_tag_head_position_uses_verified_probe_z_not_existing_head_z():
+    text = SERVICE.read_text(encoding="utf-8")
+    start = text.index("    def _place_one_tag")
+    end = text.index("    def _valid_candidate_points")
+    block = text[start:end]
+
+    assert "_set_tag_head_position(" in block
+    assert "head.Z" not in block
+
+    helper_start = text.index("    def _set_tag_head_position")
+    helper = text[helper_start:end]
+    assert "float(probe_z)" in helper
+    assert "room.IsPointInRoom(head_point)" in helper
+    assert "tag.TagHeadPosition = head_point" in helper
