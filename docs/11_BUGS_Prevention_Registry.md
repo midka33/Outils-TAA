@@ -539,12 +539,15 @@ unique d'un lot multif feuille sans connaître les suffixes natifs.
 
 **Correction :** réglage `dwg_merge_views` explicite, nullable et héritable, défaut
 True ; propagation par tous les hooks réellement actifs. Preset natif conservé,
-seules deux surcharges explicites autorisées. Libellé Lot Revit et répertoire dans
-le rapport multif feuille. Commande de configuration postée après fermeture modale,
+seules deux surcharges explicites autorisées. Le choix technique « Par feuille /
+Lot Revit » est retiré de l'UI : une feuille utilise un appel simple et plusieurs
+feuilles un lot natif automatique. Le champ `dwg_mode` reste seulement compatible
+avec les anciens stockages. Commande de configuration postée après fermeture modale,
 avec cache temporaire de la sélection et réouverture manuelle.
 
 **Règle préventive :** distinguer organisation de la publication, références d'une
-feuille et options du preset. Ne jamais dériver `MergedViews` de `dwg_mode`, promettre
+feuille et options du preset. Ne jamais dériver `MergedViews` d'une stratégie
+d'appel, exposer un choix technique qui ne change pas le résultat métier, promettre
 un DWG autonome, figer les réglages hérités au rafraîchissement ou poster une commande
 sans rendre la main à Revit. La disponibilité future n'est pas garantie par
 `CanPostCommand` ; journaliser/afficher les erreurs immédiates.
@@ -553,6 +556,52 @@ sans rendre la main à Revit. La disponibilité future n'est pas garantie par
 sur le smartbutton actif et suite complète Export/PDF/progression. Recette
 TEST-DWG-SETUP-01 à 12 dans `docs/25_Export_Recette_DWG.md` : **en attente de validation
 utilisateur dans Revit 2025.4**, notamment vues, liens, raster et fenêtre native.
+
+### BUG-EXPORT-042 — « Dossier du carnet » dépendait du mode combiné/séparé
+
+**Symptôme :** la case « Créer un sous-dossier pour ce carnet » était cochée mais un
+PDF combiné ou un lot DWG restait à la racine ; PDF, DWG et annexes pouvaient être
+mélangés dans le même dossier.
+
+**Cause racine :** `publication_directory()` ajoutait le nom du carnet uniquement
+lorsque `combined=False`. Un choix utilisateur de classement avait donc été couplé
+à un détail technique du moteur d'export.
+
+**Correction :** le booléen utilisateur contrôle uniquement l'existence du dossier
+du carnet. S'il est actif, tous les modes produisent `NomCarnet/PDF/` et
+`NomCarnet/DWG/`. Aperçu et exécution utilisent le même constructeur de chemin.
+
+**Règle préventive :** un libellé métier doit avoir un effet stable et littéral.
+Ne jamais faire dépendre une option de classement d'un mode technique non mentionné
+dans son libellé. Les ressources auxiliaires d'un format restent dans le dossier
+de ce format.
+
+**Anti-régression :** `tests/test_publication_folder_paths.py` couvre PDF combiné
+et séparé, DWG, option carnet active/inactive et les trois périmètres de publication.
+
+### BUG-EXPORT-043 — Choix technique DWG exposé et panneau devenu trop haut
+
+**Symptôme :** l'utilisateur devait choisir « Par feuille / Lot Revit » alors que le
+livrable restait un DWG par feuille ; l'ajout de ce réglage augmentait également la
+hauteur du panneau et favorisait un scroll vertical en usage standard.
+
+**Cause racine :** une stratégie d'optimisation des appels API avait été présentée
+comme un réglage métier et ajoutée à la fenêtre principale au lieu d'être pilotée
+par le moteur.
+
+**Correction :** suppression des contrôles de mode DWG. La stratégie devient
+automatique : une feuille → appel simple ; plusieurs feuilles → lot natif Revit.
+Le panneau DWG est compacté sans réduire la typographie et le ScrollViewer reste un
+secours. Le contrat cible reste 1320 × 760 sur écran 1920 × 1080.
+
+**Règle préventive :** ne pas exposer un choix purement technique lorsque les
+livrables attendus sont identiques. Avant d'ajouter une ligne de réglage à une
+fenêtre principale, vérifier qu'elle apporte une décision métier réelle et que les
+réglages courants restent visibles sans scroll obligatoire en Full HD.
+
+**Anti-régression :** contrat XAML dans `tests/test_export_dwg_settings.py` :
+absence des contrôles de mode, hauteur bornée, libellé dossier du carnet ; recette
+visuelle 1920 × 1080 à 100 % et 125 % dans `docs/25_Export_Recette_DWG.md`.
 
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
