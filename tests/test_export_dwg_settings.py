@@ -477,7 +477,7 @@ def test_preview_explains_automatic_batch_and_references(tmp_path):
         'Automatique', 'Automatique'
     ]
     assert [Path(row.Path).name for row in preview['rows']] == [
-        'Plans-A2.dwg', 'Plans-A1.dwg'
+        'Plans-A1.dwg', 'Plans-A2.dwg'
     ]
     assert all(
         Path(row.Path).parent == tmp_path / 'Plans' / 'DWG'
