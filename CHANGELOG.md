@@ -13,6 +13,9 @@ Le format suit les principes de *Keep a Changelog*.
   d'Export ; réouverture manuelle avec restauration des carnets temporaires et de
   la sélection, relecture automatique des presets et bouton Actualiser.
 - Analyse DWG et recette TEST-DWG-SETUP-01 à 12. **Validation Revit 2025.4 attendue.**
+- Export : suivi fractionnaire des appels natifs via `Application.ProgressChanged`
+  lorsqu'une progression Revit est réellement disponible, puis compteur exact
+  `X / Y mises en page` pendant les phases de livraison contrôlées.
 
 
 ### Changed
@@ -48,6 +51,17 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Export PDF combiné : le nom est désormais résolu au niveau du carnet ; les
+  variables propres à une feuille ne reprennent plus silencieusement la première
+  mise en page.
+- Export DWG en lot : les noms natifs Revit sont rapprochés puis renommés avec le
+  modèle TAA ; les suffixes natifs tels que « Feuille » ne contaminent plus les
+  DWG principaux. Les annexes restent regroupées dans le dossier DWG.
+- Export progression : la barre peut avancer à l'intérieur d'une phase native à
+  partir de données Revit réelles et progresse feuille par feuille pendant le
+  renommage/livraison effectivement contrôlé par Outils TAA.
+- Export : **301 tests hors Revit réussis** après ces correctifs ; validation
+  Revit 2025.4 encore requise avant fusion de la PR #19.
 - Plans de vente : BUG-PDV-024 corrige les libellés vides des types de zones remplies sous IronPython/pyRevit en utilisant `Element.Name.GetValue`.
 - Export : publication Ctrl/Maj de plusieurs feuilles/carnets ; résumé, aperçu et export partagent le même périmètre, sans doublons parent/enfant. Désélection vide respectée, copies sans modification des carnets, destinations multiples dans le rapport. Fonctionnement confirmé par l’utilisateur dans Revit le 2026-10-05 (PR #11) ; recette détaillée distincte avant release.
 - Ruban Export : le titre API `Export` reste non vide et le texte est masqué uniquement après création du contrôle via un smartbutton `__selfinit__` (`ShowText = False`) ; le panneau conserve « Export » et l’icône vectorielle agrandie. La tentative précédente avec un titre blanc a été retirée car Revit la refusait au rechargement. Validation finale Revit du ruban confirmée le 2026-10-01.
