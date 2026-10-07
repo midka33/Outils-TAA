@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06c-dimensions-compute-references-v3"
+DIMENSION_SERVICE_BUILD = "stage06d-dimensions-room-separators-v4"
 
 import math
 
@@ -465,42 +465,92 @@ class DimensionService(object):
                 host = self.document.GetElement(boundary_segment.ElementId)
             except Exception:
                 host = None
-            if host is None or not isinstance(host, Wall):
-                continue
-
-            midpoint = curve.Evaluate(0.5, True)
-            direction = curve.Direction
-            reference = self._nearest_finish_face_reference(
-                host,
-                midpoint,
-                direction,
-            )
-            if reference is None:
+            if host is None:
                 continue
 
             start = curve.GetEndPoint(0)
             end = curve.GetEndPoint(1)
-            length_references = self._length_endpoint_references(
-                host,
-                reference,
-                curve,
+            segment = (
+                float(start.X),
+                float(start.Y),
+                float(end.X),
+                float(end.Y),
             )
 
+            if isinstance(host, Wall):
+                midpoint = curve.Evaluate(0.5, True)
+                direction = curve.Direction
+                reference = self._nearest_finish_face_reference(
+                    host,
+                    midpoint,
+                    direction,
+                )
+                if reference is None:
+                    continue
+
+                length_references = self._length_endpoint_references(
+                    host,
+                    reference,
+                    curve,
+                )
+
+                result.append(
+                    _BoundaryReferenceCandidate(
+                        segment=segment,
+                        reference=reference,
+                        element_id_value=self._element_id_value(host.Id),
+                        length_references=length_references,
+                    )
+                )
+                continue
+
+            # Une ligne de séparation de pièce est une vraie limite de pièce.
+            # Elle doit participer à la recherche des deux dimensions
+            # principales, même si elle n'est pas portée par un mur.
+            reference = self._room_separator_reference(host)
+            if reference is None:
+                continue
+
+            # On utilise la séparation comme référence de distance, mais pas
+            # comme longueur de secours : la courbe de séparation peut dépasser
+            # la portion réellement utilisée par la pièce.
             result.append(
                 _BoundaryReferenceCandidate(
-                    segment=(
-                        float(start.X),
-                        float(start.Y),
-                        float(end.X),
-                        float(end.Y),
-                    ),
+                    segment=segment,
                     reference=reference,
                     element_id_value=self._element_id_value(host.Id),
-                    length_references=length_references,
+                    length_references=None,
                 )
             )
 
         return result
+
+    def _room_separator_reference(self, element):
+        from Autodesk.Revit.DB import BuiltInCategory, ElementId
+
+        category = getattr(element, "Category", None)
+        if category is None:
+            return None
+
+        try:
+            expected = ElementId(BuiltInCategory.OST_RoomSeparationLines)
+            if category.Id != expected:
+                return None
+        except Exception:
+            return None
+
+        # Les séparations de pièces sont des CurveElement / ModelCurve.
+        # GeometryCurve.Reference fournit la référence géométrique utilisable
+        # par une cote linéaire.
+        try:
+            geometry_curve = element.GeometryCurve
+            reference = geometry_curve.Reference
+            if reference is not None:
+                return reference
+        except Exception:
+            pass
+
+        return None
 
     def _nearest_finish_face_reference(self, wall, midpoint, tangent):
         from Autodesk.Revit.DB import (
