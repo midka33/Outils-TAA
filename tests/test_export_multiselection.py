@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace, MethodType
 
+from unittest.mock import MagicMock
+
 import pytest
 
 PANEL = Path(__file__).resolve().parents[1] / 'OutilsTAA.extension/OutilsTAA.tab/Export.panel'
@@ -121,7 +123,7 @@ def test_actual_preview_and_stage07_publish_use_same_subset_and_per_carnet_setti
         assert kwargs['pdf_combined'] is combined and kwargs['dwg_combined'] is combined
         return {'success': True, 'results': []}
     merge = method('services/publication_preview_integration.py', None, '_merge_previews', {'os': __import__('os')})
-    flow = SimpleNamespace(PublicationPreviewService=Preview, _merge_previews=merge,
+    flow = SimpleNamespace(PublicationProgressSession=lambda *args: MagicMock(), PublicationPreviewService=Preview, _merge_previews=merge,
         PublicationReportWindow=lambda report, owner: SimpleNamespace(ShowDialog=lambda: reports.append(report)))
     window = SimpleNamespace(_resolve_settings=lambda t: t.publication_settings,
         _folder_name=lambda t: 'DCE', filename_service=FilenameService(),

@@ -200,48 +200,57 @@ def _build_preview_stage07(window, targets):
 
 
 def _publish_targets_stage07(window, targets):
-    all_results, all_errors, all_warnings = [], [], []
-    all_success = True
-    output_directories = []
-    history = _history_service(window)
-    for publication_set in targets:
-        settings = window._resolve_settings(publication_set)
-        errors = settings.validate()
-        if errors:
-            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
-            all_success = False
-            continue
-        states = _current_states(window, publication_set)
-        candidates, classified = history.candidates(publication_set, states, settings.modified_only)
-        if settings.modified_only and not candidates:
-            all_warnings.append("{0} : aucune mise en page nouvelle ou modifiée à publier.".format(publication_set.name))
-            continue
-        if settings.output_directory not in output_directories:
-            output_directories.append(settings.output_directory)
-        try:
-            result = window.controller.publish(
-                publication_set.with_settings(settings), settings.output_directory,
-                export_pdf=settings.pdf_enabled, export_dwg=settings.dwg_enabled,
-                pdf_combined=settings.pdf_mode == "COMBINED",
-                dwg_combined=settings.dwg_mode == "COMBINED",
-                dwg_setup_name=settings.dwg_setup_name,
-                dwg_true_color=settings.dwg_true_color, items=candidates)
-        except Exception as exc:
-            result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
-        for item_result in result.get("results", []):
-            row = dict(item_result)
-            row["carnet"] = publication_set.name
-            all_results.append(row)
-        all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
-        all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
-        target_success = bool(result.get("success"))
-        all_success = all_success and target_success
-        if target_success:
-            history.record_publication(publication_set, states, successful=True,
-                                       output_paths=[r.get("path") for r in result.get("results", []) if r.get("path")])
-    report = {"success": all_success, "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
-              "results": all_results, "errors": all_errors, "warnings": all_warnings,
-              "output_directory": "; ".join(output_directories)}
+    with publication_preview_integration.PublicationProgressSession(window, targets) as progress:
+        all_results, all_errors, all_warnings = [], [], []
+        all_success = True
+        output_directories = []
+        history = _history_service(window)
+        for index, publication_set in enumerate(targets):
+            target_progress = progress.target(index)
+            target_progress.begin("prepare")
+            settings = window._resolve_settings(publication_set)
+            errors = settings.validate()
+            if errors:
+                all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
+                all_success = False
+                target_progress.finalize(False)
+                continue
+            states = _current_states(window, publication_set)
+            candidates, classified = history.candidates(publication_set, states, settings.modified_only)
+            if settings.modified_only and not candidates:
+                all_warnings.append("{0} : aucune mise en page nouvelle ou modifiée à publier.".format(publication_set.name))
+                target_progress.finalize(True, empty=True)
+                continue
+            if settings.output_directory not in output_directories:
+                output_directories.append(settings.output_directory)
+            try:
+                result = window.controller.publish(
+                    publication_set.with_settings(settings), settings.output_directory,
+                    export_pdf=settings.pdf_enabled, export_dwg=settings.dwg_enabled,
+                    pdf_combined=settings.pdf_mode == "COMBINED",
+                    dwg_combined=settings.dwg_mode == "COMBINED",
+                    dwg_setup_name=settings.dwg_setup_name,
+                    dwg_true_color=settings.dwg_true_color, items=candidates,
+                    progress=target_progress)
+            except Exception as exc:
+                result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
+            for item_result in result.get("results", []):
+                row = dict(item_result)
+                row["carnet"] = publication_set.name
+                all_results.append(row)
+            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
+            all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
+            target_success = bool(result.get("success"))
+            all_success = all_success and target_success
+            target_progress.begin("finalize", "Historique et résultats du carnet")
+            if target_success:
+                history.record_publication(publication_set, states, successful=True,
+                                           output_paths=[r.get("path") for r in result.get("results", []) if r.get("path")])
+            target_progress.finalize(target_success, empty=not candidates)
+        report = {"success": all_success, "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
+                  "results": all_results, "errors": all_errors, "warnings": all_warnings,
+                  "output_directory": "; ".join(output_directories)}
+        progress.finish(report)
     publication_preview_integration.PublicationReportWindow(report, owner=window).ShowDialog()
 
 
@@ -253,21 +262,24 @@ def _preview_then_publish_folder_stage07(window, targets):
     dialog.ShowDialog()
     if not dialog.confirmed:
         return
-    history = _history_service(window)
-    batch = publication_preview_integration.PublicationBatchService(window.controller.publication_service)
-    for target in targets:
-        settings = window._resolve_settings(target)
-        states = _current_states(window, target)
-        candidates, classified = history.candidates(target, states, settings.modified_only)
-        target._publication_items = candidates
-        target._history_info = {"states": states}
-    report_data = batch.publish(targets, lambda target: window._resolve_settings(target),
-                                window._folder_for_set, history_service=history)
-    report = {"success": report_data.get("success", False),
-              "carnet": "Publication : dossier « {0} »".format(window._selected_folder.name),
-              "results": report_data.get("results", []), "errors": report_data.get("errors", []),
-              "warnings": report_data.get("warnings", []),
-              "output_directory": "; ".join(report_data.get("output_directories", []))}
+    with publication_preview_integration.PublicationProgressSession(window, targets) as progress:
+        history = _history_service(window)
+        batch = publication_preview_integration.PublicationBatchService(window.controller.publication_service)
+        for index, target in enumerate(targets):
+            progress.target(index).begin("prepare")
+            settings = window._resolve_settings(target)
+            states = _current_states(window, target)
+            candidates, classified = history.candidates(target, states, settings.modified_only)
+            target._publication_items = candidates
+            target._history_info = {"states": states}
+        report_data = batch.publish(targets, lambda target: window._resolve_settings(target),
+                                    window._folder_for_set, history_service=history, progress=progress)
+        report = {"success": report_data.get("success", False),
+                  "carnet": "Publication : dossier « {0} »".format(window._selected_folder.name),
+                  "results": report_data.get("results", []), "errors": report_data.get("errors", []),
+                  "warnings": report_data.get("warnings", []),
+                  "output_directory": "; ".join(report_data.get("output_directories", []))}
+        progress.finish(report)
     publication_preview_integration.PublicationReportWindow(report, owner=window).ShowDialog()
 
 

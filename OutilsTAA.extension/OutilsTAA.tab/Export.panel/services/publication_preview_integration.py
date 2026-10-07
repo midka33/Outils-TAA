@@ -11,6 +11,7 @@ from publication_preview_window import PublicationPreviewWindow
 from publication_batch_service import PublicationBatchService
 from publication_history_service import PublicationHistoryService
 from export_report_window import PublicationReportWindow
+from publication_progress_window import PublicationProgressSession
 from carnet_manager_window import CarnetManagerWindow
 from publication_settings import PublicationSettings
 from publication_set import PublicationSet
@@ -65,6 +66,8 @@ def install_preview_on_export_window(export_window_class):
             manager._select(manager.selected, fallback_to_native=not manager._selection_explicit)
 
     def publish_click_with_preview(self, sender, args):
+        if getattr(self, "_publication_in_progress", False):
+            return
         tags = self._publication_selection_tags()
         targets = self._publication_targets()
         if not targets:
@@ -350,56 +353,63 @@ def _preview_then_publish_single(window, targets):
 
 
 def _publish_targets(window, targets):
-    all_results, all_errors, all_warnings = [], [], []
-    all_success = True
-    output_directories = []
+    with PublicationProgressSession(window, targets) as progress:
+        all_results, all_errors, all_warnings = [], [], []
+        all_success = True
+        output_directories = []
 
-    for publication_set in targets:
-        effective_target, settings, history_info = _effective_publication_target(window, publication_set)
-        errors = settings.validate()
-        if errors:
-            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
-            all_success = False
-            continue
-        if settings.output_directory not in output_directories:
-            output_directories.append(settings.output_directory)
-        try:
-            result = window.controller.publish(
-                effective_target.with_settings(settings),
-                settings.output_directory,
-                export_pdf=settings.pdf_enabled,
-                export_dwg=settings.dwg_enabled,
-                pdf_combined=settings.pdf_mode == "COMBINED",
-                dwg_combined=settings.dwg_mode == "COMBINED",
-                dwg_setup_name=settings.dwg_setup_name,
-                dwg_true_color=settings.dwg_true_color)
-        except Exception as exc:
-            result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
+        for index, publication_set in enumerate(targets):
+            target_progress = progress.target(index)
+            target_progress.begin("prepare")
+            effective_target, settings, history_info = _effective_publication_target(window, publication_set)
+            errors = settings.validate()
+            if errors:
+                all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in errors])
+                all_success = False
+                target_progress.finalize(False)
+                continue
+            if settings.output_directory not in output_directories:
+                output_directories.append(settings.output_directory)
+            try:
+                result = window.controller.publish(
+                    effective_target.with_settings(settings),
+                    settings.output_directory,
+                    export_pdf=settings.pdf_enabled,
+                    export_dwg=settings.dwg_enabled,
+                    pdf_combined=settings.pdf_mode == "COMBINED",
+                    dwg_combined=settings.dwg_mode == "COMBINED",
+                    dwg_setup_name=settings.dwg_setup_name,
+                    dwg_true_color=settings.dwg_true_color, progress=target_progress)
+            except Exception as exc:
+                result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
 
-        for item_result in result.get("results", []):
-            row = dict(item_result)
-            row["carnet"] = publication_set.name
-            all_results.append(row)
-        all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
-        all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
-        success = bool(result.get("success"))
-        all_success = all_success and success
+            for item_result in result.get("results", []):
+                row = dict(item_result)
+                row["carnet"] = publication_set.name
+                all_results.append(row)
+            all_errors.extend(["{0} : {1}".format(publication_set.name, e) for e in result.get("errors", [])])
+            all_warnings.extend(["{0} : {1}".format(publication_set.name, w) for w in result.get("warnings", [])])
+            success = bool(result.get("success"))
+            all_success = all_success and success
 
-        if success and history_info:
-            window._publication_history_service.record_publication(
-                publication_set,
-                history_info.get("states", {}),
-                successful=True,
-                output_paths=[r.get("path") for r in result.get("results", []) if r.get("path")])
+            target_progress.begin("finalize", "Historique et résultats du carnet")
+            if success and history_info:
+                window._publication_history_service.record_publication(
+                    publication_set,
+                    history_info.get("states", {}),
+                    successful=True,
+                    output_paths=[r.get("path") for r in result.get("results", []) if r.get("path")])
 
-    report = {
-        "success": all_success,
-        "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
-        "results": all_results,
-        "errors": all_errors,
-        "warnings": all_warnings,
-        "output_directory": "; ".join(output_directories)
-    }
+            target_progress.finalize(success, empty=not effective_target.items)
+        report = {
+            "success": all_success,
+            "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
+            "results": all_results,
+            "errors": all_errors,
+            "warnings": all_warnings,
+            "output_directory": "; ".join(output_directories)
+        }
+        progress.finish(report)
     PublicationReportWindow(report, owner=window).ShowDialog()
 
 
@@ -414,28 +424,31 @@ def _preview_then_publish_folder(window, targets):
     if not dialog.confirmed:
         return
 
-    effective_targets = []
-    for target in targets:
-        effective_target, settings, history_info = _effective_publication_target(window, target)
-        effective_target._history_info = history_info
-        effective_target._resolved_settings = settings
-        effective_targets.append(effective_target)
+    with PublicationProgressSession(window, targets) as progress:
+        effective_targets = []
+        for index, target in enumerate(targets):
+            progress.target(index).begin("prepare")
+            effective_target, settings, history_info = _effective_publication_target(window, target)
+            effective_target._history_info = history_info
+            effective_target._resolved_settings = settings
+            effective_targets.append(effective_target)
 
-    batch_service = PublicationBatchService(window.controller.publication_service)
-    report_data = batch_service.publish(
-        effective_targets,
-        lambda target: getattr(target, "_resolved_settings", window._resolve_settings(target)),
-        window._folder_for_set,
-        history_service=window._publication_history_service)
+        batch_service = PublicationBatchService(window.controller.publication_service)
+        report_data = batch_service.publish(
+            effective_targets,
+            lambda target: getattr(target, "_resolved_settings", window._resolve_settings(target)),
+            window._folder_for_set,
+            history_service=window._publication_history_service, progress=progress)
 
-    report = {
-        "success": report_data.get("success", False),
-        "carnet": "Publication : dossier « {0} »".format(window._selected_folder.name),
-        "results": report_data.get("results", []),
-        "errors": report_data.get("errors", []),
-        "warnings": report_data.get("warnings", []),
-        "output_directory": "; ".join(report_data.get("output_directories", []))
-    }
+        report = {
+            "success": report_data.get("success", False),
+            "carnet": "Publication : dossier « {0} »".format(window._selected_folder.name),
+            "results": report_data.get("results", []),
+            "errors": report_data.get("errors", []),
+            "warnings": report_data.get("warnings", []),
+            "output_directory": "; ".join(report_data.get("output_directories", []))
+        }
+        progress.finish(report)
     PublicationReportWindow(report, owner=window).ShowDialog()
 
 

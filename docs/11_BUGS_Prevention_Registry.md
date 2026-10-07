@@ -167,6 +167,13 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle** : les handlers d'événements WPF doivent avoir un propriétaire canonique, idéalement `ExportWindow`. Une couche d'intégration doit décorer ou envelopper ces handlers, pas multiplier les alias incompatibles. Toute refactorisation de l'UI doit vérifier les contrats attendus par les intégrations.  
 **Anti-régression** : charger `ExportWindow` dans IronPython/Revit et déclencher successivement : sélection d'un dossier, sélection d'un carnet, sélection d'une feuille, retour à aucune sélection, ouverture du gestionnaire de carnets, création/sélection d'un dossier, modification des paramètres, prévisualisation puis publication d'un carnet et d'une feuille. Vérifier qu'aucun `AttributeError` lié à un handler attendu par l'intégration n'apparaît.
 
+**Complément prévention progression (2026-10-07) :** raccorder les overrides
+Stage 07 installés par le smartbutton, ainsi que les fonctions de repli. La session
+UI possède seule ouverture/fermeture/restauration ; les handlers XAML restent sur
+`PublicationProgressWindow`. Tests des vrais hooks : annulation de l'aperçu sans
+export, progression après confirmation, fermeture avant rapport, erreur fatale
+d'historique sans 100 % forcé. Ne pas se limiter à une ancienne fonction inactive.
+
 ### BUG-EXPORT-016 — Historique non enregistré lorsque `MODIFIED_ONLY` était désactivé
 
 **Symptôme** : le socle Stage 07 pouvait filtrer correctement les publications en `MODIFIED_ONLY`, mais le chemin de publication classique ne préparait pas d'information d'historique et pouvait donc laisser le carnet sans nouvel état après une publication réussie.
@@ -246,6 +253,13 @@ Les bugs `BUG-EXPORT-*` sont spécifiques au module Export. Les règles communes
 **Règle préventive :** utiliser un seul appel natif par périmètre ; ne pas confondre correction statique et validation du crash dans Revit.
 
 **Test de non-régression :** TEST-14 — publier un carnet de plusieurs feuilles en PDF séparé et vérifier qu'un PDF est produit par feuille sans crash de Revit.
+
+**Complément prévention progression (2026-10-07) :** le reporter doit encadrer
+l'unique `Document.Export` de chaque carnet, sans modifier le batching. Les PDF
+séparés signalent la livraison seulement après le retour natif, et sa fin après
+les déplacements ou leur restauration. `tests/test_publication_progress.py`
+vérifie le nombre d'appels, le thread, l'ordre transmis, la stabilité du compteur
+pendant le natif et les anciens fichiers restaurés après erreur.
 
 ### BUG-EXPORT-023 — Noms PDF séparés annoncés différents des fichiers créés
 

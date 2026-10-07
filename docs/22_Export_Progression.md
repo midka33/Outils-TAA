@@ -1,6 +1,6 @@
 # Export — Fenêtre de progression de publication
 
-**Statut :** spécification cible à implémenter  
+**Statut :** implémentation sur `feature/export-progress-ui`, recette Revit requise avant fusion
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** Export  
 **Date :** 7 octobre 2026
@@ -378,3 +378,133 @@ La fonctionnalité est considérée validée lorsque :
 7. les erreurs et le rapport restent inchangés ;
 8. le comportement est validé dans Revit 2025.4 ;
 9. les tests automatisés existants restent verts.
+
+
+## 14. Implémentation du 7 octobre 2026 — à valider dans Revit
+
+### Chaîne réellement raccordée
+
+Le smartbutton installe toujours les hooks Stage 07 via `_install_stage07_hooks` :
+
+- sélection de feuilles/carnets → `_preview_then_publish_single` → confirmation →
+  `_publish_targets_stage07` → `CarnetController.publish` → `PublicationService` ;
+- dossier récursif → `_preview_then_publish_folder_stage07` → confirmation →
+  `PublicationBatchService` → `PublicationService` ;
+- PDF → `PdfExportService` → un `Document.Export` synchrone par carnet ;
+- PDF séparés → rapprochement puis `deliver_named_pdfs` (contrôles, déplacements,
+  restauration en cas d'erreur, nettoyage).
+
+Les fonctions de repli de `publication_preview_integration.py` utilisent le même
+cycle de progression. Les constructeurs de sélection, réglages, noms, chemins,
+l'ordre des feuilles et les règles d'historique restent ceux du flux existant.
+
+### Plan et compteur
+
+`services/publication_progress.py` contient `PublicationProgress` et ses vues
+`TargetProgress`. Le plan est figé à partir des réglages effectifs de chaque carnet,
+sans les persister ni modifier leurs surcharges. Le contrat commun
+`current / total / message` est enrichi avec les phases, le carnet et l'opération ;
+`common/progress.py`, qui ne définit qu'une interface abstraite, reste inchangé.
+
+| Unité | Fin effectivement observée |
+|---|---|
+| Préparation de chaque carnet | Réglages, candidats, validation des feuilles, dossier racine et identifiants résolus |
+| PDF, si activé | Retour de l'unique appel natif, combiné **ou** séparé |
+| Livraison, PDF séparés seulement | Retour du rapprochement et de la livraison transactionnelle, restauration incluse si échec |
+| Groupe DWG, si activé | Retour de tous les exports DWG du carnet, sans modifier leur nombre ni leur mode |
+| Finalisation de chaque carnet | Résultats agrégés et traitement de l'historique terminé |
+| Rapport global | Rapport consolidé, avant affichage |
+
+Chaque unité a le même poids. Le pourcentage mesure des **unités traitées**, pas
+la durée écoulée ni le nombre de feuilles. Le compteur conserve donc « unités ».
+Les libellés et la phase peuvent changer sans incrémenter ce compteur.
+
+Exemples sans DWG :
+
+- 1 carnet combiné : 4 unités ; 0 → 25 avant l'appel PDF → 50 après son retour
+  → 75 après finalisation du carnet → 100 après consolidation du rapport ;
+- 1 carnet séparé : 5 unités ; 0 → 20 → 40 → 60 après livraison → 80 → 100 ;
+- 2 carnets séparés : 9 unités au total, un seul compteur global.
+
+Le nommage PDF et les options sont préparés avant l'appel natif ; ils n'ajoutent
+pas d'unité artificielle. Aucun faux numéro de feuille n'est affiché dans cet appel.
+L'unité DWG est volontairement globale au carnet, même si le service effectue
+plusieurs appels en mode séparé. Un export mixte n'atteint donc pas 100 % à la fin
+seulement des PDF.
+
+Une opération en échec est traitée, sans être déclarée réussie. Les opérations
+empêchées sont explicitement classées **Non exécutée après erreur** (ou périmètre
+vide). Le rapport conserve les erreurs réelles et l'historique reste conditionné
+au succès. Un succès avec des unités non traitées ne peut pas forcer 100 %.
+Une exception fatale, notamment d'historique, interrompt le plan sans compléter
+les unités restantes et se propage après fermeture.
+
+### Fenêtre et cycle de vie
+
+`publication_progress.xaml` et `publication_progress_window.py` affichent la
+fenêtre possédée par Export. `PublicationProgressSession` ouvre la fenêtre après
+confirmation, émet 0 %, puis ferme dans un `finally` avant le rapport existant.
+Le propriétaire est temporairement désactivé ; son état exact est restauré,
+y compris après une erreur d'ouverture. Un garde interdit une seconde publication.
+La croix de fermeture est neutralisée pendant le traitement.
+
+Le callback met à jour les champs, appelle `UpdateLayout`, puis un délégué vide
+via `Dispatcher.Invoke(DispatcherPriority.Loaded, Action(...))`. Les appels Revit
+restent sur le thread d'origine. Il n'y a ni worker, ni timer, ni boucle DoEvents,
+ni abonnement Revit. Le titre devient « Publication en cours » en DWG seul.
+La phase active est soulignée ; les quatre repères sont réutilisés par carnet.
+« Livraison » n'est pas activée dans le mode PDF combiné natif.
+
+Pas d'estimation de temps et pas de bouton d'annulation dans cette version.
+Pendant un appel Revit opaque, la valeur reste fixe et la fenêtre peut ne pas
+répondre immédiatement aux interactions Windows. Le rafraîchissement réel WPF
+et la lisibilité à différentes échelles Windows doivent être testés dans Revit.
+
+Une défaillance du callback UI est journalisée et ajoutée aux avertissements du
+rapport, puis le callback est désactivé pour ne pas interrompre une livraison ni
+relancer un export. La fenêtre est tout de même fermée. Si la fermeture échoue
+pendant une autre erreur, le diagnostic secondaire est journalisé et l'exception
+d'origine reste propagée.
+
+### Analyse des événements et références
+
+La documentation publique consultée ne permet pas de garantir un événement
+feuille par feuille pour le PDF natif de Revit **2025.4**. Aucun abonnement à
+`ProgressChanged` ou `ViewExported` n'est donc introduit. Ce choix ne prétend pas
+que Revit ne peut jamais émettre d'événement : un raccordement plus fin nécessitera
+une validation explicite dans cette version et ces deux modes PDF.
+
+Sources consultées le 7 octobre 2026 :
+
+- [Autodesk — Export PDF Revit 2025](https://help.autodesk.com/cloudhelp/2025/ENU/Revit-DocumentPresent/files/GUID-773AD069-024B-425E-8B9A-05D5246BDD16.htm).
+- [Autodesk — export PDF en arrière-plan, nouveauté Revit 2025](https://help.autodesk.com/cloudhelp/2025/ENU/Revit-WhatsNew/files/GUID-D2EA7A5B-95FC-49FB-974E-FA5FAC9831E4.htm).
+  Le mode synchrone existant `SetExportInBackground(False)` est conservé pour
+  attendre les fichiers avant livraison.
+- [Autodesk — ProgressChanged, référence publique 2026](https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/cabf8932-111c-6036-3d74-3d33c18260ed.htm) :
+  notification lorsque des données de progression sont disponibles ; pas un contrat
+  de progression PDF par feuille prouvé pour 2025.4.
+- [Autodesk — ViewExported, référence publique 2026](https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/0a3d3bee-957a-45e0-3779-b1b924a0ce0f.htm) :
+  décrit l'export accéléré DWF ; ne justifie pas une progression PDF.
+- [Microsoft — DispatcherPriority](https://learn.microsoft.com/en-us/dotnet/api/system.windows.threading.dispatcherpriority)
+  et [Dispatcher.Invoke (.NET 8)](https://learn.microsoft.com/fr-fr/dotnet/api/system.windows.threading.dispatcher.invoke?view=windowsdesktop-8.0) :
+  `Loaded` est après layout/render et avant la priorité d'entrée ; appel synchrone
+  au dispatcher propriétaire. Cela reste à confirmer graphiquement sous pyRevit.
+
+### Validation hors Revit
+
+Commande exécutée :
+
+```bash
+python -m pytest tests OutilsTAA.extension/OutilsTAA.tab/Export.panel/tests --ignore=tests/calculation --ignore=tests/plans_vente --import-mode=importlib -q
+```
+
+**Résultat : 257 tests réussis**, dont 34 tests dédiés à la progression. Les tests
+exécutent les hooks actifs, le contrôleur et les vrais services Python avec une API
+Revit simulée. Ils couvrent les deux modes PDF, les carnets multiples, le DWG,
+le callback absent/présent/défaillant, la livraison et sa restauration, les erreurs,
+la fermeture avant rapport et la syntaxe/XAML. Le workflow GitHub
+`export-progress-tests.yml` exécute la même suite.
+
+**Aucun test réel Revit, WPF ou IronPython n'a été exécuté dans cet environnement.**
+La [recette TEST-PROGRESS-01 à 08](23_Export_Recette_Progression.md) est à effectuer
+sur la branche avant fusion. Aucune release n'est créée par cette évolution.

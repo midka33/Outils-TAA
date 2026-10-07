@@ -6,6 +6,7 @@ from pdf_file_delivery import (deliver_named_pdfs, validate_names,
                                validate_native_keys, reconcile_native_pdfs)
 from filename_service import FilenameService
 from pdf_options import apply_options
+from publication_progress import operation, progress_kwargs
 
 
 class PdfExportService(object):
@@ -74,7 +75,7 @@ class PdfExportService(object):
         return quality_map[numeric_quality]
 
     def export_combined(self, sheet_ids, output_directory, filename,
-                        export_quality=300, settings=None):
+                        export_quality=300, settings=None, progress=None):
         """Exporte toutes les feuilles dans un PDF unique."""
         from Autodesk.Revit.DB import PDFExportOptions
 
@@ -88,14 +89,15 @@ class PdfExportService(object):
         options.ExportQuality = self._to_export_quality(export_quality)
         apply_options(options, settings)
 
-        return self.document.Export(
-            output_directory,
-            list(sheet_ids),
-            options
-        )
+        with operation(progress, "pdf", "Export PDF Revit"):
+            return self.document.Export(
+                output_directory,
+                list(sheet_ids),
+                options
+            )
 
     def export_named_separate(self, sheet_ids, output_directory, filenames,
-                              export_quality=300, settings=None):
+                              export_quality=300, settings=None, progress=None):
         """Associe chaque PDF à son numéro de feuille, puis applique le modèle TAA."""
         self._validate(sheet_ids, output_directory)
         sheet_ids = list(sheet_ids)
@@ -113,16 +115,27 @@ class PdfExportService(object):
 
         def export_and_match(directory):
             success = self.export_separate(
-                sheet_ids, directory, export_quality, use_sheet_numbers=True, settings=settings)
+                sheet_ids, directory, export_quality, use_sheet_numbers=True, settings=settings,
+                **progress_kwargs(progress))
             if success:
+                if progress is not None:
+                    progress.begin("delivery", "Rapprochement et livraison des PDF")
                 reconcile_native_pdfs(directory, source_names)
             return success
 
-        return deliver_named_pdfs(
-            output_directory, source_names, filenames, export_and_match)
+        try:
+            paths = deliver_named_pdfs(
+                output_directory, source_names, filenames, export_and_match)
+        except Exception:
+            if progress is not None:
+                progress.end_if_started("delivery", "Échec de livraison — voir le rapport")
+            raise
+        if progress is not None:
+            progress.end_if_started("delivery")
+        return paths
 
     def export_separate(self, sheet_ids, output_directory,
-                        export_quality=300, use_sheet_numbers=False, settings=None):
+                        export_quality=300, use_sheet_numbers=False, settings=None, progress=None):
         """Exporte chaque feuille dans son propre PDF.
 
         Le nom de chaque fichier est alors généré par Revit selon sa règle de
@@ -151,25 +164,26 @@ class PdfExportService(object):
         options.ExportQuality = self._to_export_quality(export_quality)
         apply_options(options, settings)
 
-        return self.document.Export(
-            output_directory,
-            list(sheet_ids),
-            options
-        )
+        with operation(progress, "pdf", "Export PDF Revit"):
+            return self.document.Export(
+                output_directory,
+                list(sheet_ids),
+                options
+            )
 
     def export(self, sheet_ids, output_directory, filename=None,
-               combined=True, export_quality=300, settings=None):
+               combined=True, export_quality=300, settings=None, progress=None):
         """Point d'entrée compatible pour les deux modes PDF."""
         if combined:
             return self.export_combined(
                 sheet_ids,
                 output_directory,
                 filename,
-                export_quality, settings=settings
+                export_quality, settings=settings, **progress_kwargs(progress)
             )
 
         return self.export_separate(
             sheet_ids,
             output_directory,
-            export_quality, settings=settings
+            export_quality, settings=settings, **progress_kwargs(progress)
         )

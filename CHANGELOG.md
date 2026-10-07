@@ -46,6 +46,11 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Export : fenêtre de progression globale de 0 à 100 %, fondée sur les opérations
+  réellement traitées, avec carnet, phase et compteur d'unités. Modes PDF groupés
+  conservés, livraison sécurisée et DWG inclus dans le plan, fermeture avant rapport.
+  Reporter optionnel sans WPF dans le moteur ; 257 tests Export réussis hors Revit.
+  Recette Revit 2025.4 requise avant fusion ; aucun temps restant ni annulation native.
 - Plans de vente : prototype 04A des nomenclatures intérieure/extérieure, avec sélection de modèles compatibles, duplication, filtre logement stable et collision de noms bloquante.
 - Plans de vente : prototype 04B du plan de repérage, avec vue source configurable, gabarit optionnel et surbrillance du logement par zones remplies.
 - Plans de vente : contrat de placement 04C avec rôles explicites, UniqueId Revit et ancrages sémantiques pour préparer l'assemblage de feuille sans heuristique de nommage.
