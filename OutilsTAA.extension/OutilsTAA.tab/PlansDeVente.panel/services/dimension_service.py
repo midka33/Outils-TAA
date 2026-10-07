@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06d-dimensions-room-separators-v4"
+DIMENSION_SERVICE_BUILD = "stage06e-dimensions-floor-edge-substitution-v5"
 
 import math
 
@@ -11,6 +11,7 @@ from common.transaction import RevitTransaction
 from plans_vente.dimension_geometry import (
     dominant_dimension_pairs,
     representative_length_indexes,
+    segment_match_metrics,
 )
 from plans_vente.tag_positioning import polygon_area
 
@@ -78,11 +79,13 @@ class _BoundaryReferenceCandidate(object):
         reference,
         element_id_value,
         length_references=None,
+        source_kind="wall",
     ):
         self.segment = segment
         self.reference = reference
         self.element_id_value = element_id_value
         self.length_references = length_references
+        self.source_kind = source_kind
 
 
 class DimensionService(object):
@@ -94,11 +97,18 @@ class DimensionService(object):
     LENGTH_DIRECTION_TOLERANCE_DEGREES = 12.0
     LENGTH_OFFSET_MM = 180.0
 
+    FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.0
+    FLOOR_EDGE_TOLERANCE_MM = 20.0
+    FLOOR_EDGE_MIN_OVERLAP_RATIO = 0.60
+    FLOOR_LEVEL_TOLERANCE_MM = 500.0
+    FLOOR_EDGE_MIN_LENGTH_MM = 100.0
+
     def __init__(self, document):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
         self.build_id = DIMENSION_SERVICE_BUILD
+        self._floor_edge_cache = {}
 
     def list_dimension_types(self):
         from Autodesk.Revit.DB import (
