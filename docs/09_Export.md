@@ -73,18 +73,26 @@ dossier est publié, son nom et les sous-dossiers jusqu'au carnet sont reproduit
 sous cette racine. Seule la branche sélectionnée est reproduite : publier directement
 `Architecture` ne rajoute pas son parent `DCE`.
 
-- Mode combiné : fichier dans le dossier contenant le carnet.
-- Mode séparé : fichiers dans un sous-dossier au nom du carnet.
-- PDF et DWG suivent leur propre mode : `DCE/Architecture/Plans.pdf` peut coexister
-  avec `DCE/Architecture/Plans/Feuille-01.dwg`.
+Lorsque **Créer un dossier au nom du carnet** est activé, l'organisation est
+indépendante du mode PDF et de la stratégie technique DWG :
 
-Les modèles de nommage des fichiers restent appliqués. Les noms des dossiers sont
-sécurisés pour Windows. Aucun dossier n'est créé pendant l'aperçu ou après annulation.
-L'aperçu montre les chemins réels et bloque les collisions de fichiers entre carnets.
-La publication directe d'un carnet ou d'une feuille ajoute également le dossier du
-carnet en mode séparé ; le mode combiné conserve la destination choisie.
-Le chemin relatif est porté par une copie de travail du carnet et partagé par
-`PublicationPreviewService` et `PublicationService` via `publication_paths.py`.
+```text
+Destination/
+└── Nom du carnet/
+    ├── PDF/
+    │   └── fichiers PDF
+    └── DWG/
+        └── fichiers DWG et ressources auxiliaires éventuelles
+```
+
+Cette structure s'applique au PDF combiné comme séparé, et aux exports DWG d'une
+ou plusieurs feuilles. Lorsqu'elle est désactivée, les fichiers sont écrits
+directement dans la destination issue de l'arborescence de publication.
+
+Les modèles de nommage restent appliqués. Les noms des dossiers sont sécurisés pour
+Windows. Aucun dossier n'est créé pendant l'aperçu ou après annulation.
+`PublicationPreviewService` et `PublicationService` utilisent le même calcul de
+chemin via `publication_paths.py`.
 
 ## Interface V1 — charte TAA
 
@@ -607,7 +615,6 @@ Chaque carnet persistant mémorise ses réglages de publication lorsqu'ils sont 
 PDF : activé / désactivé
 PDF : combiné / séparé
 DWG : activé / désactivé
-DWG : Par feuille / Lot Revit (valeurs internes SEPARATE / COMBINED)
 DWG : fusion des vues/liens activée / désactivée
 ```
 
@@ -646,7 +653,7 @@ PDF + DWG
 PDF seul
 PDF séparés
 DWG seul
-PDF + DWG combinés
+PDF combiné + DWG
 ```
 
 Un profil peut être sélectionné puis appliqué à un carnet.
@@ -657,9 +664,9 @@ Le profil définit notamment :
 pdf_enabled
 pdf_mode
 dwg_enabled
-dwg_mode
 dwg_setup_name
 dwg_true_color
+dwg_merge_views
 ```
 
 ### 7.1 Principe important
@@ -1089,13 +1096,18 @@ TAA surcharge seulement `MergedViews` et, si demandé, `Colors` (True Color).
 Une configuration native devenue indisponible reste mémorisée et provoque une
 erreur explicite à l'export, sans remplacement silencieux.
 
-La **sortie** conserve l'organisation métier existante : **Par feuille** (`SEPARATE`)
-ou **Lot Revit** (`COMBINED`, ancien libellé « Combiné »). Un lot ne fusionne pas
-plusieurs feuilles dans un DWG unique. Les identifiants ordonnés sont toujours
-transmis à `Document.Export` dans une `List[ElementId]` .NET typée.
+La stratégie d'appel DWG est désormais **automatique et invisible pour
+l'utilisateur** :
 
-La case **Fusionner les vues et les liens dans le DWG** est indépendante de cette
-organisation. Cochée, `MergedViews=True` ; décochée, `MergedViews=False` et références
+- une seule feuille → appel Revit simple ;
+- plusieurs feuilles → un seul appel natif Revit contenant les identifiants ordonnés ;
+- Revit produit néanmoins un DWG par feuille ; un lot d'appel n'est pas un DWG unique.
+
+Le champ historique `dwg_mode` reste lisible dans les anciens stockages pour assurer
+la compatibilité, mais il n'influence plus l'exécution et n'est plus exposé dans l'UI.
+
+La case **Fusionner les vues et les liens dans le DWG** reste indépendante de cette
+stratégie. Cochée, `MergedViews=True` ; décochée, `MergedViews=False` et références
 externes lorsque applicable. Le défaut demandé est True, aussi pour les anciens
 réglages sans champ `dwg_merge_views`. Images et autres annexes peuvent subsister.
 
@@ -1105,8 +1117,9 @@ et sélection restaurés dans le même document/session. **Actualiser** relit au
 la liste sans modifier les surcharges héritées. La disponibilité réelle du membre
 API est vérifiée au clic ; l'ouverture native reste à valider dans Revit 2025.4.
 
-L'aperçu précise preset et références. Pour plusieurs feuilles en Lot Revit, le nom
-est un préfixe, et le rapport affiche le dossier au lieu d'un DWG supposé unique.
+L'aperçu précise preset et références. Pour plusieurs feuilles, il annonce la
+stratégie automatique et le nombre de DWG attendus ; le rapport affiche le dossier
+réel lorsque les noms finaux sont déterminés par Revit.
 Analyse, surcharges et limites : [24_Export_Reglages_DWG.md](24_Export_Reglages_DWG.md).
 Recette non encore validée : [25_Export_Recette_DWG.md](25_Export_Recette_DWG.md).
 
@@ -1674,13 +1687,13 @@ La destination saisie au clavier est maintenant enregistrée à la perte de focu
 comme la destination choisie par Parcourir. Aucun autre réglage n'est enregistré
 comme surcharge lors de cette action.
 
-La case « Créer un sous-dossier pour ce carnet » pilote le regroupement des exports
-**séparés** (`separate_carnet_subfolder`, héritable, True par défaut). Les réglages
-anciens conservent donc les chemins validés. False retire seulement le dossier du
-carnet pour le format séparé : les sous-dossiers de l'arborescence restent conservés.
-Le mode combiné reste dans le dossier parent. Le calcul est partagé par l'aperçu
-et les exports ; les collisions continuent d'être contrôlées. Cette préférence de
-destination n'est pas incluse dans les profils techniques PDF/DWG.
+La case **« Créer un dossier au nom du carnet »** pilote
+`separate_carnet_subfolder` (héritable, True par défaut), mais son sens n'est plus
+lié à « séparé/combiné ». Cochée, elle crée toujours `NomCarnet/PDF` et
+`NomCarnet/DWG`. Décochée, elle retire ces dossiers de format/carnet tout en
+conservant les sous-dossiers de l'arborescence de publication. Le même calcul de
+chemin est utilisé par l'aperçu et l'export réel. Cette préférence de destination
+n'est pas incluse dans les profils techniques PDF/DWG.
 
 Le bouton de configuration PDF ouvre « Paramètres PDF », organisé en Options et
 Traitement vectoriel/raster. Les huit champs booléens du contrat `pdf_options.py`
@@ -1733,4 +1746,10 @@ d'hériter ; la résolution applique True sans réécrire les anciens JSON. L'UI
 sauvegarde que le champ modifié. Les profils personnalisés conservent False.
 Les hooks du smartbutton, le batch dossier et le chemin de secours transmettent
 la même valeur. Les réglages PDF et la progression existante sont inchangés.
+La stratégie DWG n'est plus un choix utilisateur : une feuille utilise un appel
+simple, plusieurs feuilles un lot natif Revit. L'ancien `dwg_mode` est conservé
+uniquement pour la lecture des stockages historiques. L'interface a été compactée
+pour respecter la cible Full HD : les réglages courants doivent rester visibles sans
+défilement vertical obligatoire à 1920 × 1080 ; le ScrollViewer reste un secours.
+
 Statut : tests hors Revit uniquement ; validation utilisateur Revit 2025.4 attendue.
