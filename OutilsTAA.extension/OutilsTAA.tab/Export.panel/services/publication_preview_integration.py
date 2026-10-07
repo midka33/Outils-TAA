@@ -469,6 +469,11 @@ def _merge_previews(previews):
     # Deux carnets ne doivent pas écrire le même fichier après sécurisation des noms.
     seen_paths = set()
     for row in rows:
+        # Une ligne de lot DWG représente un répertoire, pas un fichier dont
+        # le nom final est connu. Deux lots dans le même répertoire ne sont
+        # donc pas, à eux seuls, une collision de fichiers démontrée.
+        if not getattr(row, "CollisionCheck", True):
+            continue
         path = os.path.normcase(os.path.abspath(row.Path)).lower()
         if path in seen_paths:
             errors.append("Collision entre carnets : {0}.".format(row.Path))
