@@ -6,7 +6,32 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Added
+- Export DWG : case « Fusionner les vues et les liens dans le DWG », indépendante
+  du mode de sortie, persistante et héritable (`dwg_merge_views`, True par défaut).
+- Export DWG : engrenage vers les configurations natives Revit après fermeture
+  d'Export ; réouverture manuelle avec restauration des carnets temporaires et de
+  la sélection, relecture automatique des presets et bouton Actualiser.
+- Analyse DWG et recette TEST-DWG-SETUP-01 à 12. **Validation Revit 2025.4 attendue.**
+- Export : suivi fractionnaire des appels natifs via `Application.ProgressChanged`
+  lorsqu'une progression Revit est réellement disponible, puis compteur exact
+  `X / Y mises en page` pendant les phases de livraison contrôlées.
+
+
 ### Changed
+- Export DWG : suppression du choix technique « Par feuille / Lot Revit ». La
+  stratégie est automatique : une feuille utilise un appel simple, plusieurs feuilles
+  un lot natif Revit ; le résultat métier reste un DWG par feuille. Le champ
+  historique `dwg_mode` reste lisible mais n'influence plus l'exécution.
+- Export : « Créer un dossier au nom du carnet » produit désormais
+  `NomCarnet/PDF/` et `NomCarnet/DWG/` quel que soit le mode PDF ou la stratégie
+  DWG. Aperçu et publication partagent le même constructeur de chemins.
+- Export UI : bloc DWG compacté et choix technique supprimé afin de conserver les
+  réglages courants accessibles sans scroll vertical obligatoire sur la cible
+  1920 × 1080. Le ScrollViewer reste uniquement un secours.
+- Export DWG : preset natif conservé sauf MergedViews et True Color explicitement
+  demandé. Les anciens réglages sans le champ fusion héritent de True. Une surcharge
+  True Color impossible remonte une erreur.
 - Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
 - Plans de vente : le paramètre partagé `N° Appartement` est désormais présélectionné comme identifiant logement lorsqu'il est disponible ; 04A Nomenclatures validé dans Revit 2025.4.
 - Plans de vente : 04B utilise désormais une seule zone remplie globale issue du contour logement de l'Étape 03 à marge nulle, afin de surligner l'emprise continue et de passer sur les cloisons intérieures.
@@ -26,6 +51,17 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Export PDF combiné : le nom est désormais résolu au niveau du carnet ; les
+  variables propres à une feuille ne reprennent plus silencieusement la première
+  mise en page.
+- Export DWG en lot : les noms natifs Revit sont rapprochés puis renommés avec le
+  modèle TAA ; les suffixes natifs tels que « Feuille » ne contaminent plus les
+  DWG principaux. Les annexes restent regroupées dans le dossier DWG.
+- Export progression : la barre peut avancer à l'intérieur d'une phase native à
+  partir de données Revit réelles et progresse feuille par feuille pendant le
+  renommage/livraison effectivement contrôlé par Outils TAA.
+- Export : **301 tests hors Revit réussis** après ces correctifs ; validation
+  Revit 2025.4 encore requise avant fusion de la PR #19.
 - Plans de vente : BUG-PDV-024 corrige les libellés vides des types de zones remplies sous IronPython/pyRevit en utilisant `Element.Name.GetValue`.
 - Export : publication Ctrl/Maj de plusieurs feuilles/carnets ; résumé, aperçu et export partagent le même périmètre, sans doublons parent/enfant. Désélection vide respectée, copies sans modification des carnets, destinations multiples dans le rapport. Fonctionnement confirmé par l’utilisateur dans Revit le 2026-10-05 (PR #11) ; recette détaillée distincte avant release.
 - Ruban Export : le titre API `Export` reste non vide et le texte est masqué uniquement après création du contrôle via un smartbutton `__selfinit__` (`ShowText = False`) ; le panneau conserve « Export » et l’icône vectorielle agrandie. La tentative précédente avec un titre blanc a été retirée car Revit la refusait au rechargement. Validation finale Revit du ruban confirmée le 2026-10-01.
@@ -69,7 +105,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Persistance JSON des carnets manuels.
 - Tests unitaires du moteur de création et de persistance des carnets.
 - Service PDF natif Revit avec publication combinée ou séparée.
-- Service DWG natif Revit avec publication séparée ou combinée via `MergedViews`.
+- Service DWG natif Revit avec publication séparée ou combinée (couplage historique à `MergedViews`, corrigé dans Unreleased).
 - Orchestrateur de publication avec validation des feuilles, contrôle `CanBePrinted` et rapport synthétique.
 - Fenêtre WPF dédiée au rapport de publication avec une ligne par fichier produit.
 - Détection des fichiers PDF/DWG produits pour alimenter le rapport de publication.

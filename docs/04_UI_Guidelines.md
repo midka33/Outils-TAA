@@ -2616,3 +2616,39 @@ techniques nombreuses ont un dialogue dédié avec Annuler/Appliquer.
 Le pied d'actions reste hors du ScrollViewer. Celui-ci est conservé comme secours.
 La mesure WPF dépend des DPI et des thèmes Windows : un budget de hauteur ou un
 XML valide ne remplace jamais le contrôle réel à 1920 × 1080, 100 % et 125 %.
+
+## Export — bloc DWG et réglages natifs
+
+Le bloc DWG n'expose que des choix métier :
+
+- Publier ou non en DWG ;
+- configuration DWG native Revit ;
+- fusionner ou non les vues/liens dans chaque DWG ;
+- forcer ou non les couleurs vraies.
+
+Le nombre d'appels à `Document.Export` est une stratégie interne. Les anciens
+contrôles « Par feuille / Lot Revit » sont supprimés de l'interface : plusieurs
+feuilles peuvent être envoyées en un seul lot Revit sans changer le résultat métier
+attendu, qui reste un DWG par feuille.
+
+L'engrenage réutilise `TaaSettingsIcon` et annonce dans son infobulle la fermeture
+d'Export puis sa réouverture manuelle. Le bouton Actualiser est adjacent à la liste.
+La liste s'étire dans un DockPanel ; le texte de la case de fusion peut revenir à
+la ligne. La couleur vraie est présentée comme une surcharge : « Forcer les couleurs
+vraies ». Son infobulle précise que décocher conserve les couleurs du preset.
+Aucune UI TAA ne recrée les calques, unités ou autres pages natives Revit.
+
+La case de destination est libellée **« Créer un dossier au nom du carnet »**.
+Lorsqu'elle est cochée, la structure attendue est `NomCarnet/PDF` et
+`NomCarnet/DWG` ; elle ne dépend d'aucun mode technique.
+
+La fenêtre Export reste ciblée à **1320 × 760 unités WPF**, avec Segoe UI 13 px.
+Sur la référence 1920 × 1080 à 100 % et 125 %, PDF, DWG, destination, nommage,
+case dossier du carnet, Options avancées, résumé et boutons Aperçu/Publier doivent
+rester accessibles sans défilement vertical obligatoire. Le ScrollViewer reste une
+sécurité pour les petits écrans ou redimensionnements, pas une solution au
+dimensionnement initial. Réduire d'abord marges, paddings et textes permanents.
+
+L'aperçu/rapport décrivent la stratégie DWG comme **Automatique** et ne promettent
+ni « aucun XRef » ni un fichier autonome garanti. Contrôle visuel WPF et échelle
+Windows : recette Revit 2025.4 encore à effectuer.

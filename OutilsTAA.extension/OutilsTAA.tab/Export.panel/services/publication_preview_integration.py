@@ -239,6 +239,7 @@ def install_preview_on_export_window(export_window_class):
             "DwgSeparateRadio": "dwg_mode",
             "DwgSetupCombo": "dwg_setup_name",
             "DwgTrueColorCheckBox": "dwg_true_color",
+            "DwgMergeViewsCheckBox": "dwg_merge_views",
             "FilenameTemplateTextBox": "filename_template"
         }
         field = mapping.get(name)
@@ -377,8 +378,8 @@ def _publish_targets(window, targets):
                     export_pdf=settings.pdf_enabled,
                     export_dwg=settings.dwg_enabled,
                     pdf_combined=settings.pdf_mode == "COMBINED",
-                    dwg_combined=settings.dwg_mode == "COMBINED",
                     dwg_setup_name=settings.dwg_setup_name,
+                    dwg_merge_views=settings.dwg_merge_views,
                     dwg_true_color=settings.dwg_true_color, progress=target_progress)
             except Exception as exc:
                 result = {"success": False, "results": [], "errors": [str(exc)], "warnings": []}
@@ -468,6 +469,11 @@ def _merge_previews(previews):
     # Deux carnets ne doivent pas écrire le même fichier après sécurisation des noms.
     seen_paths = set()
     for row in rows:
+        # Une ligne de lot DWG représente un répertoire, pas un fichier dont
+        # le nom final est connu. Deux lots dans le même répertoire ne sont
+        # donc pas, à eux seuls, une collision de fichiers démontrée.
+        if not getattr(row, "CollisionCheck", True):
+            continue
         path = os.path.normcase(os.path.abspath(row.Path)).lower()
         if path in seen_paths:
             errors.append("Collision entre carnets : {0}.".format(row.Path))

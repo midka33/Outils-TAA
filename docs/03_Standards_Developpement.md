@@ -2180,3 +2180,40 @@ MAINTENABLE
 Les chapitres suivants s'appuieront sur ces standards.
 
 Le chapitre **04 — UI Guidelines** définira notamment les règles précises applicables aux interfaces WPF, aux fenêtres, boutons, listes, messages, couleurs, états, progression et cohérence visuelle des outils TAA.
+
+## Export DWG — séparation obligatoire des responsabilités
+
+- Le résultat métier attendu est **un DWG par feuille**. Le nombre d'appels API Revit
+  est une stratégie interne et ne doit pas être exposé comme choix utilisateur si
+  le livrable attendu ne change pas.
+- Stratégie par défaut : une feuille → appel simple ; plusieurs feuilles → un seul
+  lot natif Revit. Un lot ne fusionne pas plusieurs feuilles en un DWG unique.
+- `dwg_mode` est désormais un champ **legacy** lu/écrit uniquement pour ne pas casser
+  les anciens stockages. Il ne doit plus piloter l'exécution, les chemins ni l'UI.
+- `DWGExportOptions.MergedViews` reçoit exclusivement le booléen effectif
+  `dwg_merge_views` (défaut True). Ne jamais le déduire du nombre de feuilles ou
+  d'une stratégie d'appel.
+- Charger le preset natif avant les surcharges. Seules `MergedViews` et `Colors`
+  (si True Color explicite) sont écrasées. Aucune exception silencieuse pour une
+  surcharge demandée, aucun remplacement silencieux d'un preset supprimé.
+- L'option utilisateur **Créer un dossier au nom du carnet** ne doit jamais dépendre
+  d'un mode technique. Si elle est active, les chemins sont
+  `NomCarnet/PDF/` et `NomCarnet/DWG/`, pour tous les modes PDF et toute stratégie
+  DWG. Aperçu et export réel doivent utiliser le même constructeur de chemin.
+- Un champ absent reste `None` au niveau héritable. Ne pas sérialiser le résultat
+  résolu dans les réglages locaux à l'ouverture ou au rafraîchissement des listes.
+- Les commandes natives Revit sont postées après retour de `ShowDialog`, puis
+  retour du contexte API. Ne pas simuler leur fin avec un timer/Idling ni remplacer
+  la commande avec un handler `Executed`. Vérifier le membre et `CanPostCommand`,
+  sans assimiler ce contrôle à une garantie d'exécution future.
+- L'aller-retour DWG conserve uniquement un chemin de cache dans les envvars
+  pyRevit ; le JSON temporaire ne contient aucun objet API/WPF et reste isolé par
+  document/session. La réouverture d'Export est manuelle, sa relecture des presets
+  automatique. Échec de sauvegarde : ne pas fermer la fenêtre.
+- Un lot de plusieurs feuilles ne représente pas un DWG unique. Rapporter le répertoire
+  si les noms natifs ne sont pas connus ; ne pas inventer de liste des annexes.
+- Ne pas ajouter dans la fenêtre principale un choix purement technique qui augmente
+  la hauteur ou impose un scroll en usage normal. À 1920 × 1080, les réglages
+  courants doivent rester visibles sans défilement vertical obligatoire.
+
+Contrats et limites : [24_Export_Reglages_DWG.md](24_Export_Reglages_DWG.md).

@@ -20,6 +20,7 @@ class _Settings(object):
         self.dwg_mode = "SEPARATE"
         self.dwg_setup_name = None
         self.dwg_true_color = True
+        self.dwg_merge_views = True
 
     def validate(self):
         return []

@@ -15,16 +15,31 @@ def safe_directory_name(name):
     return value
 
 
-def publication_directory(target, destination, combined, settings=None):
-    """Décline la destination effective sans créer de dossier pendant l'aperçu.
+def publication_directory(target, destination, combined=None, settings=None,
+                          format_name=None):
+    """Retourne la destination effective sans créer de dossier pendant l'aperçu.
 
-    Les cibles de dossier portent leur chemin relatif. Le mode séparé ajoute
-    le nom du carnet par défaut, sauf désactivation explicite de cette option.
+    combined est conservé uniquement pour compatibilité avec les appels
+    historiques. Il n'influence plus la création du dossier du carnet.
+
+    Si separate_carnet_subfolder est actif, la structure est toujours :
+
+        <destination>/<dossiers publication>/<carnet>/<PDF|DWG>/
+
+    Le comportement est identique pour PDF combiné/séparé et pour la stratégie
+    DWG interne. Lorsque l'option est désactivée, les fichiers restent directement
+    dans la destination issue de l'arborescence de publication.
     """
     parts = getattr(target, "publication_folder_parts", ())
     names = [safe_directory_name(part) for part in parts]
     settings = settings or getattr(target, "publication_settings", None)
-    create_subfolder = getattr(settings, "separate_carnet_subfolder", None) is not False
-    if not combined and create_subfolder:
+    create_subfolder = (
+        getattr(settings, "separate_carnet_subfolder", None) is not False
+    )
+
+    if create_subfolder:
         names.append(safe_directory_name(target.name))
+        if format_name:
+            names.append(safe_directory_name(str(format_name).upper()))
+
     return os.path.join(destination, *names) if names else destination

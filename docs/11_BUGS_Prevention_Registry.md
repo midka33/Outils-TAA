@@ -528,6 +528,172 @@ la validité XML à une validation WPF. Préserver les noms, événements et bin
 
 **Anti-régression :** `tests/test_export_multiselection.py` exécute les handlers et les hooks Stage 07 ; sous-ensembles, ordre, carnets multiples, paramètres/destinations indépendants, collisions, annulation, Ctrl/Maj et sélection vide. Les anciens tests pointant encore sur `Export.pushbutton/script.py` sont réalignés sur le smartbutton actuel. Fonctionnement de la sélection multiple confirmé par l’utilisateur dans Revit le 2026-10-05 après essai de la branche de la PR #11. Ce retour ne constitue pas une validation détaillée de chaque scénario MS-01 à MS-10.
 
+### BUG-EXPORT-041 — Mode de sortie confondu avec la fusion des vues DWG
+
+**Symptôme :** les exports Par feuille imposent des références externes, tandis que
+le mode Combiné laisse croire qu'un carnet entier produit un DWG unique.
+
+**Cause racine :** `PublicationService` déduit `MergedViews` de `dwg_combined` et
+`DwgExportService` décrit à tort une fusion de feuilles. Le rapport devine le chemin
+unique d'un lot multif feuille sans connaître les suffixes natifs.
+
+**Correction :** réglage `dwg_merge_views` explicite, nullable et héritable, défaut
+True ; propagation par tous les hooks réellement actifs. Preset natif conservé,
+seules deux surcharges explicites autorisées. Le choix technique « Par feuille /
+Lot Revit » est retiré de l'UI : une feuille utilise un appel simple et plusieurs
+feuilles un lot natif automatique. Le champ `dwg_mode` reste seulement compatible
+avec les anciens stockages. Commande de configuration postée après fermeture modale,
+avec cache temporaire de la sélection et réouverture manuelle.
+
+**Règle préventive :** distinguer organisation de la publication, références d'une
+feuille et options du preset. Ne jamais dériver `MergedViews` d'une stratégie
+d'appel, exposer un choix technique qui ne change pas le résultat métier, promettre
+un DWG autonome, figer les réglages hérités au rafraîchissement ou poster une commande
+sans rendre la main à Revit. La disponibilité future n'est pas garantie par
+`CanPostCommand` ; journaliser/afficher les erreurs immédiates.
+
+**Anti-régression :** `tests/test_export_dwg_settings.py`, tests de sélection multiple
+sur le smartbutton actif et suite complète Export/PDF/progression. Recette
+TEST-DWG-SETUP-01 à 12 dans `docs/25_Export_Recette_DWG.md` : **en attente de validation
+utilisateur dans Revit 2025.4**, notamment vues, liens, raster et fenêtre native.
+
+### BUG-EXPORT-042 — « Dossier du carnet » dépendait du mode combiné/séparé
+
+**Symptôme :** la case « Créer un sous-dossier pour ce carnet » était cochée mais un
+PDF combiné ou un lot DWG restait à la racine ; PDF, DWG et annexes pouvaient être
+mélangés dans le même dossier.
+
+**Cause racine :** `publication_directory()` ajoutait le nom du carnet uniquement
+lorsque `combined=False`. Un choix utilisateur de classement avait donc été couplé
+à un détail technique du moteur d'export.
+
+**Correction :** le booléen utilisateur contrôle uniquement l'existence du dossier
+du carnet. S'il est actif, tous les modes produisent `NomCarnet/PDF/` et
+`NomCarnet/DWG/`. Aperçu et exécution utilisent le même constructeur de chemin.
+
+**Règle préventive :** un libellé métier doit avoir un effet stable et littéral.
+Ne jamais faire dépendre une option de classement d'un mode technique non mentionné
+dans son libellé. Les ressources auxiliaires d'un format restent dans le dossier
+de ce format.
+
+**Anti-régression :** `tests/test_publication_folder_paths.py` couvre PDF combiné
+et séparé, DWG, option carnet active/inactive et les trois périmètres de publication.
+
+### BUG-EXPORT-043 — Choix technique DWG exposé et panneau devenu trop haut
+
+**Symptôme :** l'utilisateur devait choisir « Par feuille / Lot Revit » alors que le
+livrable restait un DWG par feuille ; l'ajout de ce réglage augmentait également la
+hauteur du panneau et favorisait un scroll vertical en usage standard.
+
+**Cause racine :** une stratégie d'optimisation des appels API avait été présentée
+comme un réglage métier et ajoutée à la fenêtre principale au lieu d'être pilotée
+par le moteur.
+
+**Correction :** suppression des contrôles de mode DWG. La stratégie devient
+automatique : une feuille → appel simple ; plusieurs feuilles → lot natif Revit.
+Le panneau DWG est compacté sans réduire la typographie et le ScrollViewer reste un
+secours. Le contrat cible reste 1320 × 760 sur écran 1920 × 1080.
+
+**Règle préventive :** ne pas exposer un choix purement technique lorsque les
+livrables attendus sont identiques. Avant d'ajouter une ligne de réglage à une
+fenêtre principale, vérifier qu'elle apporte une décision métier réelle et que les
+réglages courants restent visibles sans scroll obligatoire en Full HD.
+
+**Anti-régression :** contrat XAML dans `tests/test_export_dwg_settings.py` :
+absence des contrôles de mode, hauteur bornée, libellé dossier du carnet ; recette
+visuelle 1920 × 1080 à 100 % et 125 % dans `docs/25_Export_Recette_DWG.md`.
+
+### BUG-EXPORT-044 — PDF combiné nommé avec la première feuille
+
+**Symptôme :** un PDF combiné de plusieurs mises en page recevait un nom contenant
+le numéro et le nom de la première feuille, par exemple A1101, alors que le fichier
+représente le carnet entier.
+
+**Cause racine :** le contexte générique de `FilenameService` utilisait la première
+mise en page lorsque `item=None`. Un appel de nommage global pouvait donc résoudre
+silencieusement `{numero}` et `{nom}` avec cette feuille.
+
+**Correction :** ajout d'une résolution explicite au niveau carnet pour les
+livrables globaux. Les variables propres aux feuilles ne sont plus résolues avec
+l'élément 0 ; elles sont remplacées/neutralisées au profit de `{carnet}`.
+
+**Règle préventive :** tout fichier représentant plusieurs éléments doit avoir un
+contexte de nommage global explicite. `item=None` ne doit jamais signifier
+implicitement « prendre le premier élément » dans un workflow de publication globale.
+
+**Anti-régression :** tests PDF combiné, aperçu/publication et modèles contenant
+`{numero}` / `{nom}`.
+
+### BUG-EXPORT-045 — Le nom natif Revit « Feuille » fuit dans les DWG finaux
+
+**Symptôme :** après un lot DWG, les fichiers finaux contenaient le préfixe/suffixe
+natif Revit, par exemple `... - Feuille - A1101 - ...dwg`, en plus du modèle de
+nommage TAA.
+
+**Cause racine :** le lot Revit était performant mais les noms natifs produits par
+`Document.Export` étaient traités comme des noms finaux.
+
+**Correction :** export du lot dans un dossier temporaire, rapprochement conservateur
+des DWG principaux par numéro de feuille puis nom de feuille, renommage selon le
+moteur TAA, livraison avec sauvegarde/rollback, puis déplacement des ressources
+auxiliaires dans le dossier DWG.
+
+**Règle préventive :** lorsque l'API native contrôle le nom d'un fichier intermédiaire,
+ne jamais exposer ce nom comme contrat final si l'application possède son propre
+moteur de nommage. Toute association native→métier doit échouer en cas d'ambiguïté
+plutôt que s'appuyer sur l'ordre ou sur un mot localisé comme « Feuille ».
+
+**Anti-régression :** `tests/test_export_dwg_settings.py` vérifie notamment que les
+DWG natifs contenant « Feuille » deviennent des noms TAA exacts et que les PNG/JPG
+auxiliaires restent dans le dossier DWG.
+
+### BUG-EXPORT-046 — Progression bloquée pendant les exports longs
+
+**Symptôme :** la fenêtre passait d'une phase à la suivante en un seul saut ; pendant
+un export long, l'utilisateur ne savait pas si Revit avançait ni quelle mise en page
+était réellement traitée.
+
+**Cause racine :** le pourcentage ne tenait compte que des grandes unités terminées.
+Aucune fraction de l'unité native ni progression de livraison n'était remontée.
+
+**Correction :** fraction réelle issue de `Application.ProgressChanged`
+(`Position / UpperRange`) pendant les appels natifs, abonnement limité à la durée
+de `Document.Export`, puis progression exacte `X / Y mises en page` pendant les
+livraisons PDF/DWG contrôlées par Outils TAA.
+
+**Règle préventive :** une barre chiffrée doit être alimentée uniquement par une
+mesure réelle. Utiliser les événements natifs lorsqu'ils existent ; sinon accepter
+une phase temporairement stable. La progression fine par élément n'est autorisée
+que lorsque l'application sait réellement que cet élément est terminé.
+
+**Anti-régression :** tests de monotonie, bornes, progression native, progression
+`X / Y`, callback défaillant et désabonnement du bridge ; validation réelle
+`ProgressChanged` à effectuer dans Revit 2025.4.
+
+### BUG-EXPORT-047 — Fenêtre de progression instable et compteur technique exposé
+
+**Symptôme :** la fenêtre de progression changeait légèrement de hauteur selon la
+longueur du message sous le titre. Le bloc « Traitement » affichait en outre des
+valeurs comme `1 / 100 progression Revit`, interprétables à tort comme un nombre
+de feuilles.
+
+**Cause racine :** la fenêtre utilisait `SizeToContent="Height"` avec un texte de
+statut de hauteur variable. Le compteur brut `ProgressChanged.Position/UpperRange`,
+utile au calcul de la barre, était affiché directement comme information métier.
+
+**Correction :** hauteur fixe de la fenêtre et zone de statut réservée à hauteur
+constante. Les valeurs natives Revit continuent d'alimenter le pourcentage, mais
+l'UI affiche « Revit travaille… ». Pendant une livraison réellement contrôlée,
+l'UI affiche en revanche `X / Y` sous le libellé « Mises en page ».
+
+**Règle préventive :** une fenêtre de progression doit conserver une géométrie
+stable pendant toute l'opération. Les compteurs techniques de l'API ne doivent pas
+être présentés comme des compteurs métier sans sémantique explicite.
+
+**Anti-régression :** contrat XAML sur l'absence de `SizeToContent`, hauteur fixe et
+zone de statut stable ; tests UI sur l'affichage « Revit travaille… » et
+`X / Y` mises en page.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
@@ -1072,6 +1238,8 @@ BUG-EXPORT-033
 BUG-EXPORT-037
 BUG-EXPORT-038
 BUG-EXPORT-039
+BUG-EXPORT-040
+BUG-EXPORT-041
 BUG-EXPORT-036
 BUG-EXPORT-035
 BUG-EXPORT-034

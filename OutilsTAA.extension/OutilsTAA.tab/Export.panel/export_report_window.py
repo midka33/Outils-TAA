@@ -13,7 +13,7 @@ class PublicationReportRow(object):
     def __init__(self, carnet, result, path=None):
         self.Carnet = result.get("carnet") or carnet or "—"
         self.Format = result.get("format", "—")
-        self.Mode = "Combiné" if result.get("mode") == "combined" else "Séparé"
+        self.Mode = ("Lot Revit" if self.Format == "DWG" else "Combiné") if result.get("mode") == "combined" else "Séparé"
         self.Status = "OK" if result.get("success") else "ERREUR"
         self.Count = result.get("count", 0)
         self.Path = path or result.get("path") or result.get("file") or result.get("directory") or "—"

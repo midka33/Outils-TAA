@@ -69,7 +69,13 @@ class PublicationPreviewService(object):
         generated_paths = {}
 
         def add_row(fmt, mode, item, filename, unknown):
-            row_directory = publication_directory(publication_set, directory, mode == "COMBINED", settings=settings) if directory else ""
+            row_directory = publication_directory(
+                publication_set,
+                directory,
+                mode == "COMBINED",
+                settings=settings,
+                format_name=fmt,
+            ) if directory else ""
             path = os.path.join(row_directory, filename) if row_directory else filename
             normalized = os.path.normcase(os.path.abspath(path)) if directory else os.path.normcase(filename)
             duplicate = normalized in generated_paths
@@ -85,18 +91,27 @@ class PublicationPreviewService(object):
             key = history_service.item_key(item) if item is not None and history_service is not None else None
             state = item_status.get(key, "UNKNOWN") if item is not None else "À PUBLIER"
             status = state if modified_only else ("⚠ Collision" if duplicate or exists else ("⚠ Variables" if unknown else "OK"))
+            if fmt == "DWG":
+                mode_label = "Automatique"
+            else:
+                mode_label = "Combiné" if mode == "COMBINED" else "Séparé"
             rows.append(_PreviewRow(
                 getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
                 item.sheet_name if item is not None else "Publication du carnet",
-                fmt, "Combiné" if mode == "COMBINED" else "Séparé", filename, path, status))
+                fmt, mode_label, filename, path, status))
 
         has_candidates = bool(candidates)
         if settings.pdf_enabled and has_candidates:
             if settings.pdf_mode == "COMBINED":
-                filename, unknown = self.filename_service.filename(
-                    settings.filename_template or "{carnet}", publication_set,
-                    item=None, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
+                filename, unknown = self.filename_service.carnet_filename(
+                    settings.filename_template or "{carnet}",
+                    publication_set,
+                    folder_name=getattr(
+                        publication_set, "folder_name", None
+                    ),
+                    extension=".pdf",
+                )
                 add_row("PDF", "COMBINED", None, filename, unknown)
             else:
                 for item in candidates:
@@ -106,17 +121,58 @@ class PublicationPreviewService(object):
                     add_row("PDF", "SEPARATE", item, filename, unknown)
 
         if settings.dwg_enabled and has_candidates:
-            if settings.dwg_mode == "COMBINED":
+            warnings.append(
+                "DWG — configuration : {} ; vues/liens : {}. "
+                "Des ressources annexes peuvent subsister.".format(
+                    settings.dwg_setup_name
+                    or "réglages Revit par défaut",
+                    "fusionnés"
+                    if settings.dwg_merge_views is not False
+                    else "références externes",
+                )
+            )
+
+            if len(candidates) == 1:
+                item = candidates[0]
                 filename, unknown = self.filename_service.filename(
-                    settings.filename_template or "{carnet}", publication_set,
-                    item=None, folder_name=getattr(publication_set, "folder_name", None), extension=".dwg")
-                add_row("DWG", "COMBINED", None, filename, unknown)
+                    settings.filename_template or "{carnet}",
+                    publication_set,
+                    item=item,
+                    folder_name=getattr(
+                        publication_set, "folder_name", None
+                    ),
+                    extension=".dwg",
+                )
+                add_row(
+                    "DWG",
+                    "SINGLE",
+                    item,
+                    filename,
+                    unknown,
+                )
             else:
+                warnings.append(
+                    "DWG — stratégie automatique : {} feuilles seront "
+                    "envoyées en un seul lot Revit puis renommées selon "
+                    "le modèle TAA.".format(len(candidates))
+                )
                 for item in candidates:
                     filename, unknown = self.filename_service.filename(
-                        settings.filename_template or "{carnet}", publication_set,
-                        item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".dwg")
-                    add_row("DWG", "SEPARATE", item, filename, unknown)
+                        settings.filename_template or "{carnet}",
+                        publication_set,
+                        item=item,
+                        folder_name=getattr(
+                            publication_set, "folder_name", None
+                        ),
+                        extension=".dwg",
+                    )
+                    add_row(
+                        "DWG",
+                        "AUTOMATIC",
+                        item,
+                        filename,
+                        unknown,
+                    )
 
         if not settings.pdf_enabled and not settings.dwg_enabled:
             errors.append("Aucun format de publication n'est sélectionné.")
@@ -136,7 +192,10 @@ class PublicationPreviewService(object):
 class _PreviewRow(object):
     """Objet simple compatible avec les bindings WPF du DataGrid."""
 
-    def __init__(self, carnet, number, name, fmt, mode, filename, path, status):
+    def __init__(
+        self, carnet, number, name, fmt, mode, filename, path, status,
+        collision_check=True,
+    ):
         self.Carnet = carnet or "—"
         self.Number = number or "—"
         self.Name = name or "—"
@@ -145,6 +204,7 @@ class _PreviewRow(object):
         self.Filename = filename
         self.Path = path
         self.Status = status
+        self.CollisionCheck = bool(collision_check)
 
 
 def _state_summary(classified):

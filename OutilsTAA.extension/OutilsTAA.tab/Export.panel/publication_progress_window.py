@@ -31,10 +31,37 @@ class PublicationProgressWindow(forms.WPFWindow):
         self.PercentText.Text = "{0} %".format(state["percent"])
         self.CarnetText.Text = state["carnet_name"]
         self.ItemText.Text = state["item_label"]
-        self.UnitsText.Text = "{0} / {1} unités".format(state["current"], state["total"])
+        detail_total = int(state.get("detail_total", 0) or 0)
+        detail_label = state.get("detail_label", "unités")
+        if detail_total > 0 and detail_label == "progression Revit":
+            # Position/UpperRange sert au calcul de la barre mais n'est pas
+            # une information métier (ce n'est pas un nombre de feuilles).
+            self.UnitsLabelText.Text = "Avancement :"
+            self.UnitsText.Text = "Revit travaille…"
+        elif detail_total > 0:
+            self.UnitsLabelText.Text = (
+                "Mises en page :"
+                if detail_label == "mises en page"
+                else "Avancement :"
+            )
+            self.UnitsText.Text = "{0} / {1}".format(
+                state.get("detail_current", 0),
+                detail_total,
+            )
+        else:
+            self.UnitsLabelText.Text = "Avancement :"
+            self.UnitsText.Text = "{0} / {1} étapes".format(
+                state["current"], state["total"]
+            )
         self.PhaseText.Text = state["phase"]
         self.StatusText.Text = state["message"]
-        active = "export" if state["phase_key"] in ("pdf", "dwg") else state["phase_key"]
+        phase_key = state["phase_key"]
+        if phase_key in ("pdf", "dwg"):
+            active = "export"
+        elif phase_key in ("pdf_delivery", "dwg_delivery"):
+            active = "delivery"
+        else:
+            active = phase_key
         for key, control in (("prepare", self.PrepareStep), ("export", self.ExportStep),
                              ("delivery", self.DeliveryStep), ("finalize", self.FinalizeStep)):
             control.Opacity = 1.0 if key == active else 0.45

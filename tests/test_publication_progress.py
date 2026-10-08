@@ -22,6 +22,7 @@ from publication_item import PublicationItem
 from publication_history_service import PublicationHistoryService
 from carnet_controller import CarnetController
 from pdf_export_service import PdfExportService
+from revit_native_progress import RevitNativeProgressBridge
 
 
 def definitions(path, namespace, names):
@@ -66,6 +67,26 @@ def native_api(monkeypatch):
     monkeypatch.setattr(PdfExportService, '_to_export_quality', lambda self, value: value)
 
 
+def fake_dwg_export(calls, progress=None):
+    def export(view_ids, directory, filename, setup_name=None, **kwargs):
+        if calls is not None:
+            calls.append((view_ids, directory, filename, setup_name, kwargs))
+        if progress is not None:
+            progress_snapshot = dict(progress.state)
+            progress_snapshot['captured'] = True
+        for value in list(view_ids):
+            number = int(str(value).lstrip('u'))
+            Path(
+                directory,
+                '{0} - Feuille - A{1} - Plan.dwg'.format(
+                    filename, number
+                ),
+            ).write_bytes(bytes([number]))
+        Path(directory, 'logo-{0}.png'.format(filename)).write_bytes(b'img')
+        return True
+    return export
+
+
 class NativeDocument:
     def __init__(self, progress=None, failure=None):
         self.progress = progress
@@ -106,7 +127,9 @@ def test_batch_global_plan_and_real_delivery(tmp_path, native_api, combined, wit
     document = NativeDocument(progress)
     service = PublicationService(document)
     dwg_calls = []
-    service.dwg_service = SimpleNamespace(export=lambda *args, **kw: dwg_calls.append(args) or True)
+    service.dwg_service = SimpleNamespace(
+        export=fake_dwg_export(dwg_calls, progress)
+    )
     for value in targets:
         value._publication_items = value.items  # ordre métier de la sélection
         value._history_info = {'states': {}}
@@ -120,16 +143,24 @@ def test_batch_global_plan_and_real_delivery(tmp_path, native_api, combined, wit
     assert len(document.calls) == 2  # un seul appel PDF par carnet, dans les deux modes
     assert all(call[0] == [3, 1, 2] for call in document.calls)
     assert all(call[2] == threading.get_ident() for call in document.calls)
-    assert len(dwg_calls) == (6 if dwg else 0)
+    assert len(dwg_calls) == (2 if dwg else 0)
     pdf_rows = [r for r in report['results'] if r['format'] == 'PDF']
     assert all(Path(row['path']).is_file() for row in pdf_rows)
     for value in targets:
+        pdf_directory = Path(
+            value.publication_settings.output_directory,
+            value.name,
+            'PDF',
+        )
         if combined:
-            assert Path(value.publication_settings.output_directory, value.name + '-A3.pdf').read_bytes() == bytes([3, 1, 2])
+            assert (pdf_directory / (
+                value.name + '.pdf'
+            )).read_bytes() == bytes([3, 1, 2])
         else:
             for i in (3, 1, 2):
-                assert Path(value.publication_settings.output_directory, value.name,
-                            value.name + '-A' + str(i) + '.pdf').read_bytes() == bytes([i])
+                assert (pdf_directory / (
+                    value.name + '-A' + str(i) + '.pdf'
+                )).read_bytes() == bytes([i])
     assert Path(tmp_path / 'history.json').is_file()
     assert progress.state['current'] == progress.state['total']
     assert progress.state['percent'] == 100
@@ -139,7 +170,10 @@ def test_batch_global_plan_and_real_delivery(tmp_path, native_api, combined, wit
         assert percentages == sorted(percentages) and all(0 <= p <= 100 for p in percentages)
         assert all(s['total'] == snapshots[0]['total'] for s in snapshots)
         assert document.calls[1][3]['percent'] > document.calls[0][3]['percent']
-        assert any(s['phase_key'] == 'delivery' for s in snapshots) is (not combined)
+        assert any(
+            s['phase_key'] == 'pdf_delivery'
+            for s in snapshots
+        ) is (not combined)
 
 
 @pytest.mark.parametrize('failure', ['exception', 'false', 'delivery', 'validation'])
@@ -200,7 +234,7 @@ def test_duplicate_completion_does_not_inflate_percentage(tmp_path):
 def test_callback_failure_does_not_interrupt_file_delivery(tmp_path, native_api):
     value = target(tmp_path, combined=False)
     def broken_callback(state):
-        if state['phase_key'] == 'delivery':
+        if state['phase_key'] == 'pdf_delivery':
             raise RuntimeError('WPF indisponible')
     progress = progress_for([value], broken_callback)
     doc = NativeDocument(progress)
@@ -338,8 +372,43 @@ def test_window_contract_handlers_and_same_thread_repaint():
              'message': 'Export PDF Revit en cours…'}
     instance.update(state)
     assert instance.PercentText.Text == '68 %' and instance.ProgressBar.Value == 68
-    assert instance.UnitsText.Text == '17 / 25 unités'
-    assert calls == ['layout', 6]
+    assert instance.UnitsLabelText.Text == 'Avancement :'
+    assert instance.UnitsText.Text == '17 / 25 étapes'
+    detail_state = dict(state)
+    detail_state.update(
+        phase='Livraison DWG',
+        phase_key='dwg_delivery',
+        detail_current=3,
+        detail_total=5,
+        detail_label='mises en page',
+        item_label='A1102 — Bât A - Niveau 2',
+    )
+    instance.update(detail_state)
+    assert instance.UnitsLabelText.Text == 'Mises en page :'
+    assert instance.UnitsText.Text == '3 / 5'
+    assert instance.ItemText.Text == 'A1102 — Bât A - Niveau 2'
+    native_state = dict(state)
+    native_state.update(
+        detail_current=1,
+        detail_total=100,
+        detail_label='progression Revit',
+        item_label='Validation de la transaction',
+    )
+    instance.update(native_state)
+    assert instance.UnitsLabelText.Text == 'Avancement :'
+    assert instance.UnitsText.Text == 'Revit travaille…'
+    assert calls == ['layout', 6, 'layout', 6, 'layout', 6]
+
+    # La fenêtre ne doit plus changer de taille selon le texte de statut.
+    assert root.get('SizeToContent') is None
+    assert root.get('Height') == '540'
+    status = next(
+        node for node in root.iter()
+        if node.get('{http://schemas.microsoft.com/winfx/2006/xaml}Name')
+        == 'StatusText'
+    )
+    assert status.get('Height') == '38'
+
     args = SimpleNamespace(Cancel=False)
     instance._allow_close = False
     instance.Window_Closing(None, args)
@@ -351,9 +420,69 @@ def test_window_contract_handlers_and_same_thread_repaint():
     assert 'ShowDialog(' not in source and 'sleep(' not in source
 
 
+def test_native_progress_moves_inside_a_real_export_unit(tmp_path):
+    states = []
+    value = target(tmp_path)
+    progress = progress_for([value], states.append)
+    unit = progress.target(0)
+    progress.start()
+    unit.begin('prepare')
+    unit.end('prepare')
+    unit.begin('pdf')
+    before = progress.state['percent']
+
+    args = SimpleNamespace(
+        UpperRange=10,
+        Position=4,
+        Caption='Chargement de la mise en page',
+    )
+    bridge = RevitNativeProgressBridge(None, unit, 'pdf')
+    bridge._handle(None, args)
+
+    assert progress.state['percent'] > before
+    assert progress.state['detail_current'] == 4
+    assert progress.state['detail_total'] == 10
+    assert progress.state['detail_label'] == 'progression Revit'
+    assert progress.state['item_label'] == 'Chargement de la mise en page'
+
+
+def test_sheet_delivery_progress_is_exact_and_monotone(tmp_path):
+    states = []
+    value = target(tmp_path, dwg=True)
+    value.publication_settings.pdf_enabled = False
+    progress = progress_for([value], states.append)
+    unit = progress.target(0)
+    progress.start()
+    unit.begin('prepare')
+    unit.end('prepare')
+    unit.begin('dwg')
+    unit.end('dwg')
+    unit.begin('dwg_delivery')
+
+    unit.detail(
+        'dwg_delivery', 1, 3, 'A1 — Plan',
+        detail_label='mises en page',
+    )
+    first = progress.state['percent']
+    unit.detail(
+        'dwg_delivery', 2, 3, 'A2 — Plan',
+        detail_label='mises en page',
+    )
+    second = progress.state['percent']
+
+    assert second > first
+    assert progress.state['detail_current'] == 2
+    assert progress.state['detail_total'] == 3
+    assert progress.state['item_label'] == 'A2 — Plan'
+
+
 def test_business_layers_have_no_ui_import_or_background_thread():
-    filenames = ['publication_progress.py', 'publication_service.py', 'publication_batch_service.py',
-                 'pdf_export_service.py', 'pdf_file_delivery.py', 'carnet_controller.py']
+    filenames = [
+        'publication_progress.py', 'publication_service.py',
+        'publication_batch_service.py', 'pdf_export_service.py',
+        'pdf_file_delivery.py', 'dwg_file_delivery.py',
+        'revit_native_progress.py', 'carnet_controller.py'
+    ]
     for name in filenames:
         tree = ast.parse((PANEL / 'services' / name).read_text(encoding='utf-8'))
         for node in ast.walk(tree):
@@ -368,7 +497,11 @@ def test_business_layers_have_no_ui_import_or_background_thread():
 def test_delivery_progress_completes_only_after_rollback(tmp_path, native_api):
     value = target(tmp_path, combined=False)
     value._publication_items = value.items
-    output = Path(value.publication_settings.output_directory, value.name)
+    output = Path(
+        value.publication_settings.output_directory,
+        value.name,
+        'PDF',
+    )
     output.mkdir(parents=True)
     existing = output / 'Plans-A3.pdf'
     existing.write_bytes(b'ancien PDF')
@@ -419,12 +552,17 @@ def test_dwg_only_waits_for_group_before_finishing(tmp_path):
     progress = progress_for([value])
     service = PublicationService(NativeDocument(progress))
     snapshots = []
-    service.dwg_service = SimpleNamespace(export=lambda *a, **kw: snapshots.append(dict(progress.state)) or True)
+    def export_dwg(view_ids, directory, filename, setup_name=None, **kwargs):
+        snapshots.append(dict(progress.state))
+        return fake_dwg_export(None)(
+            view_ids, directory, filename, setup_name, **kwargs
+        )
+    service.dwg_service = SimpleNamespace(export=export_dwg)
     report = PublicationBatchService(service).publish([value], lambda t: t.publication_settings, progress=progress)
     progress.finish(report)
-    assert report['success'] and len(snapshots) == 3
-    assert all(s['phase'] == 'Export DWG' and s['percent'] < 100 for s in snapshots)
-    assert len({s['percent'] for s in snapshots}) == 1
+    assert report['success'] and len(snapshots) == 1
+    assert snapshots[0]['phase'] == 'Export DWG'
+    assert snapshots[0]['percent'] < 100
 
 
 def test_cleanup_error_preserves_original_exception(tmp_path, caplog):
@@ -447,6 +585,7 @@ def test_production_syntax_avoids_python3_only_constructs():
     files = ['publication_progress_window.py', 'Export.smartbutton/script.py',
              'services/publication_progress.py', 'services/publication_service.py',
              'services/publication_batch_service.py', 'services/pdf_export_service.py',
+             'services/dwg_file_delivery.py', 'services/revit_native_progress.py',
              'services/carnet_controller.py', 'services/publication_preview_integration.py']
     for name in files:
         source = (PANEL / name).read_text(encoding='utf-8')
