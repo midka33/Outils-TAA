@@ -1,9 +1,10 @@
 # Export — Fenêtre de progression de publication
 
-**Statut :** implémentation sur `feature/export-progress-ui`, recette Revit requise avant fusion
+**Statut :** validé dans Revit 2025.4 — intégré à `main`
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** Export  
-**Date :** 7 octobre 2026
+**Date :** 7 octobre 2026  
+**Validation réelle :** 8 octobre 2026
 
 ---
 
