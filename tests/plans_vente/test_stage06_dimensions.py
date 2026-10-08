@@ -336,5 +336,6 @@ def test_stage06f_geometry_not_room_name_controls_complex_dimensioning():
     assert "pronounced_branched_shape_metrics" in service
     assert "branched_dimension_pairs" in service
     assert "is_circulation_name" not in service
-    assert "getattr(room, \"Name\"" not in service
+    assert "if is_circulation_name" not in service
+    assert "branched_pairs = self._branched_pairs(" in service
     assert "BRANCH_MAX_DIMENSIONS = 5" in service
