@@ -56,7 +56,7 @@ class DimensionChoice(object):
         self.Label = candidate.label
 
 
-class SheetTitleBlockChoice(object):
+class SheetTemplateChoice(object):
     def __init__(self, candidate):
         self.Candidate = candidate
         self.Label = candidate.label
@@ -81,8 +81,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._dimension_type_labels = []
         self._dimension_type_error = ""
         self._dimension_view_choices = []
-        self._sheet_title_block_choices = []
-        self._sheet_title_block_labels = []
+        self._sheet_template_choices = []
+        self._sheet_template_labels = []
         self._sheet_readiness = None
         self._active_descriptor = None
 
@@ -101,7 +101,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._clear_dimension_views()
         self._load_dimension_types()
         self._clear_sheet_assembly()
-        self._load_sheet_title_blocks()
+        self._load_sheet_templates()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1000,7 +1000,7 @@ class PlansVenteWindow(forms.WPFWindow):
             and self.DimensionTypeCombo.SelectedItem is not None
         )
 
-    def SheetTitleBlockChanged(self, sender, args):
+    def SheetTemplateChanged(self, sender, args):
         self._update_sheet_button_state()
 
     def CreateSheet_Click(self, sender, args):
@@ -1012,22 +1012,22 @@ class PlansVenteWindow(forms.WPFWindow):
             if view_item is not None
             else None
         )
-        type_index = int(self.SheetTitleBlockCombo.SelectedIndex)
-        type_item = (
-            self._sheet_title_block_choices[type_index]
-            if 0 <= type_index < len(self._sheet_title_block_choices)
+        template_index = int(self.SheetTemplateCombo.SelectedIndex)
+        template_item = (
+            self._sheet_template_choices[template_index]
+            if 0 <= template_index < len(self._sheet_template_choices)
             else None
         )
-        title_block = (
-            getattr(type_item, "Candidate", None)
-            if type_item is not None
+        template = (
+            getattr(template_item, "Candidate", None)
+            if template_item is not None
             else None
         )
 
-        if housing is None or main_view is None or title_block is None:
+        if housing is None or main_view is None or template is None:
             forms.alert(
-                "Sélectionnez un logement, une vue logement et un cartouche.",
-                title="Plans de vente — Feuille 07A",
+                "Sélectionnez un logement, une vue logement et une feuille modèle.",
+                title="Plans de vente — Feuille 07B",
                 warn_icon=True,
             )
             return
@@ -1040,7 +1040,7 @@ class PlansVenteWindow(forms.WPFWindow):
         except Exception as error:
             forms.alert(
                 str(error),
-                title="Plans de vente — Feuille 07A",
+                title="Plans de vente — Feuille 07B",
                 warn_icon=True,
             )
             return
@@ -1048,7 +1048,7 @@ class PlansVenteWindow(forms.WPFWindow):
         if not readiness.is_ready:
             forms.alert(
                 readiness.summary,
-                title="Plans de vente — Feuille 07A",
+                title="Plans de vente — Feuille 07B",
                 warn_icon=True,
             )
             self._sheet_readiness = readiness
@@ -1058,23 +1058,25 @@ class PlansVenteWindow(forms.WPFWindow):
 
         confirmed = forms.alert(
             (
-                "Créer la feuille prototype du logement « {} » ?\n\n"
-                "Cartouche : {}\n"
+                "Créer la feuille du logement « {} » à partir du modèle ?\n\n"
+                "Feuille modèle : {}\n"
+                "Cartouche repris : {}\n"
                 "Vue logement : {}\n"
                 "Repérage : {}\n"
                 "Nomenclature intérieure : {}\n"
                 "Nomenclature extérieure : {}\n\n"
-                "Le prototype 07A crée une nouvelle feuille et place "
-                "automatiquement ces quatre éléments."
+                "Les positions des 4 éléments seront reprises exactement "
+                "depuis la feuille modèle."
             ).format(
                 housing.key,
-                title_block.label,
+                template.label,
+                template.title_block_label,
                 readiness.main_view_name,
                 readiness.location_view_name,
                 readiness.interior_schedule_name,
                 readiness.exterior_schedule_name,
             ),
-            title="Plans de vente — Feuille 07A",
+            title="Plans de vente — Feuille 07B",
             yes=True,
             no=True,
         )
@@ -1083,21 +1085,26 @@ class PlansVenteWindow(forms.WPFWindow):
 
         self.CreateSheetButton.IsEnabled = False
         try:
-            result = self.controller.create_sheet_assembly(
+            result = self.controller.create_sheet_from_template(
                 housing=housing,
-                title_block_type_unique_id=title_block.unique_id,
+                template_sheet_unique_id=template.unique_id,
                 main_view_unique_id=main_view.unique_id,
             )
 
             self.StatusText.Text = (
-                "Feuille {} créée pour {} avec 4 éléments placés."
-            ).format(result.sheet_number, result.housing_key)
+                "Feuille {} créée pour {} depuis {}."
+            ).format(
+                result.sheet_number,
+                result.housing_key,
+                result.template_sheet_label,
+            )
 
             forms.alert(
                 (
                     "Feuille créée avec succès.\n\n"
                     "Numéro : {}\n"
                     "Nom : {}\n"
+                    "Feuille modèle : {}\n"
                     "Cartouche : {}\n"
                     "Vue logement : {}\n"
                     "Repérage : {}\n"
@@ -1107,6 +1114,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 ).format(
                     result.sheet_number,
                     result.sheet_name,
+                    result.template_sheet_label,
                     result.title_block_label,
                     result.main_view_name,
                     result.location_view_name,
@@ -1114,47 +1122,54 @@ class PlansVenteWindow(forms.WPFWindow):
                     result.exterior_schedule_name,
                     self.controller.sheet_assembly_build_id(),
                 ),
-                title="Plans de vente — Feuille 07A",
+                title="Plans de vente — Feuille 07B",
             )
         except Exception as error:
-            self.StatusText.Text = "Échec de l'assemblage de la feuille."
+            self.StatusText.Text = "Échec de l'assemblage de la feuille modèle."
             forms.alert(
                 "{}\n\nMoteur feuille : {}".format(
                     str(error),
                     self.controller.sheet_assembly_build_id(),
                 ),
-                title="Plans de vente — Feuille 07A",
+                title="Plans de vente — Feuille 07B",
                 warn_icon=True,
             )
         finally:
             self._load_sheet_readiness(housing)
 
-    def _load_sheet_title_blocks(self):
-        self._sheet_title_block_choices = []
-        self._sheet_title_block_labels = []
+    def _load_sheet_templates(self):
+        self._sheet_template_choices = []
+        self._sheet_template_labels = []
         try:
-            candidates = self.controller.sheet_title_block_types()
+            candidates = self.controller.sheet_templates()
         except Exception as error:
-            self.SheetTitleBlockCombo.ItemsSource = []
-            self.SheetTitleBlockCombo.SelectedIndex = -1
+            self.SheetTemplateCombo.ItemsSource = []
+            self.SheetTemplateCombo.SelectedIndex = -1
             self.SheetInfoText.Text = (
-                "Erreur de collecte des cartouches : {}"
+                "Erreur de collecte des feuilles modèles : {}"
             ).format(str(error) or repr(error))
             self._update_sheet_button_state()
             return
 
-        self._sheet_title_block_choices = [
-            SheetTitleBlockChoice(candidate)
+        self._sheet_template_choices = [
+            SheetTemplateChoice(candidate)
             for candidate in candidates
         ]
-        self._sheet_title_block_labels = [
-            choice.Label or "Cartouche #{}".format(index + 1)
-            for index, choice in enumerate(self._sheet_title_block_choices)
+        self._sheet_template_labels = [
+            choice.Label or "Feuille modèle #{}".format(index + 1)
+            for index, choice in enumerate(self._sheet_template_choices)
         ]
-        self.SheetTitleBlockCombo.ItemsSource = self._sheet_title_block_labels
-        self.SheetTitleBlockCombo.SelectedIndex = (
-            0 if self._sheet_title_block_labels else -1
+        self.SheetTemplateCombo.ItemsSource = self._sheet_template_labels
+        self.SheetTemplateCombo.SelectedIndex = (
+            0 if self._sheet_template_labels else -1
         )
+
+        if not self._sheet_template_labels:
+            self.SheetInfoText.Text = (
+                "Aucune feuille modèle valide trouvée. Elle doit contenir "
+                "PDV_MODELE_VUE, PDV_MODELE_REPERAGE, PDV_MODELE_NOM_INT "
+                "et PDV_MODELE_NOM_EXT."
+            )
         self._update_sheet_button_state()
 
     def _load_sheet_readiness(self, housing):
@@ -1202,7 +1217,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self.CreateSheetButton.IsEnabled = (
             self.HousingGrid.SelectedItem is not None
             and self.DimensionViewCombo.SelectedItem is not None
-            and self.SheetTitleBlockCombo.SelectedItem is not None
+            and self.SheetTemplateCombo.SelectedItem is not None
             and self._sheet_readiness is not None
             and self._sheet_readiness.is_ready
         )
