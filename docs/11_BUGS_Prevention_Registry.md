@@ -463,13 +463,17 @@ toutes les pièces et tous leurs paramètres et recalculait les mêmes métadonn
 
 **Correction :** effectuer une seule découverte complète, puis dériver les listes
 numériques et destinations par filtrage des descripteurs déjà agrégés en mémoire.
+Pendant ce scan, réutiliser les métadonnées invariantes par `Parameter.Id` ; relire
+uniquement les états susceptibles de varier par pièce.
 
 **Règle :** lorsqu'une collecte API coûteuse produit déjà un modèle suffisamment
 riche pour plusieurs vues de données, ne pas relancer la collecte pour chaque filtre.
 Collecter une fois, dériver ensuite en mémoire.
 
 **Anti-régression :** le test du contrôleur vérifie explicitement qu'un chargement de
-contexte n'appelle `get_parameter_descriptors()` qu'une seule fois.
+contexte n'appelle `get_parameter_descriptors()` qu'une seule fois ; un second test
+vérifie que deux occurrences partageant le même `Parameter.Id` ne relisent les
+métadonnées Revit qu'une seule fois.
 
 ### BUG-EXPORT-034 — Champs de réglages comprimés par des largeurs fixes
 
