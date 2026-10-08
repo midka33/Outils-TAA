@@ -37,7 +37,6 @@ class FakeDefinition(object):
         data_type_id=None,
         built_in_type_id=None,
         definition_type_id=None,
-        parameter_id=None,
     ):
         self.Name = name
         self._data_type_id = data_type_id
@@ -76,6 +75,7 @@ class FakeParameter(object):
         unit_type_id=None,
         built_in_type_id=None,
         definition_type_id=None,
+        parameter_id=None,
     ):
         self.Definition = FakeDefinition(
             name,
