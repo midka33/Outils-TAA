@@ -54,7 +54,7 @@ def test_stage07_service_uses_native_revit_sheet_placement_api():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'SHEET_ASSEMBLY_BUILD = "stage07b-sheet-template-layout-v2"' in text
+    assert 'SHEET_ASSEMBLY_BUILD = "stage07b-user-selected-sheet-v3"' in text
     assert "ViewSheet.Create" in text
     assert "Viewport.Create" in text
     assert "ScheduleSheetInstance.Create" in text
