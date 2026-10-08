@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 07B — assemblage d'une feuille à partir d'une feuille modèle."""
 
-SHEET_ASSEMBLY_BUILD = "stage07b-sheet-template-layout-v2"
+SHEET_ASSEMBLY_BUILD = "stage07b-user-selected-sheet-v3"
 
 from common.transaction import RevitTransaction
 from plans_vente.location_naming import location_view_name
@@ -49,6 +49,22 @@ class SheetTemplateCandidate(object):
         if self.sheet_name:
             return "{} — {}".format(prefix, self.sheet_name)
         return prefix
+
+
+class SheetTemplateInspection(object):
+    def __init__(
+        self,
+        sheet_unique_id,
+        sheet_label,
+        is_valid,
+        summary,
+        title_block_label="",
+    ):
+        self.sheet_unique_id = sheet_unique_id or ""
+        self.sheet_label = sheet_label or ""
+        self.is_valid = bool(is_valid)
+        self.summary = summary or ""
+        self.title_block_label = title_block_label or ""
 
 
 class _TemplateLayout(object):
@@ -129,125 +145,21 @@ class SheetAssemblyService(object):
         self.build_id = SHEET_ASSEMBLY_BUILD
 
     def list_sheet_templates(self):
-        """Liste les feuilles modèles sans rescanner le document par feuille.
+        """Liste toutes les feuilles ; l'utilisateur choisit explicitement.
 
-        Le 07B initial appelait _template_layout pour chaque ViewSheet, ce qui
-        déclenchait plusieurs FilteredElementCollector par feuille. Sur un projet
-        réel avec beaucoup de feuilles, ce coût était visible dès l'ouverture
-        du module. Ici les viewports, nomenclatures et cartouches sont indexés en
-        trois collectes globales, puis les feuilles sont testées en mémoire.
+        Aucun contenu de feuille n'est inspecté ici. La validation des vues,
+        nomenclatures et du cartouche n'est faite qu'après sélection d'une
+        feuille par l'utilisateur.
         """
-        from Autodesk.Revit.DB import (
-            BuiltInCategory,
-            FilteredElementCollector,
-            ScheduleSheetInstance,
-            ViewSheet,
-            Viewport,
-        )
+        from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
 
-        sheets = list(
+        result = []
+        for sheet in (
             FilteredElementCollector(self.document)
             .OfClass(ViewSheet)
             .WhereElementIsNotElementType()
             .ToElements()
-        )
-        if not sheets:
-            return []
-
-        required = required_placeholder_names()
-        sheet_ids = {
-            self._element_id_value(sheet.Id): sheet
-            for sheet in sheets
-        }
-        roles_by_sheet = {
-            key: {}
-            for key in sheet_ids
-        }
-        title_blocks_by_sheet = {
-            key: []
-            for key in sheet_ids
-        }
-
-        for viewport in (
-            FilteredElementCollector(self.document)
-            .OfClass(Viewport)
-            .WhereElementIsNotElementType()
-            .ToElements()
         ):
-            try:
-                owner_key = self._element_id_value(viewport.SheetId)
-            except Exception:
-                try:
-                    owner_key = self._element_id_value(viewport.OwnerViewId)
-                except Exception:
-                    continue
-            if owner_key not in roles_by_sheet:
-                continue
-
-            view = self.document.GetElement(viewport.ViewId)
-            name = str(getattr(view, "Name", "") or "")
-            for role in ("main_view", "location_view"):
-                if name == required[role]:
-                    roles_by_sheet[owner_key].setdefault(role, []).append(
-                        viewport
-                    )
-
-        for instance in (
-            FilteredElementCollector(self.document)
-            .OfClass(ScheduleSheetInstance)
-            .WhereElementIsNotElementType()
-            .ToElements()
-        ):
-            try:
-                owner_key = self._element_id_value(instance.OwnerViewId)
-            except Exception:
-                continue
-            if owner_key not in roles_by_sheet:
-                continue
-
-            schedule = self.document.GetElement(instance.ScheduleId)
-            name = str(getattr(schedule, "Name", "") or "")
-            for role in ("interior_schedule", "exterior_schedule"):
-                if name == required[role]:
-                    roles_by_sheet[owner_key].setdefault(role, []).append(
-                        instance
-                    )
-
-        for title_block in (
-            FilteredElementCollector(self.document)
-            .OfCategory(BuiltInCategory.OST_TitleBlocks)
-            .WhereElementIsNotElementType()
-            .ToElements()
-        ):
-            try:
-                owner_key = self._element_id_value(title_block.OwnerViewId)
-            except Exception:
-                continue
-            if owner_key in title_blocks_by_sheet:
-                title_blocks_by_sheet[owner_key].append(title_block)
-
-        result = []
-        required_roles = (
-            "main_view",
-            "location_view",
-            "interior_schedule",
-            "exterior_schedule",
-        )
-        for sheet_key, sheet in sheet_ids.items():
-            roles = roles_by_sheet.get(sheet_key, {})
-            if any(len(roles.get(role, [])) != 1 for role in required_roles):
-                continue
-
-            title_blocks = title_blocks_by_sheet.get(sheet_key, [])
-            if len(title_blocks) != 1:
-                continue
-
-            title_block_type = self.document.GetElement(
-                title_blocks[0].GetTypeId()
-            )
-            if title_block_type is None:
-                continue
-
             result.append(
                 SheetTemplateCandidate(
                     unique_id=str(getattr(sheet, "UniqueId", "") or ""),
@@ -255,14 +167,57 @@ class SheetAssemblyService(object):
                         getattr(sheet, "SheetNumber", "") or ""
                     ),
                     sheet_name=str(getattr(sheet, "Name", "") or ""),
-                    title_block_label="{} : {}".format(
-                        self._family_name(title_block_type),
-                        self._element_type_name(title_block_type),
-                    ),
+                    title_block_label="",
                 )
             )
 
         return sorted(result, key=lambda item: item.label.lower())
+
+    def inspect_sheet_template(self, template_sheet_unique_id):
+        if not template_sheet_unique_id:
+            return SheetTemplateInspection(
+                "",
+                "",
+                False,
+                "Sélectionnez une feuille modèle.",
+            )
+
+        sheet = self.document.GetElement(template_sheet_unique_id)
+        if sheet is None:
+            return SheetTemplateInspection(
+                template_sheet_unique_id,
+                "",
+                False,
+                "La feuille sélectionnée n'existe plus.",
+            )
+
+        sheet_label = "{} — {}".format(
+            getattr(sheet, "SheetNumber", "") or "Sans numéro",
+            getattr(sheet, "Name", "") or "",
+        ).rstrip(" —")
+
+        try:
+            layout = self._template_layout(sheet)
+        except Exception as error:
+            return SheetTemplateInspection(
+                template_sheet_unique_id,
+                sheet_label,
+                False,
+                str(error) or repr(error),
+            )
+
+        title_block_label = "{} : {}".format(
+            self._family_name(layout.title_block_type),
+            self._element_type_name(layout.title_block_type),
+        ).strip(" :")
+
+        return SheetTemplateInspection(
+            template_sheet_unique_id,
+            sheet_label,
+            True,
+            "Feuille modèle valide : 2 vues, 2 nomenclatures et 1 cartouche détectés.",
+            title_block_label=title_block_label,
+        )
 
     def create_sheet_from_template(
         self,
