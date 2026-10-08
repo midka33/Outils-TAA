@@ -4,6 +4,8 @@ from __future__ import unicode_literals
 """Géométrie pure pour les deux cotations principales d'une pièce."""
 
 import math
+import re
+import unicodedata
 
 
 class DimensionAxisCandidate(object):
@@ -333,3 +335,101 @@ def segment_match_metrics(
         "overlap_ratio": overlap_ratio,
         "score": score,
     }
+
+
+def is_circulation_name(name):
+    """Noms métier explicites ; ne pas reclasser une chambre étroite."""
+    try:
+        text_type = unicode
+    except NameError:
+        text_type = str
+    value = unicodedata.normalize("NFKD", text_type(name or "").lower())
+    value = "".join(c for c in value if not unicodedata.combining(c))
+    words = set(re.findall(r"[a-z]+", value))
+    return bool(words.intersection((
+        "entree", "entrees", "couloir", "couloirs", "degagement",
+        "degagements", "dgt", "dgtmt", "degt", "circulation", "circulations")))
+
+
+def circulation_width_pairs(segments, contains, minimum_width,
+                            minimum_overlap, angle_tolerance_degrees=5.0):
+    """Largeurs locales entre faces en vis-à-vis, une par direction (max. 2).
+
+    Le recouvrement longitudinal doit être au moins égal à la largeur : une
+    longueur générale entre deux bouts courts de couloir n'est pas une largeur.
+    Les cinq sections intérieures sondées déterminent une plage locale où 06F
+    peut déplacer la cote. Le budget est limité à 40 paires / 1 400 sondes.
+    """
+    values = list(segments or [])
+    tolerance = math.cos(math.radians(float(angle_tolerance_degrees)))
+    ranked = []
+    for first_index, first in enumerate(values):
+        tangent = _canonical_direction(first)
+        if tangent is None:
+            continue
+        normal = (-tangent[1], tangent[0])
+        for second_index in range(first_index + 1, len(values)):
+            second = values[second_index]
+            direction = _canonical_direction(second)
+            if direction is None or abs(_dot(tangent, direction)) < tolerance:
+                continue
+            first_interval = _projection_interval(first, tangent)
+            second_interval = _projection_interval(second, tangent)
+            low = max(first_interval[0], second_interval[0])
+            high = min(first_interval[1], second_interval[1])
+            overlap = high - low
+            first_n = _dot(_midpoint(first), normal)
+            second_n = _dot(_midpoint(second), normal)
+            width = abs(second_n - first_n)
+            if width < minimum_width or overlap < max(minimum_overlap, width):
+                continue
+            # La continuité des faces est plus représentative qu'un minuscule
+            # pincement. À support égal, préférer la largeur la plus faible.
+            score = overlap / width
+            ranked.append((score, overlap, first_index, second_index,
+                           tangent, normal, first_n, second_n, low, high))
+    ranked.sort(key=lambda item: (-item[0], -item[1], item[2], item[3]))
+    result = []
+    checked = 0
+    for score, overlap, first_index, second_index, tangent, normal, first_n, second_n, low, high in ranked:
+        if any(abs(_dot(tangent, pair.tangent)) >= tolerance for pair in result):
+            continue
+        if checked >= 40:
+            break
+        checked += 1
+        # Écarter les sections traversant l'extérieur (L, gaines, murs). Ne pas
+        # supposer que deux segments parallèles encadrent le même bras.
+        samples = []
+        for fraction in (.1, .3, .5, .7, .9):
+            along = low + overlap * fraction
+            valid = all(contains(_point_from_axes(
+                tangent, normal, along, first_n + (second_n - first_n) * across))
+                for across in (.02, .18, .34, .5, .66, .82, .98))
+            samples.append((along, valid))
+        runs, current = [], []
+        for along, valid in samples:
+            if valid:
+                current.append(along)
+            else:
+                if current:
+                    runs.append(current)
+                current = []
+        if current:
+            runs.append(current)
+        # Au moins deux sections voisines : pas une ouverture ponctuelle.
+        runs = [run for run in runs if len(run) >= 2]
+        if not runs:
+            continue
+        run = max(runs, key=lambda item: (len(item), -item[0]))
+        along = (run[0] + run[-1]) * .5
+        pair = DimensionAxisCandidate(
+            first_index, second_index, tangent, normal, abs(second_n - first_n),
+            _point_from_axes(tangent, normal, along, first_n),
+            _point_from_axes(tangent, normal, along, second_n), score)
+        pair.placement_points = [_point_from_axes(tangent, normal, t, n)
+                                 for t in (run[0], run[-1])
+                                 for n in (first_n, second_n)]
+        result.append(pair)
+        if len(result) == 2:
+            break
+    return result

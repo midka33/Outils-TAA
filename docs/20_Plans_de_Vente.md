@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.18
+**Version :** 1.19
 **Statut :** Développement — Étape 06 Cotations  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -3691,3 +3691,83 @@ Ces tests ne constituent pas une validation Revit, WPF ou IronPython réels.
 **Validation suivante :** rejouer à 1:100 après annulation des cotes de test,
 puis sur une vue tournée et un logement à l'étage. Contrôler particulièrement
 les types de cote à texte large et les équipements provenant de liens.
+
+## Correctif 06F.1 — Largeurs des entrées et couloirs
+
+**Build :** `stage06f-circulation-widths-v7`
+
+**Retour utilisateur du 8 octobre 2026 :** version 06F v6 acceptée sur A003,
+à l'exception de l'entrée/dégagement en L. La capture du rapport indique
+12 pièces analysées, 24 cotes créées et aucune pièce sans cote. Le retour
+« sinon tout est bon » valide le rendu général ; les avertissements du rapport
+restent des diagnostics, sans prétendre que chaque collision a été vérifiée.
+
+### Règle ciblée
+
+- Pour les pièces nommées **entrée, couloir, dégagement ou circulation**, y
+  compris `Entrée/Dgt`, coter la largeur locale du passage. Reconnaissance par
+  mots entiers, sans tenir compte des accents, de la casse ou des séparateurs ;
+  abréviations acceptées : `Dgt`, `Dgtmt`, `Degt`.
+- Dans une circulation en L : rechercher une largeur dans chaque direction,
+  entre les faces finies qui bordent effectivement chaque branche.
+- Dans un couloir droit : une largeur utile suffit. Le compteur « pièces avec
+  1 cote » est normal pour ce cas ; aucune longueur n'est ajoutée pour atteindre
+  artificiellement deux cotes et aucun avertissement de cote manquante n'est émis.
+- Les chambres, séjours, sanitaires, cuisines, celliers et extérieurs gardent
+  la sélection 06E et le placement 06F déjà validés. La forme allongée seule
+  ne transforme pas une pièce en circulation.
+
+### Sélection et placement
+
+Le moteur pur `circulation_width_pairs` utilise les mêmes limites et les mêmes
+références Revit collectées par 06E. Deux supports doivent être parallèles à 5°
+près et se recouvrir longitudinalement sur une distance au moins égale à la
+largeur mesurée. Les seuils de filtrage sont **600 mm de largeur** et **300 mm
+minimum de recouvrement** ; ce sont des paramètres géométriques du prototype,
+pas des seuils réglementaires. Ils écartent notamment les petits renfoncements.
+Le classement favorise les passages dont le support longitudinal est long
+relativement à leur largeur ; une seule paire est retenue par direction.
+
+La contenance est sondée sur cinq sections, avec sept points transversaux,
+au Z intérieur de la pièce. Il faut au moins deux sections voisines valides.
+La recherche contrôle au maximum 40 paires (1 400 sondes, points répétés en
+cache) et renvoie au plus deux largeurs. L'échantillonnage conserve les limites
+connues de 06F pour de très petits trous ou décrochements entre deux sondes.
+
+Chaque paire expose une plage locale `placement_points` issue des sections
+valides. L'optimiseur 06F choisit sa position dans cette plage, tout en vérifiant
+la contenance réelle et les obstacles. Il ne translate pas la cote vers l'autre
+bras du L. Le choix final utilise toujours les vraies références associatives,
+sans remplacer les mesures par du texte.
+
+Si aucune largeur fiable n'est identifiée, ou si sa création échoue, le rapport
+signale le problème et invite à une cotation manuelle ; le moteur ne réintroduit
+pas la longueur générale comme secours. Un autre nom de pièce non reconnu
+continue à utiliser la règle générale. Une entrée très courte/irrégulière dont
+les supports sont fragmentés peut donc nécessiter un contrôle manuel.
+
+### Vérification
+
+Suite complète hors Revit : **475 tests réussis** (30 cas supplémentaires),
+commande inchangée :
+
+```bash
+PYTHONPATH=OutilsTAA.extension/lib PYTHONDONTWRITEBYTECODE=1 python -m pytest tests -q --import-mode=importlib
+```
+
+Recette Revit 2025.4 à effectuer pour v7 :
+
+1. Dans la copie de test A003, annuler la précédente création de cotes avant
+   de relancer, afin de ne pas superposer deux générations. Conserver les tags,
+   le type de cote et l'échelle 1:50 ; recharger pyRevit.
+2. Lancer une seule création et vérifier le build `stage06f-circulation-widths-v7`.
+3. Dans `Entrée/Dgt`, vérifier deux cotes transversales mesurant chacune la
+   largeur réelle d'un bras du L, à la place des grandes longueurs ; contrôler
+   le positionnement entre les bonnes faces finies et la lisibilité.
+4. Vérifier un couloir droit : une cote de largeur, sans longueur générale.
+5. Vérifier que chambres, séjour et loggia conservent leurs mesures et leur
+   placement ; laisser les séparateurs masqués.
+6. Déplacer légèrement un mur bordant l'entrée : vérifier la mise à jour de
+   sa largeur, puis annuler. Transmettre une capture de l'entrée et du rapport.
+
+**Statut :** correctif testé hors Revit ; validation réelle v7 encore attendue.

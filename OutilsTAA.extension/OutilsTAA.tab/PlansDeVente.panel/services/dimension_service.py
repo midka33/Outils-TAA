@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06f-dimensions-graphic-placement-v6"
+DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v7"
 
 import math
 
@@ -12,6 +12,8 @@ from plans_vente.dimension_geometry import (
     dominant_dimension_pairs,
     representative_length_indexes,
     segment_match_metrics,
+    is_circulation_name,
+    circulation_width_pairs,
 )
 from plans_vente.tag_positioning import polygon_area, boxes_overlap
 from plans_vente.dimension_positioning import (
@@ -109,6 +111,8 @@ class DimensionService(object):
     PAPER_TEXT_HEIGHT_MM = 3.0
     PAPER_PADDING_MM = 0.3
     PAPER_WITNESS_MM = 1.5
+    CIRCULATION_MIN_WIDTH_MM = 600.0
+    CIRCULATION_MIN_OVERLAP_MM = 300.0
 
     FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.0
     FLOOR_EDGE_TOLERANCE_MM = 20.0
@@ -236,6 +240,7 @@ class DimensionService(object):
             )
 
         room_plans = []
+        circulation_targets = {}
         warnings = []
         tag_boxes, dimension_boxes, equipment_boxes = self._view_obstacles(view, warnings)
         exclusion_boxes = []
@@ -250,18 +255,23 @@ class DimensionService(object):
 
             boundary_candidates = self._room_boundary_candidates(room)
             segments = [candidate.segment for candidate in boundary_candidates]
-            pairs = dominant_dimension_pairs(
-                segments,
-                angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
-                minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
-                placement_fraction=self.PLACEMENT_FRACTION,
-                max_results=2,
-            )
-
-            fallback_indexes = self._fallback_length_indexes(
-                boundary_candidates,
-                pairs,
-            )
+            if is_circulation_name(getattr(room, "Name", "")):
+                pairs = self._circulation_pairs(room, segments, warnings)
+                circulation_targets[id(room)] = len(pairs)
+                # Une longueur de secours contredirait la règle demandée.
+                fallback_indexes = []
+            else:
+                pairs = dominant_dimension_pairs(
+                    segments,
+                    angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
+                    minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
+                    placement_fraction=self.PLACEMENT_FRACTION,
+                    max_results=2,
+                )
+                fallback_indexes = self._fallback_length_indexes(
+                    boundary_candidates,
+                    pairs,
+                )
 
             separator_fallback_used = False
             for pair in pairs:
@@ -311,7 +321,9 @@ class DimensionService(object):
                     for index in initial_fallbacks]
                 placements = self._plan_graphics(
                     room, view, lines, anchors, tag_boxes, dimension_boxes,
-                    equipment_boxes, warnings)
+                    equipment_boxes, warnings,
+                    placement_regions=[getattr(pair, "placement_points", None) for pair in pairs]
+                    + [None] * len(initial_fallbacks))
                 with RevitTransaction(
                     self.document,
                     "Plans de vente - Cotations {} - {}".format(
@@ -426,11 +438,12 @@ class DimensionService(object):
                 full_room_count += 1
             elif room_created == 1:
                 partial_room_count += 1
-                warnings.append(
-                    "{} : une seule dimension principale fiable a pu être créée.".format(
-                        room_label
+                if circulation_targets.get(id(room)) != 1:
+                    warnings.append(
+                        "{} : une seule dimension principale fiable a pu être créée.".format(
+                            room_label
+                        )
                     )
-                )
             else:
                 skipped_room_count += 1
                 warnings.append(
@@ -451,6 +464,28 @@ class DimensionService(object):
             warnings=warnings,
             exclusion_boxes=exclusion_boxes,
         )
+
+    def _circulation_pairs(self, room, segments, warnings):
+        try:
+            probe_z = self._probe_z(room)
+            cache = {}
+
+            def contains(xy):
+                if xy not in cache:
+                    cache[xy] = bool(room.IsPointInRoom(self._xyz(xy[0], xy[1], probe_z)))
+                return cache[xy]
+
+            pairs = circulation_width_pairs(
+                segments, contains,
+                minimum_width=self._millimeters_to_internal(self.CIRCULATION_MIN_WIDTH_MM),
+                minimum_overlap=self._millimeters_to_internal(self.CIRCULATION_MIN_OVERLAP_MM),
+                angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES)
+            if not pairs:
+                warnings.append("{} : aucune largeur locale fiable de circulation ; cotation manuelle à prévoir.".format(self._room_label(room)))
+            return pairs
+        except Exception as error:
+            warnings.append("{} : recherche de largeur de circulation impossible ({}).".format(self._room_label(room), error))
+            return []
 
     def _view_obstacles(self, view, warnings):
         """Collecte unique par action, dans la vue cible, sans OfClass(RoomTag)."""
@@ -504,7 +539,8 @@ class DimensionService(object):
                 for segment in loop or []
                 for point in segment.GetCurve().Tessellate()]
 
-    def _plan_graphics(self, room, view, lines, anchors, tags, dimensions, equipment, warnings):
+    def _plan_graphics(self, room, view, lines, anchors, tags, dimensions, equipment, warnings,
+                       placement_regions=None):
         if not lines:
             return []
         scale = max(1, int(view.Scale))
@@ -526,10 +562,11 @@ class DimensionService(object):
                 return cache[xy]
 
             text_axis = (float(view.RightDirection.X), float(view.RightDirection.Y))
+            regions = placement_regions or [None] * len(lines)
             groups = [placement_candidates(
-                line, points, contains, tag_boxes=tags, dimension_boxes=dimensions,
+                line, region or points, contains, tag_boxes=tags, dimension_boxes=dimensions,
                 equipment_boxes=equipment, witness_anchors=anchor,
-                text_axis=text_axis, **settings) for line, anchor in zip(lines, anchors)]
+                text_axis=text_axis, **settings) for line, anchor, region in zip(lines, anchors, regions)]
             return select_placements(groups)
         except Exception as error:
             warnings.append("{} : placement 06F indisponible ({}), position 06E conservée à contrôler.".format(

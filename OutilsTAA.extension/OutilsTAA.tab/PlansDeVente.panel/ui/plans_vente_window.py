@@ -802,13 +802,14 @@ class PlansVenteWindow(forms.WPFWindow):
 
         confirmed = forms.alert(
             (
-                "Créer deux cotations principales par pièce pour le logement « {} » ?\n\n"
+                "Créer les cotations principales du logement « {} » ?\n\n"
                 "Vue logement : {}\n"
                 "Type de cote : {}\n"
                 "Pièces : {}\n\n"
                 "Prototype 06F : placement intérieur avec évitement des étiquettes, "
                 "équipements et autres cotes. Les conflits résiduels sont signalés. "
                 "Les références aux faces de murs et aux bords de sols sont conservées. "
+                "Entrées et couloirs : largeurs locales, sans longueur générale. "
                 "Une pièce atypique ne bloque plus les autres."
             ).format(
                 housing.key,
@@ -832,8 +833,8 @@ class PlansVenteWindow(forms.WPFWindow):
             )
 
             status = (
-                "{} cote(s) créée(s) dans {} — {} pièce(s) complètes, "
-                "{} partielle(s), {} ignorée(s)."
+                "{} cote(s) créée(s) dans {} — {} pièce(s) avec 2 cotes, "
+                "{} avec 1 cote, {} sans cote."
             ).format(
                 result.created_count,
                 result.view_name,

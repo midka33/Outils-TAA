@@ -45,6 +45,8 @@ import room_tag_service as _room_tag_service
 _room_tag_service = _reload_module(_room_tag_service)
 RoomTagService = _room_tag_service.RoomTagService
 
+import plans_vente.dimension_geometry as _dimension_geometry
+_dimension_geometry = _reload_module(_dimension_geometry)
 import plans_vente.dimension_positioning as _dimension_positioning
 _dimension_positioning = _reload_module(_dimension_positioning)
 import dimension_service as _dimension_service

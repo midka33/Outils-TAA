@@ -1165,6 +1165,34 @@ pièces, couloir, décrochement, meilleur côté, témoins, budget, références
 probe Z à l'étage, échelle, rollback et poursuite des autres pièces.
 Recette réelle 06F dans `docs/20_Plans_de_Vente.md`, encore à effectuer.
 
+### BUG-PDV-029 — Entrée en L cotée selon ses longueurs générales
+
+**Symptôme :** retour Revit utilisateur du 8 octobre 2026, logement A003 :
+24 cotes / 12 pièces, rendu 06F accepté sauf l'entrée/dégagement dont les
+grandes dimensions sont cotées au lieu des largeurs utiles des deux branches.
+
+**Cause racine :** la sélection générique maximise séparation × longueur de
+support par direction ; elle ne distingue pas une circulation d'une pièce
+habitable. Un bon placement graphique ne corrige pas une mauvaise portée.
+
+**Correction :** reconnaissance explicite des noms entrée/couloir/dégagement
+(dont `Entrée/Dgt`), sélection de paires de faces en vis-à-vis avec recouvrement
+longitudinal au moins égal à la largeur et contenance locale sondée. Une largeur
+par direction, deux au maximum. Placement 06F limité à la plage validée dans
+chaque bras. Une seule largeur suffit dans un couloir droit ; aucune longueur
+de secours n'est ajoutée. Absence de largeur fiable ou erreur : avertissement.
+
+**Règle préventive :** distinguer la mesure métier et sa position graphique.
+Ne pas appliquer la règle « deux dimensions générales » à une circulation,
+ni reclasser automatiquement les chambres étroites. Conserver les références
+Revit associatives ; une translation ne doit pas quitter le bras mesuré.
+
+**Anti-régression :** `test_circulation_widths.py` (L, droit, biais, extérieur,
+décrochement, noms, carré, plage locale et budget) et tests du vrai service :
+deux largeurs locales, références préservées, absence de longueur de secours,
+échec explicite et chambre étroite inchangée. Rejouer l'entrée A003 dans Revit ;
+le correctif v7 n'est pas encore validé dans Revit.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1243,6 +1271,7 @@ BUG-PDV-025
 BUG-PDV-026
 BUG-PDV-027
 BUG-PDV-028
+BUG-PDV-029
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001
