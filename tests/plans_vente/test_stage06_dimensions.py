@@ -153,7 +153,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v8"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06f-branched-geometry-v9"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
@@ -190,11 +190,11 @@ def test_stage06b_keeps_processing_when_one_room_is_atypical():
     service = SERVICE.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert "for room, boundary_candidates, pairs, fallback_indexes in room_plans" in service
+    assert "for room, boundary_candidates, pairs, fallback_indexes, target_count in room_plans" in service
     assert "with RevitTransaction(" in service
     assert "partial_room_count" in service
     assert "skipped_room_count" in service
-    assert "une seule dimension principale fiable" in service
+    assert "dimension(s) géométriquement attendue(s)" in service
     assert "Une pièce atypique ne bloque plus les autres." in window
 
 
@@ -327,3 +327,14 @@ def test_stage06e_warns_when_only_hidden_separator_reference_remains():
     assert "La cote peut disparaître" in text
     assert "séparations sont" in text
     assert "masquées dans la vue" in text
+
+
+
+def test_stage06f_geometry_not_room_name_controls_complex_dimensioning():
+    service = SERVICE.read_text(encoding="utf-8")
+
+    assert "pronounced_branched_shape_metrics" in service
+    assert "branched_dimension_pairs" in service
+    assert "is_circulation_name" not in service
+    assert "getattr(room, \"Name\"" not in service
+    assert "BRANCH_MAX_DIMENSIONS = 5" in service
