@@ -475,9 +475,15 @@ class DimensionService(object):
             exclusion_boxes=exclusion_boxes,
         )
 
-    def _branched_pairs(self, room, segments, warnings):
+    def _branched_pairs(
+        self,
+        room,
+        reference_segments,
+        shape_segments,
+        warnings,
+    ):
         metrics = pronounced_branched_shape_metrics(
-            segments,
+            shape_segments,
             minimum_missing_ratio=self.BRANCH_MIN_MISSING_RATIO,
         )
         if not metrics["is_branched"]:
@@ -497,7 +503,7 @@ class DimensionService(object):
                 return cache[xy]
 
             pairs = branched_dimension_pairs(
-                segments,
+                reference_segments,
                 contains,
                 minimum_dimension=self._millimeters_to_internal(
                     self.BRANCH_MIN_DIMENSION_MM
@@ -508,6 +514,7 @@ class DimensionService(object):
                 angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
                 minimum_missing_ratio=self.BRANCH_MIN_MISSING_RATIO,
                 max_results=self.BRANCH_MAX_DIMENSIONS,
+                assume_branched=True,
             )
 
             if len(pairs) >= 3:
@@ -675,6 +682,78 @@ class DimensionService(object):
                 result.append(index)
 
         return result
+
+    def _room_shape_segments(self, room):
+        """Contour fini complet utilisé uniquement pour reconnaître la forme.
+
+        Contrairement à _room_boundary_candidates, cette méthode ne filtre pas
+        selon la disponibilité d'une référence de cote. Les ouvertures,
+        séparateurs, arcs tessellés et limites non cotables restent donc dans
+        le contour servant à décider si la pièce est réellement en L/T.
+        """
+        from Autodesk.Revit.DB import (
+            SpatialElementBoundaryLocation,
+            SpatialElementBoundaryOptions,
+        )
+
+        options = SpatialElementBoundaryOptions()
+        options.SpatialElementBoundaryLocation = (
+            SpatialElementBoundaryLocation.Finish
+        )
+
+        loops = []
+        for segment_loop in room.GetBoundarySegments(options) or []:
+            points = []
+            for boundary_segment in segment_loop or []:
+                try:
+                    curve = boundary_segment.GetCurve()
+                    tessellated = list(curve.Tessellate() or [])
+                except Exception:
+                    tessellated = []
+
+                for point in tessellated:
+                    xy = (float(point.X), float(point.Y))
+                    if not points or (
+                        abs(xy[0] - points[-1][0]) > 1e-9
+                        or abs(xy[1] - points[-1][1]) > 1e-9
+                    ):
+                        points.append(xy)
+
+            if len(points) > 1 and (
+                abs(points[0][0] - points[-1][0]) <= 1e-9
+                and abs(points[0][1] - points[-1][1]) <= 1e-9
+            ):
+                points = points[:-1]
+
+            if len(points) < 3:
+                continue
+
+            area = abs(polygon_area(points))
+            segments = [
+                (
+                    float(left[0]),
+                    float(left[1]),
+                    float(right[0]),
+                    float(right[1]),
+                )
+                for left, right in zip(
+                    points,
+                    points[1:] + points[:1],
+                )
+                if (
+                    abs(float(left[0]) - float(right[0])) > 1e-9
+                    or abs(float(left[1]) - float(right[1])) > 1e-9
+                )
+            ]
+            if segments:
+                loops.append((area, segments))
+
+        if not loops:
+            return []
+
+        loops.sort(key=lambda item: item[0], reverse=True)
+        return loops[0][1]
+
 
     def _room_boundary_candidates(self, room):
         from Autodesk.Revit.DB import (
