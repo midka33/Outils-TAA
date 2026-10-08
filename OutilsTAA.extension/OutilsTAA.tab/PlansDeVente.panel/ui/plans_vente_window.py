@@ -84,6 +84,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._sheet_template_choices = []
         self._sheet_template_labels = []
         self._sheet_readiness = None
+        self._sheet_template_inspection = None
         self._deferred_static_choices_loaded = False
         self._sheet_templates_loaded = False
         self._active_descriptor = None
@@ -1015,6 +1016,34 @@ class PlansVenteWindow(forms.WPFWindow):
         self._update_sheet_button_state()
 
     def SheetTemplateChanged(self, sender, args):
+        self._inspect_selected_sheet_template()
+
+    def _selected_sheet_template(self):
+        index = int(self.SheetTemplateCombo.SelectedIndex)
+        if 0 <= index < len(self._sheet_template_choices):
+            return self._sheet_template_choices[index].Candidate
+        return None
+
+    def _inspect_selected_sheet_template(self):
+        self._sheet_template_inspection = None
+        template = self._selected_sheet_template()
+        if template is None:
+            self._refresh_sheet_info()
+            self._update_sheet_button_state()
+            return
+
+        try:
+            self._sheet_template_inspection = (
+                self.controller.inspect_sheet_template(template.unique_id)
+            )
+        except Exception as error:
+            self.SheetInfoText.Text = (
+                "Impossible d'analyser la feuille choisie : {}"
+            ).format(str(error) or repr(error))
+            self._update_sheet_button_state()
+            return
+
+        self._refresh_sheet_info()
         self._update_sheet_button_state()
 
     def CreateSheet_Click(self, sender, args):
@@ -1026,21 +1055,24 @@ class PlansVenteWindow(forms.WPFWindow):
             if view_item is not None
             else None
         )
-        template_index = int(self.SheetTemplateCombo.SelectedIndex)
-        template_item = (
-            self._sheet_template_choices[template_index]
-            if 0 <= template_index < len(self._sheet_template_choices)
-            else None
-        )
-        template = (
-            getattr(template_item, "Candidate", None)
-            if template_item is not None
-            else None
-        )
+        template = self._selected_sheet_template()
+        inspection = self._sheet_template_inspection
 
         if housing is None or main_view is None or template is None:
             forms.alert(
                 "Sélectionnez un logement, une vue logement et une feuille modèle.",
+                title="Plans de vente — Feuille 07B",
+                warn_icon=True,
+            )
+            return
+
+        if inspection is None or not inspection.is_valid:
+            forms.alert(
+                (
+                    inspection.summary
+                    if inspection is not None
+                    else "La feuille modèle choisie n'a pas encore été validée."
+                ),
                 title="Plans de vente — Feuille 07B",
                 warn_icon=True,
             )
@@ -1084,7 +1116,7 @@ class PlansVenteWindow(forms.WPFWindow):
             ).format(
                 housing.key,
                 template.label,
-                template.title_block_label,
+                inspection.title_block_label,
                 readiness.main_view_name,
                 readiness.location_view_name,
                 readiness.interior_schedule_name,
@@ -1154,14 +1186,16 @@ class PlansVenteWindow(forms.WPFWindow):
     def _load_sheet_templates(self):
         self._sheet_template_choices = []
         self._sheet_template_labels = []
+        self._sheet_template_inspection = None
         self._sheet_templates_loaded = True
+
         try:
             candidates = self.controller.sheet_templates()
         except Exception as error:
             self.SheetTemplateCombo.ItemsSource = []
             self.SheetTemplateCombo.SelectedIndex = -1
             self.SheetInfoText.Text = (
-                "Erreur de collecte des feuilles modèles : {}"
+                "Erreur de collecte des feuilles : {}"
             ).format(str(error) or repr(error))
             self._update_sheet_button_state()
             return
@@ -1171,20 +1205,19 @@ class PlansVenteWindow(forms.WPFWindow):
             for candidate in candidates
         ]
         self._sheet_template_labels = [
-            choice.Label or "Feuille modèle #{}".format(index + 1)
+            choice.Label or "Feuille #{}".format(index + 1)
             for index, choice in enumerate(self._sheet_template_choices)
         ]
         self.SheetTemplateCombo.ItemsSource = self._sheet_template_labels
-        self.SheetTemplateCombo.SelectedIndex = (
-            0 if self._sheet_template_labels else -1
-        )
+
+        # Aucun choix automatique : c'est l'utilisateur qui désigne
+        # explicitement la feuille servant de modèle.
+        self.SheetTemplateCombo.SelectedIndex = -1
 
         if not self._sheet_template_labels:
-            self.SheetInfoText.Text = (
-                "Aucune feuille modèle valide trouvée. Elle doit contenir "
-                "PDV_MODELE_VUE, PDV_MODELE_REPERAGE, PDV_MODELE_NOM_INT "
-                "et PDV_MODELE_NOM_EXT."
-            )
+            self.SheetInfoText.Text = "Aucune feuille n'existe dans le projet."
+        else:
+            self._refresh_sheet_info()
         self._update_sheet_button_state()
 
     def _load_sheet_readiness(self, housing):
@@ -1207,28 +1240,45 @@ class PlansVenteWindow(forms.WPFWindow):
             return
 
         try:
-            readiness = self.controller.sheet_assembly_readiness(
+            self._sheet_readiness = self.controller.sheet_assembly_readiness(
                 housing,
                 main_view.unique_id,
             )
-            self._sheet_readiness = readiness
-            if not self._sheet_template_labels:
-                self.SheetInfoText.Text = (
-                    readiness.summary
-                    + " Aucune feuille modèle 07B valide n'est disponible."
-                )
-            else:
-                self.SheetInfoText.Text = readiness.summary
         except Exception as error:
             self.SheetInfoText.Text = str(error)
+            self._update_sheet_button_state()
+            return
+
+        self._refresh_sheet_info()
         self._update_sheet_button_state()
+
+    def _refresh_sheet_info(self):
+        parts = []
+
+        if self._sheet_readiness is not None:
+            parts.append(self._sheet_readiness.summary)
+
+        if not self._sheet_templates_loaded:
+            parts.append(
+                "Ouvrez la liste « Feuille modèle » puis choisissez vous-même "
+                "une feuille du projet."
+            )
+        elif self.SheetTemplateCombo.SelectedIndex < 0:
+            parts.append("Choisissez explicitement la feuille modèle.")
+        elif self._sheet_template_inspection is None:
+            parts.append("Analyse de la feuille choisie non effectuée.")
+        else:
+            parts.append(self._sheet_template_inspection.summary)
+
+        self.SheetInfoText.Text = " ".join(parts)
 
     def _clear_sheet_assembly(self):
         self._sheet_readiness = None
+        self._sheet_template_inspection = None
         if hasattr(self, "SheetInfoText"):
             self.SheetInfoText.Text = (
-                "Sélectionnez un logement. Les feuilles modèles 07B ne sont "
-                "chargées que lorsque vous ouvrez leur liste."
+                "Sélectionnez un logement, puis choisissez explicitement "
+                "la feuille modèle dans la liste."
             )
         if hasattr(self, "CreateSheetButton"):
             self.CreateSheetButton.IsEnabled = False
@@ -1236,12 +1286,19 @@ class PlansVenteWindow(forms.WPFWindow):
     def _update_sheet_button_state(self):
         if not hasattr(self, "CreateSheetButton"):
             return
+
+        template_valid = (
+            self._sheet_template_inspection is not None
+            and self._sheet_template_inspection.is_valid
+        )
+
         self.CreateSheetButton.IsEnabled = (
             self.HousingGrid.SelectedItem is not None
             and self.DimensionViewCombo.SelectedItem is not None
             and self.SheetTemplateCombo.SelectedItem is not None
             and self._sheet_readiness is not None
             and self._sheet_readiness.is_ready
+            and template_valid
         )
 
     def _clear_prototype_selection(self):
