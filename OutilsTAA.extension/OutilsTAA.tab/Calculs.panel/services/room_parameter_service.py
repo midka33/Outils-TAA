@@ -181,7 +181,7 @@ class RoomParameterService(object):
             return None
 
         value = cls._element_id_value(parameter_id, default=None)
-        if value is None:
+        if value is None or str(value) == "-1":
             return None
 
         return "PARAMETER_ID:{}".format(value)
