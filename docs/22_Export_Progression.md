@@ -504,6 +504,32 @@ Donc :
 
 Cette règle évite tout faux pourcentage.
 
+### 14.7 Stabilité de la fenêtre et sémantique du compteur
+
+La fenêtre de progression possède une hauteur fixe. Le message de statut sous le
+titre occupe une zone réservée : un changement de texte ne doit plus agrandir ou
+réduire la fenêtre pendant la publication.
+
+Les valeurs brutes `Position / UpperRange` de `ProgressChanged` restent utilisées
+pour calculer la progression fractionnaire mais ne sont plus affichées comme un
+compteur utilisateur. Pendant cette phase, le bloc d'avancement affiche :
+
+```text
+Avancement :
+Revit travaille…
+```
+
+Lorsqu'une vraie progression métier par mise en page est disponible, le même bloc
+devient :
+
+```text
+Mises en page :
+3 / 5
+```
+
+Le libellé « Traitement » est donc abandonné afin d'éviter l'ambiguïté entre compteurs
+techniques et compteurs métier.
+
 ### 14.7 Validation hors Revit
 
 Commande de référence :
