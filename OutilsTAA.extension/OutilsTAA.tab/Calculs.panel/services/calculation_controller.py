@@ -40,22 +40,34 @@ class CalculationController(object):
         self.settings_service = settings_service
 
     def load_context(self):
+        """Charge le contexte UI en un seul parcours des pièces.
+
+        get_parameter_descriptors() calcule déjà toutes les métadonnées utiles
+        (type, écriture, déverrouillage de groupe). Refaire le même parcours
+        avec numeric_only puis writable_only multipliait inutilement les appels
+        à l'API Revit, particulièrement coûteux sur les gros projets.
+        """
         rooms = self.collector_service.collect_all_rooms()
-        all_parameters = self.parameter_service.get_parameter_descriptors(rooms)
-        numeric = self.parameter_service.get_parameter_descriptors(
-            rooms,
-            numeric_only=True,
+        all_parameters = self.parameter_service.get_parameter_descriptors(
+            rooms
         )
-        writable = self.parameter_service.get_parameter_descriptors(
-            rooms,
-            writable_only=True,
-        )
+
+        numeric = [
+            descriptor
+            for descriptor in all_parameters
+            if descriptor.is_numeric
+        ]
+
         targets = [
             descriptor
-            for descriptor in writable
-            if descriptor.storage_type
-            in self.parameter_validator.SUPPORTED_TARGET_TYPES
+            for descriptor in all_parameters
+            if (
+                descriptor.write_supported
+                and descriptor.storage_type
+                in self.parameter_validator.SUPPORTED_TARGET_TYPES
+            )
         ]
+
         return CalculationContext(
             len(rooms),
             all_parameters,
