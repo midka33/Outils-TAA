@@ -109,15 +109,15 @@
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateDimensions_Click"/>
                     <Separator Margin="0,22,0,18"/>
-                    <TextBlock Text="Étape 07A — Assemblage feuille"
+                    <TextBlock Text="Étape 07B — Feuille modèle"
                                Style="{DynamicResource TAASectionTitle}"/>
                     <TextBlock x:Name="SheetInfoText" Margin="0,0,0,10"
                                Style="{DynamicResource TAASecondaryText}"/>
-                    <TextBlock Text="Type de cartouche" Margin="0,0,0,4"/>
-                    <ComboBox x:Name="SheetTitleBlockCombo"
-                              SelectionChanged="SheetTitleBlockChanged"
+                    <TextBlock Text="Feuille modèle" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="SheetTemplateCombo"
+                              SelectionChanged="SheetTemplateChanged"
                               Style="{DynamicResource TAAComboBox}"/>
-                    <Button x:Name="CreateSheetButton" Content="Créer la feuille prototype"
+                    <Button x:Name="CreateSheetButton" Content="Créer la feuille"
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateSheet_Click"/>
