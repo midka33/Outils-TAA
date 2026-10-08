@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.20
+**Version :** 1.21
 **Statut :** Développement — Étape 07 Assemblage de la feuille  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -4165,4 +4165,90 @@ Une opération 07A ne supprime ni ne modifie une feuille existante.
 7. contrôler leur position générale sur plusieurs formats de cartouche ;
 8. vérifier qu'une seconde création du même logement est refusée proprement.
 
-**Statut du prototype 07A : À valider dans Revit 2025.4.**
+**Prototype 07A : VALIDÉ TECHNIQUEMENT dans Revit 2025.4.**
+
+Retour utilisateur du 8 octobre 2026 :
+
+- la feuille est créée ;
+- les deux vues sont placées ;
+- les deux nomenclatures sont placées ;
+- le cartouche sélectionné est correct ;
+- les quatre éléments arrivent bien sur la feuille ;
+- en revanche, les positions relatives du prototype 07A sont trop génériques
+  et donnent une composition peu exploitable en production.
+
+Le 07A valide donc l'API de création/placement, mais pas la composition finale.
+
+### Prototype 07B — Feuille modèle
+
+Le 07B remplace le positionnement générique du 07A par une **feuille modèle
+préparée manuellement dans Revit**.
+
+La feuille modèle doit contenir exactement les quatre éléments de référence
+suivants, placés aux positions souhaitées :
+
+- vue nommée `PDV_MODELE_VUE` ;
+- vue nommée `PDV_MODELE_REPERAGE` ;
+- nomenclature nommée `PDV_MODELE_NOM_INT` ;
+- nomenclature nommée `PDV_MODELE_NOM_EXT`.
+
+Le plugin ne copie pas le contenu de ces éléments modèles. Il lit uniquement
+leur rôle et leur position sur la feuille.
+
+Pour les vues, le point de placement est lu avec `Viewport.GetBoxCenter()`.
+Pour les nomenclatures, il est lu avec `ScheduleSheetInstance.Point`.
+
+Le type de cartouche est automatiquement repris depuis la feuille modèle :
+l'utilisateur n'a donc plus à sélectionner séparément un cartouche en 07B.
+
+Les types de viewport utilisés par les deux vues modèles sont également repris
+lorsque Revit l'autorise.
+
+Flux :
+
+```text
+Feuille modèle Revit
+├── PDV_MODELE_VUE
+├── PDV_MODELE_REPERAGE
+├── PDV_MODELE_NOM_INT
+└── PDV_MODELE_NOM_EXT
+        ↓
+lecture des positions + cartouche
+        ↓
+création PDV-<logement>
+        ↓
+placement des vrais éléments du logement
+aux mêmes coordonnées
+```
+
+Une feuille n'est proposée dans l'interface comme « feuille modèle » que si :
+
+- elle contient les quatre placeholders attendus ;
+- chaque rôle est présent une seule fois ;
+- elle contient exactement un cartouche.
+
+Build : `stage07b-sheet-template-layout-v2`.
+
+### Préparation d'une feuille modèle de test
+
+Dans Revit 2025.4 :
+
+1. créer une feuille dédiée, par exemple `PDV-MODELE-A3` ;
+2. utiliser le cartouche réellement souhaité ;
+3. créer ou réutiliser deux vues de test nommées exactement :
+   - `PDV_MODELE_VUE` ;
+   - `PDV_MODELE_REPERAGE` ;
+4. créer ou réutiliser deux nomenclatures de test nommées exactement :
+   - `PDV_MODELE_NOM_INT` ;
+   - `PDV_MODELE_NOM_EXT` ;
+5. placer ces quatre éléments sur la feuille à leur position finale souhaitée ;
+6. recharger pyRevit ;
+7. sélectionner cette feuille dans « Étape 07B — Feuille modèle » ;
+8. créer une feuille pour un logement déjà préparé ;
+9. vérifier que les quatre vrais éléments reprennent les positions du modèle.
+
+Le 07B ne copie pas encore les annotations fixes, légendes, images ou paramètres
+personnalisés de la feuille modèle. Ces éléments restent dans le périmètre de
+stabilisation de l'Étape 07.
+
+**Statut du prototype 07B : À valider dans Revit 2025.4.**
