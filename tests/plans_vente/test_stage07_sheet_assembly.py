@@ -110,7 +110,9 @@ def test_stage07_controller_and_entrypoint_wire_service_outside_ui():
     assert "def create_sheet_from_template(" in controller
     assert "def sheet_assembly_build_id(" in controller
 
-    assert "from sheet_assembly_service import SheetAssemblyService" in script
+    assert "import sheet_assembly_service as _sheet_assembly_service" in script
+    assert "_reload_module(_sheet_assembly_service)" in script
+    assert "SheetAssemblyService = _sheet_assembly_service.SheetAssemblyService" in script
     assert "sheet_assembly_service = SheetAssemblyService(document)" in script
     assert "sheet_assembly_service=sheet_assembly_service" in script
 
