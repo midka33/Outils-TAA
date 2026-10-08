@@ -268,7 +268,8 @@ varier par occurrence.
 Le cache ne survit pas à l'ouverture de la fenêtre et n'introduit donc aucun problème
 d'invalidation après modification du projet.
 
-**Validation réelle de la rapidité sur gros projet : à effectuer dans Revit 2025.4.**
+**Validation réelle :** ouverture observée autour de **3 secondes** dans Revit 2025.4
+sur le projet de validation d'environ 80 logements, le 8 octobre 2026.
 
 ---
 
