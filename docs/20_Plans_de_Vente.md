@@ -3771,3 +3771,53 @@ Recette Revit 2025.4 à effectuer pour v7 :
    sa largeur, puis annuler. Transmettre une capture de l'entrée et du rapport.
 
 **Statut :** correctif testé hors Revit ; validation réelle v7 encore attendue.
+
+
+## Correctif 06F.2 — Priorité à la largeur locale
+
+**Build :** `stage06f-circulation-widths-v8`
+
+Retour Revit du 8 octobre 2026 : le correctif v7 reconnaît bien
+`Entrée/Dgt` comme circulation, mais sélectionne encore les grandes portées
+générales (ex. environ 2,67 m et 3,23 m) au lieu des largeurs locales des deux
+bras.
+
+### Cause
+
+Le moteur classait les paires parallèles principalement avec le ratio
+`recouvrement / largeur`. Dans une entrée/dégagement ouverte, une grande portée
+peut rester entièrement dans la pièce et obtenir un meilleur ratio qu'une
+largeur locale de passage. Elle était donc retenue avant la vraie largeur.
+
+### Correction
+
+Pour les pièces reconnues comme circulation, les candidats fiables sont
+désormais testés par **largeur croissante**. Les seuils existants restent
+inchangés :
+
+- largeur minimale : 600 mm ;
+- recouvrement minimal : 300 mm ;
+- recouvrement au moins égal à la largeur ;
+- faces parallèles à 5° près ;
+- validation par `Room.IsPointInRoom` sur plusieurs sections ;
+- une seule largeur par direction.
+
+Le ratio `recouvrement / largeur` sert uniquement à départager des candidats
+de largeur proche ; il ne peut plus faire gagner une grande portée générale.
+
+Un test de régression reproduit explicitement le cas où une portée de 2,70 m
+était préférée à une largeur locale de 1,20 m.
+
+### Recette Revit 2025.4
+
+1. Reprendre exactement la même vue de test A003.
+2. Supprimer les cotes créées par v7.
+3. Recharger pyRevit et vérifier le build
+   `stage06f-circulation-widths-v8`.
+4. Relancer les cotations.
+5. Vérifier que `Entrée/Dgt` reçoit les largeurs locales des bras et non les
+   portées générales de 2,67 m / 3,23 m.
+6. Vérifier qu'un couloir droit conserve une seule largeur.
+7. Contrôler que les autres pièces ne régressent pas.
+
+**Statut : À valider dans Revit 2025.4.**
