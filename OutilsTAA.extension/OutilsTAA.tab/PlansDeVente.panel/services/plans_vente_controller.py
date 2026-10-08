@@ -13,6 +13,7 @@ class PlansVenteController(object):
         location_plan_service,
         room_tag_service,
         dimension_service,
+        sheet_assembly_service,
     ):
         self.analysis_service = analysis_service
         self.prototype_view_service = prototype_view_service
@@ -20,6 +21,7 @@ class PlansVenteController(object):
         self.location_plan_service = location_plan_service
         self.room_tag_service = room_tag_service
         self.dimension_service = dimension_service
+        self.sheet_assembly_service = sheet_assembly_service
 
     def load_context(self):
         return self.analysis_service.load_context()
@@ -135,4 +137,34 @@ class PlansVenteController(object):
             self.dimension_service,
             "build_id",
             "dimension-service-build-inconnu",
+        )
+
+
+
+    def sheet_title_block_types(self):
+        return self.sheet_assembly_service.list_title_block_types()
+
+    def sheet_assembly_readiness(self, housing, main_view_unique_id):
+        return self.sheet_assembly_service.readiness(
+            housing,
+            main_view_unique_id,
+        )
+
+    def create_sheet_assembly(
+        self,
+        housing,
+        title_block_type_unique_id,
+        main_view_unique_id,
+    ):
+        return self.sheet_assembly_service.create_sheet(
+            housing,
+            title_block_type_unique_id,
+            main_view_unique_id,
+        )
+
+    def sheet_assembly_build_id(self):
+        return getattr(
+            self.sheet_assembly_service,
+            "build_id",
+            "sheet-assembly-service-build-inconnu",
         )
