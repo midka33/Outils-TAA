@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 __title__ = "Plans de\nvente"
 __doc__ = (
     "Détecte les logements et prépare vues, nomenclatures, repérage, "
-    "étiquettes et cotations des plans de vente."
+    "étiquettes, cotations et feuilles des plans de vente."
 )
 
 import os
@@ -54,7 +54,11 @@ _dimension_service = _reload_module(_dimension_service)
 DimensionService = _dimension_service.DimensionService
 
 from schedule_service import ScheduleService
-from sheet_assembly_service import SheetAssemblyService
+
+import sheet_assembly_service as _sheet_assembly_service
+_sheet_assembly_service = _reload_module(_sheet_assembly_service)
+SheetAssemblyService = _sheet_assembly_service.SheetAssemblyService
+
 from plans_vente_window import PlansVenteWindow
 
 
