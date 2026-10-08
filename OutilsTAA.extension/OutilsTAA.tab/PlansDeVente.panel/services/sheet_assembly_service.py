@@ -129,18 +129,123 @@ class SheetAssemblyService(object):
         self.build_id = SHEET_ASSEMBLY_BUILD
 
     def list_sheet_templates(self):
-        from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
+        """Liste les feuilles modèles sans rescanner le document par feuille.
 
-        result = []
-        for sheet in (
+        Le 07B initial appelait _template_layout pour chaque ViewSheet, ce qui
+        déclenchait plusieurs FilteredElementCollector par feuille. Sur un projet
+        réel avec beaucoup de feuilles, ce coût était visible dès l'ouverture
+        du module. Ici les viewports, nomenclatures et cartouches sont indexés en
+        trois collectes globales, puis les feuilles sont testées en mémoire.
+        """
+        from Autodesk.Revit.DB import (
+            BuiltInCategory,
+            FilteredElementCollector,
+            ScheduleSheetInstance,
+            ViewSheet,
+            Viewport,
+        )
+
+        sheets = list(
             FilteredElementCollector(self.document)
             .OfClass(ViewSheet)
             .WhereElementIsNotElementType()
             .ToElements()
+        )
+        if not sheets:
+            return []
+
+        required = required_placeholder_names()
+        sheet_ids = {
+            self._element_id_value(sheet.Id): sheet
+            for sheet in sheets
+        }
+        roles_by_sheet = {
+            key: {}
+            for key in sheet_ids
+        }
+        title_blocks_by_sheet = {
+            key: []
+            for key in sheet_ids
+        }
+
+        for viewport in (
+            FilteredElementCollector(self.document)
+            .OfClass(Viewport)
+            .WhereElementIsNotElementType()
+            .ToElements()
         ):
             try:
-                layout = self._template_layout(sheet)
+                owner_key = self._element_id_value(viewport.SheetId)
             except Exception:
+                try:
+                    owner_key = self._element_id_value(viewport.OwnerViewId)
+                except Exception:
+                    continue
+            if owner_key not in roles_by_sheet:
+                continue
+
+            view = self.document.GetElement(viewport.ViewId)
+            name = str(getattr(view, "Name", "") or "")
+            for role in ("main_view", "location_view"):
+                if name == required[role]:
+                    roles_by_sheet[owner_key].setdefault(role, []).append(
+                        viewport
+                    )
+
+        for instance in (
+            FilteredElementCollector(self.document)
+            .OfClass(ScheduleSheetInstance)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        ):
+            try:
+                owner_key = self._element_id_value(instance.OwnerViewId)
+            except Exception:
+                continue
+            if owner_key not in roles_by_sheet:
+                continue
+
+            schedule = self.document.GetElement(instance.ScheduleId)
+            name = str(getattr(schedule, "Name", "") or "")
+            for role in ("interior_schedule", "exterior_schedule"):
+                if name == required[role]:
+                    roles_by_sheet[owner_key].setdefault(role, []).append(
+                        instance
+                    )
+
+        for title_block in (
+            FilteredElementCollector(self.document)
+            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        ):
+            try:
+                owner_key = self._element_id_value(title_block.OwnerViewId)
+            except Exception:
+                continue
+            if owner_key in title_blocks_by_sheet:
+                title_blocks_by_sheet[owner_key].append(title_block)
+
+        result = []
+        required_roles = (
+            "main_view",
+            "location_view",
+            "interior_schedule",
+            "exterior_schedule",
+        )
+        for sheet_key, sheet in sheet_ids.items():
+            roles = roles_by_sheet.get(sheet_key, {})
+            if any(len(roles.get(role, [])) != 1 for role in required_roles):
+                continue
+
+            title_blocks = title_blocks_by_sheet.get(sheet_key, [])
+            if len(title_blocks) != 1:
+                continue
+
+            title_block_type = self.document.GetElement(
+                title_blocks[0].GetTypeId()
+            )
+            if title_block_type is None:
                 continue
 
             result.append(
@@ -151,8 +256,8 @@ class SheetAssemblyService(object):
                     ),
                     sheet_name=str(getattr(sheet, "Name", "") or ""),
                     title_block_label="{} : {}".format(
-                        self._family_name(layout.title_block_type),
-                        self._element_type_name(layout.title_block_type),
+                        self._family_name(title_block_type),
+                        self._element_type_name(title_block_type),
                     ),
                 )
             )
