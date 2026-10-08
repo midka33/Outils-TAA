@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06f-branched-full-contour-v10"
+DIMENSION_SERVICE_BUILD = "stage06f-two-principal-dimensions-v11"
 
 import math
 
@@ -12,8 +12,6 @@ from plans_vente.dimension_geometry import (
     dominant_dimension_pairs,
     representative_length_indexes,
     segment_match_metrics,
-    pronounced_branched_shape_metrics,
-    branched_dimension_pairs,
 )
 from plans_vente.tag_positioning import polygon_area, boxes_overlap
 from plans_vente.dimension_positioning import (
@@ -111,11 +109,6 @@ class DimensionService(object):
     PAPER_TEXT_HEIGHT_MM = 3.0
     PAPER_PADDING_MM = 0.3
     PAPER_WITNESS_MM = 1.5
-    BRANCH_MIN_DIMENSION_MM = 600.0
-    BRANCH_MIN_OVERLAP_MM = 300.0
-    BRANCH_MIN_MISSING_RATIO = 0.12
-    BRANCH_MAX_DIMENSIONS = 5
-
     FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.0
     FLOOR_EDGE_TOLERANCE_MM = 20.0
     FLOOR_EDGE_MIN_OVERLAP_RATIO = 0.60
@@ -242,9 +235,11 @@ class DimensionService(object):
             )
 
         room_plans = []
-        room_targets = {}
         warnings = []
-        tag_boxes, dimension_boxes, equipment_boxes = self._view_obstacles(view, warnings)
+        tag_boxes, dimension_boxes, equipment_boxes = self._view_obstacles(
+            view,
+            warnings,
+        )
         exclusion_boxes = []
 
         for unique_id in housing.room_unique_ids:
@@ -257,33 +252,21 @@ class DimensionService(object):
 
             boundary_candidates = self._room_boundary_candidates(room)
             segments = [candidate.segment for candidate in boundary_candidates]
-            shape_segments = self._room_shape_segments(room)
 
-            branched_pairs = self._branched_pairs(
-                room,
+            # V1 : toujours deux dimensions principales au maximum.
+            # Les pièces complexes restent volontairement sous le contrôle
+            # de l'utilisateur pour les cotes complémentaires.
+            pairs = dominant_dimension_pairs(
                 segments,
-                shape_segments,
-                warnings,
+                angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
+                minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
+                placement_fraction=self.PLACEMENT_FRACTION,
+                max_results=2,
             )
-            if len(branched_pairs) >= 3:
-                pairs = branched_pairs
-                target_count = len(pairs)
-                fallback_indexes = []
-            else:
-                pairs = dominant_dimension_pairs(
-                    segments,
-                    angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
-                    minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
-                    placement_fraction=self.PLACEMENT_FRACTION,
-                    max_results=2,
-                )
-                target_count = 2
-                fallback_indexes = self._fallback_length_indexes(
-                    boundary_candidates,
-                    pairs,
-                )
-
-            room_targets[id(room)] = target_count
+            fallback_indexes = self._fallback_length_indexes(
+                boundary_candidates,
+                pairs,
+            )
 
             separator_fallback_used = False
             for pair in pairs:
@@ -302,19 +285,16 @@ class DimensionService(object):
                     "masquées dans la vue.".format(self._room_label(room))
                 )
 
-            room_plans.append((
-                room,
-                boundary_candidates,
-                pairs,
-                fallback_indexes,
-                target_count,
-            ))
+            room_plans.append(
+                (room, boundary_candidates, pairs, fallback_indexes)
+            )
+
         created_count = 0
         full_room_count = 0
         partial_room_count = 0
         skipped_room_count = 0
 
-        for room, boundary_candidates, pairs, fallback_indexes, target_count in room_plans:
+        for room, boundary_candidates, pairs, fallback_indexes in room_plans:
             room_label = self._room_label(room)
             room_created = 0
             used_length_indexes = set()
@@ -327,7 +307,7 @@ class DimensionService(object):
                 initial_fallbacks = [
                     index for index in fallback_indexes
                     if boundary_candidates[index].length_references
-                ][:max(0, target_count - len(pairs))]
+                ][:max(0, 2 - len(pairs))]
                 lines = pair_lines + [self._length_dimension_line(boundary_candidates[index], room)
                                       for index in initial_fallbacks]
                 anchors = [None] * len(pairs) + [
@@ -346,7 +326,7 @@ class DimensionService(object):
                     ),
                 ):
                     for pair_index, pair in enumerate(pairs):
-                        if room_created >= target_count:
+                        if room_created >= 2:
                             break
                         first = boundary_candidates[pair.first_index]
                         second = boundary_candidates[pair.second_index]
@@ -373,7 +353,7 @@ class DimensionService(object):
                             )
 
                     for index in fallback_indexes:
-                        if room_created >= target_count:
+                        if room_created >= 2:
                             break
                         if index in used_length_indexes:
                             continue
@@ -448,17 +428,13 @@ class DimensionService(object):
                 exclusion_boxes.extend(boxes)
 
             created_count += room_created
-            expected_count = room_targets.get(id(room), target_count)
-            if room_created >= expected_count:
+            if room_created >= 2:
                 full_room_count += 1
-            elif room_created > 0:
+            elif room_created == 1:
                 partial_room_count += 1
                 warnings.append(
-                    "{} : {}/{} dimension(s) géométriquement attendue(s) "
-                    "ont pu être créées.".format(
-                        room_label,
-                        room_created,
-                        expected_count,
+                    "{} : une seule dimension principale fiable a pu être créée.".format(
+                        room_label
                     )
                 )
             else:
@@ -468,6 +444,7 @@ class DimensionService(object):
                         room_label
                     )
                 )
+
         return DimensionCreationResult(
             housing_key=housing.key,
             view_name=str(getattr(view, "Name", "") or ""),
@@ -480,76 +457,6 @@ class DimensionService(object):
             warnings=warnings,
             exclusion_boxes=exclusion_boxes,
         )
-
-    def _branched_pairs(
-        self,
-        room,
-        reference_segments,
-        shape_segments,
-        warnings,
-    ):
-        metrics = pronounced_branched_shape_metrics(
-            shape_segments,
-            minimum_missing_ratio=self.BRANCH_MIN_MISSING_RATIO,
-        )
-        if not metrics["is_branched"]:
-            return []
-
-        try:
-            probe_z = self._probe_z(room)
-            cache = {}
-
-            def contains(xy):
-                if xy not in cache:
-                    cache[xy] = bool(
-                        room.IsPointInRoom(
-                            self._xyz(xy[0], xy[1], probe_z)
-                        )
-                    )
-                return cache[xy]
-
-            pairs = branched_dimension_pairs(
-                reference_segments,
-                contains,
-                minimum_dimension=self._millimeters_to_internal(
-                    self.BRANCH_MIN_DIMENSION_MM
-                ),
-                minimum_overlap=self._millimeters_to_internal(
-                    self.BRANCH_MIN_OVERLAP_MM
-                ),
-                angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
-                minimum_missing_ratio=self.BRANCH_MIN_MISSING_RATIO,
-                max_results=self.BRANCH_MAX_DIMENSIONS,
-                assume_branched=True,
-            )
-
-            if len(pairs) >= 3:
-                warnings.append(
-                    "{} : forme L/T prononcée détectée "
-                    "({} angle(s) rentrant(s), {} cote(s) locale(s)).".format(
-                        self._room_label(room),
-                        metrics["reflex_count"],
-                        len(pairs),
-                    )
-                )
-                return pairs
-
-            warnings.append(
-                "{} : forme concave prononcée détectée mais moins de trois "
-                "dimensions locales fiables ; moteur simple conservé.".format(
-                    self._room_label(room)
-                )
-            )
-            return []
-        except Exception as error:
-            warnings.append(
-                "{} : analyse géométrique L/T impossible ({}), moteur simple "
-                "conservé.".format(
-                    self._room_label(room),
-                    str(error) or repr(error),
-                )
-            )
-            return []
 
     def _view_obstacles(self, view, warnings):
         """Collecte unique par action, dans la vue cible, sans OfClass(RoomTag)."""
@@ -688,78 +595,6 @@ class DimensionService(object):
                 result.append(index)
 
         return result
-
-    def _room_shape_segments(self, room):
-        """Contour fini complet utilisé uniquement pour reconnaître la forme.
-
-        Contrairement à _room_boundary_candidates, cette méthode ne filtre pas
-        selon la disponibilité d'une référence de cote. Les ouvertures,
-        séparateurs, arcs tessellés et limites non cotables restent donc dans
-        le contour servant à décider si la pièce est réellement en L/T.
-        """
-        from Autodesk.Revit.DB import (
-            SpatialElementBoundaryLocation,
-            SpatialElementBoundaryOptions,
-        )
-
-        options = SpatialElementBoundaryOptions()
-        options.SpatialElementBoundaryLocation = (
-            SpatialElementBoundaryLocation.Finish
-        )
-
-        loops = []
-        for segment_loop in room.GetBoundarySegments(options) or []:
-            points = []
-            for boundary_segment in segment_loop or []:
-                try:
-                    curve = boundary_segment.GetCurve()
-                    tessellated = list(curve.Tessellate() or [])
-                except Exception:
-                    tessellated = []
-
-                for point in tessellated:
-                    xy = (float(point.X), float(point.Y))
-                    if not points or (
-                        abs(xy[0] - points[-1][0]) > 1e-9
-                        or abs(xy[1] - points[-1][1]) > 1e-9
-                    ):
-                        points.append(xy)
-
-            if len(points) > 1 and (
-                abs(points[0][0] - points[-1][0]) <= 1e-9
-                and abs(points[0][1] - points[-1][1]) <= 1e-9
-            ):
-                points = points[:-1]
-
-            if len(points) < 3:
-                continue
-
-            area = abs(polygon_area(points))
-            segments = [
-                (
-                    float(left[0]),
-                    float(left[1]),
-                    float(right[0]),
-                    float(right[1]),
-                )
-                for left, right in zip(
-                    points,
-                    points[1:] + points[:1],
-                )
-                if (
-                    abs(float(left[0]) - float(right[0])) > 1e-9
-                    or abs(float(left[1]) - float(right[1])) > 1e-9
-                )
-            ]
-            if segments:
-                loops.append((area, segments))
-
-        if not loops:
-            return []
-
-        loops.sort(key=lambda item: item[0], reverse=True)
-        return loops[0][1]
-
 
     def _room_boundary_candidates(self, room):
         from Autodesk.Revit.DB import (
