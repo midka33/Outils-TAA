@@ -1197,7 +1197,13 @@ class PlansVenteWindow(forms.WPFWindow):
                 main_view.unique_id,
             )
             self._sheet_readiness = readiness
-            self.SheetInfoText.Text = readiness.summary
+            if not self._sheet_template_labels:
+                self.SheetInfoText.Text = (
+                    readiness.summary
+                    + " Aucune feuille modèle 07B valide n'est disponible."
+                )
+            else:
+                self.SheetInfoText.Text = readiness.summary
         except Exception as error:
             self.SheetInfoText.Text = str(error)
         self._update_sheet_button_state()
