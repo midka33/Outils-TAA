@@ -147,3 +147,12 @@ def test_stage07_documentation_is_opened():
     assert "PDV_MODELE_NOM_INT" in text
     assert "PDV_MODELE_NOM_EXT" in text
     assert "feature/plans-de-vente-stage07-sheet-assembly" in text
+
+
+
+def test_stage07b_result_reports_template_sheet():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "template_sheet_label" in text
+    assert "result.template_sheet_label" in WINDOW.read_text(encoding="utf-8")
+    assert "stage07b-sheet-template-layout-v2" in text
