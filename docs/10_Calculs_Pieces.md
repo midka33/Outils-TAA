@@ -255,8 +255,18 @@ descripteurs agrégés
 ```
 
 Cette optimisation ne modifie ni les règles de sélection des paramètres, ni la
-compatibilité avec les groupes, ni le calcul. Elle supprime seulement deux scans
-Revit redondants au démarrage.
+compatibilité avec les groupes, ni le calcul. Elle supprime deux scans Revit
+redondants au démarrage.
+
+Pendant l'unique scan restant, les métadonnées invariantes d'une définition de
+paramètre (identité, type de donnée, unité, StorageType) sont également mises en
+cache localement par `Parameter.Id`. Elles ne sont donc plus redemandées à Revit
+pour chaque pièce portant le même paramètre. L'état `IsReadOnly` et la compatibilité
+avec les groupes restent contrôlés sur chaque pièce, car ces informations peuvent
+varier par occurrence.
+
+Le cache ne survit pas à l'ouverture de la fenêtre et n'introduit donc aucun problème
+d'invalidation après modification du projet.
 
 **Validation réelle de la rapidité sur gros projet : à effectuer dans Revit 2025.4.**
 
