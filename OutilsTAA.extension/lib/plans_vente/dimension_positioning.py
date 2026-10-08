@@ -175,41 +175,109 @@ def placement_conflicts(left, right):
     return text_hits, graphic_hit
 
 
+def _base_warnings(candidate):
+    warnings = []
+    if candidate.outside_count:
+        warnings.append("emprise intérieure complète introuvable")
+    if candidate.tag_hits:
+        warnings.append("collision possible avec une étiquette")
+    if candidate.dimension_hits:
+        warnings.append("collision possible avec une cote existante")
+    if candidate.equipment_hits:
+        warnings.append("collision possible avec un équipement")
+    return warnings
+
+
 def select_placements(candidate_groups):
-    """Choix conjoint des deux cotes : <=100 combinaisons purement géométriques."""
+    """Choisit jusqu'à cinq placements sans explosion combinatoire.
+
+    Une ou deux cotes gardent l'optimisation exhaustive historique (<=100
+    combinaisons). Au-delà, le choix devient glouton et borné : chaque nouvelle
+    cote minimise ses collisions avec celles déjà retenues. Cette stratégie est
+    adaptée aux pièces L/T où quatre ou cinq dimensions locales peuvent être
+    nécessaires, sans multiplier 10^5 combinaisons.
+    """
     groups = list(candidate_groups)
     if not groups:
         return []
-    if len(groups) > 2 or any(not group for group in groups):
-        raise ValueError("Une ou deux familles non vides sont requises.")
-    best = None
-    for combination in product(*groups):
-        text_hits, graphic_hits = (placement_conflicts(*combination)
-                                   if len(combination) == 2 else (0, 0))
-        outside = [c.outside_count for c in combination]
-        score = (sum(bool(n) for n in outside), sum(outside),
-                 sum(c.tag_hits for c in combination),
-                 sum(c.dimension_hits for c in combination) + text_hits,
-                 graphic_hits, sum(c.equipment_hits for c in combination),
-                 sum(c.clearance_penalty for c in combination),
-                 sum(c.rank for c in combination), tuple(c.rank for c in combination))
-        if best is None or score < best[0]:
-            best = (score, combination)
-    chosen = list(best[1])
-    for candidate in chosen:
-        candidate.warnings = []
-        if candidate.outside_count:
-            candidate.warnings.append("emprise intérieure complète introuvable")
-        if candidate.tag_hits:
-            candidate.warnings.append("collision possible avec une étiquette")
-        if candidate.dimension_hits:
-            candidate.warnings.append("collision possible avec une cote existante")
-        if candidate.equipment_hits:
-            candidate.warnings.append("collision possible avec un équipement")
-    if len(chosen) == 2:
-        text_hits, graphic_hits = placement_conflicts(*chosen)
-        if text_hits:
-            chosen[1].warnings.append("collision possible avec le texte de l'autre cote")
-        elif graphic_hits:
-            chosen[1].warnings.append("croisement résiduel des cotes ou témoins")
+    if len(groups) > 5 or any(not group for group in groups):
+        raise ValueError("Une à cinq familles non vides sont requises.")
+
+    if len(groups) <= 2:
+        best = None
+        for combination in product(*groups):
+            text_hits, graphic_hits = (
+                placement_conflicts(*combination)
+                if len(combination) == 2
+                else (0, 0)
+            )
+            outside = [c.outside_count for c in combination]
+            score = (
+                sum(bool(n) for n in outside),
+                sum(outside),
+                sum(c.tag_hits for c in combination),
+                sum(c.dimension_hits for c in combination) + text_hits,
+                graphic_hits,
+                sum(c.equipment_hits for c in combination),
+                sum(c.clearance_penalty for c in combination),
+                sum(c.rank for c in combination),
+                tuple(c.rank for c in combination),
+            )
+            if best is None or score < best[0]:
+                best = (score, combination)
+
+        chosen = list(best[1])
+        for candidate in chosen:
+            candidate.warnings = _base_warnings(candidate)
+        if len(chosen) == 2:
+            text_hits, graphic_hits = placement_conflicts(*chosen)
+            if text_hits:
+                chosen[1].warnings.append(
+                    "collision possible avec le texte de l'autre cote"
+                )
+            elif graphic_hits:
+                chosen[1].warnings.append(
+                    "croisement résiduel des cotes ou témoins"
+                )
+        return chosen
+
+    chosen = []
+    for group in groups:
+        best = None
+        for candidate in group:
+            text_hits = 0
+            graphic_hits = 0
+            for previous in chosen:
+                text_hit, graphic_hit = placement_conflicts(
+                    previous,
+                    candidate,
+                )
+                text_hits += text_hit
+                graphic_hits += graphic_hit
+
+            score = (
+                bool(candidate.outside_count),
+                candidate.outside_count,
+                candidate.tag_hits,
+                candidate.dimension_hits + text_hits,
+                graphic_hits,
+                candidate.equipment_hits,
+                candidate.clearance_penalty,
+                candidate.rank,
+            )
+            if best is None or score < best[0]:
+                best = (score, candidate, text_hits, graphic_hits)
+
+        candidate = best[1]
+        candidate.warnings = _base_warnings(candidate)
+        if best[2]:
+            candidate.warnings.append(
+                "collision possible avec le texte d'une autre cote"
+            )
+        elif best[3]:
+            candidate.warnings.append(
+                "croisement résiduel avec une autre cote ou ses témoins"
+            )
+        chosen.append(candidate)
+
     return chosen
