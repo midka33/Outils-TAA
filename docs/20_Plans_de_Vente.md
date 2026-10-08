@@ -3950,3 +3950,69 @@ Le workflow Plans de vente est vert avec **201 tests** sur la suite
 10. déplacer un mur de branche et contrôler l'associativité.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 06F.4 — contour complet indépendant des références
+
+**Build :** `stage06f-branched-full-contour-v10`
+
+Retour Revit du 8 octobre 2026 : le build v9 produisait encore seulement les
+deux grandes cotes sur l'entrée/dégagement réelle, malgré sa géométrie
+visiblement concave.
+
+### Cause
+
+Le v9 tentait de reconnaître la forme L/T à partir de
+`_room_boundary_candidates`. Or cette liste ne contient que les limites qui
+ont déjà passé le filtre de **référence Revit cotable** :
+
+- face finie de mur disponible ;
+- séparateur exploitable ;
+- bord de sol substituable ;
+- courbe compatible.
+
+Sur un logement réel, cette liste peut être incomplète ou ne plus former un
+contour fermé, même si `Room.GetBoundarySegments(...)` décrit parfaitement
+la géométrie de la pièce. La détection L/T retombait alors sur le moteur simple
+à deux cotes.
+
+### Correction v10
+
+Deux géométries sont désormais séparées :
+
+1. **Contour complet de forme**
+   - extrait directement de `Room.GetBoundarySegments` en finition ;
+   - conserve toutes les limites ;
+   - tesselle également les courbes ;
+   - sert uniquement à reconnaître L/T et la concavité.
+
+2. **Limites cotables**
+   - conservent les références Revit validées par 06E ;
+   - servent uniquement à créer les dimensions associatives.
+
+Une fois la forme complexe confirmée par le contour complet, le moteur recherche
+les 3 à 5 paires utiles parmi les limites réellement cotables sans exiger que
+celles-ci reforment à elles seules un contour fermé.
+
+### Tests
+
+Un test de régression reproduit explicitement :
+
+- un contour complet en L ;
+- un sous-ensemble de références Revit incomplet / non fermé ;
+- la détection L/T sur le premier ;
+- la génération de plusieurs dimensions sur le second.
+
+Le workflow Plans de vente est vert avec **203 tests**.
+
+### Recette Revit 2025.4
+
+1. récupérer le build `stage06f-branched-full-contour-v10` ;
+2. supprimer les cotes créées par v9 ;
+3. relancer exactement sur le même logement ;
+4. vérifier que l'entrée/dégagement ne retombe plus à 2 grandes cotes ;
+5. vérifier la présence de l'avertissement
+   `forme L/T prononcée détectée (... cote(s) locale(s))` ;
+6. contrôler visuellement les 3 à 5 cotes obtenues avant d'affiner leur sélection.
+
+**Statut : À valider dans Revit 2025.4.**
