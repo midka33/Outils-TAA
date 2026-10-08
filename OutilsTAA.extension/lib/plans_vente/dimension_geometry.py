@@ -596,6 +596,7 @@ def branched_dimension_pairs(
     angle_tolerance_degrees=5.0,
     minimum_missing_ratio=0.12,
     max_results=5,
+    assume_branched=False,
 ):
     """Dimensions locales utiles d'une pièce L/T prononcée.
 
@@ -607,12 +608,13 @@ def branched_dimension_pairs(
     entre deux limites parallèles qui n'encadrent pas réellement la même zone.
     """
     values = list(segments or [])
-    metrics = pronounced_branched_shape_metrics(
-        values,
-        minimum_missing_ratio=minimum_missing_ratio,
-    )
-    if not metrics["is_branched"]:
-        return []
+    if not assume_branched:
+        metrics = pronounced_branched_shape_metrics(
+            values,
+            minimum_missing_ratio=minimum_missing_ratio,
+        )
+        if not metrics["is_branched"]:
+            return []
 
     tolerance = math.cos(math.radians(float(angle_tolerance_degrees)))
     candidates = []
