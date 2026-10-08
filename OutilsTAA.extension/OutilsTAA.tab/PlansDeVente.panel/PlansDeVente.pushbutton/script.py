@@ -54,6 +54,7 @@ _dimension_service = _reload_module(_dimension_service)
 DimensionService = _dimension_service.DimensionService
 
 from schedule_service import ScheduleService
+from sheet_assembly_service import SheetAssemblyService
 from plans_vente_window import PlansVenteWindow
 
 
@@ -91,6 +92,7 @@ def main():
     schedule_service = ScheduleService(document)
     room_tag_service = RoomTagService(document)
     dimension_service = DimensionService(document)
+    sheet_assembly_service = SheetAssemblyService(document)
     location_plan_service = LocationPlanService(
         document,
         plan_view_service,
@@ -104,6 +106,7 @@ def main():
         location_plan_service=location_plan_service,
         room_tag_service=room_tag_service,
         dimension_service=dimension_service,
+        sheet_assembly_service=sheet_assembly_service,
     )
 
     window = PlansVenteWindow(controller)
