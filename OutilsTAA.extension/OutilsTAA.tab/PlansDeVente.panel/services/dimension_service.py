@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v7"
+DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v8"
 
 import math
 
