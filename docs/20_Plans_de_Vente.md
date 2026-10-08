@@ -352,12 +352,19 @@ La cotation automatique est un point critique du module.
 
 ## 9.1 Règle métier
 
-Pour chaque pièce, l'objectif est de créer **deux cotes principales** :
+Pour une pièce simple ou quasi rectangulaire, l'objectif reste de créer
+**deux cotes principales** :
 
 - longueur intérieure finie ;
 - largeur intérieure finie.
 
-Ces deux cotes doivent représenter les dimensions générales de la pièce.
+Pour une pièce présentant une **forme L ou T réellement prononcée**, le moteur
+peut créer **3 à 5 cotes locales utiles** afin de décrire les différentes
+branches. Le nombre de cotes est déterminé par la géométrie du contour fini,
+jamais par le nom ou l'usage de la pièce.
+
+Les petits décrochements, niches et retours mineurs doivent continuer à être
+filtrés afin de conserver deux dimensions principales.
 
 ## 9.2 Priorité aux dimensions générales
 
@@ -3819,5 +3826,127 @@ Un test de régression reproduit explicitement le cas où une portée de 2,70 m
    portées générales de 2,67 m / 3,23 m.
 6. Vérifier qu'un couloir droit conserve une seule largeur.
 7. Contrôler que les autres pièces ne régressent pas.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 06F.3 — Détection géométrique des formes L/T
+
+**Build :** `stage06f-branched-geometry-v9`
+
+Retour Revit du 8 octobre 2026 : la stratégie spéciale basée sur les noms
+`Entrée`, `Dgt`, `Couloir`, etc. ne décrit pas correctement le besoin
+métier. Le nombre de dimensions doit dépendre de la **forme réelle de la pièce**
+et non de son libellé.
+
+### Nouvelle règle
+
+- pièce simple / quasi rectangulaire : **2 cotes principales** ;
+- pièce en L prononcé : typiquement **4 cotes utiles** ;
+- pièce en T prononcé : typiquement **4 à 5 cotes utiles** ;
+- autre forme concave prononcée : jusqu'à **5 cotes locales** ;
+- petit décrochement ou niche : rester sur le moteur simple à 2 cotes.
+
+Le nom de la pièce n'intervient plus dans le choix du moteur. Une chambre en L
+et une entrée en L sont donc traitées de la même manière ; un couloir
+rectangulaire reste une pièce simple.
+
+### Détection de la forme
+
+Le moteur pur reconstruit le contour fermé à partir des segments de limite puis
+mesure :
+
+1. le nombre d'**angles rentrants** ;
+2. l'aire réelle du contour ;
+3. l'aire de la boîte orientée selon la plus longue limite ;
+4. le ratio d'aire manquante.
+
+Une forme n'est classée L/T que si elle possède au moins un angle rentrant et
+si le ratio d'aire manquante est supérieur ou égal à **12 %**. Ce seuil est un
+paramètre géométrique du prototype, pas une règle réglementaire.
+
+Cette combinaison évite qu'un petit décrochement transforme artificiellement
+une pièce presque rectangulaire en pièce complexe.
+
+### Génération des dimensions locales
+
+Pour une forme L/T prononcée, le moteur recherche toutes les paires de limites
+parallèles crédibles :
+
+- parallélisme à 5° près ;
+- dimension minimale : 600 mm ;
+- recouvrement minimal : 300 mm ;
+- validation de plusieurs sections par `Room.IsPointInRoom` ;
+- références Revit existantes conservées ;
+- maximum : 5 dimensions.
+
+Plusieurs paires dans une même direction peuvent être conservées. Sur un L
+orthogonal typique, cela permet d'obtenir :
+
+- largeur du premier bras ;
+- largeur du second bras ;
+- portée générale du premier axe ;
+- portée générale du second axe.
+
+Les séparateurs de pièces, substitutions par bords de sols et faces finies du
+moteur 06E restent inchangés.
+
+### Placement graphique
+
+Le moteur de placement 06F accepte désormais jusqu'à cinq cotes dans une même
+pièce. Pour une ou deux cotes, l'optimisation exhaustive historique est
+conservée. Au-delà, un choix glouton borné minimise successivement :
+
+1. sortie de la pièce ;
+2. collisions avec étiquettes ;
+3. collisions avec les cotes existantes ;
+4. collisions texte / autres cotes ;
+5. croisements graphiques ;
+6. équipements ;
+7. proximité aux limites.
+
+Cela évite une explosion de type `10^5` combinaisons pour cinq dimensions.
+
+### Comptage du résultat
+
+Une pièce est maintenant considérée **complètement cotée** lorsque le nombre de
+cotes réellement créées atteint le nombre attendu par son moteur géométrique :
+
+- 2/2 pour une pièce simple ;
+- 4/4 ou 5/5 pour une pièce L/T selon le cas.
+
+Le rapport ne parle donc plus systématiquement de « pièce avec 2 cotes ».
+
+### Tests hors Revit
+
+Les tests ajoutés couvrent notamment :
+
+- rectangle simple ;
+- petit décrochement ;
+- L prononcé ;
+- T prononcé ;
+- L tourné ;
+- indépendance vis-à-vis du nom de pièce ;
+- création réelle simulée de 4 cotes sur un L ;
+- placement de 4 cotes ;
+- limite maximale à 5 dimensions ;
+- retour partiel `3/4` si une référence échoue.
+
+Le workflow Plans de vente est vert avec **201 tests** sur la suite
+`tests/plans_vente`.
+
+### Recette Revit 2025.4
+
+1. supprimer les anciennes cotes de la vue de test ;
+2. recharger pyRevit ;
+3. vérifier le build `stage06f-branched-geometry-v9` ;
+4. relancer sur le même logement ayant une entrée/dégagement en L ;
+5. vérifier que la pièce reçoit environ 4 cotes décrivant réellement ses deux
+   branches ;
+6. vérifier qu'une chambre ou autre pièce en L reçoit le même traitement ;
+7. vérifier qu'un simple couloir rectangulaire reçoit 2 cotes ;
+8. vérifier qu'un petit décrochement reste ignoré ;
+9. vérifier une pièce en T si disponible ;
+10. déplacer un mur de branche et contrôler l'associativité.
 
 **Statut : À valider dans Revit 2025.4.**
