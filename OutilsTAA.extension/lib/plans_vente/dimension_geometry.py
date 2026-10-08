@@ -386,12 +386,25 @@ def circulation_width_pairs(segments, contains, minimum_width,
             # La continuité des faces est plus représentative qu'un minuscule
             # pincement. À support égal, préférer la largeur la plus faible.
             score = overlap / width
-            ranked.append((score, overlap, first_index, second_index,
+            ranked.append((width, score, overlap, first_index, second_index,
                            tangent, normal, first_n, second_n, low, high))
-    ranked.sort(key=lambda item: (-item[0], -item[1], item[2], item[3]))
+
+    # Pour une circulation, la grandeur recherchée est la largeur locale du
+    # passage, pas la plus grande portée disponible. Le classement précédent
+    # par overlap/width pouvait encore préférer une grande portée de vestibule
+    # (ex. 2,67 m / 3,23 m) à la vraie largeur d'un bras. On teste donc d'abord
+    # les plus petites largeurs géométriquement crédibles ; la continuité ne
+    # sert plus qu'à départager deux largeurs proches.
+    ranked.sort(key=lambda item: (
+        item[0],
+        -item[1],
+        -item[2],
+        item[3],
+        item[4],
+    ))
     result = []
     checked = 0
-    for score, overlap, first_index, second_index, tangent, normal, first_n, second_n, low, high in ranked:
+    for width, score, overlap, first_index, second_index, tangent, normal, first_n, second_n, low, high in ranked:
         if any(abs(_dot(tangent, pair.tangent)) >= tolerance for pair in result):
             continue
         if checked >= 40:
