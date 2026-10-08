@@ -4297,3 +4297,60 @@ Le démarrage est désormais paresseux :
 Cette optimisation ne change pas le contenu généré par les étapes précédentes.
 
 **Statut : À valider sur le projet de production ~80 logements.**
+
+
+## Correctif 07B.1 — feuille modèle choisie explicitement
+
+**Build :** `stage07b-user-selected-sheet-v3`
+
+Décision de production du 8 octobre 2026 : le plugin ne doit plus rechercher
+automatiquement dans tout le projet les feuilles qui pourraient être des
+modèles.
+
+### Nouvelle logique
+
+L'utilisateur désigne lui-même la feuille à utiliser comme modèle :
+
+```text
+Étape 07B — Feuille modèle
+
+Feuille modèle — choix utilisateur
+[ A900 — MODELE PLAN DE VENTE ▼ ]
+
+[ Créer la feuille ]
+```
+
+La liste contient simplement les feuilles du projet, identifiées par leur
+numéro et leur nom. Aucun viewport, aucune nomenclature et aucun cartouche
+n'est analysé lors de cette collecte.
+
+Ce n'est qu'après la sélection d'une feuille que le plugin inspecte **cette
+feuille uniquement**.
+
+La validation vérifie alors :
+
+- un viewport dont la vue est nommée `PDV_MODELE_VUE` ;
+- un viewport dont la vue est nommée `PDV_MODELE_REPERAGE` ;
+- une nomenclature `PDV_MODELE_NOM_INT` ;
+- une nomenclature `PDV_MODELE_NOM_EXT` ;
+- exactement un cartouche.
+
+Si la feuille sélectionnée n'est pas conforme, le bouton de création reste
+désactivé et le message indique précisément ce qui manque.
+
+### Performance
+
+La liste des feuilles est chargée seulement lorsque l'utilisateur ouvre la
+liste « Feuille modèle ». Elle utilise une seule collecte légère de
+`ViewSheet`.
+
+Aucune recherche automatique de placeholders n'est réalisée sur les autres
+feuilles du projet.
+
+### Conséquence métier
+
+Le choix du modèle devient totalement explicite et prévisible. Le projet peut
+contenir un grand nombre de feuilles sans que le module tente de déterminer
+lesquelles sont des modèles de plan de vente.
+
+**Statut : À valider dans Revit 2025.4.**
