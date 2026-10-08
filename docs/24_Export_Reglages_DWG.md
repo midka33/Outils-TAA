@@ -1,9 +1,9 @@
 # Export — configurations DWG, vues, liens et stratégie automatique
 
-**Statut :** implémenté et testé hors Revit ; **recette Revit 2025.4 en attente**.  
-**Branche :** `feature/export-dwg-settings`.  
-Aucune validation du rendu WPF, des XRefs ou de l'ouverture native dans Revit n'est
-revendiquée avant la recette utilisateur.
+**Statut :** workflow principal validé dans Revit 2025.4 et intégré à `main`.  
+**Validation utilisateur :** 8 octobre 2026.  
+Les limites natives Revit sur les ressources externes restent documentées ; la
+configuration DWG Revit demeure la source de vérité pour les options avancées.
 
 ## 1. Choix réellement exposés à l'utilisateur
 

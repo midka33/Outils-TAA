@@ -174,6 +174,40 @@ Le format suit les principes de *Keep a Changelog*.
 - Le réglage `modified_only` est désormais totalement intégré à l'interface, à la prévisualisation, à la publication simple et multiple et à l'historique ; la validation réelle dans Revit 2025.4 reste obligatoire.
 - Stage 08 reste volontairement isolé : son résolveur ne dépend ni de Revit, ni de WPF, ni du moteur PDF/DWG, et n'est pas appelé par le workflow de publication actuel.
 
+## [1.0.3] - 2026-10-08
+
+### Added
+- Export DWG : accès aux configurations natives Revit, réglage explicite de fusion
+  des vues/liens et actualisation des presets depuis l'interface.
+- Export : progression détaillée alimentée par les données natives Revit lorsqu'elles
+  existent, puis compteur exact `X / Y mises en page` pendant les traitements
+  réellement contrôlés par Outils TAA.
+
+### Changed
+- Export DWG : suppression du choix technique « Par feuille / Lot Revit ». Une feuille
+  utilise un appel simple ; plusieurs feuilles utilisent automatiquement un lot natif
+  Revit, tout en conservant un DWG final par feuille.
+- Export : la case « Créer un dossier au nom du carnet » produit désormais
+  `NomCarnet/PDF/` et `NomCarnet/DWG/` indépendamment du mode PDF/DWG.
+- Export : fenêtre de progression stabilisée avec taille fixe et information utilisateur
+  simplifiée ; les compteurs bruts Revit restent internes au calcul du pourcentage.
+- Calculs des pièces : ouverture optimisée avec un seul scan des paramètres et un cache
+  local des métadonnées invariantes pendant le chargement. Validation réelle autour de
+  3 secondes sur le projet de test d'environ 80 logements.
+
+### Fixed
+- Export PDF combiné : le nom du fichier est désormais résolu au niveau du carnet et
+  ne reprend plus automatiquement la première feuille.
+- Export DWG en lot : les noms natifs Revit sont rapprochés des feuilles puis renommés
+  selon la règle TAA ; les suffixes comme « Feuille » ne contaminent plus les noms finaux.
+- Export : fichiers auxiliaires DWG regroupés dans le dossier DWG du carnet.
+- Validation automatisée avant release : **301 tests Export** et **79 tests Calculs**
+  réussis hors Revit.
+
+### Unchanged
+- La résolution interactive des divergences entre occurrences de groupes reste hors de
+  cette release ; le comportement sécurisé de la v1.0.1 est conservé.
+
 ## [1.0.2] - 2026-10-07
 
 ### Added
