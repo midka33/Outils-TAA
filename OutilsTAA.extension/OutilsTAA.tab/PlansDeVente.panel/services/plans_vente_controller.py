@@ -144,6 +144,11 @@ class PlansVenteController(object):
     def sheet_templates(self):
         return self.sheet_assembly_service.list_sheet_templates()
 
+    def inspect_sheet_template(self, template_sheet_unique_id):
+        return self.sheet_assembly_service.inspect_sheet_template(
+            template_sheet_unique_id
+        )
+
     def sheet_title_block_types(self):
         return self.sheet_assembly_service.list_title_block_types()
 
