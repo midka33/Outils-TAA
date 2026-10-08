@@ -807,10 +807,10 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Type de cote : {}\n"
                 "Pièces : {}\n\n"
                 "Prototype 06F : placement intérieur avec évitement des étiquettes, "
-                "équipements et autres cotes. Les conflits résiduels sont signalés. "
-                "Les références aux faces de murs et aux bords de sols sont conservées. "
-                "Entrées et couloirs : largeurs locales, sans longueur générale. "
-                "Une pièce atypique ne bloque plus les autres."
+                "équipements et autres cotes. Les références aux faces de murs et aux "
+                "bords de sols sont conservées. Les pièces simples visent 2 cotes ; "
+                "les formes L/T prononcées sont détectées géométriquement et peuvent "
+                "recevoir jusqu'à 5 cotes locales. Le nom de la pièce n'intervient pas."
             ).format(
                 housing.key,
                 view.name,
@@ -833,8 +833,8 @@ class PlansVenteWindow(forms.WPFWindow):
             )
 
             status = (
-                "{} cote(s) créée(s) dans {} — {} pièce(s) avec 2 cotes, "
-                "{} avec 1 cote, {} sans cote."
+                "{} cote(s) créée(s) dans {} — {} pièce(s) complètement cotée(s), "
+                "{} partielle(s), {} sans cote."
             ).format(
                 result.created_count,
                 result.view_name,
@@ -853,8 +853,8 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Type : {}\n"
                 "Pièces analysées : {}\n"
                 "Cotes créées : {}\n"
-                "Pièces avec 2 cotes : {}\n"
-                "Pièces avec 1 cote : {}\n"
+                "Pièces complètement cotées : {}\n"
+                "Pièces partiellement cotées : {}\n"
                 "Pièces sans cote : {}"
             ).format(
                 result.housing_key,
