@@ -79,14 +79,22 @@ def test_stage07b_template_contract_is_explicit():
     assert TEMPLATE_EXTERIOR_SCHEDULE_NAME == "PDV_MODELE_NOM_EXT"
 
 
-def test_stage07b_service_filters_only_complete_template_sheets():
+def test_stage07b_lists_all_sheets_and_validates_only_selected_sheet():
     text = SERVICE.read_text(encoding="utf-8")
 
     assert "def list_sheet_templates(" in text
+    assert "def inspect_sheet_template(" in text
     assert "def _template_layout(" in text
-    assert "sheet.GetAllViewports()" in text
-    assert "ScheduleSheetInstance" in text
-    assert "required_placeholder_names()" in text
+    assert "for sheet in (" in text
+    assert ".OfClass(ViewSheet)" in text
+    assert "self._template_layout(sheet)" not in text[
+        text.index("    def list_sheet_templates("):
+        text.index("    def inspect_sheet_template(")
+    ]
+    assert "layout = self._template_layout(sheet)" in text[
+        text.index("    def inspect_sheet_template("):
+        text.index("    def create_sheet_from_template(")
+    ]
     assert "La feuille modèle doit contenir exactement un cartouche." in text
 
 
@@ -106,6 +114,7 @@ def test_stage07_controller_and_entrypoint_wire_service_outside_ui():
 
     assert "self.sheet_assembly_service = sheet_assembly_service" in controller
     assert "def sheet_templates(" in controller
+    assert "def inspect_sheet_template(" in controller
     assert "def sheet_assembly_readiness(" in controller
     assert "def create_sheet_from_template(" in controller
     assert "def sheet_assembly_build_id(" in controller
@@ -123,6 +132,7 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
     window = WINDOW.read_text(encoding="utf-8")
 
     assert "Étape 07B — Feuille modèle" in xaml
+    assert "Feuille modèle — choix utilisateur" in xaml
     for name in (
         "SheetInfoText",
         "SheetTemplateCombo",
@@ -134,7 +144,9 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
     assert 'Click="CreateSheet_Click"' in xaml
     assert "def CreateSheet_Click(" in window
     assert "def _load_sheet_templates(" in window
+    assert "def _inspect_selected_sheet_template(" in window
     assert "def _load_sheet_readiness(" in window
+    assert "self.SheetTemplateCombo.SelectedIndex = -1" in window
     assert "create_sheet_from_template(" in window
 
 
@@ -157,4 +169,4 @@ def test_stage07b_result_reports_template_sheet():
 
     assert "template_sheet_label" in text
     assert "result.template_sheet_label" in WINDOW.read_text(encoding="utf-8")
-    assert "stage07b-sheet-template-layout-v2" in text
+    assert "stage07b-user-selected-sheet-v3" in text
