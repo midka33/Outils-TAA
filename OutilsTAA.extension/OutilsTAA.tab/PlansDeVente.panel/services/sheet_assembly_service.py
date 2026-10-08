@@ -80,7 +80,6 @@ class SheetAssemblyReadiness(object):
         self.location_view_name = location_view_name_value or ""
         self.interior_schedule_name = interior_schedule_name or ""
         self.exterior_schedule_name = exterior_schedule_name or ""
-        self.template_sheet_label = template_sheet_label or ""
         self.missing = list(missing or [])
 
     @property
@@ -117,10 +116,11 @@ class SheetAssemblyResult(object):
         self.location_view_name = location_view_name_value or ""
         self.interior_schedule_name = interior_schedule_name or ""
         self.exterior_schedule_name = exterior_schedule_name or ""
+        self.template_sheet_label = template_sheet_label or ""
 
 
 class SheetAssemblyService(object):
-    """Prototype 07A : crée une feuille et place quatre artefacts existants."""
+    """Prototype 07B : reproduit la composition d'une feuille modèle."""
 
     def __init__(self, document):
         if document is None:
