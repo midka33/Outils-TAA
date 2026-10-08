@@ -14,10 +14,17 @@ from calculation.parameter_descriptor import RoomParameterDescriptor
 class RoomParameterService(object):
     """Expose les paramètres texte pertinents pour l'identifiant logement."""
 
+    # Les paramètres de catégorie Pièces sont liés au projet et leur schéma est
+    # identique d'une pièce à l'autre. Scanner des centaines de pièces au simple
+    # affichage de la fenêtre ne fournit donc quasiment aucune information
+    # supplémentaire. Quelques pièces suffisent pour absorber les cas atypiques.
+    DISCOVERY_SAMPLE_LIMIT = 8
+
     def get_text_parameter_descriptors(self, rooms):
         descriptors = {}
 
-        for room in rooms or []:
+        sampled_rooms = list(rooms or [])[:self.DISCOVERY_SAMPLE_LIMIT]
+        for room in sampled_rooms:
             for parameter in getattr(room, "Parameters", []) or []:
                 descriptor = self.create_descriptor(parameter)
                 if descriptor is None:
