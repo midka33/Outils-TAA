@@ -2,8 +2,8 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.19
-**Statut :** Développement — Étape 06 Cotations  
+**Version :** 1.20
+**Statut :** Développement — Étape 07 Assemblage de la feuille  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
@@ -4058,3 +4058,111 @@ code actif et de la suite de tests V1.
 7. confirmer que le temps de calcul est meilleur ou au minimum stable.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Clôture Étape 06 — Cotations V1
+
+**Étape 06 — Cotations V1 : VALIDÉE.**
+
+Décision finale V1 :
+
+- deux cotations principales maximum par pièce ;
+- dimensions générales et faces finies prioritaires ;
+- références Revit associatives ;
+- gestion des murs biais par longueur de secours ;
+- lignes de séparation remplacées par les bords de sols superposés lorsque
+  cela est fiable ;
+- lignes de séparation pouvant rester masquées ;
+- placement intérieur avec évitement des étiquettes et obstacles ;
+- les cotations complémentaires des pièces atypiques restent sous le contrôle
+  de l'utilisateur.
+
+Build de référence : `stage06f-two-principal-dimensions-v11`.
+
+Cette règle est volontairement plus simple que les prototypes L/T expérimentés.
+Elle privilégie la rapidité et la stabilité de production.
+
+## Ouverture Étape 07 — Assemblage de la feuille
+
+Branche :
+
+`feature/plans-de-vente-stage07-sheet-assembly`
+
+Objectif V1 : créer une feuille réelle de plan de vente et y placer les
+artefacts déjà générés pour un logement.
+
+### Prototype 07A — Feuille simple
+
+Le prototype 07A doit placer automatiquement :
+
+1. la vue principale du logement ;
+2. le plan de repérage ;
+3. la nomenclature intérieure ;
+4. la nomenclature extérieure.
+
+L'utilisateur choisit explicitement le **type de cartouche**.
+
+Le prototype retrouve les éléments générés avec les conventions V1 existantes :
+
+- vue logement : `PDV PROTO - <logement> - ...` ;
+- plan de repérage : `PDV_<logement>_REP` ;
+- nomenclature intérieure : `PDV_<logement>_INT` ;
+- nomenclature extérieure : `PDV_<logement>_EXT`.
+
+La feuille créée reçoit provisoirement :
+
+- numéro : `PDV-<logement>` ;
+- nom : `Plan de vente - <logement>`.
+
+La mise à jour d'une feuille existante reste réservée à l'Étape 08.
+
+### Placement V1 du prototype 07A
+
+Le placement 07A utilise quatre ancrages relatifs à l'emprise réelle de la
+feuille retournée par `ViewSheet.Outline`.
+
+Disposition initiale :
+
+```text
+┌─────────────────────────────────┐
+│                    REPÉRAGE     │
+│                                 │
+│        VUE PRINCIPALE           │
+│                                 │
+│                  NOMENCL. INT   │
+│                  NOMENCL. EXT   │
+└─────────────────────────────────┘
+```
+
+Les coordonnées sont calculées en pourcentage de l'emprise de feuille afin de
+rester indépendantes du format exact du cartouche.
+
+Ce placement n'est pas encore la composition définitive : l'Étape 07B devra
+permettre de reprendre les positions d'une **feuille modèle**.
+
+### Sécurité
+
+Avant création, le service vérifie :
+
+- présence de la vue logement ;
+- présence du plan de repérage ;
+- présence des deux nomenclatures ;
+- type de cartouche valide ;
+- absence d'une feuille portant déjà le même numéro ou le même nom ;
+- absence de placement existant des vues et nomenclatures concernées.
+
+Une opération 07A ne supprime ni ne modifie une feuille existante.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. préparer un logement avec les étapes précédentes ;
+2. vérifier la présence de sa vue logement, de son repérage et de ses deux
+   nomenclatures ;
+3. sélectionner un type de cartouche ;
+4. lancer « Créer la feuille prototype » ;
+5. vérifier que la feuille `PDV-<logement>` est créée ;
+6. vérifier la présence des deux vues et des deux nomenclatures ;
+7. contrôler leur position générale sur plusieurs formats de cartouche ;
+8. vérifier qu'une seconde création du même logement est refusée proprement.
+
+**Statut du prototype 07A : À valider dans Revit 2025.4.**
