@@ -257,8 +257,14 @@ class DimensionService(object):
 
             boundary_candidates = self._room_boundary_candidates(room)
             segments = [candidate.segment for candidate in boundary_candidates]
+            shape_segments = self._room_shape_segments(room)
 
-            branched_pairs = self._branched_pairs(room, segments, warnings)
+            branched_pairs = self._branched_pairs(
+                room,
+                segments,
+                shape_segments,
+                warnings,
+            )
             if len(branched_pairs) >= 3:
                 pairs = branched_pairs
                 target_count = len(pairs)
