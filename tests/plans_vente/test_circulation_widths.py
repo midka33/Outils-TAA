@@ -112,3 +112,26 @@ def test_sampling_budget_is_bounded_even_for_many_parallel_segments():
         return False
     assert circulation_width_pairs(boundaries, blocked, .6, .3) == []
     assert len(calls) <= 1400
+
+
+
+def test_local_width_is_preferred_over_larger_valid_span():
+    # Régression A003 : deux paires parallèles peuvent être géométriquement
+    # valides dans une entrée/dégagement, mais la grande portée ne doit pas
+    # gagner simplement parce que son support longitudinal est un peu meilleur.
+    boundaries = [
+        (0.0, 0.0, 3.3, 0.0),
+        (0.0, 2.7, 3.3, 2.7),   # grande portée 2,70 m
+        (10.0, 10.0, 11.3, 10.0),
+        (10.0, 11.2, 11.3, 11.2),  # largeur locale 1,20 m
+    ]
+
+    result = circulation_width_pairs(
+        boundaries,
+        lambda p: True,
+        minimum_width=0.6,
+        minimum_overlap=0.3,
+    )
+
+    assert len(result) == 1
+    assert result[0].distance == pytest.approx(1.2)
