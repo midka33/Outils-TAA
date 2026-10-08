@@ -84,6 +84,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._sheet_template_choices = []
         self._sheet_template_labels = []
         self._sheet_readiness = None
+        self._deferred_static_choices_loaded = False
+        self._sheet_templates_loaded = False
         self._active_descriptor = None
 
         current_dir = os.path.dirname(__file__)
@@ -94,14 +96,12 @@ class PlansVenteWindow(forms.WPFWindow):
         self._load_context()
         self._clear_prototype_selection()
         self._clear_schedule_selection()
-        self._load_location_static_choices()
         self._clear_location_source_selection()
         self._clear_room_tag_views()
-        self._load_room_tag_types()
         self._clear_dimension_views()
-        self._load_dimension_types()
         self._clear_sheet_assembly()
-        self._load_sheet_templates()
+        self.SheetTemplateCombo.ItemsSource = []
+        self.SheetTemplateCombo.SelectedIndex = -1
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -251,6 +251,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Aucune vue plan principale duplicable n'a été trouvée pour ce niveau."
             )
 
+        self._ensure_deferred_static_choices_loaded()
         self._load_location_sources(housing)
         self._load_room_tag_views(housing)
         self._load_dimension_views(housing)
@@ -1000,6 +1001,19 @@ class PlansVenteWindow(forms.WPFWindow):
             and self.DimensionTypeCombo.SelectedItem is not None
         )
 
+    def _ensure_deferred_static_choices_loaded(self):
+        if self._deferred_static_choices_loaded:
+            return
+        self._load_location_static_choices()
+        self._load_room_tag_types()
+        self._load_dimension_types()
+        self._deferred_static_choices_loaded = True
+
+    def SheetTemplateDropDownOpened(self, sender, args):
+        if not self._sheet_templates_loaded:
+            self._load_sheet_templates()
+        self._update_sheet_button_state()
+
     def SheetTemplateChanged(self, sender, args):
         self._update_sheet_button_state()
 
@@ -1140,6 +1154,7 @@ class PlansVenteWindow(forms.WPFWindow):
     def _load_sheet_templates(self):
         self._sheet_template_choices = []
         self._sheet_template_labels = []
+        self._sheet_templates_loaded = True
         try:
             candidates = self.controller.sheet_templates()
         except Exception as error:
@@ -1212,7 +1227,8 @@ class PlansVenteWindow(forms.WPFWindow):
         self._sheet_readiness = None
         if hasattr(self, "SheetInfoText"):
             self.SheetInfoText.Text = (
-                "Sélectionnez un logement pour vérifier les éléments à placer."
+                "Sélectionnez un logement. Les feuilles modèles 07B ne sont "
+                "chargées que lorsque vous ouvrez leur liste."
             )
         if hasattr(self, "CreateSheetButton"):
             self.CreateSheetButton.IsEnabled = False
