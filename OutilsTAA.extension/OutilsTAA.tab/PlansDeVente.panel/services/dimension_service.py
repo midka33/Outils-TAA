@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v8"
+DIMENSION_SERVICE_BUILD = "stage06f-branched-geometry-v9"
 
 import math
 
@@ -12,8 +12,8 @@ from plans_vente.dimension_geometry import (
     dominant_dimension_pairs,
     representative_length_indexes,
     segment_match_metrics,
-    is_circulation_name,
-    circulation_width_pairs,
+    pronounced_branched_shape_metrics,
+    branched_dimension_pairs,
 )
 from plans_vente.tag_positioning import polygon_area, boxes_overlap
 from plans_vente.dimension_positioning import (
@@ -111,8 +111,10 @@ class DimensionService(object):
     PAPER_TEXT_HEIGHT_MM = 3.0
     PAPER_PADDING_MM = 0.3
     PAPER_WITNESS_MM = 1.5
-    CIRCULATION_MIN_WIDTH_MM = 600.0
-    CIRCULATION_MIN_OVERLAP_MM = 300.0
+    BRANCH_MIN_DIMENSION_MM = 600.0
+    BRANCH_MIN_OVERLAP_MM = 300.0
+    BRANCH_MIN_MISSING_RATIO = 0.12
+    BRANCH_MAX_DIMENSIONS = 5
 
     FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.0
     FLOOR_EDGE_TOLERANCE_MM = 20.0
@@ -240,7 +242,7 @@ class DimensionService(object):
             )
 
         room_plans = []
-        circulation_targets = {}
+        room_targets = {}
         warnings = []
         tag_boxes, dimension_boxes, equipment_boxes = self._view_obstacles(view, warnings)
         exclusion_boxes = []
@@ -255,10 +257,11 @@ class DimensionService(object):
 
             boundary_candidates = self._room_boundary_candidates(room)
             segments = [candidate.segment for candidate in boundary_candidates]
-            if is_circulation_name(getattr(room, "Name", "")):
-                pairs = self._circulation_pairs(room, segments, warnings)
-                circulation_targets[id(room)] = len(pairs)
-                # Une longueur de secours contredirait la règle demandée.
+
+            branched_pairs = self._branched_pairs(room, segments, warnings)
+            if len(branched_pairs) >= 3:
+                pairs = branched_pairs
+                target_count = len(pairs)
                 fallback_indexes = []
             else:
                 pairs = dominant_dimension_pairs(
@@ -268,18 +271,18 @@ class DimensionService(object):
                     placement_fraction=self.PLACEMENT_FRACTION,
                     max_results=2,
                 )
+                target_count = 2
                 fallback_indexes = self._fallback_length_indexes(
                     boundary_candidates,
                     pairs,
                 )
 
+            room_targets[id(room)] = target_count
+
             separator_fallback_used = False
             for pair in pairs:
                 for index in (pair.first_index, pair.second_index):
-                    if (
-                        boundary_candidates[index].source_kind
-                        == "separator"
-                    ):
+                    if boundary_candidates[index].source_kind == "separator":
                         separator_fallback_used = True
                         break
                 if separator_fallback_used:
@@ -293,16 +296,19 @@ class DimensionService(object):
                     "masquées dans la vue.".format(self._room_label(room))
                 )
 
-            room_plans.append(
-                (room, boundary_candidates, pairs, fallback_indexes)
-            )
-
+            room_plans.append((
+                room,
+                boundary_candidates,
+                pairs,
+                fallback_indexes,
+                target_count,
+            ))
         created_count = 0
         full_room_count = 0
         partial_room_count = 0
         skipped_room_count = 0
 
-        for room, boundary_candidates, pairs, fallback_indexes in room_plans:
+        for room, boundary_candidates, pairs, fallback_indexes, target_count in room_plans:
             room_label = self._room_label(room)
             room_created = 0
             used_length_indexes = set()
@@ -312,8 +318,10 @@ class DimensionService(object):
                 # Le choix des références reste celui du moteur 06E. Seules
                 # les lignes de création sont traduites parallèlement.
                 pair_lines = [(pair.line_start, pair.line_end) for pair in pairs]
-                initial_fallbacks = [index for index in fallback_indexes
-                                     if boundary_candidates[index].length_references][:2 - len(pairs)]
+                initial_fallbacks = [
+                    index for index in fallback_indexes
+                    if boundary_candidates[index].length_references
+                ][:max(0, target_count - len(pairs))]
                 lines = pair_lines + [self._length_dimension_line(boundary_candidates[index], room)
                                       for index in initial_fallbacks]
                 anchors = [None] * len(pairs) + [
@@ -332,7 +340,7 @@ class DimensionService(object):
                     ),
                 ):
                     for pair_index, pair in enumerate(pairs):
-                        if room_created >= 2:
+                        if room_created >= target_count:
                             break
                         first = boundary_candidates[pair.first_index]
                         second = boundary_candidates[pair.second_index]
@@ -359,7 +367,7 @@ class DimensionService(object):
                             )
 
                     for index in fallback_indexes:
-                        if room_created >= 2:
+                        if room_created >= target_count:
                             break
                         if index in used_length_indexes:
                             continue
@@ -434,16 +442,19 @@ class DimensionService(object):
                 exclusion_boxes.extend(boxes)
 
             created_count += room_created
-            if room_created >= 2:
+            expected_count = room_targets.get(id(room), target_count)
+            if room_created >= expected_count:
                 full_room_count += 1
-            elif room_created == 1:
+            elif room_created > 0:
                 partial_room_count += 1
-                if circulation_targets.get(id(room)) != 1:
-                    warnings.append(
-                        "{} : une seule dimension principale fiable a pu être créée.".format(
-                            room_label
-                        )
+                warnings.append(
+                    "{} : {}/{} dimension(s) géométriquement attendue(s) "
+                    "ont pu être créées.".format(
+                        room_label,
+                        room_created,
+                        expected_count,
                     )
+                )
             else:
                 skipped_room_count += 1
                 warnings.append(
@@ -451,7 +462,6 @@ class DimensionService(object):
                         room_label
                     )
                 )
-
         return DimensionCreationResult(
             housing_key=housing.key,
             view_name=str(getattr(view, "Name", "") or ""),
@@ -465,26 +475,67 @@ class DimensionService(object):
             exclusion_boxes=exclusion_boxes,
         )
 
-    def _circulation_pairs(self, room, segments, warnings):
+    def _branched_pairs(self, room, segments, warnings):
+        metrics = pronounced_branched_shape_metrics(
+            segments,
+            minimum_missing_ratio=self.BRANCH_MIN_MISSING_RATIO,
+        )
+        if not metrics["is_branched"]:
+            return []
+
         try:
             probe_z = self._probe_z(room)
             cache = {}
 
             def contains(xy):
                 if xy not in cache:
-                    cache[xy] = bool(room.IsPointInRoom(self._xyz(xy[0], xy[1], probe_z)))
+                    cache[xy] = bool(
+                        room.IsPointInRoom(
+                            self._xyz(xy[0], xy[1], probe_z)
+                        )
+                    )
                 return cache[xy]
 
-            pairs = circulation_width_pairs(
-                segments, contains,
-                minimum_width=self._millimeters_to_internal(self.CIRCULATION_MIN_WIDTH_MM),
-                minimum_overlap=self._millimeters_to_internal(self.CIRCULATION_MIN_OVERLAP_MM),
-                angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES)
-            if not pairs:
-                warnings.append("{} : aucune largeur locale fiable de circulation ; cotation manuelle à prévoir.".format(self._room_label(room)))
-            return pairs
+            pairs = branched_dimension_pairs(
+                segments,
+                contains,
+                minimum_dimension=self._millimeters_to_internal(
+                    self.BRANCH_MIN_DIMENSION_MM
+                ),
+                minimum_overlap=self._millimeters_to_internal(
+                    self.BRANCH_MIN_OVERLAP_MM
+                ),
+                angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
+                minimum_missing_ratio=self.BRANCH_MIN_MISSING_RATIO,
+                max_results=self.BRANCH_MAX_DIMENSIONS,
+            )
+
+            if len(pairs) >= 3:
+                warnings.append(
+                    "{} : forme L/T prononcée détectée "
+                    "({} angle(s) rentrant(s), {} cote(s) locale(s)).".format(
+                        self._room_label(room),
+                        metrics["reflex_count"],
+                        len(pairs),
+                    )
+                )
+                return pairs
+
+            warnings.append(
+                "{} : forme concave prononcée détectée mais moins de trois "
+                "dimensions locales fiables ; moteur simple conservé.".format(
+                    self._room_label(room)
+                )
+            )
+            return []
         except Exception as error:
-            warnings.append("{} : recherche de largeur de circulation impossible ({}).".format(self._room_label(room), error))
+            warnings.append(
+                "{} : analyse géométrique L/T impossible ({}), moteur simple "
+                "conservé.".format(
+                    self._room_label(room),
+                    str(error) or repr(error),
+                )
+            )
             return []
 
     def _view_obstacles(self, view, warnings):
