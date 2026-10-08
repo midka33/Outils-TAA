@@ -29,7 +29,16 @@ class FilledRegionTypeCandidate(object):
 
 
 class LocationPlanResult(object):
-    def __init__(self, housing_key, view_name, view_unique_id, region_count, template_name, fill_type_name):
+    def __init__(
+        self,
+        housing_key,
+        view_name,
+        view_unique_id,
+        region_count,
+        template_name,
+        fill_type_name,
+        placement=None,
+    ):
         self.housing_key = housing_key or ""
         self.view_name = view_name or ""
         self.view_unique_id = view_unique_id or ""
