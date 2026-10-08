@@ -32,14 +32,25 @@ class PublicationProgressWindow(forms.WPFWindow):
         self.CarnetText.Text = state["carnet_name"]
         self.ItemText.Text = state["item_label"]
         detail_total = int(state.get("detail_total", 0) or 0)
-        if detail_total > 0:
-            self.UnitsText.Text = "{0} / {1} {2}".format(
+        detail_label = state.get("detail_label", "unités")
+        if detail_total > 0 and detail_label == "progression Revit":
+            # Position/UpperRange sert au calcul de la barre mais n'est pas
+            # une information métier (ce n'est pas un nombre de feuilles).
+            self.UnitsLabelText.Text = "Avancement :"
+            self.UnitsText.Text = "Revit travaille…"
+        elif detail_total > 0:
+            self.UnitsLabelText.Text = (
+                "Mises en page :"
+                if detail_label == "mises en page"
+                else "Avancement :"
+            )
+            self.UnitsText.Text = "{0} / {1}".format(
                 state.get("detail_current", 0),
                 detail_total,
-                state.get("detail_label", "unités"),
             )
         else:
-            self.UnitsText.Text = "{0} / {1} unités".format(
+            self.UnitsLabelText.Text = "Avancement :"
+            self.UnitsText.Text = "{0} / {1} étapes".format(
                 state["current"], state["total"]
             )
         self.PhaseText.Text = state["phase"]
