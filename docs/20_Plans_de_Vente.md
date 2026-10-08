@@ -4252,3 +4252,48 @@ personnalisés de la feuille modèle. Ces éléments restent dans le périmètre
 stabilisation de l'Étape 07.
 
 **Statut du prototype 07B : À valider dans Revit 2025.4.**
+
+
+## Optimisation ouverture module — 07B
+
+Retour de production du 8 octobre 2026 : sur un projet d'environ 80 logements,
+l'ouverture du module Plans de vente était devenue trop lente.
+
+### Causes identifiées
+
+La fenêtre chargeait plusieurs listes Revit avant même que l'utilisateur ait
+sélectionné un logement :
+
+- gabarits de vue de repérage ;
+- types de zones remplies ;
+- types d'étiquettes ;
+- types de cotes ;
+- feuilles modèles 07B.
+
+La recherche des feuilles modèles était particulièrement coûteuse car le
+prototype initial validait chaque feuille séparément et déclenchait plusieurs
+`FilteredElementCollector` pour chaque `ViewSheet`.
+
+La découverte des paramètres texte parcourait également les paramètres de
+toutes les pièces du projet alors que le schéma de paramètres de la catégorie
+Pièces est commun au projet.
+
+### Correctif
+
+Le démarrage est désormais paresseux :
+
+1. à l'ouverture, seuls les pièces et les paramètres nécessaires au choix du
+   paramètre logement sont préparés ;
+2. gabarits, types d'étiquette et types de cote ne sont chargés qu'au premier
+   logement sélectionné ;
+3. les feuilles modèles 07B ne sont chargées que lorsque l'utilisateur ouvre
+   la liste « Feuille modèle » ;
+4. la découverte du schéma de paramètres est limitée à un échantillon de
+   8 pièces ;
+5. la recherche des feuilles modèles utilise trois collectes globales
+   (viewports, nomenclatures placées, cartouches) puis un index en mémoire,
+   au lieu de rescanner le document feuille par feuille.
+
+Cette optimisation ne change pas le contenu généré par les étapes précédentes.
+
+**Statut : À valider sur le projet de production ~80 logements.**
