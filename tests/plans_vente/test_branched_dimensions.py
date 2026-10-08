@@ -178,3 +178,38 @@ def test_geometry_engine_caps_complex_room_at_five_dimensions():
     )
 
     assert 3 <= len(result) <= 5
+
+
+
+def test_branched_pair_generation_can_use_incomplete_reference_subset_after_full_shape_detection():
+    # Le contour complet est bien un L, mais les limites réellement cotables
+    # peuvent être incomplètes / non fermées après filtrage des références Revit.
+    shape_points = [
+        (0., 0.), (5.2, 0.), (5.2, 3.4),
+        (4., 3.4), (4., 1.2), (0., 1.2),
+    ]
+    reference_segments = [
+        (0., 0., 5.2, 0.),
+        (5.2, 0., 5.2, 3.4),
+        (4., 3.4, 4., 1.2),
+        (4., 1.2, 0., 1.2),
+        (0., 1.2, 0., 0.),
+    ]
+
+    metrics = pronounced_branched_shape_metrics(
+        segments(shape_points),
+        minimum_missing_ratio=0.12,
+    )
+    assert metrics["is_branched"] is True
+
+    result = branched_dimension_pairs(
+        reference_segments,
+        contains_polygon(shape_points),
+        minimum_dimension=.6,
+        minimum_overlap=.3,
+        minimum_missing_ratio=.12,
+        max_results=5,
+        assume_branched=True,
+    )
+
+    assert len(result) >= 3
