@@ -60,6 +60,7 @@ def setup(monkeypatch):
         a + b, object(), i, length_references=(object(), object()))
         for i, (a, b) in enumerate(zip(POINTS, POINTS[1:] + POINTS[:1]))]
     service._room_boundary_candidates = lambda room: boundaries
+    service._room_shape_segments = lambda room: [boundary.segment for boundary in boundaries]
     created = []
     def create(*args):
         created.append(args)
@@ -239,6 +240,9 @@ def _set_room_shape(setup, points, contains, name='Pièce'):
         a + b, object(), i, length_references=(object(), object()))
         for i, (a, b) in enumerate(zip(points, points[1:] + points[:1]))]
     setup.service._room_boundary_candidates = lambda room: boundaries
+    setup.service._room_shape_segments = lambda room: [
+        boundary.segment for boundary in boundaries
+    ]
     return boundaries
 
 
