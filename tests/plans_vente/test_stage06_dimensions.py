@@ -153,7 +153,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v7"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06f-circulation-widths-v8"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
