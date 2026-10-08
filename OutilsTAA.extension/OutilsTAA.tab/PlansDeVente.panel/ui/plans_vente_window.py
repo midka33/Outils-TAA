@@ -357,6 +357,7 @@ class PlansVenteWindow(forms.WPFWindow):
 
             self._load_room_tag_views(housing)
             self._load_dimension_views(housing)
+            self._load_sheet_readiness(housing)
 
             forms.alert(
                 message,
@@ -423,6 +424,7 @@ class PlansVenteWindow(forms.WPFWindow):
             )
             self.StatusText.Text = "Nomenclatures créées pour {} : {} / {}.".format(
                 result.housing_key, result.interior_name, result.exterior_name)
+            self._load_sheet_readiness(housing)
             forms.alert(
                 (
                     "Nomenclatures créées avec succès.\n\n"
@@ -524,6 +526,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 template_unique_id=template.unique_id if template is not None else None,
             )
             self.StatusText.Text = "Plan de repérage créé : {}.".format(result.view_name)
+            self._load_sheet_readiness(housing)
             forms.alert(
                 (
                     "Plan de repérage créé avec succès.\n\n"
