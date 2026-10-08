@@ -153,7 +153,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06f-branched-full-contour-v10"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06f-two-principal-dimensions-v11"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
@@ -190,11 +190,11 @@ def test_stage06b_keeps_processing_when_one_room_is_atypical():
     service = SERVICE.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert "for room, boundary_candidates, pairs, fallback_indexes, target_count in room_plans" in service
+    assert "for room, boundary_candidates, pairs, fallback_indexes in room_plans" in service
     assert "with RevitTransaction(" in service
     assert "partial_room_count" in service
     assert "skipped_room_count" in service
-    assert "dimension(s) géométriquement attendue(s)" in service
+    assert "une seule dimension principale fiable" in service
     assert "Plans de vente - Cotations {} - {}" in service
 
 
@@ -330,23 +330,15 @@ def test_stage06e_warns_when_only_hidden_separator_reference_remains():
 
 
 
-def test_stage06f_geometry_not_room_name_controls_complex_dimensioning():
+
+
+
+def test_stage06f_v11_is_explicitly_limited_to_two_principal_dimensions():
     service = SERVICE.read_text(encoding="utf-8")
 
-    assert "pronounced_branched_shape_metrics" in service
-    assert "branched_dimension_pairs" in service
-    assert "is_circulation_name" not in service
-    assert "if is_circulation_name" not in service
-    assert "branched_pairs = self._branched_pairs(" in service
-    assert "BRANCH_MAX_DIMENSIONS = 5" in service
-
-
-
-def test_stage06f_v10_uses_full_room_shape_for_l_t_detection():
-    service = SERVICE.read_text(encoding="utf-8")
-
-    assert "def _room_shape_segments(" in service
-    assert "shape_segments = self._room_shape_segments(room)" in service
-    assert "pronounced_branched_shape_metrics(" in service
-    assert "shape_segments," in service
-    assert "assume_branched=True" in service
+    assert "max_results=2" in service
+    assert "BRANCH_MAX_DIMENSIONS" not in service
+    assert "pronounced_branched_shape_metrics" not in service
+    assert "branched_dimension_pairs" not in service
+    assert "_room_shape_segments" not in service
+    assert "room_created >= 2" in service
