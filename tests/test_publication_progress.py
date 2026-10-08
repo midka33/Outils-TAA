@@ -372,7 +372,8 @@ def test_window_contract_handlers_and_same_thread_repaint():
              'message': 'Export PDF Revit en cours…'}
     instance.update(state)
     assert instance.PercentText.Text == '68 %' and instance.ProgressBar.Value == 68
-    assert instance.UnitsText.Text == '17 / 25 unités'
+    assert instance.UnitsLabelText.Text == 'Avancement :'
+    assert instance.UnitsText.Text == '17 / 25 étapes'
     detail_state = dict(state)
     detail_state.update(
         phase='Livraison DWG',
@@ -383,9 +384,31 @@ def test_window_contract_handlers_and_same_thread_repaint():
         item_label='A1102 — Bât A - Niveau 2',
     )
     instance.update(detail_state)
-    assert instance.UnitsText.Text == '3 / 5 mises en page'
+    assert instance.UnitsLabelText.Text == 'Mises en page :'
+    assert instance.UnitsText.Text == '3 / 5'
     assert instance.ItemText.Text == 'A1102 — Bât A - Niveau 2'
-    assert calls == ['layout', 6, 'layout', 6]
+    native_state = dict(state)
+    native_state.update(
+        detail_current=1,
+        detail_total=100,
+        detail_label='progression Revit',
+        item_label='Validation de la transaction',
+    )
+    instance.update(native_state)
+    assert instance.UnitsLabelText.Text == 'Avancement :'
+    assert instance.UnitsText.Text == 'Revit travaille…'
+    assert calls == ['layout', 6, 'layout', 6, 'layout', 6]
+
+    # La fenêtre ne doit plus changer de taille selon le texte de statut.
+    assert root.get('SizeToContent') is None
+    assert root.get('Height') == '540'
+    status = next(
+        node for node in root.iter()
+        if node.get('{http://schemas.microsoft.com/winfx/2006/xaml}Name')
+        == 'StatusText'
+    )
+    assert status.get('Height') == '38'
+
     args = SimpleNamespace(Cancel=False)
     instance._allow_close = False
     instance.Window_Closing(None, args)
