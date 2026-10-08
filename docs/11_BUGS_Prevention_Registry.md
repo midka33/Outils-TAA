@@ -1135,6 +1135,36 @@ diagnostics critiques.
 collector des instances, le reload explicite du module et l'affichage du build
 dans les erreurs.
 
+### BUG-PDV-028 — Placement fixe des cotes ignorant les annotations
+
+**Symptôme :** les références 06E sont correctes mais les lignes, textes ou témoins
+peuvent traverser les étiquettes, les équipements ou les autres cotes.
+
+**Cause racine :** placement à une fraction fixe du segment (ou décalage modèle
+de 180 mm pour une longueur de secours), sans évaluation de l'emprise graphique,
+de la contenance de pièce ni de l'échelle papier.
+
+**Correction :** moteur pur `dimension_positioning.py`, au plus dix translations
+par direction, sondes `Room.IsPointInRoom` au Z intérieur, comparaison conjointe
+des deux cotes avant création. Collecte des obstacles dans la vue cible et
+réservations estimées puis enrichies par les emprises natives après commit.
+Références 06E inchangées et position 06E conservée avec avertissement si le
+calcul graphique échoue ; aucune réservation d'une transaction annulée.
+
+**Règle préventive :** séparer sélection de références et placement graphique.
+Ne pas promettre l'absence de croisement pour deux dimensions complètes
+perpendiculaires intérieures à un rectangle : ce croisement est inévitable.
+Éloigner les textes et signaler le compromis, sans raccourcir artificiellement
+les mesures ni changer leurs références. Les sondes et emprises estimées ne
+remplacent pas la validation du rendu natif Revit.
+
+**Anti-régression :** `test_dimension_positioning.py` (17 cas) et
+`test_dimension_positioning_adapter.py` (12 cas) : rectangle, croisement
+inévitable, absence de croisement quand possible, L, biais, courbe, petites
+pièces, couloir, décrochement, meilleur côté, témoins, budget, références de sol,
+probe Z à l'étage, échelle, rollback et poursuite des autres pièces.
+Recette réelle 06F dans `docs/20_Plans_de_Vente.md`, encore à effectuer.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1212,6 +1242,7 @@ BUG-PDV-024
 BUG-PDV-025
 BUG-PDV-026
 BUG-PDV-027
+BUG-PDV-028
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-UI-001

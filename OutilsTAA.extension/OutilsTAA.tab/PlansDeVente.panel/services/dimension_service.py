@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 06 — cotations principales des pièces."""
 
-DIMENSION_SERVICE_BUILD = "stage06e-dimensions-floor-edge-substitution-v5"
+DIMENSION_SERVICE_BUILD = "stage06f-dimensions-graphic-placement-v6"
 
 import math
 
@@ -13,7 +13,12 @@ from plans_vente.dimension_geometry import (
     representative_length_indexes,
     segment_match_metrics,
 )
-from plans_vente.tag_positioning import polygon_area
+from plans_vente.tag_positioning import polygon_area, boxes_overlap
+from plans_vente.dimension_positioning import (
+    DimensionPlacement,
+    placement_candidates,
+    select_placements,
+)
 
 
 class DimensionTypeCandidate(object):
@@ -56,6 +61,7 @@ class DimensionCreationResult(object):
         partial_room_count=0,
         skipped_room_count=0,
         warnings=None,
+        exclusion_boxes=None,
     ):
         self.housing_key = housing_key or ""
         self.view_name = view_name or ""
@@ -66,6 +72,8 @@ class DimensionCreationResult(object):
         self.partial_room_count = int(partial_room_count or 0)
         self.skipped_room_count = int(skipped_room_count or 0)
         self.warnings = list(warnings or [])
+        # XY modèle / unités internes, directement utilisable par l'Étape 05.
+        self.exclusion_boxes = list(exclusion_boxes or [])
 
     @property
     def warning_count(self):
@@ -96,6 +104,11 @@ class DimensionService(object):
     PLACEMENT_FRACTION = 0.25
     LENGTH_DIRECTION_TOLERANCE_DEGREES = 12.0
     LENGTH_OFFSET_MM = 180.0
+    PAPER_CLEARANCE_MM = 6.0
+    PAPER_TEXT_WIDTH_MM = 12.0
+    PAPER_TEXT_HEIGHT_MM = 3.0
+    PAPER_PADDING_MM = 0.3
+    PAPER_WITNESS_MM = 1.5
 
     FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.0
     FLOOR_EDGE_TOLERANCE_MM = 20.0
@@ -224,6 +237,8 @@ class DimensionService(object):
 
         room_plans = []
         warnings = []
+        tag_boxes, dimension_boxes, equipment_boxes = self._view_obstacles(view, warnings)
+        exclusion_boxes = []
 
         for unique_id in housing.room_unique_ids:
             room = self.document.GetElement(unique_id)
@@ -281,8 +296,22 @@ class DimensionService(object):
             room_label = self._room_label(room)
             room_created = 0
             used_length_indexes = set()
+            room_dimensions = []
 
             try:
+                # Le choix des références reste celui du moteur 06E. Seules
+                # les lignes de création sont traduites parallèlement.
+                pair_lines = [(pair.line_start, pair.line_end) for pair in pairs]
+                initial_fallbacks = [index for index in fallback_indexes
+                                     if boundary_candidates[index].length_references][:2 - len(pairs)]
+                lines = pair_lines + [self._length_dimension_line(boundary_candidates[index], room)
+                                      for index in initial_fallbacks]
+                anchors = [None] * len(pairs) + [
+                    (boundary_candidates[index].segment[:2], boundary_candidates[index].segment[2:])
+                    for index in initial_fallbacks]
+                placements = self._plan_graphics(
+                    room, view, lines, anchors, tag_boxes, dimension_boxes,
+                    equipment_boxes, warnings)
                 with RevitTransaction(
                     self.document,
                     "Plans de vente - Cotations {} - {}".format(
@@ -290,23 +319,25 @@ class DimensionService(object):
                         room_label,
                     ),
                 ):
-                    for pair in pairs:
+                    for pair_index, pair in enumerate(pairs):
                         if room_created >= 2:
                             break
                         first = boundary_candidates[pair.first_index]
                         second = boundary_candidates[pair.second_index]
+                        placement = placements[pair_index]
                         try:
                             dimension = self._create_dimension(
                                 view,
                                 dimension_type,
                                 first.reference,
                                 second.reference,
-                                pair.line_start,
-                                pair.line_end,
+                                placement.line_start,
+                                placement.line_end,
                                 room,
                             )
                             if dimension is not None:
                                 room_created += 1
+                                room_dimensions.append((dimension, placement))
                         except Exception as error:
                             warnings.append(
                                 "{} : cote entre faces opposées non créée ({})".format(
@@ -331,17 +362,29 @@ class DimensionService(object):
                                 candidate,
                                 room,
                             )
+                            if (index in initial_fallbacks and room_created ==
+                                    len(pairs) + initial_fallbacks.index(index)):
+                                placement = placements[len(pairs) + initial_fallbacks.index(index)]
+                            else:
+                                occupied = list(dimension_boxes)
+                                for _, previous in room_dimensions:
+                                    occupied.extend(previous.exclusion_boxes)
+                                placement = self._plan_graphics(
+                                    room, view, [(line_start, line_end)],
+                                    [(candidate.segment[:2], candidate.segment[2:])],
+                                    tag_boxes, occupied, equipment_boxes, warnings)[0]
                             dimension = self._create_dimension(
                                 view,
                                 dimension_type,
                                 candidate.length_references[0],
                                 candidate.length_references[1],
-                                line_start,
-                                line_end,
+                                placement.line_start,
+                                placement.line_end,
                                 room,
                             )
                             if dimension is not None:
                                 room_created += 1
+                                room_dimensions.append((dimension, placement))
                         except Exception as error:
                             warnings.append(
                                 "{} : cote de longueur de secours non créée ({})".format(
@@ -357,6 +400,26 @@ class DimensionService(object):
                     )
                 )
                 room_created = 0
+                room_dimensions = []
+
+            # Ne publier aucune réservation d'une transaction annulée. Revit a
+            # régénéré les vrais éléments au commit ; aucune cote temporaire.
+            for dimension, placement in room_dimensions:
+                for warning in placement.warnings:
+                    warnings.append("{} : {}.".format(room_label, warning))
+                boxes = list(placement.exclusion_boxes)
+                try:
+                    actual_box = self._graphic_box(dimension, view)
+                    if actual_box is not None:
+                        boxes.append(actual_box)
+                        if any(boxes_overlap(actual_box, tag_box) for tag_box in tag_boxes):
+                            warnings.append("{} : emprise Revit de cote proche d'une étiquette ; contrôler le texte et les témoins.".format(room_label))
+                    else:
+                        warnings.append("{} : emprise Revit de cote indisponible ; réservation estimée.".format(room_label))
+                except Exception as error:
+                    warnings.append("{} : lecture de l'emprise de cote impossible ({}).".format(room_label, error))
+                dimension_boxes.extend(boxes)
+                exclusion_boxes.extend(boxes)
 
             created_count += room_created
             if room_created >= 2:
@@ -386,7 +449,97 @@ class DimensionService(object):
             partial_room_count=partial_room_count,
             skipped_room_count=skipped_room_count,
             warnings=warnings,
+            exclusion_boxes=exclusion_boxes,
         )
+
+    def _view_obstacles(self, view, warnings):
+        """Collecte unique par action, dans la vue cible, sans OfClass(RoomTag)."""
+        from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
+
+        tags, dimensions, equipment = [], [], []
+        categories = [("OST_RoomTags", tags), ("OST_Dimensions", dimensions)]
+        categories.extend((name, equipment) for name in (
+            "OST_PlumbingFixtures", "OST_Furniture", "OST_Casework",
+            "OST_MechanicalEquipment", "OST_SpecialityEquipment", "OST_ElectricalEquipment"))
+        for name, destination in categories:
+            missing = 0
+            try:
+                category = getattr(BuiltInCategory, name)
+                elements = (FilteredElementCollector(self.document, view.Id)
+                            .OfCategory(category).WhereElementIsNotElementType().ToElements())
+                for element in elements:
+                    try:
+                        if element.IsHidden(view) or view.GetCategoryHidden(element.Category.Id):
+                            continue
+                        box = self._graphic_box(element, view)
+                        if box is not None:
+                            destination.append(box)
+                        else:
+                            missing += 1
+                    except Exception:
+                        missing += 1
+            except Exception as error:
+                warnings.append("Placement : collecte {} impossible ({}).".format(name, error))
+            if missing:
+                warnings.append("Placement : {} emprise(s) {} indisponible(s).".format(missing, name))
+        return tags, dimensions, equipment
+
+    def _graphic_box(self, element, view):
+        bbox = element.get_BoundingBox(view)
+        if bbox is None:
+            return None
+        points = [bbox.Transform.OfPoint(self._xyz(x, y, z))
+                  for x in (bbox.Min.X, bbox.Max.X)
+                  for y in (bbox.Min.Y, bbox.Max.Y)
+                  for z in (bbox.Min.Z, bbox.Max.Z)]
+        return (min(p.X for p in points), min(p.Y for p in points),
+                max(p.X for p in points), max(p.Y for p in points))
+
+    def _placement_room_points(self, room):
+        from Autodesk.Revit.DB import SpatialElementBoundaryLocation, SpatialElementBoundaryOptions
+        options = SpatialElementBoundaryOptions()
+        options.SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish
+        return [(float(point.X), float(point.Y))
+                for loop in room.GetBoundarySegments(options) or []
+                for segment in loop or []
+                for point in segment.GetCurve().Tessellate()]
+
+    def _plan_graphics(self, room, view, lines, anchors, tags, dimensions, equipment, warnings):
+        if not lines:
+            return []
+        scale = max(1, int(view.Scale))
+        paper = lambda mm: self._millimeters_to_internal(mm * scale)
+        settings = dict(clearance=paper(self.PAPER_CLEARANCE_MM),
+                        text_width=paper(self.PAPER_TEXT_WIDTH_MM),
+                        text_height=paper(self.PAPER_TEXT_HEIGHT_MM),
+                        padding=paper(self.PAPER_PADDING_MM),
+                        witness_length=paper(self.PAPER_WITNESS_MM))
+        try:
+            points = self._placement_room_points(room)
+            probe_z = self._probe_z(room)
+            cache = {}
+
+            def contains(xy):
+                if xy not in cache:
+                    point = self._xyz(xy[0], xy[1], probe_z)
+                    cache[xy] = bool(room.IsPointInRoom(point))
+                return cache[xy]
+
+            text_axis = (float(view.RightDirection.X), float(view.RightDirection.Y))
+            groups = [placement_candidates(
+                line, points, contains, tag_boxes=tags, dimension_boxes=dimensions,
+                equipment_boxes=equipment, witness_anchors=anchor,
+                text_axis=text_axis, **settings) for line, anchor in zip(lines, anchors)]
+            return select_placements(groups)
+        except Exception as error:
+            warnings.append("{} : placement 06F indisponible ({}), position 06E conservée à contrôler.".format(
+                self._room_label(room), error))
+            # Un défaut graphique ne doit pas supprimer une cote associative
+            # fiable, ni empêcher les pièces suivantes d'être traitées.
+            return [DimensionPlacement(line[0], line[1], settings["text_width"],
+                                       settings["text_height"], settings["padding"],
+                                       settings["witness_length"], anchor)
+                    for line, anchor in zip(lines, anchors)]
 
     def _fallback_length_indexes(self, boundary_candidates, pairs):
         segments = [candidate.segment for candidate in boundary_candidates]

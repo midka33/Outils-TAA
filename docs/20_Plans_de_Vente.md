@@ -2,12 +2,12 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.17
+**Version :** 1.18
 **Statut :** Développement — Étape 06 Cotations  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-07
+**Date :** 2026-10-08
 
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
@@ -3505,3 +3505,189 @@ Build de test : `stage06e-dimensions-floor-edge-substitution-v5`.
 7. vérifier qu'aucune arête de sol proche mais non superposée n'est choisie.
 
 **Statut : À retester dans Revit 2025.4.**
+
+**Confirmation utilisateur du 8 octobre 2026 :** le moteur 06E
+`stage06e-dimensions-floor-edge-substitution-v5` est validé dans Revit 2025.4,
+y compris les pièces atypiques et les terrasses avec substitution par bord de
+sol. Cette confirmation clôt la recette 06E ci-dessus ; elle ne valide pas 06F.
+
+## Prototype 06F — Placement graphique des cotations
+
+**Build :** `stage06f-dimensions-graphic-placement-v6`
+
+**Branche :** `feature/plans-de-vente-stage06-dimensions`
+
+**Statut :** tests hors Revit exécutés ; rendu Revit 2025.4 à valider.
+
+### Périmètre et conservation du moteur 06E
+
+06F ajoute le placement après sélection des références. Les paires de faces
+finies, les longueurs dominantes de secours, les limites courbes partielles et
+les références de séparateurs/bords de sols restent gérées par le code 06E.
+Ses seuils 3° / 20 mm / 60 % / niveau voisin 500 mm, `ComputeReferences=True`
+et le cache par niveau restent inchangés. Aucun séparateur n'est réaffiché.
+
+Le service continue à viser deux cotes associatives par pièce. Il ne déplace
+pas les RoomTag, ne change pas le texte natif du type sélectionné et n'écrit
+ni `TextPosition` ni `ValueOverride`. La création vise exclusivement la vue
+logement dépendante `PDV PROTO - <logement> - ...` validée par le service ;
+aucun réglage de la vue source n'est modifié. Les annotations des vues
+principales/dépendantes partagent toutefois le comportement natif Revit :
+leur visibilité dans les autres vues doit être contrôlée pendant la recette.
+
+### Placement et priorités
+
+`plans_vente/dimension_positioning.py` contient la géométrie pure ;
+`DimensionService` collecte les données Revit et crée les cotes après le choix.
+Le contour de recherche inclut les limites tessellées, y compris courbes et
+trous. La contenance est testée par `Room.IsPointInRoom` au `_probe_z(room)`
+intérieur, jamais à l'altitude d'un texte ou d'une ligne d'annotation.
+
+Pour chaque cote, dix translations parallèles au maximum sont proposées :
+les deux côtés à marge nominale, à demi-marge, à quart de marge, trois
+positions intermédiaires et la position 06E. La portée et les références
+restent identiques. Les deux cotes sont comparées conjointement, dans cet ordre :
+
+1. emprise intérieure aux points sondés ;
+2. absence de collision avec les étiquettes ;
+3. absence de collision avec les cotes existantes et les textes de la paire ;
+4. absence de croisement graphique résiduel dans la paire ;
+5. absence de collision avec les équipements ;
+6. dégagement transversal au mur, puis ordre stable des candidats.
+
+Les collisions utilisent des rectangles orientés et un test d'axes séparateurs,
+pas seulement la grande boîte englobante XY d'une cote oblique. La comparaison
+des boîtes et le contrat d'exclusion réutilisent `tag_positioning.boxes_overlap`.
+
+**Limite géométrique explicite :** deux mesures complètes entre les murs opposés
+d'un rectangle, perpendiculaires et toutes deux intérieures, se croisent
+nécessairement. 06F éloigne ce croisement des textes et étiquettes puis signale
+`croisement résiduel des cotes ou témoins`. Il ne supprime aucune mesure utile
+pour masquer ce compromis. L'absence de croisement est recherchée lorsqu'elle
+est possible, notamment pour des portées partielles dans des bras distincts.
+
+### Distances papier et emprises
+
+Les constantes sont dans `DimensionService` et se convertissent en unités
+internes via `UnitUtils`, après multiplication par `View.Scale` :
+
+| Constante | Distance papier | À 1:50 dans le modèle |
+|---|---:|---:|
+| `PAPER_CLEARANCE_MM` | 6 mm | 300 mm |
+| `PAPER_TEXT_WIDTH_MM` | 12 mm | 600 mm |
+| `PAPER_TEXT_HEIGHT_MM` | 3 mm | 150 mm |
+| `PAPER_PADDING_MM` | 0,3 mm | 15 mm |
+| `PAPER_WITNESS_MM` | 1,5 mm | 75 mm |
+
+La largeur du texte est une **réservation estimée**. La réserve transversale
+s'étend de la hauteur indiquée de chaque côté de la ligne, pour protéger le
+texte natif et son espacement. Les deux orientations possibles (alignement
+sur la cote / horizontal dans la vue) sont réservées. Les témoins de longueur
+de secours relient les extrémités de référence à la ligne décalée ; les cotes
+entre faces réservent des témoins courts aux extrémités.
+
+Les familles/types avec grands préfixes, suffixes, texte déporté ou témoins
+particuliers peuvent dépasser cette estimation. Après commit, la vraie
+`get_BoundingBox(view)` enrichit les réservations ; son chevauchement avec une
+étiquette déclenche un avertissement de contrôle, pas une correction du texte.
+Cette boîte englobante peut être conservatrice, particulièrement en vue tournée.
+
+Dans une petite pièce, les marges diminuent avant d'accepter un conflit.
+Si aucun candidat propre n'existe, la meilleure position conserve la cote utile
+et un avertissement identifie l'emprise extérieure ou la collision résiduelle.
+Si l'API de placement échoue, la position 06E est conservée avec sa cause dans
+le rapport. Une pièce non résolue ne bloque pas les suivantes.
+
+### Obstacles et coordination avec l'Étape 05
+
+Une collecte par catégorie dans la vue cible récupère les boîtes visibles des
+RoomTag (`OST_RoomTags`, sans `OfClass(RoomTag)`), des cotes existantes et des
+équipements du document hôte : appareils sanitaires, mobilier, agencements,
+équipements mécaniques, spécialisés et électriques. Les éléments explicitement
+masqués et catégories masquées sont exclus ; les erreurs de collecte et boîtes
+indisponibles sont signalées. Les équipements des liens ne sont pas collectés
+par ce prototype. Les boîtes sont transformées en XY modèle avec leurs huit
+coins ; elles ne sont pas supposées alignées sur les axes écran.
+
+`DimensionCreationResult.exclusion_boxes` est une liste de tuples
+`(min_x, min_y, max_x, max_y)` en **XY modèle, unités internes Revit**. Elle
+contient uniquement les cotes des transactions réussies : emprises estimées
+(ligne découpée, texte, témoins) plus boîte native lorsqu'elle est disponible.
+Elle est compatible avec l'argument `exclusion_boxes` de l'Étape 05. La liste
+est renvoyée au contrôleur, sans persistance ni déplacement automatique des
+étiquettes ; l'orchestration de mise à jour complète reste à l'Étape 08.
+
+### Performance et limites du prototype
+
+Par cote : au plus dix candidats, 23 sondes de ligne/texte et six sondes de
+marge par candidat ; les coordonnées répétées sont mises en cache par pièce.
+Pour la paire : au plus 100 comparaisons géométriques pures, sans appel Revit
+supplémentaire. Aucun objet temporaire Revit n'est créé. Les réservations des
+cotes effectivement créées sont réutilisées pour les pièces suivantes et pour
+les tentatives de secours après un échec de création.
+
+Cet échantillonnage borné n'est pas une preuve de contenance de chaque point
+d'une ligne ou de son texte : un très petit trou entre deux sondes peut être
+manqué. Les contacts nécessaires des extrémités/témoins avec la référence ne
+sont pas assimilés à une cote extérieure. Le rendu natif et le temps total,
+y compris collecte de géométrie Revit, doivent être validés sur le modèle.
+
+L'étape reste une **création**, sans mécanisme de remplacement des anciennes
+cotes : ne pas relancer sur une vue déjà cotée pour comparer 06E et 06F.
+Utiliser une copie de test du modèle et annuler la création précédente avant
+chaque nouvel essai, en contrôlant les vues dépendantes partageant les annotations.
+
+### Tests hors Revit exécutés le 8 octobre 2026
+
+- Référence avant modification : 133 tests Plans de vente réussis.
+- 17 nouveaux tests de géométrie : rectangle, croisement inévitable / évitable,
+  étiquette centrale, petite pièce, pièce impossible, couloir, L, biais,
+  terrasse, décrochement, côté libre, trou, limite courbe, témoins,
+  budget et hiérarchie des priorités.
+- 12 nouveaux tests du vrai service avec frontières Revit simulées : identité
+  des références de sol, avertissement séparateur, probe Z à l'étage, retour
+  06E sur erreur, longueur de secours, rollback, pièce suivante, échelle,
+  emprise native, transformation de boîte, seuils 06E et collecte par catégorie.
+  Le contrat de rechargement du module et l'absence de mutations du texte sont
+  également vérifiés dans cette suite.
+- Suite complète hors Revit : **445 tests réussis** avec :
+
+```bash
+PYTHONPATH=OutilsTAA.extension/lib python -m pytest tests -q --import-mode=importlib
+```
+
+Ces tests ne constituent pas une validation Revit, WPF ou IronPython réels.
+
+### Premier test Revit 2025.4 — checklist exacte
+
+1. Ouvrir une copie de test du modèle contenant un logement déjà validé en 06E.
+   Recharger pyRevit après récupération Git. Vérifier le libellé **Étape 06F**.
+2. Choisir la vue logement `PDV PROTO - <logement> - ...`, échelle **1:50**,
+   portant les étiquettes 05 validées, sans anciennes cotes 06 dans cette zone.
+   Conserver le même type de cote que pour le test 06E.
+3. Laisser les séparateurs de pièces **masqués**, lancer **Créer les cotations**
+   une seule fois et chronométrer. Vérifier dans le rapport le build
+   `stage06f-dimensions-graphic-placement-v6`, les comptes et les avertissements.
+4. Contrôler une pièce rectangulaire, une chambre et le séjour : deux mesures
+   utiles, lignes intérieures, textes lisibles, aucune superposition avec les
+   étiquettes ; un croisement nu inévitable doit être signalé et éloigné des textes.
+5. Contrôler WC/SDB et couloir : marges réduites si nécessaire, équipements
+   évités quand une autre place existe, aucune cote utile supprimée sans diagnostic.
+6. Contrôler une pièce en L, un mur biais et une limite courbe partielle :
+   les mesures restent sur les bonnes références, hors décrochements parasites ;
+   inspecter aussi les témoins et les petits trous entre sondes.
+7. Contrôler la terrasse : cotes visibles avec séparateurs masqués, références
+   sur les bords de sol superposés ; conserver l'avertissement si seul le
+   séparateur est disponible. Ne pas réafficher les séparateurs pour contourner le test.
+8. Déplacer légèrement un mur coté puis un bord de sol coté dans la copie :
+   vérifier la mise à jour associative des mesures, puis annuler ces déplacements.
+9. Vérifier que les étiquettes n'ont pas bougé et que les réglages de la vue
+   source sont inchangés. Contrôler la visibilité native des annotations dans
+   la vue principale et les autres vues dépendantes.
+10. Noter le temps sur un logement de **10 à 15 pièces**, le nombre de cotes
+    comparé à 06E et les avertissements ; transmettre une capture du plan et
+    du rapport. La réactivité réelle est un critère de validation, pas déduite des pytest.
+
+**Validation suivante :** rejouer à 1:100 après annulation des cotes de test,
+puis sur une vue tournée et un logement à l'étage. Contrôler particulièrement
+les types de cote à texte large et les équipements provenant de liens.

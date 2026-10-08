@@ -806,9 +806,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Vue logement : {}\n"
                 "Type de cote : {}\n"
                 "Pièces : {}\n\n"
-                "Prototype 06E : pour une séparation de pièce, le moteur cherche "
-                "d'abord une arête de sol superposée et l'utilise comme référence "
-                "de cote. À défaut, il conserve la séparation avec avertissement. "
+                "Prototype 06F : placement intérieur avec évitement des étiquettes, "
+                "équipements et autres cotes. Les conflits résiduels sont signalés. "
+                "Les références aux faces de murs et aux bords de sols sont conservées. "
                 "Une pièce atypique ne bloque plus les autres."
             ).format(
                 housing.key,
@@ -865,6 +865,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 result.partial_room_count,
                 result.skipped_room_count,
             )
+            message += "\nMoteur cotations : {}".format(self.controller.dimension_build_id())
             if result.warnings:
                 message += "\n\nAvertissements :\n- " + "\n- ".join(result.warnings)
 
@@ -952,9 +953,9 @@ class PlansVenteWindow(forms.WPFWindow):
             ).format(self._dimension_type_error)
         elif self._dimension_view_choices:
             self.DimensionInfoText.Text = (
-                "Prototype 06E : faces de murs en priorité ; pour les "
-                "séparations, substitution par une arête de sol superposée "
-                "quand elle est fiable. {} type(s) disponible(s)."
+                "Prototype 06F : placement intérieur des cotes, étiquettes préservées, "
+                "références aux faces et bords de sols conservées. "
+                "{} type(s) disponible(s)."
             ).format(len(self._dimension_type_labels))
         else:
             self.DimensionInfoText.Text = (
