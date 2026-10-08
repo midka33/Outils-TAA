@@ -352,19 +352,21 @@ La cotation automatique est un point critique du module.
 
 ## 9.1 Règle métier
 
-Pour une pièce simple ou quasi rectangulaire, l'objectif reste de créer
-**deux cotes principales** :
+Pour la V1, l'objectif est volontairement simple et constant :
+**deux cotes principales maximum par pièce** :
 
 - longueur intérieure finie ;
 - largeur intérieure finie.
 
-Pour une pièce présentant une **forme L ou T réellement prononcée**, le moteur
-peut créer **3 à 5 cotes locales utiles** afin de décrire les différentes
-branches. Le nombre de cotes est déterminé par la géométrie du contour fini,
-jamais par le nom ou l'usage de la pièce.
+Cette règle s'applique aussi aux pièces en L, en T ou aux géométries atypiques.
+Le moteur privilégie les dimensions générales et ne cherche plus à décrire
+automatiquement toutes les branches de la pièce.
 
-Les petits décrochements, niches et retours mineurs doivent continuer à être
-filtrés afin de conserver deux dimensions principales.
+Les petits décrochements, niches et retours mineurs restent filtrés.
+
+Lorsque la géométrie nécessite des cotes complémentaires, l'utilisateur les
+ajoute manuellement après génération. La cotation automatique est donc une
+base de production rapide à relire, et non une cotation exhaustive.
 
 ## 9.2 Priorité aux dimensions générales
 
@@ -4014,5 +4016,45 @@ Le workflow Plans de vente est vert avec **203 tests**.
 5. vérifier la présence de l'avertissement
    `forme L/T prononcée détectée (... cote(s) locale(s))` ;
 6. contrôler visuellement les 3 à 5 cotes obtenues avant d'affiner leur sélection.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Décision V1 — Deux cotations principales maximum
+
+**Build :** `stage06f-two-principal-dimensions-v11`
+
+Retour de production du 8 octobre 2026 : les essais de cotation automatique
+spécifique aux circulations puis aux formes L/T ont montré qu'une recherche de
+3 à 5 dimensions locales augmente fortement la complexité du moteur et peut
+produire trop de cotes sur les logements atypiques.
+
+Pour la V1, la règle est donc simplifiée :
+
+- **2 cotes principales maximum par pièce** ;
+- dimensions générales prioritaires ;
+- faces finies et références associatives conservées ;
+- substitution séparateur / bord de sol conservée ;
+- placement intérieur 06F conservé ;
+- aucune logique spéciale selon le nom de la pièce ;
+- aucune détection L/T utilisée dans le flux Revit ;
+- les cotes complémentaires sont ajoutées manuellement par l'utilisateur.
+
+Cette décision privilégie la rapidité, la lisibilité et la stabilité de
+production. L'utilisateur garde la responsabilité de la relecture finale et
+peut supprimer ou compléter les cotes proposées.
+
+Les moteurs expérimentaux de circulation et de formes L/T ont été retirés du
+code actif et de la suite de tests V1.
+
+### Recette Revit 2025.4
+
+1. récupérer le build `stage06f-two-principal-dimensions-v11` ;
+2. supprimer les anciennes cotes d'essai ;
+3. relancer la cotation sur un logement simple puis sur un logement atypique ;
+4. vérifier qu'aucune pièce ne reçoit plus de 2 cotes ;
+5. vérifier que les terrasses conservent les références aux bords de sols ;
+6. vérifier l'associativité après déplacement d'un mur ;
+7. confirmer que le temps de calcul est meilleur ou au minimum stable.
 
 **Statut : À valider dans Revit 2025.4.**
