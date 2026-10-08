@@ -446,3 +446,270 @@ def circulation_width_pairs(segments, contains, minimum_width,
         if len(result) == 2:
             break
     return result
+
+
+
+def _point_distance(left, right):
+    return math.hypot(
+        float(left[0]) - float(right[0]),
+        float(left[1]) - float(right[1]),
+    )
+
+
+def _ordered_polygon_points(segments, tolerance=1e-5):
+    """Reconstruit un contour fermé à partir de segments déjà ordonnés.
+
+    Les BoundarySegment Revit sont normalement livrés dans l'ordre du contour,
+    mais l'orientation individuelle d'une courbe peut être inversée. Cette
+    fonction reconnecte donc chaque segment au précédent sans supposer son sens.
+    """
+    values = list(segments or [])
+    if len(values) < 4:
+        return []
+
+    first = values[0]
+    points = [
+        (float(first[0]), float(first[1])),
+        (float(first[2]), float(first[3])),
+    ]
+
+    for segment in values[1:]:
+        a = (float(segment[0]), float(segment[1]))
+        b = (float(segment[2]), float(segment[3]))
+        current = points[-1]
+
+        distance_a = _point_distance(current, a)
+        distance_b = _point_distance(current, b)
+        if min(distance_a, distance_b) > float(tolerance):
+            return []
+
+        points.append(b if distance_a <= distance_b else a)
+
+    if _point_distance(points[-1], points[0]) > float(tolerance):
+        return []
+
+    return points[:-1]
+
+
+def _polygon_signed_area(points):
+    if len(points) < 3:
+        return 0.0
+    return 0.5 * sum(
+        (points[index][0] * points[(index + 1) % len(points)][1])
+        - (points[(index + 1) % len(points)][0] * points[index][1])
+        for index in range(len(points))
+    )
+
+
+def pronounced_branched_shape_metrics(
+    segments,
+    minimum_missing_ratio=0.12,
+):
+    """Détecte une vraie forme concave L/T sans utiliser le nom de la pièce.
+
+    Le critère combine :
+    - au moins un angle rentrant réel ;
+    - une perte d'aire significative par rapport à la boîte orientée selon la
+      plus longue limite.
+
+    Un petit décrochement garde donc le moteur simple à deux cotes, tandis
+    qu'un L ou un T suffisamment prononcé active les dimensions locales.
+    """
+    points = _ordered_polygon_points(segments)
+    if len(points) < 6:
+        return {
+            "is_branched": False,
+            "reflex_count": 0,
+            "missing_ratio": 0.0,
+        }
+
+    signed_area = _polygon_signed_area(points)
+    area = abs(signed_area)
+    if area <= 1e-12:
+        return {
+            "is_branched": False,
+            "reflex_count": 0,
+            "missing_ratio": 0.0,
+        }
+
+    orientation = 1.0 if signed_area > 0.0 else -1.0
+    reflex_count = 0
+    for index in range(len(points)):
+        previous = points[index - 1]
+        current = points[index]
+        following = points[(index + 1) % len(points)]
+        first = (
+            current[0] - previous[0],
+            current[1] - previous[1],
+        )
+        second = (
+            following[0] - current[0],
+            following[1] - current[1],
+        )
+        cross = (first[0] * second[1]) - (first[1] * second[0])
+        if cross * orientation < -1e-9:
+            reflex_count += 1
+
+    if reflex_count == 0:
+        return {
+            "is_branched": False,
+            "reflex_count": 0,
+            "missing_ratio": 0.0,
+        }
+
+    longest = max(segments, key=_length)
+    tangent = _canonical_direction(longest)
+    if tangent is None:
+        return {
+            "is_branched": False,
+            "reflex_count": reflex_count,
+            "missing_ratio": 0.0,
+        }
+    normal = (-tangent[1], tangent[0])
+
+    tangent_values = [_dot(point, tangent) for point in points]
+    normal_values = [_dot(point, normal) for point in points]
+    box_area = (
+        (max(tangent_values) - min(tangent_values))
+        * (max(normal_values) - min(normal_values))
+    )
+    if box_area <= 1e-12:
+        missing_ratio = 0.0
+    else:
+        missing_ratio = max(0.0, min(1.0, 1.0 - (area / box_area)))
+
+    return {
+        "is_branched": (
+            reflex_count >= 1
+            and missing_ratio + 1e-12 >= float(minimum_missing_ratio)
+        ),
+        "reflex_count": reflex_count,
+        "missing_ratio": missing_ratio,
+    }
+
+
+def branched_dimension_pairs(
+    segments,
+    contains,
+    minimum_dimension,
+    minimum_overlap,
+    angle_tolerance_degrees=5.0,
+    minimum_missing_ratio=0.12,
+    max_results=5,
+):
+    """Dimensions locales utiles d'une pièce L/T prononcée.
+
+    Contrairement au moteur simple, plusieurs paires parallèles peuvent être
+    conservées dans une même direction. Cela permet par exemple à un L de
+    recevoir ses deux largeurs de branches et ses deux portées générales.
+
+    Les paires sont validées par des sondes intérieures afin d'éviter de coter
+    entre deux limites parallèles qui n'encadrent pas réellement la même zone.
+    """
+    values = list(segments or [])
+    metrics = pronounced_branched_shape_metrics(
+        values,
+        minimum_missing_ratio=minimum_missing_ratio,
+    )
+    if not metrics["is_branched"]:
+        return []
+
+    tolerance = math.cos(math.radians(float(angle_tolerance_degrees)))
+    candidates = []
+
+    for first_index, first in enumerate(values):
+        tangent = _canonical_direction(first)
+        if tangent is None:
+            continue
+        normal = (-tangent[1], tangent[0])
+
+        for second_index in range(first_index + 1, len(values)):
+            second = values[second_index]
+            direction = _canonical_direction(second)
+            if (
+                direction is None
+                or abs(_dot(tangent, direction)) < tolerance
+            ):
+                continue
+
+            first_interval = _projection_interval(first, tangent)
+            second_interval = _projection_interval(second, tangent)
+            low = max(first_interval[0], second_interval[0])
+            high = min(first_interval[1], second_interval[1])
+            overlap = high - low
+            if overlap + 1e-12 < float(minimum_overlap):
+                continue
+
+            first_n = _dot(_midpoint(first), normal)
+            second_n = _dot(_midpoint(second), normal)
+            distance = abs(second_n - first_n)
+            if distance + 1e-12 < float(minimum_dimension):
+                continue
+
+            samples = []
+            for fraction in (.1, .3, .5, .7, .9):
+                along = low + (overlap * fraction)
+                valid = all(
+                    contains(
+                        _point_from_axes(
+                            tangent,
+                            normal,
+                            along,
+                            first_n + ((second_n - first_n) * across),
+                        )
+                    )
+                    for across in (.03, .18, .34, .5, .66, .82, .97)
+                )
+                samples.append((along, valid))
+
+            runs = []
+            current = []
+            for along, valid in samples:
+                if valid:
+                    current.append(along)
+                else:
+                    if current:
+                        runs.append(current)
+                    current = []
+            if current:
+                runs.append(current)
+
+            runs = [run for run in runs if len(run) >= 2]
+            if not runs:
+                continue
+
+            run = max(runs, key=lambda item: (len(item), -item[0]))
+            along = (run[0] + run[-1]) * 0.5
+            score = distance * overlap
+
+            pair = DimensionAxisCandidate(
+                first_index,
+                second_index,
+                tangent,
+                normal,
+                distance,
+                _point_from_axes(tangent, normal, along, first_n),
+                _point_from_axes(tangent, normal, along, second_n),
+                score,
+            )
+            pair.placement_points = [
+                _point_from_axes(tangent, normal, position, side)
+                for position in (run[0], run[-1])
+                for side in (first_n, second_n)
+            ]
+            candidates.append(pair)
+
+    # Les grandes dimensions et les largeurs de branches sont toutes utiles.
+    # Le score aire (distance x support) filtre naturellement les fragments
+    # minuscules lorsque la pièce possède plus de cinq paires crédibles.
+    candidates.sort(
+        key=lambda pair: (
+            -pair.score,
+            -pair.distance,
+            pair.first_index,
+            pair.second_index,
+        )
+    )
+
+    limit = max(0, int(max_results or 0))
+    return candidates[:limit] if limit else []
