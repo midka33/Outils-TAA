@@ -240,14 +240,10 @@ def _set_room_shape(setup, points, contains, name='Pièce'):
         a + b, object(), i, length_references=(object(), object()))
         for i, (a, b) in enumerate(zip(points, points[1:] + points[:1]))]
     setup.service._room_boundary_candidates = lambda room: boundaries
-    setup.service._room_shape_segments = lambda room: [
-        boundary.segment for boundary in boundaries
-    ]
     return boundaries
 
 
-def test_pronounced_l_room_creates_four_geometry_dimensions_using_original_references(setup):
-    import math
+def test_pronounced_l_room_is_limited_to_two_principal_dimensions(setup):
     points = [
         (0., 0.), (5.2, 0.), (5.2, 3.4),
         (4., 3.4), (4., 1.2), (0., 1.2),
@@ -259,27 +255,15 @@ def test_pronounced_l_room_creates_four_geometry_dimensions_using_original_refer
             or (4 < p[0] < 5.2 and 0 < p[1] < 3.4)
         )
 
-    boundaries = _set_room_shape(setup, points, contains, 'Entrée/Dgt')
+    _set_room_shape(setup, points, contains, 'Entrée/Dgt')
     result = run(setup)
 
-    assert result.created_count == 4
+    assert result.created_count == 2
     assert result.full_room_count == 1
-    assert sorted(
-        round(math.dist(args[4], args[5]), 6)
-        for args in setup.created
-    ) == pytest.approx([1.2, 1.2, 3.4, 5.2])
-
-    refs = [boundary.reference for boundary in boundaries]
-    assert all(
-        reference in refs
-        for args in setup.created
-        for reference in args[2:4]
-    )
-    assert any('forme L/T prononcée détectée' in warning
-               for warning in result.warnings)
+    assert not any('forme L/T' in warning for warning in result.warnings)
 
 
-def test_pronounced_l_room_does_not_depend_on_room_name(setup):
+def test_room_name_does_not_change_v1_two_dimension_rule(setup):
     points = [
         (0., 0.), (5.2, 0.), (5.2, 3.4),
         (4., 3.4), (4., 1.2), (0., 1.2),
@@ -291,13 +275,14 @@ def test_pronounced_l_room_does_not_depend_on_room_name(setup):
             or (4 < p[0] < 5.2 and 0 < p[1] < 3.4)
         )
 
-    _set_room_shape(setup, points, contains, 'Chambre 1')
-    result = run(setup)
+    for name in ('Entrée/Dgt', 'Chambre 1', 'Séjour', 'Couloir'):
+        setup.created[:] = []
+        _set_room_shape(setup, points, contains, name)
+        result = run(setup)
+        assert result.created_count == 2
 
-    assert result.created_count == 4
 
-
-def test_straight_corridor_keeps_standard_two_dimensions_regardless_of_name(setup):
+def test_straight_corridor_keeps_two_principal_dimensions(setup):
     import math
     points = [(0., 0.), (8., 0.), (8., 1.2), (0., 1.2)]
     _set_room_shape(
@@ -317,7 +302,7 @@ def test_straight_corridor_keeps_standard_two_dimensions_regardless_of_name(setu
     ) == pytest.approx([1.2, 8.])
 
 
-def test_small_recess_keeps_standard_two_dimension_engine(setup):
+def test_small_recess_keeps_two_dimension_engine(setup):
     points = [
         (0., 0.), (6., 0.), (6., 4.),
         (3.2, 4.), (3.2, 3.7), (2.8, 3.7),
@@ -333,11 +318,9 @@ def test_small_recess_keeps_standard_two_dimension_engine(setup):
     result = run(setup)
 
     assert result.created_count == 2
-    assert not any('forme L/T prononcée détectée' in warning
-                   for warning in result.warnings)
 
 
-def test_branched_room_creation_failure_reports_partial_target_count(setup):
+def test_complex_room_reference_failure_never_requests_more_than_two_dimensions(setup):
     points = [
         (0., 0.), (5.2, 0.), (5.2, 3.4),
         (4., 3.4), (4., 1.2), (0., 1.2),
@@ -362,7 +345,7 @@ def test_branched_room_creation_failure_reports_partial_target_count(setup):
     setup.service._create_dimension = fail_once
     result = run(setup)
 
-    assert result.created_count == 3
-    assert result.partial_room_count == 1
-    assert any('3/4 dimension(s) géométriquement attendue(s)' in warning
-               for warning in result.warnings)
+    assert result.created_count <= 2
+    assert len(calls) <= 3
+    assert not any('3/4' in warning or '4/4' in warning
+                   for warning in result.warnings)
