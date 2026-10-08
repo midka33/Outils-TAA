@@ -195,7 +195,7 @@ def test_stage06b_keeps_processing_when_one_room_is_atypical():
     assert "partial_room_count" in service
     assert "skipped_room_count" in service
     assert "dimension(s) géométriquement attendue(s)" in service
-    assert "Une pièce atypique ne bloque plus les autres." in window
+    assert "Plans de vente - Cotations {} - {}" in service
 
 
 def test_stage06b_uses_endpoint_or_finish_face_edges_for_length_fallback():
