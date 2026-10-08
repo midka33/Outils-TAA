@@ -153,7 +153,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
     controller = CONTROLLER.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert 'DIMENSION_SERVICE_BUILD = "stage06f-branched-geometry-v9"' in service
+    assert 'DIMENSION_SERVICE_BUILD = "stage06f-branched-full-contour-v10"' in service
     assert "def dimension_build_id(" in controller
     assert "Moteur cotations : {}" in window
 
@@ -339,3 +339,14 @@ def test_stage06f_geometry_not_room_name_controls_complex_dimensioning():
     assert "if is_circulation_name" not in service
     assert "branched_pairs = self._branched_pairs(" in service
     assert "BRANCH_MAX_DIMENSIONS = 5" in service
+
+
+
+def test_stage06f_v10_uses_full_room_shape_for_l_t_detection():
+    service = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _room_shape_segments(" in service
+    assert "shape_segments = self._room_shape_segments(room)" in service
+    assert "pronounced_branched_shape_metrics(" in service
+    assert "shape_segments," in service
+    assert "assume_branched=True" in service
