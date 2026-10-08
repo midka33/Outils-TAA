@@ -46,10 +46,18 @@ class RoomParameterService(object):
     ):
         """Retourne les paramètres distincts par identité stable disponible."""
         descriptors = {}
+        # Cache strictement local au scan : les métadonnées d'une définition
+        # de paramètre sont identiques sur toutes les pièces du document.
+        # L'état writable/groupé, qui peut varier par élément, reste relu.
+        metadata_cache = {}
 
         for room in rooms or []:
             for parameter in getattr(room, "Parameters", []) or []:
-                descriptor = self.create_descriptor(parameter, room=room)
+                descriptor = self.create_descriptor(
+                    parameter,
+                    room=room,
+                    metadata_cache=metadata_cache,
+                )
                 if descriptor is None or not descriptor.name:
                     continue
                 if numeric_only and not descriptor.is_numeric:
@@ -87,31 +95,53 @@ class RoomParameterService(object):
             key=lambda item: (item.name.lower(), item.identity_key),
         )
 
-    def create_descriptor(self, parameter, room=None):
+    def create_descriptor(
+        self,
+        parameter,
+        room=None,
+        metadata_cache=None,
+    ):
         if parameter is None:
             return None
 
-        definition = getattr(parameter, "Definition", None)
-        name = getattr(definition, "Name", None)
-        if not name:
-            return None
+        cache_key = self._metadata_cache_key(parameter)
+        metadata = None
+        if metadata_cache is not None and cache_key is not None:
+            metadata = metadata_cache.get(cache_key)
 
-        shared_guid = get_shared_parameter_guid(parameter)
-        built_in_type_id = get_built_in_parameter_type_id(parameter)
-        definition_type_id = get_definition_type_id(parameter)
+        if metadata is None:
+            definition = getattr(parameter, "Definition", None)
+            name = getattr(definition, "Name", None)
+            if not name:
+                return None
 
-        if shared_guid:
-            identity_kind = RoomParameterDescriptor.KIND_SHARED_GUID
-            identity_value = shared_guid
-        elif built_in_type_id:
-            identity_kind = RoomParameterDescriptor.KIND_BUILT_IN
-            identity_value = built_in_type_id
-        elif definition_type_id:
-            identity_kind = RoomParameterDescriptor.KIND_DEFINITION
-            identity_value = definition_type_id
-        else:
-            identity_kind = RoomParameterDescriptor.KIND_NAME
-            identity_value = name
+            shared_guid = get_shared_parameter_guid(parameter)
+            built_in_type_id = get_built_in_parameter_type_id(parameter)
+            definition_type_id = get_definition_type_id(parameter)
+
+            if shared_guid:
+                identity_kind = RoomParameterDescriptor.KIND_SHARED_GUID
+                identity_value = shared_guid
+            elif built_in_type_id:
+                identity_kind = RoomParameterDescriptor.KIND_BUILT_IN
+                identity_value = built_in_type_id
+            elif definition_type_id:
+                identity_kind = RoomParameterDescriptor.KIND_DEFINITION
+                identity_value = definition_type_id
+            else:
+                identity_kind = RoomParameterDescriptor.KIND_NAME
+                identity_value = name
+
+            metadata = {
+                "name": name,
+                "identity_kind": identity_kind,
+                "identity_value": identity_value,
+                "storage_type": self.get_storage_type_name(parameter),
+                "data_type_id": get_parameter_data_type_id(parameter),
+                "unit_type_id": get_parameter_unit_type_id(parameter),
+            }
+            if metadata_cache is not None and cache_key is not None:
+                metadata_cache[cache_key] = metadata
 
         writable = self.is_writable(parameter)
         group_unlockable = False
@@ -128,15 +158,33 @@ class RoomParameterService(object):
             )
 
         return RoomParameterDescriptor(
-            name=name,
-            identity_kind=identity_kind,
-            identity_value=identity_value,
-            storage_type=self.get_storage_type_name(parameter),
-            data_type_id=get_parameter_data_type_id(parameter),
-            unit_type_id=get_parameter_unit_type_id(parameter),
+            name=metadata["name"],
+            identity_kind=metadata["identity_kind"],
+            identity_value=metadata["identity_value"],
+            storage_type=metadata["storage_type"],
+            data_type_id=metadata["data_type_id"],
+            unit_type_id=metadata["unit_type_id"],
             writable=writable,
             group_unlockable=group_unlockable,
         )
+
+    @classmethod
+    def _metadata_cache_key(cls, parameter):
+        """Clé locale sûre pour réutiliser les métadonnées d'une définition.
+
+        Parameter.Id identifie la définition du paramètre dans le document.
+        Si le double de test ou une API future ne l'expose pas, aucun cache
+        n'est appliqué : la correction reste alors fonctionnellement neutre.
+        """
+        parameter_id = getattr(parameter, "Id", None)
+        if parameter_id is None:
+            return None
+
+        value = cls._element_id_value(parameter_id, default=None)
+        if value is None or str(value) == "-1":
+            return None
+
+        return "PARAMETER_ID:{}".format(value)
 
     def get_parameter(self, room, parameter_reference):
         """Résout un paramètre par descripteur ou, en compatibilité, par nom."""

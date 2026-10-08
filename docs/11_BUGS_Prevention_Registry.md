@@ -452,6 +452,29 @@ relecture du dossier, conservation des descendants ; validation Revit restante.
 **Règle :** lorsqu'un état Revit temporaire est nécessaire pour écrire, l'activer et le restaurer dans la même transaction ; toute restauration entraînant une modification secondaire inattendue doit provoquer un rollback.
 **Anti-régression :** tests dédiés sur la découverte d'une destination readonly mais déverrouillable, le cycle `True → écriture → False`, l'exclusion des paramètres intégrés et le rollback lorsque la restauration réaligne des éléments.
 
+### BUG-CALCULS-006 — Découverte des paramètres répétée trois fois à l'ouverture
+
+**Symptôme :** sur un projet comportant beaucoup de logements/pièces et de paramètres,
+la fenêtre Calculs des pièces met plusieurs secondes à apparaître.
+
+**Cause :** `CalculationController.load_context()` demandait successivement la liste
+complète, la liste numérique puis la liste écrivable. Chaque demande reparcourait
+toutes les pièces et tous leurs paramètres et recalculait les mêmes métadonnées Revit.
+
+**Correction :** effectuer une seule découverte complète, puis dériver les listes
+numériques et destinations par filtrage des descripteurs déjà agrégés en mémoire.
+Pendant ce scan, réutiliser les métadonnées invariantes par `Parameter.Id` ; relire
+uniquement les états susceptibles de varier par pièce.
+
+**Règle :** lorsqu'une collecte API coûteuse produit déjà un modèle suffisamment
+riche pour plusieurs vues de données, ne pas relancer la collecte pour chaque filtre.
+Collecter une fois, dériver ensuite en mémoire.
+
+**Anti-régression :** le test du contrôleur vérifie explicitement qu'un chargement de
+contexte n'appelle `get_parameter_descriptors()` qu'une seule fois ; un second test
+vérifie que deux occurrences partageant le même `Parameter.Id` ne relisent les
+métadonnées Revit qu'une seule fois.
+
 ### BUG-EXPORT-034 — Champs de réglages comprimés par des largeurs fixes
 
 **Symptôme :** les rangées de profil et de nommage peuvent dépasser la colonne de

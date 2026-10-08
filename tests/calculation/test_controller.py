@@ -42,12 +42,16 @@ class FakeCollector(object):
 
 
 class FakeParameterService(object):
+    def __init__(self):
+        self.scan_calls = 0
+
     def get_parameter_descriptors(
         self,
         rooms,
         numeric_only=False,
         writable_only=False,
     ):
+        self.scan_calls += 1
         values = [
             descriptor("Zone", "String"),
             descriptor("Surface", "Double"),
@@ -97,9 +101,10 @@ class FakeSettings(object):
 class CalculationControllerTests(unittest.TestCase):
 
     def setUp(self):
+        self.parameter_service = FakeParameterService()
         self.controller = CalculationController(
             collector_service=FakeCollector(),
-            parameter_service=FakeParameterService(),
+            parameter_service=self.parameter_service,
             parameter_validator=FakeValidator(),
             unit_service=FakeUnitService(),
             workflow=FakeWorkflow(),
@@ -121,6 +126,11 @@ class CalculationControllerTests(unittest.TestCase):
         self.assertEqual(
             ["Zone", "Surface", "Nombre"],
             [item.name for item in context.target_parameters],
+        )
+        self.assertEqual(
+            1,
+            self.parameter_service.scan_calls,
+            "L'ouverture ne doit scanner les paramètres qu'une seule fois.",
         )
 
     def test_create_request_preserves_optional_filter_and_unit(self):

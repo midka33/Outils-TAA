@@ -42,16 +42,22 @@ class FakeDefinition(object):
         self._data_type_id = data_type_id
         self._built_in_type_id = built_in_type_id
         self._definition_type_id = definition_type_id
+        self.data_type_calls = 0
+        self.parameter_type_calls = 0
+        self.definition_type_calls = 0
 
     def GetDataType(self):
+        self.data_type_calls += 1
         return FakeForgeTypeId(self._data_type_id)
 
     def GetParameterTypeId(self):
+        self.parameter_type_calls += 1
         if self._built_in_type_id is None:
             return None
         return FakeForgeTypeId(self._built_in_type_id)
 
     def GetTypeId(self):
+        self.definition_type_calls += 1
         if self._definition_type_id is None:
             return None
         return FakeForgeTypeId(self._definition_type_id)
@@ -69,6 +75,7 @@ class FakeParameter(object):
         unit_type_id=None,
         built_in_type_id=None,
         definition_type_id=None,
+        parameter_id=None,
     ):
         self.Definition = FakeDefinition(
             name,
@@ -82,8 +89,12 @@ class FakeParameter(object):
         self.IsShared = shared_guid is not None
         self.GUID = shared_guid
         self._unit_type_id = unit_type_id
+        self.unit_type_calls = 0
+        if parameter_id is not None:
+            self.Id = parameter_id
 
     def GetUnitTypeId(self):
+        self.unit_type_calls += 1
         if self._unit_type_id is None:
             raise RuntimeError("no unit")
         return FakeForgeTypeId(self._unit_type_id)
@@ -188,6 +199,40 @@ class ParameterIdentityTests(unittest.TestCase):
 
         self.assertEqual(2, len(descriptors))
         self.assertNotEqual(descriptors[0].identity_key, descriptors[1].identity_key)
+
+    def test_parameter_metadata_is_cached_per_parameter_id_during_scan(self):
+        first = FakeParameter(
+            "Surface TAA",
+            "Double",
+            parameter_id=7001,
+            data_type_id="autodesk.spec.aec:area-2.0.0",
+            unit_type_id="autodesk.unit.unit:squareMeters-1.0.1",
+            definition_type_id="project:surface-taa",
+        )
+        second = FakeParameter(
+            "Surface TAA",
+            "Double",
+            parameter_id=7001,
+            data_type_id="autodesk.spec.aec:area-2.0.0",
+            unit_type_id="autodesk.unit.unit:squareMeters-1.0.1",
+            definition_type_id="project:surface-taa",
+        )
+
+        descriptors = self.service.get_parameter_descriptors([
+            FakeRoom([first]),
+            FakeRoom([second]),
+        ])
+
+        self.assertEqual(1, len(descriptors))
+        self.assertEqual(1, first.Definition.data_type_calls)
+        self.assertEqual(1, first.Definition.parameter_type_calls)
+        self.assertEqual(1, first.Definition.definition_type_calls)
+        self.assertEqual(1, first.unit_type_calls)
+
+        self.assertEqual(0, second.Definition.data_type_calls)
+        self.assertEqual(0, second.Definition.parameter_type_calls)
+        self.assertEqual(0, second.Definition.definition_type_calls)
+        self.assertEqual(0, second.unit_type_calls)
 
     def test_writable_only_rejects_identity_read_only_on_any_room(self):
         shared_guid = "cccccccc-cccc-cccc-cccc-cccccccccccc"
