@@ -670,6 +670,30 @@ que lorsque l'application sait réellement que cet élément est terminé.
 `X / Y`, callback défaillant et désabonnement du bridge ; validation réelle
 `ProgressChanged` à effectuer dans Revit 2025.4.
 
+### BUG-EXPORT-047 — Fenêtre de progression instable et compteur technique exposé
+
+**Symptôme :** la fenêtre de progression changeait légèrement de hauteur selon la
+longueur du message sous le titre. Le bloc « Traitement » affichait en outre des
+valeurs comme `1 / 100 progression Revit`, interprétables à tort comme un nombre
+de feuilles.
+
+**Cause racine :** la fenêtre utilisait `SizeToContent="Height"` avec un texte de
+statut de hauteur variable. Le compteur brut `ProgressChanged.Position/UpperRange`,
+utile au calcul de la barre, était affiché directement comme information métier.
+
+**Correction :** hauteur fixe de la fenêtre et zone de statut réservée à hauteur
+constante. Les valeurs natives Revit continuent d'alimenter le pourcentage, mais
+l'UI affiche « Revit travaille… ». Pendant une livraison réellement contrôlée,
+l'UI affiche en revanche `X / Y` sous le libellé « Mises en page ».
+
+**Règle préventive :** une fenêtre de progression doit conserver une géométrie
+stable pendant toute l'opération. Les compteurs techniques de l'API ne doivent pas
+être présentés comme des compteurs métier sans sémantique explicite.
+
+**Anti-régression :** contrat XAML sur l'absence de `SizeToContent`, hauteur fixe et
+zone de statut stable ; tests UI sur l'affichage « Revit travaille… » et
+`X / Y` mises en page.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
