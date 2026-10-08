@@ -19,6 +19,10 @@ Le format suit les principes de *Keep a Changelog*.
 
 
 ### Changed
+- Calculs des pièces : ouverture optimisée en remplaçant trois parcours complets
+  des pièces/paramètres par un seul scan, puis filtrage en mémoire des paramètres
+  numériques et des destinations écrivable. Comportement métier inchangé ; validation
+  de performance réelle à effectuer dans Revit 2025.4.
 - Export DWG : suppression du choix technique « Par feuille / Lot Revit ». La
   stratégie est automatique : une feuille utilise un appel simple, plusieurs feuilles
   un lot natif Revit ; le résultat métier reste un DWG par feuille. Le champ
