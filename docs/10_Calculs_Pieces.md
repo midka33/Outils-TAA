@@ -225,6 +225,41 @@ Sécurités :
 
 Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Le comportement a été validé dans Revit 2025.4 le 6 octobre 2026.
 
+### 7.4 Performance d'ouverture
+
+À l'ouverture de la fenêtre, la découverte des paramètres est effectuée en **un seul
+parcours** des pièces du projet.
+
+Avant cette optimisation, `CalculationController.load_context()` appelait trois fois
+`RoomParameterService.get_parameter_descriptors()` :
+
+1. tous les paramètres ;
+2. les paramètres numériques ;
+3. les paramètres écrivable.
+
+Or chaque appel reparcourait toutes les pièces et tous leurs paramètres, et
+`create_descriptor()` relisait notamment les identités Revit, types de données,
+unités et états readonly/groupes.
+
+Le contexte UI est désormais construit ainsi :
+
+```text
+Collecte des pièces
+        ↓
+1 scan de tous les paramètres
+        ↓
+descripteurs agrégés
+        ├── liste complète
+        ├── filtre numérique en mémoire
+        └── filtre destination écrivable en mémoire
+```
+
+Cette optimisation ne modifie ni les règles de sélection des paramètres, ni la
+compatibilité avec les groupes, ni le calcul. Elle supprime seulement deux scans
+Revit redondants au démarrage.
+
+**Validation réelle de la rapidité sur gros projet : à effectuer dans Revit 2025.4.**
+
 ---
 
 ## 8. Unités
