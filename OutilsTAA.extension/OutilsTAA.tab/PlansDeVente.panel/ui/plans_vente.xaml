@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Étape 06 · Cotations intérieures"
+                <TextBlock Text="Étape 07 · Assemblage de la feuille"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -108,6 +108,19 @@
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateDimensions_Click"/>
+                    <Separator Margin="0,22,0,18"/>
+                    <TextBlock Text="Étape 07A — Assemblage feuille"
+                               Style="{DynamicResource TAASectionTitle}"/>
+                    <TextBlock x:Name="SheetInfoText" Margin="0,0,0,10"
+                               Style="{DynamicResource TAASecondaryText}"/>
+                    <TextBlock Text="Type de cartouche" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="SheetTitleBlockCombo"
+                              SelectionChanged="SheetTitleBlockChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <Button x:Name="CreateSheetButton" Content="Créer la feuille prototype"
+                            Margin="0,14,0,0" HorizontalAlignment="Stretch"
+                            Style="{DynamicResource TAAPrimaryButton}"
+                            Click="CreateSheet_Click"/>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
