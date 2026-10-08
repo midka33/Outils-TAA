@@ -39,14 +39,24 @@ def test_parameter_schema_discovery_is_sampled_at_startup():
     assert "[:self.DISCOVERY_SAMPLE_LIMIT]" in text
 
 
-def test_sheet_template_discovery_uses_global_indexes_not_per_sheet_layout():
+def test_sheet_template_discovery_lists_sheets_without_inspecting_contents():
     text = SHEETS.read_text(encoding="utf-8")
     start = text.index("    def list_sheet_templates(")
+    end = text.index("    def inspect_sheet_template(", start)
+    block = text[start:end]
+
+    assert ".OfClass(ViewSheet)" in block
+    assert "Viewport" not in block
+    assert "ScheduleSheetInstance" not in block
+    assert "OST_TitleBlocks" not in block
+    assert "self._template_layout(" not in block
+
+
+def test_selected_template_is_the_only_sheet_inspected():
+    text = SHEETS.read_text(encoding="utf-8")
+    start = text.index("    def inspect_sheet_template(")
     end = text.index("    def create_sheet_from_template(", start)
     block = text[start:end]
 
-    assert "roles_by_sheet" in block
-    assert "title_blocks_by_sheet" in block
-    assert ".OfClass(Viewport)" in block
-    assert ".OfClass(ScheduleSheetInstance)" in block
-    assert "self._template_layout(sheet)" not in block
+    assert "self.document.GetElement(template_sheet_unique_id)" in block
+    assert "layout = self._template_layout(sheet)" in block
