@@ -231,7 +231,7 @@ def test_native_text_and_stage05_tags_are_not_mutated_and_new_module_reloads_fir
     assert script.index('_reload_module(_dimension_positioning)') < script.index('_reload_module(_dimension_service)')
 
 
-def _set_circulation(setup, points, contains, name='Entrée/Dgt'):
+def _set_room_shape(setup, points, contains, name='Pièce'):
     setup.room.Name = name
     setup.room.IsPointInRoom = lambda p: 12 < p.Z < 15 and contains((p.X, p.Y))
     setup.service._placement_room_points = lambda room: points
@@ -242,54 +242,123 @@ def _set_circulation(setup, points, contains, name='Entrée/Dgt'):
     return boundaries
 
 
-def test_l_entrance_real_service_creates_two_local_widths_using_original_references(setup):
+def test_pronounced_l_room_creates_four_geometry_dimensions_using_original_references(setup):
     import math
-    points = [(0., 0.), (5.2, 0.), (5.2, 3.4), (4., 3.4), (4., 1.2), (0., 1.2)]
+    points = [
+        (0., 0.), (5.2, 0.), (5.2, 3.4),
+        (4., 3.4), (4., 1.2), (0., 1.2),
+    ]
+
     def contains(p):
-        return (0 < p[0] < 5.2 and 0 < p[1] < 1.2) or (4 < p[0] < 5.2 and 0 < p[1] < 3.4)
-    boundaries = _set_circulation(setup, points, contains)
+        return (
+            (0 < p[0] < 5.2 and 0 < p[1] < 1.2)
+            or (4 < p[0] < 5.2 and 0 < p[1] < 3.4)
+        )
+
+    boundaries = _set_room_shape(setup, points, contains, 'Entrée/Dgt')
     result = run(setup)
-    assert result.created_count == 2
-    assert [math.dist(args[4], args[5]) for args in setup.created] == pytest.approx([1.2, 1.2])
-    refs = [b.reference for b in boundaries]
-    assert all(ref in refs for args in setup.created for ref in args[2:4])
+
+    assert result.created_count == 4
+    assert result.full_room_count == 1
+    assert sorted(
+        round(math.dist(args[4], args[5]), 6)
+        for args in setup.created
+    ) == pytest.approx([1.2, 1.2, 3.4, 5.2])
+
+    refs = [boundary.reference for boundary in boundaries]
+    assert all(
+        reference in refs
+        for args in setup.created
+        for reference in args[2:4]
+    )
+    assert any('forme L/T prononcée détectée' in warning
+               for warning in result.warnings)
 
 
-def test_straight_corridor_does_not_add_longitudinal_fallback_or_missing_dimension_warning(setup):
-    points = [(0., 0.), (8., 0.), (8., 1.2), (0., 1.2)]
-    _set_circulation(setup, points, lambda p: 0 < p[0] < 8 and 0 < p[1] < 1.2, 'Couloir')
+def test_pronounced_l_room_does_not_depend_on_room_name(setup):
+    points = [
+        (0., 0.), (5.2, 0.), (5.2, 3.4),
+        (4., 3.4), (4., 1.2), (0., 1.2),
+    ]
+
+    def contains(p):
+        return (
+            (0 < p[0] < 5.2 and 0 < p[1] < 1.2)
+            or (4 < p[0] < 5.2 and 0 < p[1] < 3.4)
+        )
+
+    _set_room_shape(setup, points, contains, 'Chambre 1')
     result = run(setup)
-    assert result.created_count == 1
-    assert result.partial_room_count == 1  # Le compteur représente les pièces avec une cote.
-    assert not any('une seule dimension principale fiable' in w for w in result.warnings)
+
+    assert result.created_count == 4
 
 
-def test_failed_width_reference_does_not_reintroduce_corridor_length(setup):
-    points = [(0., 0.), (8., 0.), (8., 1.2), (0., 1.2)]
-    _set_circulation(setup, points, lambda p: 0 < p[0] < 8 and 0 < p[1] < 1.2, 'Couloir')
-    attempts = []
-    def fail(*args):
-        attempts.append(args)
-        raise RuntimeError('reference rejected')
-    setup.service._create_dimension = fail
-    result = run(setup)
-    assert len(attempts) == 1
-    assert result.created_count == 0
-    assert any('reference rejected' in w for w in result.warnings)
-
-
-def test_no_reliable_circulation_width_reports_manual_dimension_without_using_overall_extent(setup):
-    _set_circulation(setup, POINTS, lambda p: False)
-    result = run(setup)
-    assert result.created_count == 0
-    assert not setup.created
-    assert any('aucune largeur locale fiable' in w for w in result.warnings)
-
-
-def test_narrow_bedroom_keeps_both_original_dimensions(setup):
+def test_straight_corridor_keeps_standard_two_dimensions_regardless_of_name(setup):
     import math
     points = [(0., 0.), (8., 0.), (8., 1.2), (0., 1.2)]
-    _set_circulation(setup, points, lambda p: 0 < p[0] < 8 and 0 < p[1] < 1.2, 'Chambre 1')
+    _set_room_shape(
+        setup,
+        points,
+        lambda p: 0 < p[0] < 8 and 0 < p[1] < 1.2,
+        'Couloir',
+    )
+
     result = run(setup)
+
     assert result.created_count == 2
-    assert sorted(math.dist(args[4], args[5]) for args in setup.created) == pytest.approx([1.2, 8.])
+    assert result.full_room_count == 1
+    assert sorted(
+        math.dist(args[4], args[5])
+        for args in setup.created
+    ) == pytest.approx([1.2, 8.])
+
+
+def test_small_recess_keeps_standard_two_dimension_engine(setup):
+    points = [
+        (0., 0.), (6., 0.), (6., 4.),
+        (3.2, 4.), (3.2, 3.7), (2.8, 3.7),
+        (2.8, 4.), (0., 4.),
+    ]
+
+    def contains(p):
+        if not (0 < p[0] < 6 and 0 < p[1] < 4):
+            return False
+        return not (2.8 < p[0] < 3.2 and 3.7 < p[1] < 4)
+
+    _set_room_shape(setup, points, contains, 'Entrée/Dgt')
+    result = run(setup)
+
+    assert result.created_count == 2
+    assert not any('forme L/T prononcée détectée' in warning
+                   for warning in result.warnings)
+
+
+def test_branched_room_creation_failure_reports_partial_target_count(setup):
+    points = [
+        (0., 0.), (5.2, 0.), (5.2, 3.4),
+        (4., 3.4), (4., 1.2), (0., 1.2),
+    ]
+
+    def contains(p):
+        return (
+            (0 < p[0] < 5.2 and 0 < p[1] < 1.2)
+            or (4 < p[0] < 5.2 and 0 < p[1] < 3.4)
+        )
+
+    _set_room_shape(setup, points, contains, 'Séjour')
+    original = setup.service._create_dimension
+    calls = []
+
+    def fail_once(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            raise RuntimeError('reference rejected')
+        return original(*args)
+
+    setup.service._create_dimension = fail_once
+    result = run(setup)
+
+    assert result.created_count == 3
+    assert result.partial_room_count == 1
+    assert any('3/4 dimension(s) géométriquement attendue(s)' in warning
+               for warning in result.warnings)
