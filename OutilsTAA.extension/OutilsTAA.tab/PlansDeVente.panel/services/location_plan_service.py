@@ -108,6 +108,7 @@ class LocationPlanService(object):
         filled_region_type_unique_id,
         template_unique_id=None,
         target_scale=None,
+        crop_reference_view_unique_id=None,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -115,6 +116,11 @@ class LocationPlanService(object):
         source_view = self._get_element(source_view_unique_id, "Sélectionnez une vue source de repérage.")
         region_type = self._get_element(filled_region_type_unique_id, "Sélectionnez un type de zone remplie.")
         template = self.document.GetElement(template_unique_id) if template_unique_id else None
+        crop_reference_view = (
+            self.document.GetElement(crop_reference_view_unique_id)
+            if crop_reference_view_unique_id
+            else None
+        )
 
         source_level = getattr(getattr(source_view, "GenLevel", None), "Name", None)
         if source_level != level_name:
@@ -176,6 +182,12 @@ class LocationPlanService(object):
                         )
                     )
 
+            if crop_reference_view is not None:
+                self._copy_crop_from_reference(
+                    crop_reference_view,
+                    created_view,
+                )
+
             self._create_global_filled_region(
                 created_view,
                 region_type,
@@ -196,6 +208,168 @@ class LocationPlanService(object):
                 str(getattr(created_view, "UniqueId", "") or ""),
                 created_view.Name,
             ),
+        )
+
+    def _copy_crop_from_reference(self, reference_view, target_view):
+        """Copie le crop 2D du repérage modèle sur le niveau cible.
+
+        Le contour est conservé en XY et translaté uniquement suivant Z entre
+        les niveaux. Cela reproduit la même fenêtre de repérage sur tous les
+        étages au lieu d'hériter du crop de la vue source choisie.
+        """
+        from Autodesk.Revit.DB import CurveLoop, Transform, XYZ
+
+        try:
+            reference_manager = reference_view.GetCropRegionShapeManager()
+            target_manager = target_view.GetCropRegionShapeManager()
+        except Exception as error:
+            raise ValueError(
+                "Impossible d'accéder au crop du repérage modèle : {}.".format(
+                    error
+                )
+            )
+
+        try:
+            reference_loops = list(reference_manager.GetCropShape() or [])
+        except Exception as error:
+            raise ValueError(
+                "Impossible de lire le crop du repérage modèle : {}.".format(
+                    error
+                )
+            )
+
+        if not reference_loops:
+            raise ValueError(
+                "Le repérage modèle ne fournit aucun contour de crop exploitable."
+            )
+
+        delta_z = self._view_level_elevation(target_view) - self._view_level_elevation(
+            reference_view
+        )
+        translation = Transform.CreateTranslation(
+            XYZ(0.0, 0.0, float(delta_z))
+        )
+
+        transformed = []
+        for source_loop in reference_loops:
+            target_loop = CurveLoop()
+            for curve in source_loop:
+                target_loop.Append(
+                    curve.CreateTransformed(translation)
+                )
+            transformed.append(target_loop)
+
+        # SetCropShape ne prend qu'une boucle. Les crops scindés sont ramenés
+        # au rectangle de référence via CropBox ci-dessous.
+        applied_shape = False
+        if len(transformed) == 1:
+            try:
+                if target_manager.IsCropRegionShapeValid(transformed[0]):
+                    target_manager.SetCropShape(transformed[0])
+                    applied_shape = True
+            except Exception:
+                applied_shape = False
+
+        if not applied_shape:
+            self._copy_rectangular_crop_box(
+                reference_view,
+                target_view,
+            )
+
+        try:
+            target_view.CropBoxActive = bool(
+                getattr(reference_view, "CropBoxActive", True)
+            )
+        except Exception:
+            try:
+                target_view.CropBoxActive = True
+            except Exception:
+                pass
+
+        try:
+            target_view.CropBoxVisible = bool(
+                getattr(reference_view, "CropBoxVisible", False)
+            )
+        except Exception:
+            pass
+
+        self._copy_annotation_crop(
+            reference_manager,
+            target_manager,
+        )
+
+    def _copy_rectangular_crop_box(self, reference_view, target_view):
+        """Copie les limites locales XY du CropBox en conservant le plan cible."""
+        from Autodesk.Revit.DB import BoundingBoxXYZ
+
+        reference_box = getattr(reference_view, "CropBox", None)
+        target_box = getattr(target_view, "CropBox", None)
+        if reference_box is None or target_box is None:
+            raise ValueError(
+                "Impossible de recopier le rectangle de crop du repérage modèle."
+            )
+
+        copied = BoundingBoxXYZ()
+        copied.Transform = target_box.Transform
+        copied.Min = self._xyz(
+            reference_box.Min.X,
+            reference_box.Min.Y,
+            target_box.Min.Z,
+        )
+        copied.Max = self._xyz(
+            reference_box.Max.X,
+            reference_box.Max.Y,
+            target_box.Max.Z,
+        )
+        target_view.CropBox = copied
+
+    @staticmethod
+    def _copy_annotation_crop(reference_manager, target_manager):
+        try:
+            if not bool(reference_manager.CanHaveAnnotationCrop):
+                return
+            if not bool(target_manager.CanHaveAnnotationCrop):
+                return
+        except Exception:
+            return
+
+        try:
+            target_manager.AnnotationCropActive = bool(
+                reference_manager.AnnotationCropActive
+            )
+        except Exception:
+            pass
+
+        for property_name in (
+            "LeftAnnotationCropOffset",
+            "RightAnnotationCropOffset",
+            "TopAnnotationCropOffset",
+            "BottomAnnotationCropOffset",
+        ):
+            try:
+                setattr(
+                    target_manager,
+                    property_name,
+                    getattr(reference_manager, property_name),
+                )
+            except Exception:
+                pass
+
+    @staticmethod
+    def _view_level_elevation(view):
+        level = getattr(view, "GenLevel", None)
+        try:
+            return float(getattr(level, "Elevation", 0.0) or 0.0)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _xyz(x_value, y_value, z_value):
+        from Autodesk.Revit.DB import XYZ
+        return XYZ(
+            float(x_value),
+            float(y_value),
+            float(z_value),
         )
 
     def _create_global_filled_region(self, view, region_type, curve_loop):
