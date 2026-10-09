@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : 07C v6 prend l'échelle de la vue modèle comme référence et ne la réduit qu'en cas de collision avec les autres éléments de feuille ou la géométrie du cartouche.
 - Plans de vente : 07B v4 permet d'affecter explicitement les deux vues et les deux nomenclatures déjà placées sur la feuille modèle ; aucun nom `PDV_MODELE_*` n'est requis.
 - Plans de vente : 07B v3 laisse l'utilisateur choisir explicitement la feuille modèle ; seule cette feuille est inspectée, sans recherche automatique dans le projet.
 - Plans de vente : prototype 06F de placement intérieur des cotations, choix conjoint de positions, évitement des étiquettes/équipements et réservations pour l'Étape 05. Références associatives 06E conservées ; conflits graphiques résiduels signalés. Recette Revit 2025.4 à effectuer.
