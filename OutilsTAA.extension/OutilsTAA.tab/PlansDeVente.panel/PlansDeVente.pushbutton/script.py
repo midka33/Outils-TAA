@@ -63,6 +63,10 @@ import full_generation_service as _full_generation_service
 _full_generation_service = _reload_module(_full_generation_service)
 FullGenerationService = _full_generation_service.FullGenerationService
 
+import plan_update_service as _plan_update_service
+_plan_update_service = _reload_module(_plan_update_service)
+PlanUpdateService = _plan_update_service.PlanUpdateService
+
 from plans_vente_window import PlansVenteWindow
 
 
@@ -115,6 +119,16 @@ def main():
         dimension_service=dimension_service,
         sheet_assembly_service=sheet_assembly_service,
     )
+    plan_update_service = PlanUpdateService(
+        document=document,
+        full_generation_service=full_generation_service,
+        prototype_view_service=prototype_view_service,
+        schedule_service=schedule_service,
+        location_plan_service=location_plan_service,
+        room_tag_service=room_tag_service,
+        dimension_service=dimension_service,
+        sheet_assembly_service=sheet_assembly_service,
+    )
 
     controller = PlansVenteController(
         analysis_service=analysis_service,
@@ -125,6 +139,7 @@ def main():
         dimension_service=dimension_service,
         sheet_assembly_service=sheet_assembly_service,
         full_generation_service=full_generation_service,
+        plan_update_service=plan_update_service,
     )
 
     window = PlansVenteWindow(controller)
