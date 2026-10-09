@@ -3,16 +3,17 @@ from __future__ import unicode_literals
 
 """Étapes 07B/07C — assemblage depuis modèle et ajustement de la vue logement."""
 
-SHEET_ASSEMBLY_BUILD = "stage07c-auto-fit-main-view-v5"
+SHEET_ASSEMBLY_BUILD = "stage07c-reference-scale-collision-v6"
 
 from common.transaction import RevitTransaction
 from plans_vente.location_naming import location_view_name
 from plans_vente.schedule_naming import schedule_name
 from plans_vente.sheet_layout import default_sheet_anchors
 from plans_vente.sheet_fit import (
-    choose_fitting_scale,
     parse_allowed_scales,
-    viewport_fits,
+    rectangles_overlap,
+    scale_candidates_from_reference,
+    segment_intersects_rectangle,
 )
 
 
@@ -103,12 +104,14 @@ class _TemplateLayout(object):
         points,
         viewport_type_ids,
         viewport_box_sizes=None,
+        main_reference_scale=None,
     ):
         self.sheet = sheet
         self.title_block_type = title_block_type
         self.points = dict(points or {})
         self.viewport_type_ids = dict(viewport_type_ids or {})
         self.viewport_box_sizes = dict(viewport_box_sizes or {})
+        self.main_reference_scale = main_reference_scale
 
 
 class SheetAssemblyReadiness(object):
@@ -370,8 +373,31 @@ class SheetAssemblyService(object):
             interior_point = layout.points["interior_schedule"]
             exterior_point = layout.points["exterior_schedule"]
 
-            main_viewport = None
+            location_viewport = Viewport.Create(
+                self.document,
+                sheet.Id,
+                location.Id,
+                XYZ(location_point[0], location_point[1], 0.0),
+            )
+            self._apply_viewport_type(
+                location_viewport,
+                layout.viewport_type_ids.get("location_view"),
+            )
 
+            interior_instance = ScheduleSheetInstance.Create(
+                self.document,
+                sheet.Id,
+                interior.Id,
+                XYZ(interior_point[0], interior_point[1], 0.0),
+            )
+            exterior_instance = ScheduleSheetInstance.Create(
+                self.document,
+                sheet.Id,
+                exterior.Id,
+                XYZ(exterior_point[0], exterior_point[1], 0.0),
+            )
+
+            main_viewport = None
             if auto_fit_main_view:
                 (
                     main_view_for_sheet,
@@ -380,7 +406,7 @@ class SheetAssemblyService(object):
                     fit_adjusted,
                     fit_duplicated,
                     fit_warnings,
-                ) = self._create_fitted_main_viewport(
+                ) = self._create_reference_scale_main_viewport(
                     sheet=sheet,
                     housing_key=housing.key,
                     source_view=main_view,
@@ -388,10 +414,13 @@ class SheetAssemblyService(object):
                     viewport_type_id=layout.viewport_type_ids.get(
                         "main_view"
                     ),
-                    target_size=layout.viewport_box_sizes.get(
-                        "main_view"
-                    ),
+                    reference_scale=layout.main_reference_scale,
                     allowed_scales=fit_scales,
+                    obstacle_elements=(
+                        location_viewport,
+                        interior_instance,
+                        exterior_instance,
+                    ),
                 )
             else:
                 main_viewport = Viewport.Create(
@@ -404,30 +433,6 @@ class SheetAssemblyService(object):
                     main_viewport,
                     layout.viewport_type_ids.get("main_view"),
                 )
-
-            location_viewport = Viewport.Create(
-                self.document,
-                sheet.Id,
-                location.Id,
-                XYZ(location_point[0], location_point[1], 0.0),
-            )
-            self._apply_viewport_type(
-                location_viewport,
-                layout.viewport_type_ids.get("location_view"),
-            )
-
-            ScheduleSheetInstance.Create(
-                self.document,
-                sheet.Id,
-                interior.Id,
-                XYZ(interior_point[0], interior_point[1], 0.0),
-            )
-            ScheduleSheetInstance.Create(
-                self.document,
-                sheet.Id,
-                exterior.Id,
-                XYZ(exterior_point[0], exterior_point[1], 0.0),
-            )
 
         template_label = "{} — {}".format(
             getattr(template_sheet, "SheetNumber", "") or "Sans numéro",
@@ -861,34 +866,157 @@ class SheetAssemblyService(object):
         except Exception:
             viewport_type_ids["location_view"] = None
 
+        template_main_view = self.document.GetElement(
+            main_viewport.ViewId
+        )
+        main_reference_scale = int(
+            getattr(template_main_view, "Scale", 0) or 0
+        )
+
         return _TemplateLayout(
             sheet=sheet,
             title_block_type=self._template_title_block_type(sheet),
             points=points,
             viewport_type_ids=viewport_type_ids,
             viewport_box_sizes=viewport_box_sizes,
+            main_reference_scale=main_reference_scale,
         )
 
-    def _create_fitted_main_viewport(
+    def _create_reference_scale_main_viewport(
         self,
         sheet,
         housing_key,
         source_view,
         point,
         viewport_type_id,
-        target_size,
+        reference_scale,
         allowed_scales,
+        obstacle_elements,
     ):
+        """07C : référence = échelle du modèle ; réduction seulement si collision."""
         from Autodesk.Revit.DB import ViewDuplicateOption, Viewport, XYZ
 
         warnings = []
-        target_width = 0.0
-        target_height = 0.0
-        if target_size:
-            target_width = float(target_size[0])
-            target_height = float(target_size[1])
+        reference_scale = int(reference_scale or 0)
+        if reference_scale <= 0:
+            reference_scale = int(getattr(source_view, "Scale", 0) or 0)
 
-        if target_width <= 0.0 or target_height <= 0.0:
+        candidates = scale_candidates_from_reference(
+            reference_scale,
+            allowed_scales,
+        )
+
+        source_scale = int(getattr(source_view, "Scale", 0) or 0)
+        working_view = source_view
+        was_duplicated = False
+
+        # Pour respecter l'échelle du modèle sans toucher la vue de production,
+        # on crée une copie uniquement si l'échelle doit être modifiée.
+        if source_scale != reference_scale:
+            if not source_view.CanViewBeDuplicated(
+                ViewDuplicateOption.WithDetailing
+            ):
+                warnings.append(
+                    "07C : impossible de dupliquer la vue logement ; "
+                    "échelle d'origine conservée."
+                )
+                viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    source_view.Id,
+                    XYZ(point[0], point[1], 0.0),
+                )
+                self._apply_viewport_type(viewport, viewport_type_id)
+                return (
+                    source_view,
+                    viewport,
+                    source_scale,
+                    False,
+                    False,
+                    warnings,
+                )
+
+            copied_id = source_view.Duplicate(
+                ViewDuplicateOption.WithDetailing
+            )
+            working_view = self.document.GetElement(copied_id)
+            if working_view is None:
+                raise RuntimeError(
+                    "07C : Revit n'a pas retourné la copie de la vue logement."
+                )
+            working_view.Name = self._unique_view_name(
+                "PDV SHEET - {} - AUTO".format(housing_key)
+            )
+            was_duplicated = True
+
+        viewport = None
+        selected_scale = None
+        collision_labels = []
+
+        for scale in candidates:
+            if working_view is source_view and scale != source_scale:
+                # La première collision impose désormais une réduction :
+                # dupliquer la vue avant de modifier son échelle.
+                if not source_view.CanViewBeDuplicated(
+                    ViewDuplicateOption.WithDetailing
+                ):
+                    warnings.append(
+                        "07C : collision détectée mais la vue ne peut pas être "
+                        "dupliquée ; échelle d'origine conservée."
+                    )
+                    break
+
+                if viewport is not None:
+                    self.document.Delete(viewport.Id)
+                    viewport = None
+
+                copied_id = source_view.Duplicate(
+                    ViewDuplicateOption.WithDetailing
+                )
+                working_view = self.document.GetElement(copied_id)
+                if working_view is None:
+                    raise RuntimeError(
+                        "07C : Revit n'a pas retourné la copie de la vue logement."
+                    )
+                working_view.Name = self._unique_view_name(
+                    "PDV SHEET - {} - AUTO".format(housing_key)
+                )
+                was_duplicated = True
+
+            try:
+                if int(getattr(working_view, "Scale", 0) or 0) != int(scale):
+                    working_view.Scale = int(scale)
+            except Exception:
+                continue
+
+            if viewport is None:
+                viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    working_view.Id,
+                    XYZ(point[0], point[1], 0.0),
+                )
+                self._apply_viewport_type(viewport, viewport_type_id)
+
+            self.document.Regenerate()
+            collision_labels = self._main_viewport_collisions(
+                sheet,
+                viewport,
+                obstacle_elements,
+            )
+            selected_scale = int(scale)
+
+            if not collision_labels:
+                return (
+                    working_view,
+                    viewport,
+                    selected_scale,
+                    selected_scale != source_scale,
+                    was_duplicated,
+                    warnings,
+                )
+
+        if viewport is None:
             viewport = Viewport.Create(
                 self.document,
                 sheet.Id,
@@ -896,192 +1024,188 @@ class SheetAssemblyService(object):
                 XYZ(point[0], point[1], 0.0),
             )
             self._apply_viewport_type(viewport, viewport_type_id)
+            selected_scale = source_scale
+            working_view = source_view
+            was_duplicated = False
+
+        if collision_labels:
             warnings.append(
-                "07C : zone modèle invalide ; échelle de la vue logement conservée."
-            )
-            return (
-                source_view,
-                viewport,
-                int(getattr(source_view, "Scale", 0) or 0),
-                False,
-                False,
-                warnings,
-            )
-
-        # Mesure réelle de la vue actuelle sur la nouvelle feuille.
-        viewport = Viewport.Create(
-            self.document,
-            sheet.Id,
-            source_view.Id,
-            XYZ(point[0], point[1], 0.0),
-        )
-        self._apply_viewport_type(viewport, viewport_type_id)
-        self.document.Regenerate()
-
-        current_width, current_height = self._viewport_box_size(viewport)
-        current_scale = int(getattr(source_view, "Scale", 0) or 0)
-
-        try:
-            desired_scale = choose_fitting_scale(
-                current_scale=current_scale,
-                current_width=current_width,
-                current_height=current_height,
-                target_width=target_width,
-                target_height=target_height,
-                allowed_scales=allowed_scales,
-            )
-        except Exception as error:
-            warnings.append(
-                "07C : calcul d'échelle impossible ({}).".format(
-                    str(error) or repr(error)
+                "07C : collision restante à l'échelle 1:{} avec {}.".format(
+                    selected_scale,
+                    ", ".join(sorted(set(collision_labels))),
                 )
-            )
-            return (
-                source_view,
-                viewport,
-                current_scale,
-                False,
-                False,
-                warnings,
-            )
-
-        if desired_scale == current_scale and viewport_fits(
-            current_width,
-            current_height,
-            target_width,
-            target_height,
-        ):
-            return (
-                source_view,
-                viewport,
-                current_scale,
-                False,
-                False,
-                warnings,
-            )
-
-        # Ne jamais modifier l'échelle de la vue de production existante :
-        # une copie indépendante avec détails est créée pour la feuille.
-        if not source_view.CanViewBeDuplicated(
-            ViewDuplicateOption.WithDetailing
-        ):
-            warnings.append(
-                "07C : la vue logement ne peut pas être dupliquée avec détails ; "
-                "échelle existante conservée."
-            )
-            return (
-                source_view,
-                viewport,
-                current_scale,
-                False,
-                False,
-                warnings,
-            )
-
-        self.document.Delete(viewport.Id)
-        copied_id = source_view.Duplicate(
-            ViewDuplicateOption.WithDetailing
-        )
-        fitted_view = self.document.GetElement(copied_id)
-        if fitted_view is None:
-            raise RuntimeError(
-                "07C : Revit n'a pas retourné la copie de la vue logement."
-            )
-
-        fitted_view.Name = self._unique_view_name(
-            "PDV SHEET - {} - AUTO".format(housing_key)
-        )
-
-        scales = parse_allowed_scales(allowed_scales)
-        start_index = 0
-        for index, scale in enumerate(scales):
-            if scale >= desired_scale:
-                start_index = index
-                break
-        else:
-            start_index = len(scales) - 1
-
-        fitted_viewport = None
-        selected_scale = None
-
-        for scale in scales[start_index:]:
-            try:
-                fitted_view.Scale = int(scale)
-            except Exception:
-                continue
-
-            if fitted_viewport is None:
-                fitted_viewport = Viewport.Create(
-                    self.document,
-                    sheet.Id,
-                    fitted_view.Id,
-                    XYZ(point[0], point[1], 0.0),
-                )
-                self._apply_viewport_type(
-                    fitted_viewport,
-                    viewport_type_id,
-                )
-
-            self.document.Regenerate()
-            width, height = self._viewport_box_size(fitted_viewport)
-            selected_scale = int(scale)
-
-            if viewport_fits(
-                width,
-                height,
-                target_width,
-                target_height,
-            ):
-                break
-
-        if fitted_viewport is None or selected_scale is None:
-            try:
-                self.document.Delete(fitted_view.Id)
-            except Exception:
-                pass
-            fallback = Viewport.Create(
-                self.document,
-                sheet.Id,
-                source_view.Id,
-                XYZ(point[0], point[1], 0.0),
-            )
-            self._apply_viewport_type(fallback, viewport_type_id)
-            warnings.append(
-                "07C : aucune échelle autorisée n'a pu être appliquée ; "
-                "vue logement d'origine conservée."
-            )
-            return (
-                source_view,
-                fallback,
-                current_scale,
-                False,
-                False,
-                warnings,
-            )
-
-        self.document.Regenerate()
-        final_width, final_height = self._viewport_box_size(
-            fitted_viewport
-        )
-        if not viewport_fits(
-            final_width,
-            final_height,
-            target_width,
-            target_height,
-        ):
-            warnings.append(
-                "07C : même à l'échelle 1:{}, la vue dépasse légèrement "
-                "la zone du modèle.".format(selected_scale)
             )
 
         return (
-            fitted_view,
-            fitted_viewport,
+            working_view,
+            viewport,
             selected_scale,
-            selected_scale != current_scale,
-            True,
+            selected_scale != source_scale,
+            was_duplicated,
             warnings,
         )
+
+    def _main_viewport_collisions(
+        self,
+        sheet,
+        main_viewport,
+        obstacle_elements,
+    ):
+        clearance = self._millimeters_to_internal(2.0)
+        rectangle = self._viewport_rectangle(main_viewport)
+        labels = []
+
+        for element in obstacle_elements or []:
+            if element is None:
+                continue
+            other = self._element_rectangle(element, sheet)
+            if other is None:
+                continue
+            if rectangles_overlap(
+                rectangle,
+                other,
+                clearance=clearance,
+            ):
+                labels.append(self._obstacle_label(element))
+
+        for start, end in self._title_block_segments(sheet):
+            if segment_intersects_rectangle(
+                start,
+                end,
+                rectangle,
+                clearance=clearance,
+            ):
+                labels.append("géométrie du cartouche")
+                break
+
+        return labels
+
+    @staticmethod
+    def _viewport_rectangle(viewport):
+        outline = viewport.GetBoxOutline()
+        minimum = outline.MinimumPoint
+        maximum = outline.MaximumPoint
+        return (
+            float(minimum.X),
+            float(minimum.Y),
+            float(maximum.X),
+            float(maximum.Y),
+        )
+
+    def _element_rectangle(self, element, sheet):
+        if hasattr(element, "GetBoxOutline"):
+            try:
+                return self._viewport_rectangle(element)
+            except Exception:
+                pass
+
+        box = None
+        try:
+            box = element.get_BoundingBox(sheet)
+        except Exception:
+            try:
+                box = element.get_BoundingBox(None)
+            except Exception:
+                box = None
+
+        if box is None:
+            return None
+
+        return (
+            float(box.Min.X),
+            float(box.Min.Y),
+            float(box.Max.X),
+            float(box.Max.Y),
+        )
+
+    def _title_block_segments(self, sheet):
+        from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector, Options
+
+        segments = []
+        options = Options()
+
+        for title_block in (
+            FilteredElementCollector(self.document, sheet.Id)
+            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        ):
+            try:
+                geometry = title_block.get_Geometry(options)
+            except Exception:
+                geometry = None
+            self._collect_geometry_segments(geometry, segments)
+
+        return segments
+
+    def _collect_geometry_segments(self, geometry, output):
+        if geometry is None:
+            return
+
+        try:
+            items = list(geometry)
+        except Exception:
+            items = []
+
+        for item in items:
+            if item is None:
+                continue
+
+            if hasattr(item, "GetInstanceGeometry"):
+                try:
+                    self._collect_geometry_segments(
+                        item.GetInstanceGeometry(),
+                        output,
+                    )
+                    continue
+                except Exception:
+                    pass
+
+            points = []
+            if hasattr(item, "Tessellate"):
+                try:
+                    points = list(item.Tessellate() or [])
+                except Exception:
+                    points = []
+            elif hasattr(item, "GetCoordinates"):
+                try:
+                    points = list(item.GetCoordinates() or [])
+                except Exception:
+                    points = []
+
+            if len(points) < 2:
+                continue
+
+            for first, second in zip(points, points[1:]):
+                output.append(
+                    (
+                        (float(first.X), float(first.Y)),
+                        (float(second.X), float(second.Y)),
+                    )
+                )
+
+    @staticmethod
+    def _obstacle_label(element):
+        try:
+            name = str(getattr(element, "Name", "") or "")
+            if name:
+                return name
+        except Exception:
+            pass
+        return "un autre élément de la feuille"
+
+    @staticmethod
+    def _millimeters_to_internal(value):
+        try:
+            from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+            return float(
+                UnitUtils.ConvertToInternalUnits(
+                    float(value),
+                    UnitTypeId.Millimeters,
+                )
+            )
+        except Exception:
+            return float(value) / 304.8
 
     def _unique_view_name(self, base_name):
         from Autodesk.Revit.DB import FilteredElementCollector, View
