@@ -103,3 +103,16 @@ def test_stage07d_documentation_is_present():
     assert "## Étape 07D — Génération complète depuis la feuille modèle" in text
     assert "stage07d-template-driven-full-generation-v1" in text
     assert "nombre libre de nomenclatures" in text
+
+
+
+def test_stage07d_full_action_does_not_depend_on_manual_07c_role_mapping():
+    window = WINDOW.read_text(encoding="utf-8")
+    block = window[
+        window.index("    def CreateFullPlan_Click("):
+        window.index("    def CreateSheet_Click(")
+    ]
+
+    assert "_selected_sheet_role_mapping" not in block
+    assert "DimensionViewCombo" not in block
+    assert "inspect_full_generation_template(" in block
