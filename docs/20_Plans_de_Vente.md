@@ -4519,3 +4519,75 @@ l'échelle de la vue existante.
    `PDV SHEET - <logement> - AUTO`.
 
 **Statut du prototype 07C : À valider dans Revit 2025.4.**
+
+
+## Correctif 07C.1 — échelle du modèle et réduction sur collision
+
+**Build :** `stage07c-reference-scale-collision-v6`
+
+Retour Revit du 9 octobre 2026 : le premier prototype 07C cherchait à remplir
+au maximum la zone occupée par la vue modèle. Ce comportement n'est pas celui
+souhaité pour les plans de vente.
+
+La règle métier retenue devient :
+
+> **l'échelle de référence est toujours celle de la vue logement de la feuille modèle.**
+
+Le moteur ne change cette échelle que si le nouveau plan entre en collision avec
+un autre élément de la composition ou avec la géométrie du cartouche.
+
+### Algorithme
+
+1. lire l'échelle de la vue logement sélectionnée sur la feuille modèle ;
+2. utiliser cette échelle comme première candidate, quelle que soit l'échelle
+   actuelle de la vue du nouveau logement ;
+3. placer la vue au même centre que la vue modèle ;
+4. régénérer la feuille ;
+5. contrôler les collisions avec :
+   - la vue de repérage réellement placée ;
+   - la nomenclature intérieure réellement placée ;
+   - la nomenclature extérieure réellement placée ;
+   - les lignes / courbes de la géométrie du cartouche ;
+6. s'il n'y a aucune collision, conserver l'échelle de référence ;
+7. uniquement en cas de collision, essayer les dénominateurs supérieurs
+   autorisés, par exemple `1:75 → 1:100 → 1:125 → 1:150` ;
+8. retenir la première échelle sans collision.
+
+Le moteur **n'agrandit jamais** un petit logement au-delà de l'échelle de la
+feuille modèle. Deux logements de tailles différentes peuvent donc occuper des
+surfaces différentes sur la feuille tout en conservant la même échelle de
+référence.
+
+### Protection de la vue source
+
+La vue de production existante n'est jamais changée d'échelle.
+
+Si son échelle diffère de la référence, ou si une collision impose une réduction,
+le moteur crée une copie avec détails :
+
+`PDV SHEET - <logement> - AUTO`
+
+puis applique l'échelle retenue à cette copie.
+
+### Marge de collision
+
+Une marge de sécurité de 2 mm est appliquée autour du viewport principal afin
+d'éviter qu'il touche visuellement une autre vue, une nomenclature ou une ligne
+du cartouche.
+
+### Interface
+
+Le réglage devient :
+
+```text
+[✓] Réduire l’échelle uniquement en cas de collision
+
+Échelles de repli autorisées
+[ 50, 75, 100, 125, 150 ]
+```
+
+Les valeurs plus grandes graphiquement que la référence sont ignorées.
+Par exemple, avec une feuille modèle au `1:75`, les candidats utiles sont
+`1:75`, puis `1:100`, `1:125`, `1:150`.
+
+**Statut : À valider dans Revit 2025.4.**
