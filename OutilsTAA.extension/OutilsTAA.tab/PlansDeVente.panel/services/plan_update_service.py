@@ -248,10 +248,15 @@ class PlanUpdateService(object):
             )
         )
 
+        old_generated_view_ids = [
+            str(getattr(view, "UniqueId", "") or "")
+            for view in self._generated_views(housing.key)
+        ]
         source_candidate, source_warnings = (
             self.full_generation_service._resolve_source_view(
                 housing,
                 main_info.view,
+                excluded_unique_ids=old_generated_view_ids,
             )
         )
         (
