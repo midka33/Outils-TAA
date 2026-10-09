@@ -125,7 +125,7 @@ def test_stage07d_full_action_does_not_depend_on_manual_07c_role_mapping():
 def test_stage07d_entrypoint_does_not_self_reference_service_during_construction():
     script = SCRIPT.read_text(encoding="utf-8")
     start = script.index("    full_generation_service = FullGenerationService(")
-    update_marker = "\n\n    plan_update_service = PlanUpdateService("
+    update_marker = "\n    plan_update_service = PlanUpdateService("
     controller_marker = "\n\n    controller = PlansVenteController("
     if update_marker in script[start:]:
         end = script.index(update_marker, start)
