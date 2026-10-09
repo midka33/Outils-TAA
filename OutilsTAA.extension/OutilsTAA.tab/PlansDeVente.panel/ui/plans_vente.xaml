@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Étape 07 · Assemblage de la feuille"
+                <TextBlock Text="Étapes 07–08 · Génération et mise à jour"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -137,6 +137,20 @@
                                     IsEnabled="False"
                                     Style="{DynamicResource TAAPrimaryButton}"
                                     Click="CreateFullPlan_Click"/>
+
+                            <Separator Margin="0,14,0,12"/>
+                            <TextBlock Text="Étape 08 — Mise à jour"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <TextBlock Text="Régénère les éléments PDV d’une feuille existante tout en conservant la feuille, le cartouche et les positions déjà ajustées."
+                                       Margin="0,4,0,8"
+                                       TextWrapping="Wrap"
+                                       Style="{DynamicResource TAASecondaryText}"/>
+                            <Button x:Name="UpdateFullPlanButton"
+                                    Content="Mettre à jour le plan de vente"
+                                    HorizontalAlignment="Stretch"
+                                    IsEnabled="False"
+                                    Style="{DynamicResource TAAPrimaryButton}"
+                                    Click="UpdateFullPlan_Click"/>
                         </StackPanel>
                     </Border>
 
