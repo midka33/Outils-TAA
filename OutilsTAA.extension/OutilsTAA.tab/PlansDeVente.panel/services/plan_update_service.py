@@ -841,12 +841,18 @@ class PlanUpdateService(object):
     def _is_managed_schedule_name(name, housing_key):
         text = str(name or "").upper()
         key = str(housing_key or "").upper()
-        if not text:
+        if not text or not key:
             return False
-        return (
-            key in text
-            or text.startswith("PDV_")
+
+        tokens = (
+            "PDV_{}_".format(key),
+            "PDV-{}".format(key),
+            "_{}_".format(key),
+            "_{}".format(key),
+            " - {}".format(key),
+            " {}".format(key),
         )
+        return any(token in text for token in tokens)
 
     def _find_target_sheet(self, housing_key):
         from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
