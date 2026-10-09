@@ -5,6 +5,9 @@ from plans_vente.sheet_fit import (
     choose_fitting_scale,
     parse_allowed_scales,
     viewport_fits,
+    rectangles_overlap,
+    scale_candidates_from_reference,
+    segment_intersects_rectangle,
 )
 
 
@@ -71,3 +74,39 @@ def test_viewport_fits_checks_both_axes():
     assert viewport_fits(80, 60, 100, 70)
     assert not viewport_fits(101, 60, 100, 70)
     assert not viewport_fits(80, 71, 100, 70)
+
+
+
+def test_scale_candidates_start_at_template_reference_and_never_enlarge():
+    assert scale_candidates_from_reference(
+        50,
+        [25, 50, 75, 100],
+    ) == [50, 75, 100]
+
+    assert scale_candidates_from_reference(
+        75,
+        [25, 50, 75, 100, 125],
+    ) == [75, 100, 125]
+
+
+def test_rectangles_overlap_detects_other_sheet_elements():
+    assert rectangles_overlap((0, 0, 10, 10), (9, 2, 12, 6))
+    assert not rectangles_overlap((0, 0, 10, 10), (10, 2, 12, 6))
+    assert rectangles_overlap(
+        (0, 0, 10, 10),
+        (10, 2, 12, 6),
+        clearance=0.1,
+    )
+
+
+def test_segment_intersects_rectangle_detects_titleblock_linework():
+    rect = (0, 0, 10, 10)
+
+    assert segment_intersects_rectangle((-2, 5), (12, 5), rect)
+    assert not segment_intersects_rectangle((-2, 12), (12, 12), rect)
+    assert segment_intersects_rectangle(
+        (-2, 10.05),
+        (12, 10.05),
+        rect,
+        clearance=0.1,
+    )
