@@ -116,3 +116,19 @@ def test_stage07d_full_action_does_not_depend_on_manual_07c_role_mapping():
     assert "_selected_sheet_role_mapping" not in block
     assert "DimensionViewCombo" not in block
     assert "inspect_full_generation_template(" in block
+
+
+
+def test_stage07d_entrypoint_does_not_self_reference_service_during_construction():
+    script = SCRIPT.read_text(encoding="utf-8")
+    start = script.index("    full_generation_service = FullGenerationService(")
+    end = script.index("\n\n    controller = PlansVenteController(", start)
+    construction = script[start:end]
+
+    assert "full_generation_service=full_generation_service" not in construction
+
+    controller_start = script.index("    controller = PlansVenteController(")
+    controller_end = script.index("\n\n    window = PlansVenteWindow", controller_start)
+    controller_block = script[controller_start:controller_end]
+
+    assert "full_generation_service=full_generation_service" in controller_block
