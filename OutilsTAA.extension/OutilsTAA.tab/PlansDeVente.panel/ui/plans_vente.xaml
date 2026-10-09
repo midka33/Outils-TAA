@@ -146,7 +146,7 @@
                               Click="SheetFitChoiceChanged"/>
                     <TextBlock Text="Échelles autorisées (dénominateurs)" Margin="0,10,0,4"/>
                     <TextBox x:Name="SheetAllowedScalesTextBox"
-                             Text="50, 75, 100"
+                             Text="25, 50, 75, 100"
                              TextChanged="SheetFitChoiceChanged"
                              Style="{DynamicResource TAATextBox}"/>
                     <TextBlock Text="Le 07C choisit l'échelle qui remplit au mieux la zone de la vue modèle sans la dépasser."
