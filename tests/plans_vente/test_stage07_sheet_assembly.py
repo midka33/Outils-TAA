@@ -6,13 +6,6 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from plans_vente.sheet_layout import default_sheet_anchors
-from plans_vente.sheet_template import (
-    TEMPLATE_MAIN_VIEW_NAME,
-    TEMPLATE_LOCATION_VIEW_NAME,
-    TEMPLATE_INTERIOR_SCHEDULE_NAME,
-    TEMPLATE_EXTERIOR_SCHEDULE_NAME,
-    required_placeholder_names,
-)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -54,7 +47,7 @@ def test_stage07_service_uses_native_revit_sheet_placement_api():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'SHEET_ASSEMBLY_BUILD = "stage07b-user-selected-sheet-v3"' in text
+    assert 'SHEET_ASSEMBLY_BUILD = "stage07b-user-mapped-sheet-v4"' in text
     assert "ViewSheet.Create" in text
     assert "Viewport.Create" in text
     assert "ScheduleSheetInstance.Create" in text
@@ -64,19 +57,16 @@ def test_stage07_service_uses_native_revit_sheet_placement_api():
     assert "viewport.ChangeTypeId(viewport_type_id)" in text
 
 
-def test_stage07b_template_contract_is_explicit():
-    names = required_placeholder_names()
+def test_stage07b_template_roles_are_selected_by_user_not_magic_names():
+    text = SERVICE.read_text(encoding="utf-8")
 
-    assert names == {
-        "main_view": "PDV_MODELE_VUE",
-        "location_view": "PDV_MODELE_REPERAGE",
-        "interior_schedule": "PDV_MODELE_NOM_INT",
-        "exterior_schedule": "PDV_MODELE_NOM_EXT",
-    }
-    assert TEMPLATE_MAIN_VIEW_NAME == "PDV_MODELE_VUE"
-    assert TEMPLATE_LOCATION_VIEW_NAME == "PDV_MODELE_REPERAGE"
-    assert TEMPLATE_INTERIOR_SCHEDULE_NAME == "PDV_MODELE_NOM_INT"
-    assert TEMPLATE_EXTERIOR_SCHEDULE_NAME == "PDV_MODELE_NOM_EXT"
+    assert "class SheetPlacedViewCandidate" in text
+    assert "class SheetPlacedScheduleCandidate" in text
+    assert "def _placed_view_candidates(" in text
+    assert "def _placed_schedule_candidates(" in text
+    assert "required_placeholder_names" not in text
+    assert "PDV_MODELE_VUE" not in text
+    assert "PDV_MODELE_REPERAGE" not in text
 
 
 def test_stage07b_lists_all_sheets_and_validates_only_selected_sheet():
@@ -84,17 +74,19 @@ def test_stage07b_lists_all_sheets_and_validates_only_selected_sheet():
 
     assert "def list_sheet_templates(" in text
     assert "def inspect_sheet_template(" in text
-    assert "def _template_layout(" in text
+    assert "def _template_layout_from_mapping(" in text
     assert "for sheet in (" in text
     assert ".OfClass(ViewSheet)" in text
     assert "self._template_layout(sheet)" not in text[
         text.index("    def list_sheet_templates("):
         text.index("    def inspect_sheet_template(")
     ]
-    assert "layout = self._template_layout(sheet)" in text[
+    inspect_block = text[
         text.index("    def inspect_sheet_template("):
         text.index("    def create_sheet_from_template(")
     ]
+    assert "self._placed_view_candidates(sheet)" in inspect_block
+    assert "self._placed_schedule_candidates(sheet)" in inspect_block
     assert "La feuille modèle doit contenir exactement un cartouche." in text
 
 
@@ -136,6 +128,10 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
     for name in (
         "SheetInfoText",
         "SheetTemplateCombo",
+        "SheetMainViewCombo",
+        "SheetLocationViewCombo",
+        "SheetInteriorScheduleCombo",
+        "SheetExteriorScheduleCombo",
         "CreateSheetButton",
     ):
         assert 'x:Name="{}"'.format(name) in xaml
@@ -146,7 +142,13 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
     assert "def _load_sheet_templates(" in window
     assert "def _inspect_selected_sheet_template(" in window
     assert "def _load_sheet_readiness(" in window
+    assert "def _selected_sheet_role_mapping(" in window
+    assert "def SheetRoleChoiceChanged(" in window
     assert "self.SheetTemplateCombo.SelectedIndex = -1" in window
+    assert "template_main_viewport_unique_id" in window
+    assert "template_location_viewport_unique_id" in window
+    assert "template_interior_schedule_instance_unique_id" in window
+    assert "template_exterior_schedule_instance_unique_id" in window
     assert "create_sheet_from_template(" in window
 
 
@@ -156,10 +158,11 @@ def test_stage07_documentation_is_opened():
     assert "## Ouverture Étape 07 — Assemblage de la feuille" in text
     assert "Prototype 07A : VALIDÉ TECHNIQUEMENT" in text
     assert "### Prototype 07B — Feuille modèle" in text
-    assert "PDV_MODELE_VUE" in text
-    assert "PDV_MODELE_REPERAGE" in text
-    assert "PDV_MODELE_NOM_INT" in text
-    assert "PDV_MODELE_NOM_EXT" in text
+    assert "Correctif 07B.2 — mapping explicite des éléments placés" in text
+    assert "Vue modèle — logement" in text
+    assert "Vue modèle — repérage" in text
+    assert "Nomenclature modèle — intérieure" in text
+    assert "Nomenclature modèle — extérieure" in text
     assert "feature/plans-de-vente-stage07-sheet-assembly" in text
 
 
@@ -169,4 +172,27 @@ def test_stage07b_result_reports_template_sheet():
 
     assert "template_sheet_label" in text
     assert "result.template_sheet_label" in WINDOW.read_text(encoding="utf-8")
-    assert "stage07b-user-selected-sheet-v3" in text
+    assert "stage07b-user-mapped-sheet-v4" in text
+
+
+
+def test_stage07b_controller_passes_four_mapping_ids():
+    controller = CONTROLLER.read_text(encoding="utf-8")
+
+    for name in (
+        "template_main_viewport_unique_id",
+        "template_location_viewport_unique_id",
+        "template_interior_schedule_instance_unique_id",
+        "template_exterior_schedule_instance_unique_id",
+    ):
+        assert name in controller
+
+
+def test_stage07b_create_requires_distinct_template_roles():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "main_viewport_unique_id == location_viewport_unique_id" in text
+    assert (
+        "interior_schedule_instance_unique_id"
+        " == exterior_schedule_instance_unique_id"
+    ) in text
