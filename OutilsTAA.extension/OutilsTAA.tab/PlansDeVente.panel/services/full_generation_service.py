@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
-FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v3"
+FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"
 
 
 class FullGenerationInspection(object):
