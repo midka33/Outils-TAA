@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
-FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v1"
+FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v2"
 
 
 class FullGenerationInspection(object):
@@ -232,6 +232,13 @@ class FullGenerationService(object):
             housing,
             main_info.view,
         )
+        (
+            location_source_candidate,
+            location_source_warnings,
+        ) = self._resolve_location_source_view(
+            housing,
+            location_info.view,
+        )
 
         tag_type = self._dominant_element_type(
             main_info.view,
@@ -272,6 +279,7 @@ class FullGenerationService(object):
         warnings.extend(inspection.warnings)
         warnings.extend(classifier_warnings)
         warnings.extend(source_warnings)
+        warnings.extend(location_source_warnings)
 
         from Autodesk.Revit.DB import TransactionGroup
 
@@ -325,7 +333,7 @@ class FullGenerationService(object):
             location_result = (
                 self.location_plan_service.create_location_plan(
                     housing=housing,
-                    source_view_unique_id=source_candidate.unique_id,
+                    source_view_unique_id=location_source_candidate.unique_id,
                     filled_region_type_unique_id=str(
                         getattr(fill_type, "UniqueId", "") or ""
                     ),
@@ -336,6 +344,9 @@ class FullGenerationService(object):
                         )
                         if location_template is not None
                         else None
+                    ),
+                    target_scale=int(
+                        getattr(location_info.view, "Scale", 0) or 0
                     ),
                 )
             )
@@ -430,10 +441,7 @@ class FullGenerationService(object):
                     viewport=viewport,
                     view=view,
                     area=width * height,
-                    filled_regions=self._view_category_count(
-                        view,
-                        "OST_FilledRegion",
-                    ),
+                    filled_regions=self._filled_region_count(view),
                     room_tags=self._view_category_count(
                         view,
                         "OST_RoomTags",
@@ -579,6 +587,107 @@ class FullGenerationService(object):
 
         return chosen, warnings
 
+    def _resolve_location_source_view(
+        self,
+        housing,
+        model_location_view,
+    ):
+        """Choisit une vue de niveau large pour reconstruire le repérage.
+
+        Le repérage ne doit jamais reprendre une vue logement recadrée d'un
+        autre étage. On privilégie le même gabarit/type que le modèle, puis la
+        plus grande emprise de crop disponible au niveau cible.
+        """
+        candidates = list(
+            self.location_plan_service.source_views_for_housing(housing)
+            or []
+        )
+        if not candidates:
+            raise ValueError(
+                "Aucune vue source de repérage n'a été trouvée au niveau du logement."
+            )
+
+        warnings = []
+        model_template_id = getattr(
+            model_location_view,
+            "ViewTemplateId",
+            None,
+        )
+        model_type_id = None
+        try:
+            model_type_id = model_location_view.GetTypeId()
+        except Exception:
+            model_type_id = None
+
+        ranked = []
+        for candidate in candidates:
+            view = self.document.GetElement(candidate.unique_id)
+            score = 0
+            crop_area = 0.0
+
+            if view is not None:
+                try:
+                    if (
+                        model_template_id is not None
+                        and view.ViewTemplateId == model_template_id
+                    ):
+                        score += 100
+                except Exception:
+                    pass
+
+                try:
+                    if (
+                        model_type_id is not None
+                        and view.GetTypeId() == model_type_id
+                    ):
+                        score += 20
+                except Exception:
+                    pass
+
+                try:
+                    if not bool(getattr(view, "CropBoxActive", False)):
+                        score += 15
+                except Exception:
+                    pass
+
+                crop_area = self._view_crop_area(view)
+
+            ranked.append((score, crop_area, candidate))
+
+        ranked.sort(
+            key=lambda item: (
+                -item[0],
+                -item[1],
+                item[2].name.lower(),
+            )
+        )
+        chosen = ranked[0][2]
+
+        if len(ranked) > 1:
+            best = ranked[0]
+            second = ranked[1]
+            if best[0] == second[0] and abs(best[1] - second[1]) <= 1e-9:
+                warnings.append(
+                    "07D : plusieurs vues sources de repérage équivalentes ; "
+                    "« {} » a été retenue automatiquement.".format(
+                        chosen.name
+                    )
+                )
+
+        return chosen, warnings
+
+    @staticmethod
+    def _view_crop_area(view):
+        try:
+            box = view.CropBox
+            if box is None:
+                return 0.0
+            width = abs(float(box.Max.X) - float(box.Min.X))
+            height = abs(float(box.Max.Y) - float(box.Min.Y))
+            return width * height
+        except Exception:
+            return 0.0
+
     def _primary_view(self, view):
         try:
             primary_id = view.GetPrimaryViewId()
@@ -616,6 +725,44 @@ class FullGenerationService(object):
             ),
         )
 
+    def _filled_region_count(self, view):
+        from Autodesk.Revit.DB import FilledRegion, FilteredElementCollector
+
+        count = 0
+        seen = set()
+        for view_id in self._annotation_view_ids(view):
+            try:
+                regions = (
+                    FilteredElementCollector(self.document, view_id)
+                    .OfClass(FilledRegion)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+            except Exception:
+                regions = []
+
+            for region in regions:
+                key = self._element_id_value(region.Id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                count += 1
+        return count
+
+    def _annotation_view_ids(self, view):
+        result = [view.Id]
+        try:
+            from Autodesk.Revit.DB import ElementId
+            primary_id = view.GetPrimaryViewId()
+            if (
+                primary_id is not None
+                and primary_id != ElementId.InvalidElementId
+            ):
+                result.append(primary_id)
+        except Exception:
+            pass
+        return result
+
     def _view_category_count(self, view, built_in_name):
         from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
 
@@ -635,14 +782,23 @@ class FullGenerationService(object):
     def _dominant_element_type(self, view, built_in_name):
         from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
 
+        elements = []
         try:
             category = getattr(BuiltInCategory, built_in_name)
-            elements = list(
-                FilteredElementCollector(self.document, view.Id)
-                .OfCategory(category)
-                .WhereElementIsNotElementType()
-                .ToElements()
-            )
+            seen = set()
+            for view_id in self._annotation_view_ids(view):
+                current = (
+                    FilteredElementCollector(self.document, view_id)
+                    .OfCategory(category)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+                for element in current:
+                    key = self._element_id_value(element.Id)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    elements.append(element)
         except Exception:
             elements = []
 
@@ -669,12 +825,26 @@ class FullGenerationService(object):
     def _filled_region_type(self, view):
         from Autodesk.Revit.DB import FilledRegion, FilteredElementCollector
 
-        regions = list(
-            FilteredElementCollector(self.document, view.Id)
-            .OfClass(FilledRegion)
-            .WhereElementIsNotElementType()
-            .ToElements()
-        )
+        regions = []
+        seen = set()
+        for view_id in self._annotation_view_ids(view):
+            try:
+                current = (
+                    FilteredElementCollector(self.document, view_id)
+                    .OfClass(FilledRegion)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+            except Exception:
+                current = []
+
+            for region in current:
+                key = self._element_id_value(region.Id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                regions.append(region)
+
         if not regions:
             return None
         return self.document.GetElement(regions[0].GetTypeId())
