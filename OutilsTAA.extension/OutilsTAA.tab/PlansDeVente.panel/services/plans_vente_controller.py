@@ -15,6 +15,7 @@ class PlansVenteController(object):
         dimension_service,
         sheet_assembly_service,
         full_generation_service=None,
+        plan_update_service=None,
     ):
         self.analysis_service = analysis_service
         self.prototype_view_service = prototype_view_service
@@ -24,6 +25,7 @@ class PlansVenteController(object):
         self.dimension_service = dimension_service
         self.sheet_assembly_service = sheet_assembly_service
         self.full_generation_service = full_generation_service
+        self.plan_update_service = plan_update_service
 
     def load_context(self):
         return self.analysis_service.load_context()
@@ -239,4 +241,44 @@ class PlansVenteController(object):
             self.full_generation_service,
             "build_id",
             "full-generation-service-build-inconnu",
+        )
+
+
+    def inspect_plan_update(
+        self,
+        housing,
+        descriptor,
+        template_sheet_unique_id,
+    ):
+        if self.plan_update_service is None:
+            raise RuntimeError("Service de mise à jour Étape 08 indisponible.")
+        return self.plan_update_service.inspect(
+            housing,
+            descriptor,
+            template_sheet_unique_id,
+        )
+
+    def update_full_plan(
+        self,
+        housing,
+        descriptor,
+        template_sheet_unique_id,
+        allowed_scales=None,
+    ):
+        if self.plan_update_service is None:
+            raise RuntimeError("Service de mise à jour Étape 08 indisponible.")
+        return self.plan_update_service.update(
+            housing,
+            descriptor,
+            template_sheet_unique_id,
+            allowed_scales=allowed_scales,
+        )
+
+    def plan_update_build_id(self):
+        if self.plan_update_service is None:
+            return "plan-update-service-indisponible"
+        return getattr(
+            self.plan_update_service,
+            "build_id",
+            "plan-update-service-build-inconnu",
         )
