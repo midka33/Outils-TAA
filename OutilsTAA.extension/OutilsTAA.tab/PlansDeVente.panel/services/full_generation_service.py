@@ -511,11 +511,28 @@ class FullGenerationService(object):
 
         return main, location, warnings
 
-    def _resolve_source_view(self, housing, model_main_view):
+    def _resolve_source_view(
+        self,
+        housing,
+        model_main_view,
+        excluded_unique_ids=None,
+    ):
         candidates = list(
             self.prototype_view_service.source_views_for_housing(housing)
             or []
         )
+        excluded = set(
+            str(value or "")
+            for value in (excluded_unique_ids or [])
+            if value
+        )
+        if excluded:
+            candidates = [
+                candidate
+                for candidate in candidates
+                if str(getattr(candidate, "unique_id", "") or "")
+                not in excluded
+            ]
         if not candidates:
             raise ValueError(
                 "Aucune vue source plan duplicable n'a été trouvée au niveau du logement."
