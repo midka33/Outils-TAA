@@ -163,11 +163,19 @@ class PlansVenteController(object):
         housing,
         template_sheet_unique_id,
         main_view_unique_id,
+        template_main_viewport_unique_id,
+        template_location_viewport_unique_id,
+        template_interior_schedule_instance_unique_id,
+        template_exterior_schedule_instance_unique_id,
     ):
         return self.sheet_assembly_service.create_sheet_from_template(
             housing,
             template_sheet_unique_id,
             main_view_unique_id,
+            template_main_viewport_unique_id,
+            template_location_viewport_unique_id,
+            template_interior_schedule_instance_unique_id,
+            template_exterior_schedule_instance_unique_id,
         )
 
     def create_sheet_assembly(
