@@ -4591,3 +4591,133 @@ Par exemple, avec une feuille modèle au `1:75`, les candidats utiles sont
 `1:75`, puis `1:100`, `1:125`, `1:150`.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Validation 07C
+
+Le test Revit 2025.4 du 9 octobre 2026 est concluant.
+
+La règle validée est la suivante :
+
+- la vue logement utilise d'abord l'échelle de la vue logement de la feuille modèle ;
+- l'échelle n'est réduite que si le viewport entre en collision avec une autre
+  vue, une nomenclature ou la géométrie du cartouche ;
+- la vue de production d'origine n'est jamais modifiée.
+
+**Étape 07C : VALIDÉE.**
+
+## Étape 07D — Génération complète depuis la feuille modèle
+
+**Build :** `stage07d-template-driven-full-generation-v1`
+
+L'objectif du 07D est de supprimer les opérations intermédiaires de la V1.
+
+L'utilisateur doit seulement :
+
+```text
+1. analyser le paramètre logement ;
+2. sélectionner un logement ;
+3. sélectionner une feuille modèle ;
+4. cliquer sur « Créer le plan de vente complet ».
+```
+
+La feuille modèle devient la source de configuration du plan de vente.
+
+### Détection automatique
+
+Le 07D analyse uniquement la feuille modèle choisie et détermine :
+
+- la vue logement ;
+- le plan de repérage ;
+- l'échelle de référence de la vue logement ;
+- le type d'étiquette de pièce dominant ;
+- le type de cote dominant ;
+- le type de zone remplie du repérage ;
+- le gabarit appliqué au repérage ;
+- le cartouche ;
+- les positions des viewports ;
+- les types de viewport ;
+- toutes les nomenclatures placées sur la feuille.
+
+La vue de repérage est identifiée en priorité par la présence de zones
+remplies. La vue logement est ensuite choisie à partir des annotations et de
+l'emprise du viewport.
+
+### Nomenclatures
+
+Le 07D n'impose plus « intérieure + extérieure ».
+
+Il accepte un **nombre libre de nomenclatures** placées sur la feuille modèle.
+
+Pour chaque définition de nomenclature :
+
+- si le champ logement est présent et filtrable, la nomenclature est dupliquée
+  et son filtre est remplacé par le logement cible ;
+- si elle ne contient pas de filtre logement, elle est dupliquée à l'identique
+  et un avertissement est produit ;
+- chaque instance est replacée au point exact de l'instance correspondante sur
+  la feuille modèle.
+
+Cela permet d'ajouter ultérieurement, sans modifier le moteur d'assemblage,
+des nomenclatures de surfaces, annexes, menuiseries, équipements, finitions,
+etc.
+
+### Chaîne de génération
+
+```text
+Logement + feuille modèle
+        ↓
+analyse automatique du modèle
+        ↓
+création de la vue logement
+        ↓
+crop optimisé
+        ↓
+étiquettes de pièces
+        ↓
+cotations
+        ↓
+plan de repérage + surbrillance
+        ↓
+duplication de toutes les nomenclatures
+        ↓
+création de la feuille
+        ↓
+placement aux positions du modèle
+        ↓
+règle 07C de collision / échelle
+```
+
+### Transaction globale
+
+Le 07D utilise un `TransactionGroup` Revit autour de toute la chaîne.
+
+Chaque service conserve ses transactions courtes existantes, mais si une
+étape échoue, le groupe global est annulé. Le but est d'éviter qu'un logement
+se retrouve avec seulement une vue, ou seulement des nomenclatures, après un
+échec en milieu de génération.
+
+### Vue source
+
+Quand la vue logement modèle provient d'un groupe PDV déjà généré, le 07D
+essaie de retrouver la vue source d'origine à partir du jeton présent dans le
+nom de la vue principale technique.
+
+Si ce lien direct n'est pas disponible, il classe les vues sources du niveau
+cible selon leur gabarit, leur type et leur échelle, puis choisit la meilleure
+candidate.
+
+### Limite 07D V1
+
+La V1 génère automatiquement les deux rôles de vues actuellement validés :
+
+- vue logement ;
+- plan de repérage.
+
+Le nombre de nomenclatures est libre.
+
+Si la feuille contient plus de deux viewports, le moteur choisit les deux rôles
+principaux et signale que les viewports supplémentaires seront couverts par
+l'extension multi-vues.
+
+**Statut 07D : À valider dans Revit 2025.4.**
