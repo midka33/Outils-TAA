@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
-FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v2"
+FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v3"
 
 
 class FullGenerationInspection(object):
@@ -347,6 +347,9 @@ class FullGenerationService(object):
                     ),
                     target_scale=int(
                         getattr(location_info.view, "Scale", 0) or 0
+                    ),
+                    crop_reference_view_unique_id=str(
+                        getattr(location_info.view, "UniqueId", "") or ""
                     ),
                 )
             )
