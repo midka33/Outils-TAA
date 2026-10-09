@@ -10,6 +10,7 @@ from pyrevit import forms
 from common.wpf_resources import load_resource_dictionary
 from plans_vente.defaults import preferred_housing_parameter_index
 from plans_vente.view_grouping import normalize_scale
+from plans_vente.sheet_fit import parse_allowed_scales
 
 
 class ParameterChoice(object):
@@ -1022,6 +1023,24 @@ class PlansVenteWindow(forms.WPFWindow):
     def SheetRoleChoiceChanged(self, sender, args):
         self._refresh_sheet_info()
         self._update_sheet_button_state()
+    def SheetFitChoiceChanged(self, sender, args):
+        if not hasattr(self, "SheetInfoText"):
+            return
+        self._refresh_sheet_info()
+        self._update_sheet_button_state()
+
+    def _sheet_fit_options(self):
+        auto_fit = bool(
+            getattr(self.SheetAutoFitCheckBox, "IsChecked", False)
+        )
+        if not auto_fit:
+            return False, []
+
+        scales = parse_allowed_scales(
+            self.SheetAllowedScalesTextBox.Text
+        )
+        return True, scales
+
 
     def _selected_sheet_template(self):
         index = int(self.SheetTemplateCombo.SelectedIndex)
@@ -1141,6 +1160,16 @@ class PlansVenteWindow(forms.WPFWindow):
         inspection = self._sheet_template_inspection
         mapping = self._selected_sheet_role_mapping()
 
+        try:
+            auto_fit_main_view, allowed_scales = self._sheet_fit_options()
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            return
+
         if housing is None or main_view is None or template is None:
             forms.alert(
                 "Sélectionnez un logement, une vue logement et une feuille modèle.",
@@ -1208,7 +1237,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Nomenclature intérieure : {}\n"
                 "Nomenclature extérieure : {}\n\n"
                 "Les vrais éléments du logement seront placés exactement "
-                "aux positions de ces quatre éléments modèles."
+                "aux positions de ces quatre éléments modèles.\n\n"
+                "Ajustement 07C de la vue logement : {}\n"
+                "Échelles autorisées : {}"
             ).format(
                 housing.key,
                 template.label,
@@ -1217,8 +1248,21 @@ class PlansVenteWindow(forms.WPFWindow):
                 mapping["location_view"].label,
                 mapping["interior_schedule"].label,
                 mapping["exterior_schedule"].label,
+                (
+                    "automatique"
+                    if auto_fit_main_view
+                    else "désactivé"
+                ),
+                (
+                    ", ".join(
+                        "1:{}".format(scale)
+                        for scale in allowed_scales
+                    )
+                    if auto_fit_main_view
+                    else "échelle actuelle"
+                ),
             ),
-            title="Plans de vente — Feuille 07B",
+            title="Plans de vente — Feuille 07C",
             yes=True,
             no=True,
         )
@@ -1243,6 +1287,8 @@ class PlansVenteWindow(forms.WPFWindow):
                 template_exterior_schedule_instance_unique_id=(
                     mapping["exterior_schedule"].instance_unique_id
                 ),
+                auto_fit_main_view=auto_fit_main_view,
+                allowed_scales=allowed_scales,
             )
 
             self.StatusText.Text = (
@@ -1263,7 +1309,9 @@ class PlansVenteWindow(forms.WPFWindow):
                     "Vue logement : {}\n"
                     "Repérage : {}\n"
                     "Nomenclature intérieure : {}\n"
-                    "Nomenclature extérieure : {}\n\n"
+                    "Nomenclature extérieure : {}\n"
+                    "Échelle vue logement : 1:{}{}\n\n"
+                    "{}"
                     "Moteur feuille : {}"
                 ).format(
                     result.sheet_number,
@@ -1274,9 +1322,22 @@ class PlansVenteWindow(forms.WPFWindow):
                     result.location_view_name,
                     result.interior_schedule_name,
                     result.exterior_schedule_name,
+                    result.main_view_scale or "?",
+                    (
+                        " (copie ajustée)"
+                        if result.main_view_was_duplicated
+                        else ""
+                    ),
+                    (
+                        "Avertissements :\n- "
+                        + "\n- ".join(result.warnings)
+                        + "\n\n"
+                        if result.warnings
+                        else ""
+                    ),
                     self.controller.sheet_assembly_build_id(),
                 ),
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
             )
         except Exception as error:
             self.StatusText.Text = "Échec de l'assemblage de la feuille modèle."
@@ -1285,7 +1346,7 @@ class PlansVenteWindow(forms.WPFWindow):
                     str(error),
                     self.controller.sheet_assembly_build_id(),
                 ),
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
                 warn_icon=True,
             )
         finally:
@@ -1386,6 +1447,23 @@ class PlansVenteWindow(forms.WPFWindow):
                 else:
                     parts.append("Les 4 rôles du modèle sont attribués.")
 
+        if hasattr(self, "SheetAutoFitCheckBox"):
+            try:
+                auto_fit, scales = self._sheet_fit_options()
+                if auto_fit:
+                    parts.append(
+                        "07C : ajustement auto actif ({})".format(
+                            ", ".join(
+                                "1:{}".format(scale)
+                                for scale in scales
+                            )
+                        )
+                    )
+                else:
+                    parts.append("07C : ajustement auto désactivé.")
+            except Exception as error:
+                parts.append("07C : {}".format(str(error)))
+
         self.SheetInfoText.Text = " ".join(parts)
 
     def _clear_sheet_assembly(self):
@@ -1410,6 +1488,12 @@ class PlansVenteWindow(forms.WPFWindow):
             and self._selected_sheet_role_mapping() is not None
         )
 
+        fit_valid = True
+        try:
+            self._sheet_fit_options()
+        except Exception:
+            fit_valid = False
+
         self.CreateSheetButton.IsEnabled = (
             self.HousingGrid.SelectedItem is not None
             and self.DimensionViewCombo.SelectedItem is not None
@@ -1417,6 +1501,7 @@ class PlansVenteWindow(forms.WPFWindow):
             and self._sheet_readiness is not None
             and self._sheet_readiness.is_ready
             and template_valid
+            and fit_valid
         )
 
     def _clear_prototype_selection(self):
