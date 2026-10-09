@@ -141,15 +141,15 @@
 
                     <Separator Margin="0,14,0,12"/>
                     <CheckBox x:Name="SheetAutoFitCheckBox"
-                              Content="Ajuster automatiquement la vue logement"
+                              Content="Réduire l’échelle uniquement en cas de collision"
                               IsChecked="True"
                               Click="SheetFitChoiceChanged"/>
-                    <TextBlock Text="Échelles autorisées (dénominateurs)" Margin="0,10,0,4"/>
+                    <TextBlock Text="Échelles de repli autorisées" Margin="0,10,0,4"/>
                     <TextBox x:Name="SheetAllowedScalesTextBox"
-                             Text="25, 50, 75, 100"
+                             Text="50, 75, 100, 125, 150"
                              TextChanged="SheetFitChoiceChanged"
                              Style="{DynamicResource TAATextBox}"/>
-                    <TextBlock Text="Le 07C choisit l'échelle qui remplit au mieux la zone de la vue modèle sans la dépasser."
+                    <TextBlock Text="Le 07C part toujours de l’échelle de la vue modèle. Il ne réduit le plan que s’il touche une autre vue, une nomenclature ou la géométrie du cartouche."
                                Margin="0,6,0,0"
                                TextWrapping="Wrap"
                                Style="{DynamicResource TAASecondaryText}"/>
