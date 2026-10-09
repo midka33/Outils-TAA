@@ -109,7 +109,7 @@
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateDimensions_Click"/>
                     <Separator Margin="0,22,0,18"/>
-                    <TextBlock Text="Étape 07B — Feuille modèle"
+                    <TextBlock Text="Étape 07C — Composition automatique"
                                Style="{DynamicResource TAASectionTitle}"/>
                     <TextBlock x:Name="SheetInfoText" Margin="0,0,0,10"
                                Style="{DynamicResource TAASecondaryText}"/>
@@ -138,6 +138,21 @@
                     <ComboBox x:Name="SheetExteriorScheduleCombo"
                               SelectionChanged="SheetRoleChoiceChanged"
                               Style="{DynamicResource TAAComboBox}"/>
+
+                    <Separator Margin="0,14,0,12"/>
+                    <CheckBox x:Name="SheetAutoFitCheckBox"
+                              Content="Ajuster automatiquement la vue logement"
+                              IsChecked="True"
+                              Click="SheetFitChoiceChanged"/>
+                    <TextBlock Text="Échelles autorisées (dénominateurs)" Margin="0,10,0,4"/>
+                    <TextBox x:Name="SheetAllowedScalesTextBox"
+                             Text="50, 75, 100"
+                             TextChanged="SheetFitChoiceChanged"
+                             Style="{DynamicResource TAATextBox}"/>
+                    <TextBlock Text="Le 07C choisit l'échelle qui remplit au mieux la zone de la vue modèle sans la dépasser."
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap"
+                               Style="{DynamicResource TAASecondaryText}"/>
 
                     <Button x:Name="CreateSheetButton" Content="Créer la feuille"
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
