@@ -101,7 +101,14 @@ class LocationPlanService(object):
             ))
         return sorted(result, key=lambda item: item.name.lower())
 
-    def create_location_plan(self, housing, source_view_unique_id, filled_region_type_unique_id, template_unique_id=None):
+    def create_location_plan(
+        self,
+        housing,
+        source_view_unique_id,
+        filled_region_type_unique_id,
+        template_unique_id=None,
+        target_scale=None,
+    ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
         level_name = self._single_level_name(housing)
@@ -150,6 +157,24 @@ class LocationPlanService(object):
                     created_view.ViewTemplateId = template.Id
                 except Exception as error:
                     raise ValueError("Impossible d'appliquer le gabarit de repérage : {}".format(error))
+
+            if target_scale:
+                try:
+                    created_view.Scale = int(target_scale)
+                except Exception as error:
+                    raise ValueError(
+                        "Impossible d'appliquer l'échelle 1:{} au repérage : {}.".format(
+                            int(target_scale),
+                            error,
+                        )
+                    )
+
+                if int(getattr(created_view, "Scale", 0) or 0) != int(target_scale):
+                    raise ValueError(
+                        "Revit n'a pas conservé l'échelle 1:{} sur le repérage.".format(
+                            int(target_scale)
+                        )
+                    )
 
             self._create_global_filled_region(
                 created_view,
