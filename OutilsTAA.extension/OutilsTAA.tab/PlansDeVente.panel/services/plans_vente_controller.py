@@ -14,6 +14,7 @@ class PlansVenteController(object):
         room_tag_service,
         dimension_service,
         sheet_assembly_service,
+        full_generation_service=None,
     ):
         self.analysis_service = analysis_service
         self.prototype_view_service = prototype_view_service
@@ -22,6 +23,7 @@ class PlansVenteController(object):
         self.room_tag_service = room_tag_service
         self.dimension_service = dimension_service
         self.sheet_assembly_service = sheet_assembly_service
+        self.full_generation_service = full_generation_service
 
     def load_context(self):
         return self.analysis_service.load_context()
@@ -199,4 +201,42 @@ class PlansVenteController(object):
             self.sheet_assembly_service,
             "build_id",
             "sheet-assembly-service-build-inconnu",
+        )
+
+
+    def inspect_full_generation_template(
+        self,
+        template_sheet_unique_id,
+        descriptor,
+    ):
+        if self.full_generation_service is None:
+            raise RuntimeError("Service de génération complète 07D indisponible.")
+        return self.full_generation_service.inspect_template(
+            template_sheet_unique_id,
+            descriptor,
+        )
+
+    def generate_full_plan(
+        self,
+        housing,
+        descriptor,
+        template_sheet_unique_id,
+        allowed_scales=None,
+    ):
+        if self.full_generation_service is None:
+            raise RuntimeError("Service de génération complète 07D indisponible.")
+        return self.full_generation_service.generate(
+            housing,
+            descriptor,
+            template_sheet_unique_id,
+            allowed_scales=allowed_scales,
+        )
+
+    def full_generation_build_id(self):
+        if self.full_generation_service is None:
+            return "full-generation-service-indisponible"
+        return getattr(
+            self.full_generation_service,
+            "build_id",
+            "full-generation-service-build-inconnu",
         )
