@@ -7,6 +7,7 @@ Le format suit les principes de *Keep a Changelog*.
 ## [Unreleased]
 
 ### Changed
+- Plans de vente : 07B v4 permet d'affecter explicitement les deux vues et les deux nomenclatures déjà placées sur la feuille modèle ; aucun nom `PDV_MODELE_*` n'est requis.
 - Plans de vente : 07B v3 laisse l'utilisateur choisir explicitement la feuille modèle ; seule cette feuille est inspectée, sans recherche automatique dans le projet.
 - Plans de vente : prototype 06F de placement intérieur des cotations, choix conjoint de positions, évitement des étiquettes/équipements et réservations pour l'Étape 05. Références associatives 06E conservées ; conflits graphiques résiduels signalés. Recette Revit 2025.4 à effectuer.
 - Plans de vente : ouverture de l'Étape 04 sur une branche dédiée ; la V1 s'appuiera sur deux nomenclatures modèles configurées par l'agence et préservera leurs filtres métier, en ajoutant uniquement le filtre du logement.
