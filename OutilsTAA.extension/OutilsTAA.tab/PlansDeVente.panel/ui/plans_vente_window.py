@@ -103,6 +103,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._clear_sheet_assembly()
         self.SheetTemplateCombo.ItemsSource = []
         self.SheetTemplateCombo.SelectedIndex = -1
+        self._clear_sheet_role_choices()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1018,6 +1019,10 @@ class PlansVenteWindow(forms.WPFWindow):
     def SheetTemplateChanged(self, sender, args):
         self._inspect_selected_sheet_template()
 
+    def SheetRoleChoiceChanged(self, sender, args):
+        self._refresh_sheet_info()
+        self._update_sheet_button_state()
+
     def _selected_sheet_template(self):
         index = int(self.SheetTemplateCombo.SelectedIndex)
         if 0 <= index < len(self._sheet_template_choices):
@@ -1028,6 +1033,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._sheet_template_inspection = None
         template = self._selected_sheet_template()
         if template is None:
+            self._clear_sheet_role_choices()
             self._refresh_sheet_info()
             self._update_sheet_button_state()
             return
@@ -1037,14 +1043,90 @@ class PlansVenteWindow(forms.WPFWindow):
                 self.controller.inspect_sheet_template(template.unique_id)
             )
         except Exception as error:
+            self._clear_sheet_role_choices()
             self.SheetInfoText.Text = (
                 "Impossible d'analyser la feuille choisie : {}"
             ).format(str(error) or repr(error))
             self._update_sheet_button_state()
             return
 
+        self._populate_sheet_role_choices()
         self._refresh_sheet_info()
         self._update_sheet_button_state()
+
+    def _clear_sheet_role_choices(self):
+        for combo_name in (
+            "SheetMainViewCombo",
+            "SheetLocationViewCombo",
+            "SheetInteriorScheduleCombo",
+            "SheetExteriorScheduleCombo",
+        ):
+            combo = getattr(self, combo_name, None)
+            if combo is not None:
+                combo.ItemsSource = []
+                combo.SelectedIndex = -1
+
+    def _populate_sheet_role_choices(self):
+        self._clear_sheet_role_choices()
+        inspection = self._sheet_template_inspection
+        if inspection is None:
+            return
+
+        view_labels = [
+            candidate.label
+            for candidate in inspection.view_candidates
+        ]
+        schedule_labels = [
+            candidate.label
+            for candidate in inspection.schedule_candidates
+        ]
+
+        self.SheetMainViewCombo.ItemsSource = list(view_labels)
+        self.SheetLocationViewCombo.ItemsSource = list(view_labels)
+        self.SheetInteriorScheduleCombo.ItemsSource = list(schedule_labels)
+        self.SheetExteriorScheduleCombo.ItemsSource = list(schedule_labels)
+
+        # Aucun rôle n'est deviné. L'utilisateur choisit les quatre éléments.
+        self.SheetMainViewCombo.SelectedIndex = -1
+        self.SheetLocationViewCombo.SelectedIndex = -1
+        self.SheetInteriorScheduleCombo.SelectedIndex = -1
+        self.SheetExteriorScheduleCombo.SelectedIndex = -1
+
+    def _selected_sheet_role_mapping(self):
+        inspection = self._sheet_template_inspection
+        if inspection is None:
+            return None
+
+        main_index = int(self.SheetMainViewCombo.SelectedIndex)
+        location_index = int(self.SheetLocationViewCombo.SelectedIndex)
+        interior_index = int(self.SheetInteriorScheduleCombo.SelectedIndex)
+        exterior_index = int(self.SheetExteriorScheduleCombo.SelectedIndex)
+
+        if (
+            main_index < 0
+            or location_index < 0
+            or interior_index < 0
+            or exterior_index < 0
+        ):
+            return None
+
+        if main_index == location_index or interior_index == exterior_index:
+            return None
+
+        if (
+            main_index >= len(inspection.view_candidates)
+            or location_index >= len(inspection.view_candidates)
+            or interior_index >= len(inspection.schedule_candidates)
+            or exterior_index >= len(inspection.schedule_candidates)
+        ):
+            return None
+
+        return {
+            "main_view": inspection.view_candidates[main_index],
+            "location_view": inspection.view_candidates[location_index],
+            "interior_schedule": inspection.schedule_candidates[interior_index],
+            "exterior_schedule": inspection.schedule_candidates[exterior_index],
+        }
 
     def CreateSheet_Click(self, sender, args):
         row = self.HousingGrid.SelectedItem
@@ -1057,6 +1139,7 @@ class PlansVenteWindow(forms.WPFWindow):
         )
         template = self._selected_sheet_template()
         inspection = self._sheet_template_inspection
+        mapping = self._selected_sheet_role_mapping()
 
         if housing is None or main_view is None or template is None:
             forms.alert(
@@ -1072,6 +1155,18 @@ class PlansVenteWindow(forms.WPFWindow):
                     inspection.summary
                     if inspection is not None
                     else "La feuille modèle choisie n'a pas encore été validée."
+                ),
+                title="Plans de vente — Feuille 07B",
+                warn_icon=True,
+            )
+            return
+
+        if mapping is None:
+            forms.alert(
+                (
+                    "Attribuez les quatre rôles de la feuille modèle. "
+                    "La vue logement et le repérage doivent être différents, "
+                    "comme les deux nomenclatures."
                 ),
                 title="Plans de vente — Feuille 07B",
                 warn_icon=True,
@@ -1106,21 +1201,22 @@ class PlansVenteWindow(forms.WPFWindow):
             (
                 "Créer la feuille du logement « {} » à partir du modèle ?\n\n"
                 "Feuille modèle : {}\n"
-                "Cartouche repris : {}\n"
+                "Cartouche repris : {}\n\n"
+                "Rôles sur la feuille modèle :\n"
                 "Vue logement : {}\n"
                 "Repérage : {}\n"
                 "Nomenclature intérieure : {}\n"
                 "Nomenclature extérieure : {}\n\n"
-                "Les positions des 4 éléments seront reprises exactement "
-                "depuis la feuille modèle."
+                "Les vrais éléments du logement seront placés exactement "
+                "aux positions de ces quatre éléments modèles."
             ).format(
                 housing.key,
                 template.label,
                 inspection.title_block_label,
-                readiness.main_view_name,
-                readiness.location_view_name,
-                readiness.interior_schedule_name,
-                readiness.exterior_schedule_name,
+                mapping["main_view"].label,
+                mapping["location_view"].label,
+                mapping["interior_schedule"].label,
+                mapping["exterior_schedule"].label,
             ),
             title="Plans de vente — Feuille 07B",
             yes=True,
@@ -1135,6 +1231,18 @@ class PlansVenteWindow(forms.WPFWindow):
                 housing=housing,
                 template_sheet_unique_id=template.unique_id,
                 main_view_unique_id=main_view.unique_id,
+                template_main_viewport_unique_id=(
+                    mapping["main_view"].viewport_unique_id
+                ),
+                template_location_viewport_unique_id=(
+                    mapping["location_view"].viewport_unique_id
+                ),
+                template_interior_schedule_instance_unique_id=(
+                    mapping["interior_schedule"].instance_unique_id
+                ),
+                template_exterior_schedule_instance_unique_id=(
+                    mapping["exterior_schedule"].instance_unique_id
+                ),
             )
 
             self.StatusText.Text = (
@@ -1187,6 +1295,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._sheet_template_choices = []
         self._sheet_template_labels = []
         self._sheet_template_inspection = None
+        self._clear_sheet_role_choices()
         self._sheet_templates_loaded = True
 
         try:
@@ -1269,12 +1378,20 @@ class PlansVenteWindow(forms.WPFWindow):
             parts.append("Analyse de la feuille choisie non effectuée.")
         else:
             parts.append(self._sheet_template_inspection.summary)
+            if self._sheet_template_inspection.is_valid:
+                if self._selected_sheet_role_mapping() is None:
+                    parts.append(
+                        "Choisissez les 2 vues et les 2 nomenclatures à utiliser comme repères."
+                    )
+                else:
+                    parts.append("Les 4 rôles du modèle sont attribués.")
 
         self.SheetInfoText.Text = " ".join(parts)
 
     def _clear_sheet_assembly(self):
         self._sheet_readiness = None
         self._sheet_template_inspection = None
+        self._clear_sheet_role_choices()
         if hasattr(self, "SheetInfoText"):
             self.SheetInfoText.Text = (
                 "Sélectionnez un logement, puis choisissez explicitement "
@@ -1290,6 +1407,7 @@ class PlansVenteWindow(forms.WPFWindow):
         template_valid = (
             self._sheet_template_inspection is not None
             and self._sheet_template_inspection.is_valid
+            and self._selected_sheet_role_mapping() is not None
         )
 
         self.CreateSheetButton.IsEnabled = (
