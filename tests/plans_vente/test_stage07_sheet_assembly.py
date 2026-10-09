@@ -47,7 +47,7 @@ def test_stage07_service_uses_native_revit_sheet_placement_api():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'SHEET_ASSEMBLY_BUILD = "stage07c-auto-fit-main-view-v5"' in text
+    assert 'SHEET_ASSEMBLY_BUILD = "stage07c-reference-scale-collision-v6"' in text
     assert "ViewSheet.Create" in text
     assert "Viewport.Create" in text
     assert "ScheduleSheetInstance.Create" in text
@@ -178,7 +178,7 @@ def test_stage07b_result_reports_template_sheet():
 
     assert "template_sheet_label" in text
     assert "result.template_sheet_label" in WINDOW.read_text(encoding="utf-8")
-    assert "stage07c-auto-fit-main-view-v5" in text
+    assert "stage07c-reference-scale-collision-v6" in text
 
 
 
@@ -206,30 +206,31 @@ def test_stage07b_create_requires_distinct_template_roles():
 
 
 
-def test_stage07c_service_fits_main_view_to_template_box():
+def test_stage07c_uses_template_scale_as_reference_and_only_reduces_on_collision():
     text = SERVICE.read_text(encoding="utf-8")
 
-    assert "def _create_fitted_main_viewport(" in text
-    assert "choose_fitting_scale(" in text
-    assert "viewport_fits(" in text
-    assert "ViewDuplicateOption.WithDetailing" in text
-    assert "source_view.Duplicate(" in text
-    assert "fitted_view.Scale = int(scale)" in text
-    assert "layout.viewport_box_sizes.get(" in text
-    assert '"main_view"' in text
+    assert "def _create_reference_scale_main_viewport(" in text
+    assert "main_reference_scale" in text
+    assert "template_main_view = self.document.GetElement(" in text
+    assert "scale_candidates_from_reference(" in text
+    assert "def _main_viewport_collisions(" in text
+    assert "rectangles_overlap(" in text
+    assert "segment_intersects_rectangle(" in text
+    assert "géométrie du cartouche" in text
+    assert "obstacle_elements=(" in text
 
 
 def test_stage07c_never_changes_scale_of_original_production_view():
     text = SERVICE.read_text(encoding="utf-8")
 
     helper = text[
-        text.index("    def _create_fitted_main_viewport("):
-        text.index("    def _unique_view_name(", text.index("    def _create_fitted_main_viewport("))
+        text.index("    def _create_reference_scale_main_viewport("):
+        text.index("    def _unique_view_name(", text.index("    def _create_reference_scale_main_viewport("))
     ]
 
     assert "source_view.Scale =" not in helper
     assert "source_view.Duplicate(" in helper
-    assert "fitted_view.Scale =" in helper
+    assert "working_view.Scale =" in helper
 
 
 def test_stage07c_controller_accepts_fit_options():
@@ -239,3 +240,22 @@ def test_stage07c_controller_accepts_fit_options():
     assert "allowed_scales=None" in controller
     assert "auto_fit_main_view=auto_fit_main_view" in controller
     assert "allowed_scales=allowed_scales" in controller
+
+
+
+def test_stage07c_places_other_sheet_elements_before_collision_fit():
+    text = SERVICE.read_text(encoding="utf-8")
+    create = text[
+        text.index("    def create_sheet_from_template("):
+        text.index("    def list_title_block_types(", text.index("    def create_sheet_from_template("))
+    ]
+
+    assert create.index("location_viewport = Viewport.Create(") < create.index(
+        "self._create_reference_scale_main_viewport("
+    )
+    assert create.index("interior_instance = ScheduleSheetInstance.Create(") < create.index(
+        "self._create_reference_scale_main_viewport("
+    )
+    assert create.index("exterior_instance = ScheduleSheetInstance.Create(") < create.index(
+        "self._create_reference_scale_main_viewport("
+    )
