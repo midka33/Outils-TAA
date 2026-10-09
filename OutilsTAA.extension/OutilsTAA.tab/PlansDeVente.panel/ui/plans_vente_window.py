@@ -208,6 +208,7 @@ class PlansVenteWindow(forms.WPFWindow):
             self._active_descriptor = descriptor
             self._clear_prototype_selection()
             self._load_schedule_templates(descriptor)
+            self._update_full_generation_button_state()
         except Exception as error:
             self.StatusText.Text = "Erreur pendant l'analyse."
             forms.alert(
@@ -227,6 +228,7 @@ class PlansVenteWindow(forms.WPFWindow):
             self._clear_dimension_views()
             self._clear_sheet_assembly()
             self._update_schedule_button_state()
+            self._update_full_generation_button_state()
             return
 
         try:
@@ -260,6 +262,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._load_dimension_views(housing)
         self._load_sheet_readiness(housing)
         self._update_schedule_button_state()
+        self._update_full_generation_button_state()
 
     def SourceViewChanged(self, sender, args):
         item = self.SourceViewCombo.SelectedItem
@@ -1016,9 +1019,11 @@ class PlansVenteWindow(forms.WPFWindow):
         if not self._sheet_templates_loaded:
             self._load_sheet_templates()
         self._update_sheet_button_state()
+        self._update_full_generation_button_state()
 
     def SheetTemplateChanged(self, sender, args):
         self._inspect_selected_sheet_template()
+        self._update_full_generation_button_state()
 
     def SheetRoleChoiceChanged(self, sender, args):
         self._refresh_sheet_info()
@@ -1028,6 +1033,7 @@ class PlansVenteWindow(forms.WPFWindow):
             return
         self._refresh_sheet_info()
         self._update_sheet_button_state()
+        self._update_full_generation_button_state()
 
     def _sheet_fit_options(self):
         auto_fit = bool(
@@ -1055,6 +1061,7 @@ class PlansVenteWindow(forms.WPFWindow):
             self._clear_sheet_role_choices()
             self._refresh_sheet_info()
             self._update_sheet_button_state()
+            self._update_full_generation_button_state()
             return
 
         try:
@@ -1067,11 +1074,13 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Impossible d'analyser la feuille choisie : {}"
             ).format(str(error) or repr(error))
             self._update_sheet_button_state()
+            self._update_full_generation_button_state()
             return
 
         self._populate_sheet_role_choices()
         self._refresh_sheet_info()
         self._update_sheet_button_state()
+            self._update_full_generation_button_state()
 
     def _clear_sheet_role_choices(self):
         for combo_name in (
@@ -1146,6 +1155,175 @@ class PlansVenteWindow(forms.WPFWindow):
             "interior_schedule": inspection.schedule_candidates[interior_index],
             "exterior_schedule": inspection.schedule_candidates[exterior_index],
         }
+
+    def CreateFullPlan_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        template = self._selected_sheet_template()
+        descriptor = self._active_descriptor
+
+        if housing is None or template is None or descriptor is None:
+            forms.alert(
+                "Sélectionnez un logement, analysez le paramètre logement "
+                "et choisissez une feuille modèle.",
+                title="Plans de vente — Génération 07D",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            allowed_scales = parse_allowed_scales(
+                self.SheetAllowedScalesTextBox.Text
+            )
+            inspection = self.controller.inspect_full_generation_template(
+                template.unique_id,
+                descriptor,
+            )
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Génération 07D",
+                warn_icon=True,
+            )
+            return
+
+        detected = (
+            "Vue logement : {}\n"
+            "Repérage : {}\n"
+            "Échelle de référence : 1:{}\n"
+            "Nomenclatures placées : {}\n"
+            "Type d'étiquette : {}\n"
+            "Type de cote : {}\n"
+            "Surbrillance repérage : {}"
+        ).format(
+            inspection.main_view_name,
+            inspection.location_view_name,
+            inspection.reference_scale or "?",
+            len(inspection.schedule_names),
+            inspection.room_tag_type_name or "non détecté",
+            inspection.dimension_type_name or "non détecté",
+            inspection.filled_region_type_name or "non détecté",
+        )
+
+        warning_text = ""
+        if inspection.warnings:
+            warning_text = "\n\nPoints à contrôler :\n- " + "\n- ".join(
+                inspection.warnings[:6]
+            )
+
+        confirmed = forms.alert(
+            (
+                "Créer automatiquement le plan de vente « {} » depuis :\n{}\n\n"
+                "{}\n\n"
+                "Le 07D va créer la vue logement, les étiquettes, les cotations, "
+                "le repérage, toutes les nomenclatures du modèle et la feuille.\n"
+                "En cas d'erreur, l'ensemble de la génération sera annulé."
+                "{}"
+            ).format(
+                housing.key,
+                template.label,
+                detected,
+                warning_text,
+            ),
+            title="Plans de vente — Génération complète 07D",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateFullPlanButton.IsEnabled = False
+        self.StatusText.Text = (
+            "Génération complète du plan de vente {}...".format(housing.key)
+        )
+
+        try:
+            result = self.controller.generate_full_plan(
+                housing=housing,
+                descriptor=descriptor,
+                template_sheet_unique_id=template.unique_id,
+                allowed_scales=allowed_scales,
+            )
+
+            tag_count = (
+                result.tag_result.created_count
+                if result.tag_result is not None
+                else 0
+            )
+            dimension_count = (
+                result.dimension_result.created_count
+                if result.dimension_result is not None
+                else 0
+            )
+            schedule_count = len(
+                getattr(result.schedule_result, "items", []) or []
+            )
+
+            warnings = list(result.warnings or [])
+            warning_text = ""
+            if warnings:
+                visible = warnings[:8]
+                warning_text = (
+                    "\n\nAvertissements :\n- "
+                    + "\n- ".join(visible)
+                )
+                if len(warnings) > len(visible):
+                    warning_text += (
+                        "\n- ... {} autre(s) avertissement(s)".format(
+                            len(warnings) - len(visible)
+                        )
+                    )
+
+            self.StatusText.Text = (
+                "Plan de vente {} créé automatiquement sur la feuille {}."
+            ).format(
+                result.housing_key,
+                result.sheet_result.sheet_number,
+            )
+
+            forms.alert(
+                (
+                    "Plan de vente complet créé.\n\n"
+                    "Feuille : {} — {}\n"
+                    "Vue logement : {}\n"
+                    "Repérage : {}\n"
+                    "Nomenclatures : {}\n"
+                    "Étiquettes créées : {}\n"
+                    "Cotations créées : {}\n"
+                    "Échelle finale logement : 1:{}\n\n"
+                    "Moteur : {}"
+                    "{}"
+                ).format(
+                    result.sheet_result.sheet_number,
+                    result.sheet_result.sheet_name,
+                    result.main_view_result.view_name,
+                    result.location_result.view_name,
+                    schedule_count,
+                    tag_count,
+                    dimension_count,
+                    result.sheet_result.main_view_scale or "?",
+                    self.controller.full_generation_build_id(),
+                    warning_text,
+                ),
+                title="Plans de vente — 07D",
+            )
+        except Exception as error:
+            self.StatusText.Text = (
+                "Échec 07D : génération annulée, aucun ensemble partiel conservé."
+            )
+            forms.alert(
+                "{}\n\nMoteur : {}".format(
+                    str(error),
+                    self.controller.full_generation_build_id(),
+                ),
+                title="Plans de vente — Génération 07D",
+                warn_icon=True,
+            )
+        finally:
+            self._load_room_tag_views(housing)
+            self._load_dimension_views(housing)
+            self._load_sheet_readiness(housing)
+            self._update_full_generation_button_state()
 
     def CreateSheet_Click(self, sender, args):
         row = self.HousingGrid.SelectedItem
@@ -1389,6 +1567,7 @@ class PlansVenteWindow(forms.WPFWindow):
         else:
             self._refresh_sheet_info()
         self._update_sheet_button_state()
+        self._update_full_generation_button_state()
 
     def _load_sheet_readiness(self, housing):
         self._sheet_readiness = None
@@ -1477,6 +1656,23 @@ class PlansVenteWindow(forms.WPFWindow):
             )
         if hasattr(self, "CreateSheetButton"):
             self.CreateSheetButton.IsEnabled = False
+
+    def _update_full_generation_button_state(self):
+        if not hasattr(self, "CreateFullPlanButton"):
+            return
+
+        fit_valid = True
+        try:
+            parse_allowed_scales(self.SheetAllowedScalesTextBox.Text)
+        except Exception:
+            fit_valid = False
+
+        self.CreateFullPlanButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self._active_descriptor is not None
+            and self._selected_sheet_template() is not None
+            and fit_valid
+        )
 
     def _update_sheet_button_state(self):
         if not hasattr(self, "CreateSheetButton"):
