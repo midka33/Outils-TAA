@@ -1080,7 +1080,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._populate_sheet_role_choices()
         self._refresh_sheet_info()
         self._update_sheet_button_state()
-            self._update_full_generation_button_state()
+        self._update_full_generation_button_state()
 
     def _clear_sheet_role_choices(self):
         for combo_name in (
