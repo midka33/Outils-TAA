@@ -4432,3 +4432,90 @@ La logique reste paresseuse :
 4. après affectation des quatre rôles : création.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Prototype 07C — Ajustement automatique de la vue logement
+
+**Build :** `stage07c-auto-fit-main-view-v5`
+
+Le 07B reproduit correctement la composition de la feuille modèle, mais la
+taille apparente de la vue logement varie naturellement avec la taille du
+logement et son cadrage.
+
+Le 07C ajoute un ajustement automatique de l'échelle de la **vue logement
+uniquement**, afin qu'elle remplisse au mieux la zone occupée par la vue
+logement de la feuille modèle sans la dépasser.
+
+### Principe
+
+Le plugin utilise comme zone cible l'emprise réelle du viewport choisi comme
+« Vue modèle — logement ».
+
+Il place d'abord la vue logement à son échelle actuelle et mesure son
+`Viewport.GetBoxOutline()`.
+
+À partir de cette mesure, il choisit la plus grande représentation possible
+parmi les échelles autorisées.
+
+Valeurs proposées par défaut :
+
+```text
+1:25
+1:50
+1:75
+1:100
+```
+
+L'utilisateur peut modifier cette liste dans l'interface.
+
+### Sécurité sur les vues dépendantes
+
+La vue logement générée par les étapes précédentes n'est **jamais modifiée en
+place**.
+
+Si le 07C doit changer son échelle, le plugin crée une copie avec détails de la
+vue logement, puis applique l'échelle retenue à cette copie avant de la placer
+sur la feuille.
+
+Cela évite de modifier la vue dépendante de production ou sa vue principale
+technique et protège les autres logements partageant le même groupe de vues.
+
+Si la vue ne peut pas être dupliquée avec détails ou si aucune échelle
+autorisée ne peut être appliquée, le 07C conserve la vue d'origine et signale
+un avertissement.
+
+### Contrôle réel dans Revit
+
+Après application d'une échelle candidate, le viewport est régénéré puis
+mesuré réellement. Si la vue dépasse encore la zone modèle, le moteur essaie
+l'échelle autorisée suivante.
+
+L'ajustement concerne uniquement la vue logement. Le repérage et les deux
+nomenclatures conservent les positions définies par la feuille modèle.
+
+### Interface
+
+```text
+[✓] Ajuster automatiquement la vue logement
+
+Échelles autorisées
+[ 25, 50, 75, 100 ]
+```
+
+L'utilisateur peut désactiver l'ajustement pour conserver strictement
+l'échelle de la vue existante.
+
+### Validation Revit 2025.4
+
+1. reprendre une feuille modèle déjà validée en 07B ;
+2. sélectionner les 4 rôles ;
+3. laisser l'ajustement automatique activé ;
+4. créer un logement nettement plus petit que celui de la feuille modèle ;
+5. vérifier que le moteur choisit une échelle plus grande graphiquement
+   (dénominateur plus petit) si elle tient dans la zone ;
+6. tester un logement plus grand et vérifier qu'il réduit la vue si nécessaire ;
+7. vérifier que la vue de production d'origine conserve son échelle ;
+8. vérifier que la feuille utilise, si nécessaire, une copie
+   `PDV SHEET - <logement> - AUTO`.
+
+**Statut du prototype 07C : À valider dans Revit 2025.4.**
