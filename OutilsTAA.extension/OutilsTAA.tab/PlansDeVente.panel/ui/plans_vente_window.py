@@ -209,6 +209,7 @@ class PlansVenteWindow(forms.WPFWindow):
             self._clear_prototype_selection()
             self._load_schedule_templates(descriptor)
             self._update_full_generation_button_state()
+            self._update_plan_update_button_state()
         except Exception as error:
             self.StatusText.Text = "Erreur pendant l'analyse."
             forms.alert(
@@ -229,6 +230,7 @@ class PlansVenteWindow(forms.WPFWindow):
             self._clear_sheet_assembly()
             self._update_schedule_button_state()
             self._update_full_generation_button_state()
+            self._update_plan_update_button_state()
             return
 
         try:
@@ -263,6 +265,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._load_sheet_readiness(housing)
         self._update_schedule_button_state()
         self._update_full_generation_button_state()
+        self._update_plan_update_button_state()
 
     def SourceViewChanged(self, sender, args):
         item = self.SourceViewCombo.SelectedItem
@@ -1024,6 +1027,7 @@ class PlansVenteWindow(forms.WPFWindow):
     def SheetTemplateChanged(self, sender, args):
         self._inspect_selected_sheet_template()
         self._update_full_generation_button_state()
+        self._update_plan_update_button_state()
 
     def SheetRoleChoiceChanged(self, sender, args):
         self._refresh_sheet_info()
@@ -1034,6 +1038,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self._refresh_sheet_info()
         self._update_sheet_button_state()
         self._update_full_generation_button_state()
+        self._update_plan_update_button_state()
 
     def _sheet_fit_options(self):
         auto_fit = bool(
@@ -1324,6 +1329,199 @@ class PlansVenteWindow(forms.WPFWindow):
             self._load_dimension_views(housing)
             self._load_sheet_readiness(housing)
             self._update_full_generation_button_state()
+
+    def UpdateFullPlan_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        template = self._selected_sheet_template()
+        descriptor = self._active_descriptor
+
+        if housing is None or template is None or descriptor is None:
+            forms.alert(
+                "Sélectionnez un logement, analysez le paramètre logement "
+                "et choisissez une feuille modèle.",
+                title="Plans de vente — Mise à jour Étape 08",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            allowed_scales = parse_allowed_scales(
+                self.SheetAllowedScalesTextBox.Text
+            )
+            inspection = self.controller.inspect_plan_update(
+                housing,
+                descriptor,
+                template.unique_id,
+            )
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Mise à jour Étape 08",
+                warn_icon=True,
+            )
+            return
+
+        if not inspection.exists:
+            forms.alert(
+                (
+                    inspection.summary
+                    + "\n\nUtilisez « Créer le plan de vente complet » "
+                    "pour la première génération."
+                ),
+                title="Plans de vente — Mise à jour Étape 08",
+                warn_icon=True,
+            )
+            return
+
+        if not inspection.is_updateable:
+            forms.alert(
+                inspection.summary,
+                title="Plans de vente — Mise à jour Étape 08",
+                warn_icon=True,
+            )
+            return
+
+        warning_text = ""
+        if inspection.warnings:
+            visible = inspection.warnings[:6]
+            warning_text = (
+                "\n\nPoints à contrôler :\n- "
+                + "\n- ".join(visible)
+            )
+            if len(inspection.warnings) > len(visible):
+                warning_text += (
+                    "\n- ... {} autre(s) avertissement(s)".format(
+                        len(inspection.warnings) - len(visible)
+                    )
+                )
+
+        confirmed = forms.alert(
+            (
+                "Mettre à jour le plan de vente « {} » ?\n\n"
+                "Feuille conservée : {}\n"
+                "Feuille modèle : {}\n"
+                "Vue logement actuelle : {}\n"
+                "Repérage actuel : {}\n"
+                "Nomenclatures actuelles : {}\n"
+                "Nomenclatures du modèle : {}\n\n"
+                "La feuille, le cartouche et les positions existantes sont "
+                "conservés lorsque la structure le permet.\n"
+                "Les vues PDV, étiquettes, cotations, repérage et "
+                "nomenclatures gérées seront régénérés.\n"
+                "Les modifications manuelles réalisées directement dans "
+                "ces vues générées seront donc remplacées.\n\n"
+                "En cas d'erreur, la mise à jour complète sera annulée."
+                "{}"
+            ).format(
+                housing.key,
+                inspection.label,
+                template.label,
+                inspection.main_view_name or "non identifié",
+                inspection.location_view_name or "non identifié",
+                inspection.managed_schedule_count,
+                inspection.template_schedule_count,
+                warning_text,
+            ),
+            title="Plans de vente — Confirmer la mise à jour Étape 08",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.UpdateFullPlanButton.IsEnabled = False
+        self.StatusText.Text = (
+            "Mise à jour du plan de vente {}...".format(housing.key)
+        )
+
+        try:
+            result = self.controller.update_full_plan(
+                housing=housing,
+                descriptor=descriptor,
+                template_sheet_unique_id=template.unique_id,
+                allowed_scales=allowed_scales,
+            )
+
+            tag_count = (
+                result.tag_result.created_count
+                if result.tag_result is not None
+                else 0
+            )
+            dimension_count = (
+                result.dimension_result.created_count
+                if result.dimension_result is not None
+                else 0
+            )
+            schedule_count = len(
+                getattr(result.schedule_result, "items", []) or []
+            )
+
+            warnings = list(result.warnings or [])
+            warning_text = ""
+            if warnings:
+                visible = warnings[:8]
+                warning_text = (
+                    "\n\nAvertissements :\n- "
+                    + "\n- ".join(visible)
+                )
+                if len(warnings) > len(visible):
+                    warning_text += (
+                        "\n- ... {} autre(s) avertissement(s)".format(
+                            len(warnings) - len(visible)
+                        )
+                    )
+
+            self.StatusText.Text = (
+                "Plan de vente {} mis à jour sur la feuille {}."
+            ).format(
+                result.housing_key,
+                result.sheet_result.sheet_number,
+            )
+
+            forms.alert(
+                (
+                    "Plan de vente mis à jour.\n\n"
+                    "Feuille conservée : {} — {}\n"
+                    "Vue logement : {}\n"
+                    "Repérage : {}\n"
+                    "Nomenclatures régénérées : {}\n"
+                    "Étiquettes créées : {}\n"
+                    "Cotations créées : {}\n"
+                    "Échelle finale logement : 1:{}\n\n"
+                    "Moteur : {}"
+                    "{}"
+                ).format(
+                    result.sheet_result.sheet_number,
+                    result.sheet_result.sheet_name,
+                    result.sheet_result.main_view_name,
+                    result.location_result.view_name,
+                    schedule_count,
+                    tag_count,
+                    dimension_count,
+                    result.sheet_result.main_view_scale or "?",
+                    self.controller.plan_update_build_id(),
+                    warning_text,
+                ),
+                title="Plans de vente — Étape 08",
+            )
+        except Exception as error:
+            self.StatusText.Text = (
+                "Échec Étape 08 : mise à jour annulée, ancien plan conservé."
+            )
+            forms.alert(
+                "{}\n\nMoteur : {}".format(
+                    str(error),
+                    self.controller.plan_update_build_id(),
+                ),
+                title="Plans de vente — Mise à jour Étape 08",
+                warn_icon=True,
+            )
+        finally:
+            self._load_room_tag_views(housing)
+            self._load_dimension_views(housing)
+            self._load_sheet_readiness(housing)
+            self._update_plan_update_button_state()
 
     def CreateSheet_Click(self, sender, args):
         row = self.HousingGrid.SelectedItem
@@ -1668,6 +1866,25 @@ class PlansVenteWindow(forms.WPFWindow):
             fit_valid = False
 
         self.CreateFullPlanButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self._active_descriptor is not None
+            and self._selected_sheet_template() is not None
+            and fit_valid
+        )
+
+        self._update_plan_update_button_state()
+
+    def _update_plan_update_button_state(self):
+        if not hasattr(self, "UpdateFullPlanButton"):
+            return
+
+        fit_valid = True
+        try:
+            parse_allowed_scales(self.SheetAllowedScalesTextBox.Text)
+        except Exception:
+            fit_valid = False
+
+        self.UpdateFullPlanButton.IsEnabled = (
             self.HousingGrid.SelectedItem is not None
             and self._active_descriptor is not None
             and self._selected_sheet_template() is not None
