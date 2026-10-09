@@ -3,13 +3,12 @@ from __future__ import unicode_literals
 
 """Étape 07B — assemblage d'une feuille à partir d'une feuille modèle."""
 
-SHEET_ASSEMBLY_BUILD = "stage07b-user-selected-sheet-v3"
+SHEET_ASSEMBLY_BUILD = "stage07b-user-mapped-sheet-v4"
 
 from common.transaction import RevitTransaction
 from plans_vente.location_naming import location_view_name
 from plans_vente.schedule_naming import schedule_name
 from plans_vente.sheet_layout import default_sheet_anchors
-from plans_vente.sheet_template import required_placeholder_names
 
 
 class TitleBlockTypeCandidate(object):
@@ -51,6 +50,26 @@ class SheetTemplateCandidate(object):
         return prefix
 
 
+class SheetPlacedViewCandidate(object):
+    def __init__(self, viewport_unique_id, view_name):
+        self.viewport_unique_id = viewport_unique_id or ""
+        self.view_name = view_name or ""
+
+    @property
+    def label(self):
+        return self.view_name or "Vue sans nom"
+
+
+class SheetPlacedScheduleCandidate(object):
+    def __init__(self, instance_unique_id, schedule_name):
+        self.instance_unique_id = instance_unique_id or ""
+        self.schedule_name = schedule_name or ""
+
+    @property
+    def label(self):
+        return self.schedule_name or "Nomenclature sans nom"
+
+
 class SheetTemplateInspection(object):
     def __init__(
         self,
@@ -59,12 +78,16 @@ class SheetTemplateInspection(object):
         is_valid,
         summary,
         title_block_label="",
+        view_candidates=None,
+        schedule_candidates=None,
     ):
         self.sheet_unique_id = sheet_unique_id or ""
         self.sheet_label = sheet_label or ""
         self.is_valid = bool(is_valid)
         self.summary = summary or ""
         self.title_block_label = title_block_label or ""
+        self.view_candidates = list(view_candidates or [])
+        self.schedule_candidates = list(schedule_candidates or [])
 
 
 class _TemplateLayout(object):
@@ -197,7 +220,9 @@ class SheetAssemblyService(object):
         ).rstrip(" —")
 
         try:
-            layout = self._template_layout(sheet)
+            title_block_type = self._template_title_block_type(sheet)
+            views = self._placed_view_candidates(sheet)
+            schedules = self._placed_schedule_candidates(sheet)
         except Exception as error:
             return SheetTemplateInspection(
                 template_sheet_unique_id,
@@ -207,16 +232,40 @@ class SheetAssemblyService(object):
             )
 
         title_block_label = "{} : {}".format(
-            self._family_name(layout.title_block_type),
-            self._element_type_name(layout.title_block_type),
+            self._family_name(title_block_type),
+            self._element_type_name(title_block_type),
         ).strip(" :")
+
+        problems = []
+        if len(views) < 2:
+            problems.append("au moins 2 vues placées")
+        if len(schedules) < 2:
+            problems.append("au moins 2 nomenclatures placées")
+
+        if problems:
+            return SheetTemplateInspection(
+                template_sheet_unique_id,
+                sheet_label,
+                False,
+                "Feuille modèle incomplète : {}.".format(
+                    ", ".join(problems)
+                ),
+                title_block_label=title_block_label,
+                view_candidates=views,
+                schedule_candidates=schedules,
+            )
 
         return SheetTemplateInspection(
             template_sheet_unique_id,
             sheet_label,
             True,
-            "Feuille modèle valide : 2 vues, 2 nomenclatures et 1 cartouche détectés.",
+            (
+                "Feuille lisible : {} vue(s) et {} nomenclature(s) placée(s). "
+                "Attribuez maintenant les 4 rôles."
+            ).format(len(views), len(schedules)),
             title_block_label=title_block_label,
+            view_candidates=views,
+            schedule_candidates=schedules,
         )
 
     def create_sheet_from_template(
@@ -224,6 +273,10 @@ class SheetAssemblyService(object):
         housing,
         template_sheet_unique_id,
         main_view_unique_id,
+        template_main_viewport_unique_id,
+        template_location_viewport_unique_id,
+        template_interior_schedule_instance_unique_id,
+        template_exterior_schedule_instance_unique_id,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -232,7 +285,13 @@ class SheetAssemblyService(object):
             template_sheet_unique_id,
             "Sélectionnez une feuille modèle valide.",
         )
-        layout = self._template_layout(template_sheet)
+        layout = self._template_layout_from_mapping(
+            template_sheet,
+            template_main_viewport_unique_id,
+            template_location_viewport_unique_id,
+            template_interior_schedule_instance_unique_id,
+            template_exterior_schedule_instance_unique_id,
+        )
 
         main_view = self._get_element(
             main_view_unique_id,
@@ -580,43 +639,30 @@ class SheetAssemblyService(object):
                 return schedule
         return None
 
-    def _template_layout(self, sheet):
-        from Autodesk.Revit.DB import (
-            BuiltInCategory,
-            FilteredElementCollector,
-            ScheduleSheetInstance,
-            ViewSheet,
-        )
-
-        if sheet is None or not isinstance(sheet, ViewSheet):
-            raise ValueError("La feuille modèle sélectionnée n'est plus valide.")
-
-        required = required_placeholder_names()
-        points = {}
-        viewport_type_ids = {}
-
+    def _placed_view_candidates(self, sheet):
+        result = []
         for viewport_id in list(sheet.GetAllViewports() or []):
             viewport = self.document.GetElement(viewport_id)
             if viewport is None:
                 continue
             view = self.document.GetElement(viewport.ViewId)
-            name = str(getattr(view, "Name", "") or "")
-            for role in ("main_view", "location_view"):
-                if name != required[role]:
-                    continue
-                if role in points:
-                    raise ValueError(
-                        "Le rôle {} est présent plusieurs fois sur la feuille modèle.".format(
-                            role
-                        )
-                    )
-                center = viewport.GetBoxCenter()
-                points[role] = (float(center.X), float(center.Y))
-                try:
-                    viewport_type_ids[role] = viewport.GetTypeId()
-                except Exception:
-                    viewport_type_ids[role] = None
+            result.append(
+                SheetPlacedViewCandidate(
+                    viewport_unique_id=str(
+                        getattr(viewport, "UniqueId", "") or ""
+                    ),
+                    view_name=str(getattr(view, "Name", "") or ""),
+                )
+            )
+        return sorted(result, key=lambda item: item.label.lower())
 
+    def _placed_schedule_candidates(self, sheet):
+        from Autodesk.Revit.DB import (
+            FilteredElementCollector,
+            ScheduleSheetInstance,
+        )
+
+        result = []
         for instance in (
             FilteredElementCollector(self.document, sheet.Id)
             .OfClass(ScheduleSheetInstance)
@@ -624,35 +670,20 @@ class SheetAssemblyService(object):
             .ToElements()
         ):
             schedule = self.document.GetElement(instance.ScheduleId)
-            name = str(getattr(schedule, "Name", "") or "")
-            for role in ("interior_schedule", "exterior_schedule"):
-                if name != required[role]:
-                    continue
-                if role in points:
-                    raise ValueError(
-                        "Le rôle {} est présent plusieurs fois sur la feuille modèle.".format(
-                            role
-                        )
-                    )
-                point = instance.Point
-                points[role] = (float(point.X), float(point.Y))
-
-        missing = [
-            required[role]
-            for role in (
-                "main_view",
-                "location_view",
-                "interior_schedule",
-                "exterior_schedule",
-            )
-            if role not in points
-        ]
-        if missing:
-            raise ValueError(
-                "Feuille modèle incomplète. Élément(s) manquant(s) : {}.".format(
-                    ", ".join(missing)
+            result.append(
+                SheetPlacedScheduleCandidate(
+                    instance_unique_id=str(
+                        getattr(instance, "UniqueId", "") or ""
+                    ),
+                    schedule_name=str(
+                        getattr(schedule, "Name", "") or ""
+                    ),
                 )
             )
+        return sorted(result, key=lambda item: item.label.lower())
+
+    def _template_title_block_type(self, sheet):
+        from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
 
         title_blocks = list(
             FilteredElementCollector(self.document, sheet.Id)
@@ -672,13 +703,122 @@ class SheetAssemblyService(object):
             raise ValueError(
                 "Impossible de retrouver le type de cartouche de la feuille modèle."
             )
+        return title_block_type
+
+    def _template_layout_from_mapping(
+        self,
+        sheet,
+        main_viewport_unique_id,
+        location_viewport_unique_id,
+        interior_schedule_instance_unique_id,
+        exterior_schedule_instance_unique_id,
+    ):
+        from Autodesk.Revit.DB import ViewSheet
+
+        if sheet is None or not isinstance(sheet, ViewSheet):
+            raise ValueError("La feuille modèle sélectionnée n'est plus valide.")
+
+        if not main_viewport_unique_id or not location_viewport_unique_id:
+            raise ValueError(
+                "Attribuez une vue modèle au logement et une au repérage."
+            )
+        if main_viewport_unique_id == location_viewport_unique_id:
+            raise ValueError(
+                "La vue logement et le repérage doivent utiliser deux viewports différents."
+            )
+        if (
+            not interior_schedule_instance_unique_id
+            or not exterior_schedule_instance_unique_id
+        ):
+            raise ValueError(
+                "Attribuez une nomenclature intérieure et une extérieure."
+            )
+        if (
+            interior_schedule_instance_unique_id
+            == exterior_schedule_instance_unique_id
+        ):
+            raise ValueError(
+                "Les nomenclatures intérieure et extérieure doivent être différentes."
+            )
+
+        main_viewport = self._get_element(
+            main_viewport_unique_id,
+            "Le viewport modèle de la vue logement n'existe plus.",
+        )
+        location_viewport = self._get_element(
+            location_viewport_unique_id,
+            "Le viewport modèle du repérage n'existe plus.",
+        )
+        interior_instance = self._get_element(
+            interior_schedule_instance_unique_id,
+            "La nomenclature modèle intérieure n'existe plus.",
+        )
+        exterior_instance = self._get_element(
+            exterior_schedule_instance_unique_id,
+            "La nomenclature modèle extérieure n'existe plus.",
+        )
+
+        self._ensure_owned_by_sheet(main_viewport, sheet, "vue logement")
+        self._ensure_owned_by_sheet(location_viewport, sheet, "repérage")
+        self._ensure_owned_by_sheet(
+            interior_instance,
+            sheet,
+            "nomenclature intérieure",
+        )
+        self._ensure_owned_by_sheet(
+            exterior_instance,
+            sheet,
+            "nomenclature extérieure",
+        )
+
+        main_center = main_viewport.GetBoxCenter()
+        location_center = location_viewport.GetBoxCenter()
+        interior_point = interior_instance.Point
+        exterior_point = exterior_instance.Point
+
+        points = {
+            "main_view": (float(main_center.X), float(main_center.Y)),
+            "location_view": (
+                float(location_center.X),
+                float(location_center.Y),
+            ),
+            "interior_schedule": (
+                float(interior_point.X),
+                float(interior_point.Y),
+            ),
+            "exterior_schedule": (
+                float(exterior_point.X),
+                float(exterior_point.Y),
+            ),
+        }
+
+        viewport_type_ids = {}
+        try:
+            viewport_type_ids["main_view"] = main_viewport.GetTypeId()
+        except Exception:
+            viewport_type_ids["main_view"] = None
+        try:
+            viewport_type_ids["location_view"] = location_viewport.GetTypeId()
+        except Exception:
+            viewport_type_ids["location_view"] = None
 
         return _TemplateLayout(
             sheet=sheet,
-            title_block_type=title_block_type,
+            title_block_type=self._template_title_block_type(sheet),
             points=points,
             viewport_type_ids=viewport_type_ids,
         )
+
+    def _ensure_owned_by_sheet(self, element, sheet, role_label):
+        owner_id = getattr(element, "OwnerViewId", None)
+        if owner_id is None:
+            owner_id = getattr(element, "SheetId", None)
+        if owner_id != sheet.Id:
+            raise ValueError(
+                "L'élément modèle « {} » n'appartient pas à la feuille choisie.".format(
+                    role_label
+                )
+            )
 
     @staticmethod
     def _apply_viewport_type(viewport, viewport_type_id):
