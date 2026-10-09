@@ -47,7 +47,7 @@ def test_stage07_service_uses_native_revit_sheet_placement_api():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'SHEET_ASSEMBLY_BUILD = "stage07b-user-mapped-sheet-v4"' in text
+    assert 'SHEET_ASSEMBLY_BUILD = "stage07c-auto-fit-main-view-v5"' in text
     assert "ViewSheet.Create" in text
     assert "Viewport.Create" in text
     assert "ScheduleSheetInstance.Create" in text
@@ -123,7 +123,7 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
     xaml = XAML.read_text(encoding="utf-8")
     window = WINDOW.read_text(encoding="utf-8")
 
-    assert "Étape 07B — Feuille modèle" in xaml
+    assert "Étape 07C — Composition automatique" in xaml
     assert "Feuille modèle — choix utilisateur" in xaml
     for name in (
         "SheetInfoText",
@@ -132,6 +132,8 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
         "SheetLocationViewCombo",
         "SheetInteriorScheduleCombo",
         "SheetExteriorScheduleCombo",
+        "SheetAutoFitCheckBox",
+        "SheetAllowedScalesTextBox",
         "CreateSheetButton",
     ):
         assert 'x:Name="{}"'.format(name) in xaml
@@ -144,11 +146,15 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
     assert "def _load_sheet_readiness(" in window
     assert "def _selected_sheet_role_mapping(" in window
     assert "def SheetRoleChoiceChanged(" in window
+    assert "def SheetFitChoiceChanged(" in window
+    assert "def _sheet_fit_options(" in window
     assert "self.SheetTemplateCombo.SelectedIndex = -1" in window
     assert "template_main_viewport_unique_id" in window
     assert "template_location_viewport_unique_id" in window
     assert "template_interior_schedule_instance_unique_id" in window
     assert "template_exterior_schedule_instance_unique_id" in window
+    assert "auto_fit_main_view=auto_fit_main_view" in window
+    assert "allowed_scales=allowed_scales" in window
     assert "create_sheet_from_template(" in window
 
 
@@ -172,7 +178,7 @@ def test_stage07b_result_reports_template_sheet():
 
     assert "template_sheet_label" in text
     assert "result.template_sheet_label" in WINDOW.read_text(encoding="utf-8")
-    assert "stage07b-user-mapped-sheet-v4" in text
+    assert "stage07c-auto-fit-main-view-v5" in text
 
 
 
@@ -197,3 +203,39 @@ def test_stage07b_create_requires_distinct_template_roles():
         "interior_schedule_instance_unique_id "
         "== exterior_schedule_instance_unique_id"
     ) in normalized
+
+
+
+def test_stage07c_service_fits_main_view_to_template_box():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _create_fitted_main_viewport(" in text
+    assert "choose_fitting_scale(" in text
+    assert "viewport_fits(" in text
+    assert "ViewDuplicateOption.WithDetailing" in text
+    assert "source_view.Duplicate(" in text
+    assert "fitted_view.Scale = int(scale)" in text
+    assert "layout.viewport_box_sizes.get(" in text
+    assert '"main_view"' in text
+
+
+def test_stage07c_never_changes_scale_of_original_production_view():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    helper = text[
+        text.index("    def _create_fitted_main_viewport("):
+        text.index("    def _unique_view_name(", text.index("    def _create_fitted_main_viewport("))
+    ]
+
+    assert "source_view.Scale =" not in helper
+    assert "source_view.Duplicate(" in helper
+    assert "fitted_view.Scale =" in helper
+
+
+def test_stage07c_controller_accepts_fit_options():
+    controller = CONTROLLER.read_text(encoding="utf-8")
+
+    assert "auto_fit_main_view=True" in controller
+    assert "allowed_scales=None" in controller
+    assert "auto_fit_main_view=auto_fit_main_view" in controller
+    assert "allowed_scales=allowed_scales" in controller
