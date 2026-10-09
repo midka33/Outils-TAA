@@ -165,6 +165,7 @@ class ScheduleService(object):
         housing,
         descriptor,
         template_schedule_unique_ids,
+        allow_unfiltered=False,
     ):
         """Duplique N nomenclatures modèles et remplace leur filtre logement."""
         if housing is None:
@@ -182,13 +183,27 @@ class ScheduleService(object):
             return ScheduleBatchResult(housing.key, [])
 
         templates = [self._get_schedule(unique_id) for unique_id in template_ids]
+        filterable = {}
+        warnings = []
+
         for schedule in templates:
-            self._validate_template(schedule, descriptor)
+            try:
+                self._validate_template(schedule, descriptor)
+                filterable[str(getattr(schedule, "UniqueId", "") or "")] = True
+            except Exception as error:
+                if not allow_unfiltered:
+                    raise
+                filterable[str(getattr(schedule, "UniqueId", "") or "")] = False
+                warnings.append(
+                    "Nomenclature « {} » reproduite sans filtre logement : {}.".format(
+                        getattr(schedule, "Name", ""),
+                        str(error) or repr(error),
+                    )
+                )
 
         from Autodesk.Revit.DB import ViewDuplicateOption
 
         items = []
-        warnings = []
         reserved_names = set()
 
         with RevitTransaction(
@@ -218,11 +233,15 @@ class ScheduleService(object):
                     )
 
                 created.Name = target_name
-                self._apply_housing_filter(
-                    created,
-                    descriptor,
-                    housing.key,
+                template_uid = str(
+                    getattr(template, "UniqueId", "") or ""
                 )
+                if filterable.get(template_uid, False):
+                    self._apply_housing_filter(
+                        created,
+                        descriptor,
+                        housing.key,
+                    )
                 reserved_names.add(target_name)
 
                 items.append(
