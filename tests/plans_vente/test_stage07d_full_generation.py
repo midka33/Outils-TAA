@@ -20,7 +20,7 @@ def test_stage07d_service_is_template_driven_and_atomic():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v2"' in text
+    assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v3"' in text
     assert "def inspect_template(" in text
     assert "def generate(" in text
     assert "TransactionGroup(" in text
@@ -101,7 +101,7 @@ def test_stage07d_documentation_is_present():
     text = DOC.read_text(encoding="utf-8")
 
     assert "## Étape 07D — Génération complète depuis la feuille modèle" in text
-    assert "stage07d-template-driven-full-generation-v2" in text
+    assert "stage07d-template-driven-full-generation-v3" in text
     assert "nombre libre de nomenclatures" in text
     assert "Correctif 07D.1 — repérage multi-niveau et crop de secours" in text
 
@@ -170,3 +170,22 @@ def test_stage07d_reads_annotation_types_from_dependent_primary_view_too():
         text.index("    def _filled_region_type(")
     ]
     assert "for view_id in self._annotation_view_ids(view):" in dominant
+
+
+
+def test_stage07d_location_plan_copies_crop_from_model_view():
+    service = SERVICE.read_text(encoding="utf-8")
+    location = (
+        PANEL / "services" / "location_plan_service.py"
+    ).read_text(encoding="utf-8")
+
+    assert "crop_reference_view_unique_id=str(" in service
+    assert 'getattr(location_info.view, "UniqueId", "")' in service
+
+    assert "crop_reference_view_unique_id=None" in location
+    assert "def _copy_crop_from_reference(" in location
+    assert "reference_manager.GetCropShape()" in location
+    assert "curve.CreateTransformed(translation)" in location
+    assert "target_manager.SetCropShape(transformed[0])" in location
+    assert "def _copy_rectangular_crop_box(" in location
+    assert "def _copy_annotation_crop(" in location
