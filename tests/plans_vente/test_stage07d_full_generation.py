@@ -20,7 +20,7 @@ def test_stage07d_service_is_template_driven_and_atomic():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v1"' in text
+    assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v2"' in text
     assert "def inspect_template(" in text
     assert "def generate(" in text
     assert "TransactionGroup(" in text
@@ -101,7 +101,7 @@ def test_stage07d_documentation_is_present():
     text = DOC.read_text(encoding="utf-8")
 
     assert "## Étape 07D — Génération complète depuis la feuille modèle" in text
-    assert "stage07d-template-driven-full-generation-v1" in text
+    assert "stage07d-template-driven-full-generation-v2" in text
     assert "nombre libre de nomenclatures" in text
 
 
@@ -132,3 +132,40 @@ def test_stage07d_entrypoint_does_not_self_reference_service_during_construction
     controller_block = script[controller_start:controller_end]
 
     assert "full_generation_service=full_generation_service" in controller_block
+
+
+
+def test_stage07d_repere_is_detected_by_filled_region_class():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _filled_region_count(" in text
+    assert ".OfClass(FilledRegion)" in text
+    classifier = text[
+        text.index("    def _classify_viewports("):
+        text.index("    def _resolve_source_view(")
+    ]
+    assert "filled_regions=self._filled_region_count(view)" in classifier
+    assert '"OST_FilledRegion"' not in classifier
+
+
+def test_stage07d_uses_distinct_source_for_location_plan_and_model_scale():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _resolve_location_source_view(" in text
+    assert "self.location_plan_service.source_views_for_housing(housing)" in text
+    assert "source_view_unique_id=location_source_candidate.unique_id" in text
+    assert "target_scale=int(" in text
+    assert 'getattr(location_info.view, "Scale", 0)' in text
+    assert "def _view_crop_area(" in text
+
+
+def test_stage07d_reads_annotation_types_from_dependent_primary_view_too():
+    text = SERVICE.read_text(encoding="utf-8")
+
+    assert "def _annotation_view_ids(" in text
+    assert "view.GetPrimaryViewId()" in text
+    dominant = text[
+        text.index("    def _dominant_element_type("):
+        text.index("    def _filled_region_type(")
+    ]
+    assert "for view_id in self._annotation_view_ids(view):" in dominant
