@@ -167,6 +167,8 @@ class PlansVenteController(object):
         template_location_viewport_unique_id,
         template_interior_schedule_instance_unique_id,
         template_exterior_schedule_instance_unique_id,
+        auto_fit_main_view=True,
+        allowed_scales=None,
     ):
         return self.sheet_assembly_service.create_sheet_from_template(
             housing,
@@ -176,6 +178,8 @@ class PlansVenteController(object):
             template_location_viewport_unique_id,
             template_interior_schedule_instance_unique_id,
             template_exterior_schedule_instance_unique_id,
+            auto_fit_main_view=auto_fit_main_view,
+            allowed_scales=allowed_scales,
         )
 
     def create_sheet_assembly(
