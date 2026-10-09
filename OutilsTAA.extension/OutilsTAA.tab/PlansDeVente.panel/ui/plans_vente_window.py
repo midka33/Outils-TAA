@@ -1173,7 +1173,7 @@ class PlansVenteWindow(forms.WPFWindow):
         if housing is None or main_view is None or template is None:
             forms.alert(
                 "Sélectionnez un logement, une vue logement et une feuille modèle.",
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
                 warn_icon=True,
             )
             return
@@ -1185,7 +1185,7 @@ class PlansVenteWindow(forms.WPFWindow):
                     if inspection is not None
                     else "La feuille modèle choisie n'a pas encore été validée."
                 ),
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
                 warn_icon=True,
             )
             return
@@ -1197,7 +1197,7 @@ class PlansVenteWindow(forms.WPFWindow):
                     "La vue logement et le repérage doivent être différents, "
                     "comme les deux nomenclatures."
                 ),
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
                 warn_icon=True,
             )
             return
@@ -1210,7 +1210,7 @@ class PlansVenteWindow(forms.WPFWindow):
         except Exception as error:
             forms.alert(
                 str(error),
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
                 warn_icon=True,
             )
             return
@@ -1218,7 +1218,7 @@ class PlansVenteWindow(forms.WPFWindow):
         if not readiness.is_ready:
             forms.alert(
                 readiness.summary,
-                title="Plans de vente — Feuille 07B",
+                title="Plans de vente — Feuille 07C",
                 warn_icon=True,
             )
             self._sheet_readiness = readiness
