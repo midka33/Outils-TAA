@@ -58,6 +58,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Plans de vente : 07C ajuste automatiquement l'échelle de la vue logement à l'emprise du viewport modèle, avec liste d'échelles configurable et copie de sécurité si l'échelle doit changer.
 - Plans de vente : 07B reprend le cartouche et les positions d'une feuille modèle explicite (`PDV_MODELE_VUE`, `PDV_MODELE_REPERAGE`, `PDV_MODELE_NOM_INT`, `PDV_MODELE_NOM_EXT`).
 - Plans de vente : prototype Étape 05 des étiquettes de pièces avec type configurable, recherche de point intérieur, contrôle de l'emprise graphique et anti-collision de base.
 - Plans de vente : prototype 04A des nomenclatures intérieure/extérieure, avec sélection de modèles compatibles, duplication, filtre logement stable et collision de noms bloquante.
