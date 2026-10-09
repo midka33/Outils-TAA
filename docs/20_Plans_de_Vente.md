@@ -4815,7 +4815,7 @@ arrête la génération au lieu de conserver silencieusement un repérage faux.
 
 ## Étape 08 — Mise à jour d’un plan de vente existant
 
-**Build :** `stage08-regenerate-existing-plan-v1`
+**Build :** `stage08-regenerate-existing-plan-v2`
 
 Le 07D permet de créer un plan de vente complet à partir d'un logement et
 d'une feuille modèle. L'Étape 08 ajoute le chemin inverse attendu lorsque le
@@ -4941,3 +4941,36 @@ Le même logement et la même feuille modèle sont utilisés pour déterminer le
 règles graphiques de la régénération.
 
 **Statut Étape 08 V1 : À valider dans Revit 2025.4.**
+
+
+### Correctif 08.1 — annotations partagées des vues dépendantes
+
+**Build :** `stage08-regenerate-existing-plan-v2`
+
+Premier retour Revit du 9 octobre 2026 : la mise à jour retrouvait correctement
+la feuille existante, mais échouait lors de la recréation des étiquettes avec
+le message indiquant que des RoomTags existaient déjà.
+
+Cause : les vues logement PDV sont des vues dépendantes. Dans Revit, certaines
+annotations créées depuis une vue dépendante restent associées à la vue
+principale du groupe. Supprimer uniquement la vue dépendante ne suffit donc pas
+toujours à supprimer les anciennes étiquettes et cotations.
+
+Avant de supprimer l'ancienne vue logement, l'Étape 08 V2 collecte maintenant :
+
+- les RoomTags visibles dans l'ancienne vue et associés aux pièces du logement
+  cible ;
+- les dimensions visibles dans cette vue PDV.
+
+Ces annotations sont supprimées explicitement dans le même
+`TransactionGroup`, puis la vue logement est régénérée.
+
+Les RoomTags sont filtrés par identifiant de pièce afin de ne pas supprimer les
+étiquettes d'un logement voisin partageant la même vue principale technique.
+
+Pour les dimensions, la V1 de l'Étape 08 considère que les dimensions visibles
+dans une vue PDV générée font partie du contenu géré, conformément à
+l'avertissement de l'interface indiquant que les retouches internes à la vue
+sont remplacées.
+
+**Statut : À retester dans Revit 2025.4.**
