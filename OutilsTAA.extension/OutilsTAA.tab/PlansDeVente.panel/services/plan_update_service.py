@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from common.transaction import RevitTransaction
 
 
-PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v1"
+PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v2"
 
 
 class ExistingPlanInspection(object):
@@ -348,7 +348,7 @@ class PlanUpdateService(object):
             self._delete_managed_artifacts(
                 target_sheet,
                 state,
-                housing.key,
+                housing,
             )
 
             main_result = (
@@ -662,6 +662,13 @@ class PlanUpdateService(object):
             except Exception:
                 pass
 
+        housing_key = str(getattr(housing, "key", "") or "")
+        main_viewport = state.get("main_viewport")
+        annotation_ids = self._managed_annotation_ids(
+            main_viewport,
+            housing,
+        )
+
         schedule_instances = list(
             state.get("managed_schedule_instances", []) or []
         )
@@ -682,7 +689,7 @@ class PlanUpdateService(object):
         self,
         target_sheet,
         state,
-        housing_key,
+        housing,
     ):
         schedule_instances = list(
             state.get("managed_schedule_instances", []) or []
@@ -714,6 +721,15 @@ class PlanUpdateService(object):
                 housing_key
             ),
         ):
+            # Les vues dépendantes Revit peuvent partager leurs annotations
+            # avec la vue principale. Supprimer seulement la vue dépendante ne
+            # retire donc pas forcément les anciennes étiquettes/cotations.
+            for annotation_id in annotation_ids:
+                try:
+                    self.document.Delete(annotation_id)
+                except Exception:
+                    pass
+
             for viewport_id in viewport_ids:
                 self.document.Delete(viewport_id)
 
@@ -725,6 +741,78 @@ class PlanUpdateService(object):
 
             for schedule_id in schedule_ids:
                 self.document.Delete(schedule_id)
+
+    def _managed_annotation_ids(self, main_viewport, housing):
+        """Annotations à purger avant de recréer la vue dépendante.
+
+        Les RoomTags et Dimensions d'une vue dépendante peuvent être hébergés
+        par sa vue principale. On les collecte donc depuis l'ancienne vue
+        logement avant de supprimer cette dernière.
+        """
+        if main_viewport is None:
+            return []
+
+        view = self.document.GetElement(main_viewport.ViewId)
+        if view is None:
+            return []
+
+        from Autodesk.Revit.DB import (
+            BuiltInCategory,
+            FilteredElementCollector,
+        )
+
+        room_ids = set()
+        for unique_id in getattr(housing, "room_unique_ids", []) or []:
+            room = self.document.GetElement(unique_id)
+            if room is not None:
+                room_ids.add(self._element_id_value(room.Id))
+
+        result = []
+        seen = set()
+
+        # Étiquettes : uniquement celles qui pointent vers une pièce du
+        # logement cible afin de ne jamais supprimer les tags d'un voisin.
+        try:
+            tags = (
+                FilteredElementCollector(self.document, view.Id)
+                .OfCategory(BuiltInCategory.OST_RoomTags)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            )
+        except Exception:
+            tags = []
+
+        for tag in tags:
+            room_id = getattr(tag, "TaggedLocalRoomId", None)
+            if self._element_id_value(room_id) not in room_ids:
+                continue
+            key = self._element_id_value(tag.Id)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(tag.Id)
+
+        # Cotations : la V1 assume que les cotations visibles dans la vue PDV
+        # générée sont gérées par le moteur. C'est cohérent avec le contrat
+        # actuel : les retouches manuelles internes à la vue sont remplacées.
+        try:
+            dimensions = (
+                FilteredElementCollector(self.document, view.Id)
+                .OfCategory(BuiltInCategory.OST_Dimensions)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            )
+        except Exception:
+            dimensions = []
+
+        for dimension in dimensions:
+            key = self._element_id_value(dimension.Id)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(dimension.Id)
+
+        return result
 
     def _external_usage_blocking_reason(
         self,
