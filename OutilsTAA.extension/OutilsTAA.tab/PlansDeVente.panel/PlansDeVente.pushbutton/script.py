@@ -59,6 +59,10 @@ import sheet_assembly_service as _sheet_assembly_service
 _sheet_assembly_service = _reload_module(_sheet_assembly_service)
 SheetAssemblyService = _sheet_assembly_service.SheetAssemblyService
 
+import full_generation_service as _full_generation_service
+_full_generation_service = _reload_module(_full_generation_service)
+FullGenerationService = _full_generation_service.FullGenerationService
+
 from plans_vente_window import PlansVenteWindow
 
 
@@ -101,6 +105,16 @@ def main():
         document,
         plan_view_service,
         crop_geometry_service,
+    )
+    full_generation_service = FullGenerationService(
+        document=document,
+        prototype_view_service=prototype_view_service,
+        schedule_service=schedule_service,
+        location_plan_service=location_plan_service,
+        room_tag_service=room_tag_service,
+        dimension_service=dimension_service,
+        sheet_assembly_service=sheet_assembly_service,
+        full_generation_service=full_generation_service,
     )
 
     controller = PlansVenteController(
