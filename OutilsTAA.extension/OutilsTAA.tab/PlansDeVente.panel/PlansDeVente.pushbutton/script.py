@@ -114,7 +114,6 @@ def main():
         room_tag_service=room_tag_service,
         dimension_service=dimension_service,
         sheet_assembly_service=sheet_assembly_service,
-        full_generation_service=full_generation_service,
     )
 
     controller = PlansVenteController(
@@ -125,6 +124,7 @@ def main():
         room_tag_service=room_tag_service,
         dimension_service=dimension_service,
         sheet_assembly_service=sheet_assembly_service,
+        full_generation_service=full_generation_service,
     )
 
     window = PlansVenteWindow(controller)
