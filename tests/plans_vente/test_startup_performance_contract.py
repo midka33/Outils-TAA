@@ -49,7 +49,7 @@ def test_sheet_template_discovery_lists_sheets_without_inspecting_contents():
     assert "Viewport" not in block
     assert "ScheduleSheetInstance" not in block
     assert "OST_TitleBlocks" not in block
-    assert "self._template_layout(" not in block
+    assert "self._template_layout_from_mapping(" not in block
 
 
 def test_selected_template_is_the_only_sheet_inspected():
@@ -59,4 +59,6 @@ def test_selected_template_is_the_only_sheet_inspected():
     block = text[start:end]
 
     assert "self.document.GetElement(template_sheet_unique_id)" in block
-    assert "layout = self._template_layout(sheet)" in block
+    assert "self._placed_view_candidates(sheet)" in block
+    assert "self._placed_schedule_candidates(sheet)" in block
+    assert "self._template_layout_from_mapping(" not in block
