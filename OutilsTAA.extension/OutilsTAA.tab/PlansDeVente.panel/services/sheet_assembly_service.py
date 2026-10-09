@@ -160,6 +160,7 @@ class SheetAssemblyResult(object):
         main_view_auto_fitted=False,
         main_view_was_duplicated=False,
         warnings=None,
+        schedule_names=None,
     ):
         self.housing_key = housing_key or ""
         self.sheet_number = sheet_number or ""
@@ -174,6 +175,7 @@ class SheetAssemblyResult(object):
         self.main_view_auto_fitted = bool(main_view_auto_fitted)
         self.main_view_was_duplicated = bool(main_view_was_duplicated)
         self.warnings = list(warnings or [])
+        self.schedule_names = list(schedule_names or [])
 
 
 class SheetAssemblyService(object):
@@ -458,6 +460,235 @@ class SheetAssemblyService(object):
             main_view_auto_fitted=fit_adjusted,
             main_view_was_duplicated=fit_duplicated,
             warnings=fit_warnings,
+        )
+
+    def create_sheet_from_blueprint(
+        self,
+        housing,
+        template_sheet_unique_id,
+        main_view_unique_id,
+        location_view_unique_id,
+        template_main_viewport_unique_id,
+        template_location_viewport_unique_id,
+        schedule_bindings,
+        auto_fit_main_view=True,
+        allowed_scales=None,
+    ):
+        """07D : assemble la feuille avec N nomenclatures issues du modèle."""
+        if housing is None:
+            raise ValueError("Sélectionnez un logement.")
+
+        fit_scales = parse_allowed_scales(allowed_scales)
+        template_sheet = self._get_element(
+            template_sheet_unique_id,
+            "Sélectionnez une feuille modèle valide.",
+        )
+        main_viewport_model = self._get_element(
+            template_main_viewport_unique_id,
+            "Le viewport modèle de la vue logement n'existe plus.",
+        )
+        location_viewport_model = self._get_element(
+            template_location_viewport_unique_id,
+            "Le viewport modèle du repérage n'existe plus.",
+        )
+
+        self._ensure_owned_by_sheet(
+            main_viewport_model,
+            template_sheet,
+            "vue logement",
+        )
+        self._ensure_owned_by_sheet(
+            location_viewport_model,
+            template_sheet,
+            "repérage",
+        )
+
+        main_view = self._get_element(
+            main_view_unique_id,
+            "La vue logement générée n'existe plus.",
+        )
+        location_view = self._get_element(
+            location_view_unique_id,
+            "Le plan de repérage généré n'existe plus.",
+        )
+        self._validate_placeable_view(main_view, "vue logement")
+        self._validate_placeable_view(location_view, "plan de repérage")
+
+        bindings = list(schedule_bindings or [])
+        resolved_schedules = []
+        for binding in bindings:
+            template_instance_id = (
+                binding.get("template_instance_unique_id")
+                if isinstance(binding, dict)
+                else getattr(binding, "template_instance_unique_id", "")
+            )
+            schedule_unique_id = (
+                binding.get("schedule_unique_id")
+                if isinstance(binding, dict)
+                else getattr(binding, "schedule_unique_id", "")
+            )
+            template_instance = self._get_element(
+                template_instance_id,
+                "Une instance de nomenclature modèle n'existe plus.",
+            )
+            self._ensure_owned_by_sheet(
+                template_instance,
+                template_sheet,
+                "nomenclature",
+            )
+            schedule = self._get_element(
+                schedule_unique_id,
+                "Une nomenclature générée n'existe plus.",
+            )
+            self._validate_schedule_not_placed(
+                schedule,
+                "nomenclature générée",
+            )
+            resolved_schedules.append((template_instance, schedule))
+
+        sheet_number = "PDV-{}".format(housing.key)
+        sheet_name = "Plan de vente - {}".format(housing.key)
+        self._ensure_sheet_identity_available(sheet_number, sheet_name)
+
+        from Autodesk.Revit.DB import ScheduleSheetInstance, ViewSheet, Viewport, XYZ
+
+        main_center = main_viewport_model.GetBoxCenter()
+        location_center = location_viewport_model.GetBoxCenter()
+
+        template_main_view = self.document.GetElement(
+            main_viewport_model.ViewId
+        )
+        reference_scale = int(
+            getattr(template_main_view, "Scale", 0) or 0
+        )
+
+        try:
+            main_viewport_type_id = main_viewport_model.GetTypeId()
+        except Exception:
+            main_viewport_type_id = None
+        try:
+            location_viewport_type_id = location_viewport_model.GetTypeId()
+        except Exception:
+            location_viewport_type_id = None
+
+        sheet = None
+        main_view_for_sheet = main_view
+        fit_scale = int(getattr(main_view, "Scale", 0) or 0)
+        fit_adjusted = False
+        fit_duplicated = False
+        fit_warnings = []
+        placed_schedule_instances = []
+
+        with RevitTransaction(
+            self.document,
+            "Plans de vente - Feuille complète {}".format(housing.key),
+        ):
+            title_block_type = self._template_title_block_type(template_sheet)
+            sheet = ViewSheet.Create(
+                self.document,
+                title_block_type.Id,
+            )
+            if sheet is None:
+                raise RuntimeError("Revit n'a pas retourné la feuille créée.")
+
+            sheet.SheetNumber = sheet_number
+            sheet.Name = sheet_name
+
+            location_viewport = Viewport.Create(
+                self.document,
+                sheet.Id,
+                location_view.Id,
+                XYZ(
+                    float(location_center.X),
+                    float(location_center.Y),
+                    0.0,
+                ),
+            )
+            self._apply_viewport_type(
+                location_viewport,
+                location_viewport_type_id,
+            )
+
+            for template_instance, schedule in resolved_schedules:
+                point = template_instance.Point
+                created_instance = ScheduleSheetInstance.Create(
+                    self.document,
+                    sheet.Id,
+                    schedule.Id,
+                    XYZ(float(point.X), float(point.Y), 0.0),
+                )
+                placed_schedule_instances.append(created_instance)
+
+            main_point = (
+                float(main_center.X),
+                float(main_center.Y),
+            )
+            if auto_fit_main_view:
+                (
+                    main_view_for_sheet,
+                    main_viewport,
+                    fit_scale,
+                    fit_adjusted,
+                    fit_duplicated,
+                    fit_warnings,
+                ) = self._create_reference_scale_main_viewport(
+                    sheet=sheet,
+                    housing_key=housing.key,
+                    source_view=main_view,
+                    point=main_point,
+                    viewport_type_id=main_viewport_type_id,
+                    reference_scale=reference_scale,
+                    allowed_scales=fit_scales,
+                    obstacle_elements=tuple(
+                        [location_viewport] + placed_schedule_instances
+                    ),
+                )
+            else:
+                main_viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    main_view.Id,
+                    XYZ(main_point[0], main_point[1], 0.0),
+                )
+                self._apply_viewport_type(
+                    main_viewport,
+                    main_viewport_type_id,
+                )
+
+        template_label = "{} — {}".format(
+            getattr(template_sheet, "SheetNumber", "") or "Sans numéro",
+            getattr(template_sheet, "Name", "") or "",
+        ).rstrip(" —")
+
+        return SheetAssemblyResult(
+            housing_key=housing.key,
+            sheet_number=sheet.SheetNumber,
+            sheet_name=sheet.Name,
+            title_block_label="{} : {}".format(
+                self._family_name(
+                    self._template_title_block_type(template_sheet)
+                ),
+                self._element_type_name(
+                    self._template_title_block_type(template_sheet)
+                ),
+            ),
+            main_view_name=str(
+                getattr(main_view_for_sheet, "Name", "") or ""
+            ),
+            location_view_name_value=str(
+                getattr(location_view, "Name", "") or ""
+            ),
+            interior_schedule_name="",
+            exterior_schedule_name="",
+            template_sheet_label=template_label,
+            main_view_scale=fit_scale,
+            main_view_auto_fitted=fit_adjusted,
+            main_view_was_duplicated=fit_duplicated,
+            warnings=fit_warnings,
+            schedule_names=[
+                str(getattr(schedule, "Name", "") or "")
+                for _, schedule in resolved_schedules
+            ],
         )
 
     def list_title_block_types(self):
