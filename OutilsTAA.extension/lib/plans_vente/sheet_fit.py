@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import re
 
 
-DEFAULT_ALLOWED_SCALES = (25, 50, 75, 100)
+DEFAULT_ALLOWED_SCALES = (50, 75, 100, 125, 150)
 
 
 def parse_allowed_scales(value, default=None):
