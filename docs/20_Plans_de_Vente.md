@@ -4608,7 +4608,7 @@ La règle validée est la suivante :
 
 ## Étape 07D — Génération complète depuis la feuille modèle
 
-**Build :** `stage07d-template-driven-full-generation-v2`
+**Build :** `stage07d-template-driven-full-generation-v3`
 
 L'objectif du 07D est de supprimer les opérations intermédiaires de la V1.
 
@@ -4754,5 +4754,33 @@ Corrections apportées :
 
 Le but est qu'un changement de niveau ne puisse plus conduire le repérage à
 afficher le crop d'un autre appartement.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+### Correctif 07D.2 — crop du repérage repris depuis le modèle
+
+**Build :** `stage07d-template-driven-full-generation-v3`
+
+Retour Revit : la vue de repérage utilisait maintenant le bon niveau et la
+bonne échelle, mais conservait encore le cadrage propre à la vue source choisie.
+
+La règle devient :
+
+> le repérage généré reprend le même crop 2D que le repérage de la feuille modèle.
+
+Le moteur lit le `GetCropShape()` de la vue de repérage modèle, translate le
+contour suivant la différence d'altitude entre les niveaux, puis applique ce
+contour sur la vue de repérage générée.
+
+Pour les crops rectangulaires ou les cas où Revit refuse la forme copiée, un
+repli copie les limites XY du `CropBox` du modèle en conservant le plan Z de
+la vue cible.
+
+Les paramètres d'annotation crop sont également recopiés lorsque Revit les
+autorise.
+
+Ainsi, le contenu de repérage doit garder la même fenêtre graphique et la même
+dimension apparente sur la feuille, quel que soit l'étage du logement.
 
 **Statut : À retester dans Revit 2025.4.**
