@@ -1238,8 +1238,8 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Nomenclature extérieure : {}\n\n"
                 "Les vrais éléments du logement seront placés exactement "
                 "aux positions de ces quatre éléments modèles.\n\n"
-                "Ajustement 07C de la vue logement : {}\n"
-                "Échelles autorisées : {}"
+                "Règle 07C : {}\n"
+                "Échelles de repli : {}"
             ).format(
                 housing.key,
                 template.label,
@@ -1249,9 +1249,9 @@ class PlansVenteWindow(forms.WPFWindow):
                 mapping["interior_schedule"].label,
                 mapping["exterior_schedule"].label,
                 (
-                    "automatique"
+                    "échelle du modèle, puis réduction seulement sur collision"
                     if auto_fit_main_view
-                    else "désactivé"
+                    else "échelle de la vue existante conservée"
                 ),
                 (
                     ", ".join(
@@ -1452,7 +1452,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 auto_fit, scales = self._sheet_fit_options()
                 if auto_fit:
                     parts.append(
-                        "07C : ajustement auto actif ({})".format(
+                        "07C : échelle modèle prioritaire ; repli sur collision ({})".format(
                             ", ".join(
                                 "1:{}".format(scale)
                                 for scale in scales
@@ -1460,7 +1460,7 @@ class PlansVenteWindow(forms.WPFWindow):
                         )
                     )
                 else:
-                    parts.append("07C : ajustement auto désactivé.")
+                    parts.append("07C : réduction automatique désactivée.")
             except Exception as error:
                 parts.append("07C : {}".format(str(error)))
 
