@@ -20,7 +20,7 @@ def test_stage07d_service_is_template_driven_and_atomic():
     text = SERVICE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v3"' in text
+    assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"' in text
     assert "def inspect_template(" in text
     assert "def generate(" in text
     assert "TransactionGroup(" in text
@@ -101,7 +101,7 @@ def test_stage07d_documentation_is_present():
     text = DOC.read_text(encoding="utf-8")
 
     assert "## Étape 07D — Génération complète depuis la feuille modèle" in text
-    assert "stage07d-template-driven-full-generation-v3" in text
+    assert "stage07d-template-driven-full-generation-v4" in text
     assert "nombre libre de nomenclatures" in text
     assert "Correctif 07D.1 — repérage multi-niveau et crop de secours" in text
     assert "Correctif 07D.2 — crop du repérage repris depuis le modèle" in text
@@ -190,3 +190,19 @@ def test_stage07d_location_plan_copies_crop_from_model_view():
     assert "target_manager.SetCropShape(transformed[0])" in location
     assert "def _copy_rectangular_crop_box(" in location
     assert "def _copy_annotation_crop(" in location
+
+
+
+def test_stage07d_location_crop_syncs_scopebox_and_validates_world_bounds():
+    location = (
+        PANEL / "services" / "location_plan_service.py"
+    ).read_text(encoding="utf-8")
+
+    assert "def _sync_scope_box_from_reference(" in location
+    assert "BuiltInParameter.VIEWER_VOLUME_OF_INTEREST_CROP" in location
+    assert "target_parameter.Set(reference_id)" in location
+    assert "def _crop_world_bounds(" in location
+    assert "def _crop_matches_reference(" in location
+    assert "reference_box.Transform.OfPoint(" in location
+    assert "target_box.Transform.Inverse" in location
+    assert "Le crop du repérage généré reste différent" in location
