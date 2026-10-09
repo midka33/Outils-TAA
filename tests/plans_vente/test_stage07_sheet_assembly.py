@@ -192,7 +192,8 @@ def test_stage07b_create_requires_distinct_template_roles():
     text = SERVICE.read_text(encoding="utf-8")
 
     assert "main_viewport_unique_id == location_viewport_unique_id" in text
+    normalized = " ".join(text.split())
     assert (
-        "interior_schedule_instance_unique_id"
-        " == exterior_schedule_instance_unique_id"
-    ) in text
+        "interior_schedule_instance_unique_id "
+        "== exterior_schedule_instance_unique_id"
+    ) in normalized
