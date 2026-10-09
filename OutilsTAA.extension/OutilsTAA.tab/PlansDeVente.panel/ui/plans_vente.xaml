@@ -118,6 +118,27 @@
                               SelectionChanged="SheetTemplateChanged"
                               DropDownOpened="SheetTemplateDropDownOpened"
                               Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Vue modèle — logement" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetMainViewCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Vue modèle — repérage" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetLocationViewCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Nomenclature modèle — intérieure" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetInteriorScheduleCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Nomenclature modèle — extérieure" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetExteriorScheduleCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
                     <Button x:Name="CreateSheetButton" Content="Créer la feuille"
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
