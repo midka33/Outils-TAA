@@ -60,6 +60,7 @@ Le format suit les principes de *Keep a Changelog*.
   Diagnostic TEST-14 amélioré ; cause native de l'absence de PDF encore à déterminer.
 
 ### Added
+- Plans de vente : Étape 08 permet de régénérer un plan de vente existant en conservant la feuille, le cartouche et les positions de composition lorsque la structure le permet, avec rollback global en cas d'échec.
 - Plans de vente : 07D ajoute la génération complète depuis une feuille modèle, avec détection automatique des deux vues PDV, annotations, repérage, nombre libre de nomenclatures et rollback global en cas d'échec.
 - Plans de vente : 07C ajuste automatiquement l'échelle de la vue logement à l'emprise du viewport modèle, avec liste d'échelles configurable et copie de sécurité si l'échelle doit changer.
 - Plans de vente : 07B reprend le cartouche et les positions d'une feuille modèle explicite (`PDV_MODELE_VUE`, `PDV_MODELE_REPERAGE`, `PDV_MODELE_NOM_INT`, `PDV_MODELE_NOM_EXT`).
