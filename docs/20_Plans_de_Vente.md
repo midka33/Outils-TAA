@@ -4354,3 +4354,81 @@ contenir un grand nombre de feuilles sans que le module tente de déterminer
 lesquelles sont des modèles de plan de vente.
 
 **Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 07B.2 — mapping explicite des éléments placés
+
+**Build :** `stage07b-user-mapped-sheet-v4`
+
+Retour Revit du 9 octobre 2026 : la feuille modèle réelle contient déjà les
+quatre éléments utiles, mais ils portent leurs noms métier normaux. Exiger des
+noms artificiels de type `PDV_MODELE_...` ajoute une contrainte inutile.
+
+### Nouvelle règle
+
+L'utilisateur choisit d'abord une feuille existante du projet. Le plugin lit
+ensuite uniquement les éléments **déjà placés sur cette feuille** :
+
+- tous les viewports ;
+- toutes les nomenclatures placées ;
+- le cartouche.
+
+Aucun nom particulier n'est demandé.
+
+L'interface propose ensuite quatre affectations explicites :
+
+```text
+Feuille modèle — choix utilisateur
+[ PDV-A003 — Plan de vente - A003 ]
+
+Vue modèle — logement
+[ ... ]
+
+Vue modèle — repérage
+[ ... ]
+
+Nomenclature modèle — intérieure
+[ ... ]
+
+Nomenclature modèle — extérieure
+[ ... ]
+```
+
+L'utilisateur désigne donc directement quel élément de la feuille sert de
+repère pour chaque rôle.
+
+### Règles de validation
+
+La feuille choisie doit contenir :
+
+- au moins 2 vues placées ;
+- au moins 2 nomenclatures placées ;
+- exactement 1 cartouche.
+
+Les deux vues choisies doivent être différentes, ainsi que les deux
+nomenclatures.
+
+### Création
+
+Lors de la génération, le plugin reprend :
+
+- le type de cartouche de la feuille modèle ;
+- le centre exact du viewport choisi pour la vue logement ;
+- le centre exact du viewport choisi pour le repérage ;
+- le point d'insertion exact de la nomenclature intérieure choisie ;
+- le point d'insertion exact de la nomenclature extérieure choisie ;
+- le type de viewport des deux vues lorsque Revit l'autorise.
+
+Les éléments réels du logement remplacent ainsi les quatre éléments de référence
+sans dépendre de leur nom.
+
+### Performance
+
+La logique reste paresseuse :
+
+1. à l'ouverture du module : aucune analyse des feuilles ;
+2. à l'ouverture de la liste : collecte légère des `ViewSheet` uniquement ;
+3. après choix utilisateur : analyse de cette feuille seulement ;
+4. après affectation des quatre rôles : création.
+
+**Statut : À valider dans Revit 2025.4.**
