@@ -119,6 +119,31 @@
                               DropDownOpened="SheetTemplateDropDownOpened"
                               Style="{DynamicResource TAAComboBox}"/>
 
+                    <Border Margin="0,14,0,14"
+                            Padding="10"
+                            BorderBrush="{DynamicResource TAABorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <StackPanel>
+                            <TextBlock Text="Étape 07D — Génération complète"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <TextBlock Text="Le modèle détermine automatiquement la vue logement, le repérage, les types d’annotations, toutes les nomenclatures placées, le cartouche, les positions et l’échelle de référence."
+                                       Margin="0,4,0,8"
+                                       TextWrapping="Wrap"
+                                       Style="{DynamicResource TAASecondaryText}"/>
+                            <Button x:Name="CreateFullPlanButton"
+                                    Content="Créer le plan de vente complet"
+                                    HorizontalAlignment="Stretch"
+                                    IsEnabled="False"
+                                    Style="{DynamicResource TAAPrimaryButton}"
+                                    Click="CreateFullPlan_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Réglages manuels 07C — diagnostic / secours"
+                               Margin="0,2,0,0"
+                               Style="{DynamicResource TAASecondaryText}"/>
+
                     <TextBlock Text="Vue modèle — logement" Margin="0,10,0,4"/>
                     <ComboBox x:Name="SheetMainViewCombo"
                               SelectionChanged="SheetRoleChoiceChanged"
