@@ -104,6 +104,7 @@ def test_stage07d_documentation_is_present():
     assert "stage07d-template-driven-full-generation-v3" in text
     assert "nombre libre de nomenclatures" in text
     assert "Correctif 07D.1 — repérage multi-niveau et crop de secours" in text
+    assert "Correctif 07D.2 — crop du repérage repris depuis le modèle" in text
 
 
 
