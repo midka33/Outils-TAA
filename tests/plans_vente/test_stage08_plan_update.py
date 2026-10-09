@@ -126,3 +126,16 @@ def test_stage08_documentation_is_present():
     assert "## Étape 08 — Mise à jour d’un plan de vente existant" in text
     assert "stage08-regenerate-existing-plan-v1" in text
     assert "conserve la feuille" in text.lower()
+
+
+
+def test_stage08_excludes_old_generated_views_from_new_source_selection():
+    update = UPDATE.read_text(encoding="utf-8")
+    full = (
+        PANEL / "services" / "full_generation_service.py"
+    ).read_text(encoding="utf-8")
+
+    assert "old_generated_view_ids = [" in update
+    assert "excluded_unique_ids=old_generated_view_ids" in update
+    assert "excluded_unique_ids=None" in full
+    assert "if excluded:" in full
