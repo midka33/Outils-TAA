@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Étape 07B — assemblage d'une feuille à partir d'une feuille modèle."""
+"""Étapes 07B/07C — assemblage depuis modèle et ajustement de la vue logement."""
 
-SHEET_ASSEMBLY_BUILD = "stage07b-user-mapped-sheet-v4"
+SHEET_ASSEMBLY_BUILD = "stage07c-auto-fit-main-view-v5"
 
 from common.transaction import RevitTransaction
 from plans_vente.location_naming import location_view_name
 from plans_vente.schedule_naming import schedule_name
 from plans_vente.sheet_layout import default_sheet_anchors
+from plans_vente.sheet_fit import (
+    choose_fitting_scale,
+    parse_allowed_scales,
+    viewport_fits,
+)
 
 
 class TitleBlockTypeCandidate(object):
@@ -97,11 +102,13 @@ class _TemplateLayout(object):
         title_block_type,
         points,
         viewport_type_ids,
+        viewport_box_sizes=None,
     ):
         self.sheet = sheet
         self.title_block_type = title_block_type
         self.points = dict(points or {})
         self.viewport_type_ids = dict(viewport_type_ids or {})
+        self.viewport_box_sizes = dict(viewport_box_sizes or {})
 
 
 class SheetAssemblyReadiness(object):
@@ -146,6 +153,10 @@ class SheetAssemblyResult(object):
         interior_schedule_name,
         exterior_schedule_name,
         template_sheet_label="",
+        main_view_scale=None,
+        main_view_auto_fitted=False,
+        main_view_was_duplicated=False,
+        warnings=None,
     ):
         self.housing_key = housing_key or ""
         self.sheet_number = sheet_number or ""
@@ -156,10 +167,14 @@ class SheetAssemblyResult(object):
         self.interior_schedule_name = interior_schedule_name or ""
         self.exterior_schedule_name = exterior_schedule_name or ""
         self.template_sheet_label = template_sheet_label or ""
+        self.main_view_scale = main_view_scale
+        self.main_view_auto_fitted = bool(main_view_auto_fitted)
+        self.main_view_was_duplicated = bool(main_view_was_duplicated)
+        self.warnings = list(warnings or [])
 
 
 class SheetAssemblyService(object):
-    """Prototype 07B : reproduit la composition d'une feuille modèle."""
+    """07B/07C : reproduit le modèle et ajuste la vue logement à sa zone."""
 
     def __init__(self, document):
         if document is None:
@@ -277,9 +292,13 @@ class SheetAssemblyService(object):
         template_location_viewport_unique_id,
         template_interior_schedule_instance_unique_id,
         template_exterior_schedule_instance_unique_id,
+        auto_fit_main_view=True,
+        allowed_scales=None,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
+
+        fit_scales = parse_allowed_scales(allowed_scales)
 
         template_sheet = self._get_element(
             template_sheet_unique_id,
@@ -327,6 +346,11 @@ class SheetAssemblyService(object):
         )
 
         sheet = None
+        main_view_for_sheet = main_view
+        fit_scale = int(getattr(main_view, "Scale", 0) or 0)
+        fit_adjusted = False
+        fit_duplicated = False
+        fit_warnings = []
         with RevitTransaction(
             self.document,
             "Plans de vente - Feuille {}".format(housing.key),
@@ -346,22 +370,46 @@ class SheetAssemblyService(object):
             interior_point = layout.points["interior_schedule"]
             exterior_point = layout.points["exterior_schedule"]
 
-            main_viewport = Viewport.Create(
-                self.document,
-                sheet.Id,
-                main_view.Id,
-                XYZ(main_point[0], main_point[1], 0.0),
-            )
+            main_viewport = None
+
+            if auto_fit_main_view:
+                (
+                    main_view_for_sheet,
+                    main_viewport,
+                    fit_scale,
+                    fit_adjusted,
+                    fit_duplicated,
+                    fit_warnings,
+                ) = self._create_fitted_main_viewport(
+                    sheet=sheet,
+                    housing_key=housing.key,
+                    source_view=main_view,
+                    point=main_point,
+                    viewport_type_id=layout.viewport_type_ids.get(
+                        "main_view"
+                    ),
+                    target_size=layout.viewport_box_sizes.get(
+                        "main_view"
+                    ),
+                    allowed_scales=fit_scales,
+                )
+            else:
+                main_viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    main_view.Id,
+                    XYZ(main_point[0], main_point[1], 0.0),
+                )
+                self._apply_viewport_type(
+                    main_viewport,
+                    layout.viewport_type_ids.get("main_view"),
+                )
+
             location_viewport = Viewport.Create(
                 self.document,
                 sheet.Id,
                 location.Id,
                 XYZ(location_point[0], location_point[1], 0.0),
-            )
-
-            self._apply_viewport_type(
-                main_viewport,
-                layout.viewport_type_ids.get("main_view"),
             )
             self._apply_viewport_type(
                 location_viewport,
@@ -394,11 +442,17 @@ class SheetAssemblyService(object):
                 self._family_name(layout.title_block_type),
                 self._element_type_name(layout.title_block_type),
             ),
-            main_view_name=str(getattr(main_view, "Name", "") or ""),
+            main_view_name=str(
+                getattr(main_view_for_sheet, "Name", "") or ""
+            ),
             location_view_name_value=str(getattr(location, "Name", "") or ""),
             interior_schedule_name=str(getattr(interior, "Name", "") or ""),
             exterior_schedule_name=str(getattr(exterior, "Name", "") or ""),
             template_sheet_label=template_label,
+            main_view_scale=fit_scale,
+            main_view_auto_fitted=fit_adjusted,
+            main_view_was_duplicated=fit_duplicated,
+            warnings=fit_warnings,
         )
 
     def list_title_block_types(self):
@@ -776,6 +830,11 @@ class SheetAssemblyService(object):
         interior_point = interior_instance.Point
         exterior_point = exterior_instance.Point
 
+        viewport_box_sizes = {
+            "main_view": self._viewport_box_size(main_viewport),
+            "location_view": self._viewport_box_size(location_viewport),
+        }
+
         points = {
             "main_view": (float(main_center.X), float(main_center.Y)),
             "location_view": (
@@ -807,6 +866,253 @@ class SheetAssemblyService(object):
             title_block_type=self._template_title_block_type(sheet),
             points=points,
             viewport_type_ids=viewport_type_ids,
+            viewport_box_sizes=viewport_box_sizes,
+        )
+
+    def _create_fitted_main_viewport(
+        self,
+        sheet,
+        housing_key,
+        source_view,
+        point,
+        viewport_type_id,
+        target_size,
+        allowed_scales,
+    ):
+        from Autodesk.Revit.DB import ViewDuplicateOption, Viewport, XYZ
+
+        warnings = []
+        target_width = 0.0
+        target_height = 0.0
+        if target_size:
+            target_width = float(target_size[0])
+            target_height = float(target_size[1])
+
+        if target_width <= 0.0 or target_height <= 0.0:
+            viewport = Viewport.Create(
+                self.document,
+                sheet.Id,
+                source_view.Id,
+                XYZ(point[0], point[1], 0.0),
+            )
+            self._apply_viewport_type(viewport, viewport_type_id)
+            warnings.append(
+                "07C : zone modèle invalide ; échelle de la vue logement conservée."
+            )
+            return (
+                source_view,
+                viewport,
+                int(getattr(source_view, "Scale", 0) or 0),
+                False,
+                False,
+                warnings,
+            )
+
+        # Mesure réelle de la vue actuelle sur la nouvelle feuille.
+        viewport = Viewport.Create(
+            self.document,
+            sheet.Id,
+            source_view.Id,
+            XYZ(point[0], point[1], 0.0),
+        )
+        self._apply_viewport_type(viewport, viewport_type_id)
+        self.document.Regenerate()
+
+        current_width, current_height = self._viewport_box_size(viewport)
+        current_scale = int(getattr(source_view, "Scale", 0) or 0)
+
+        try:
+            desired_scale = choose_fitting_scale(
+                current_scale=current_scale,
+                current_width=current_width,
+                current_height=current_height,
+                target_width=target_width,
+                target_height=target_height,
+                allowed_scales=allowed_scales,
+            )
+        except Exception as error:
+            warnings.append(
+                "07C : calcul d'échelle impossible ({}).".format(
+                    str(error) or repr(error)
+                )
+            )
+            return (
+                source_view,
+                viewport,
+                current_scale,
+                False,
+                False,
+                warnings,
+            )
+
+        if desired_scale == current_scale and viewport_fits(
+            current_width,
+            current_height,
+            target_width,
+            target_height,
+        ):
+            return (
+                source_view,
+                viewport,
+                current_scale,
+                False,
+                False,
+                warnings,
+            )
+
+        # Ne jamais modifier l'échelle de la vue de production existante :
+        # une copie indépendante avec détails est créée pour la feuille.
+        if not source_view.CanViewBeDuplicated(
+            ViewDuplicateOption.WithDetailing
+        ):
+            warnings.append(
+                "07C : la vue logement ne peut pas être dupliquée avec détails ; "
+                "échelle existante conservée."
+            )
+            return (
+                source_view,
+                viewport,
+                current_scale,
+                False,
+                False,
+                warnings,
+            )
+
+        self.document.Delete(viewport.Id)
+        copied_id = source_view.Duplicate(
+            ViewDuplicateOption.WithDetailing
+        )
+        fitted_view = self.document.GetElement(copied_id)
+        if fitted_view is None:
+            raise RuntimeError(
+                "07C : Revit n'a pas retourné la copie de la vue logement."
+            )
+
+        fitted_view.Name = self._unique_view_name(
+            "PDV SHEET - {} - AUTO".format(housing_key)
+        )
+
+        scales = parse_allowed_scales(allowed_scales)
+        start_index = 0
+        for index, scale in enumerate(scales):
+            if scale >= desired_scale:
+                start_index = index
+                break
+        else:
+            start_index = len(scales) - 1
+
+        fitted_viewport = None
+        selected_scale = None
+
+        for scale in scales[start_index:]:
+            try:
+                fitted_view.Scale = int(scale)
+            except Exception:
+                continue
+
+            if fitted_viewport is None:
+                fitted_viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    fitted_view.Id,
+                    XYZ(point[0], point[1], 0.0),
+                )
+                self._apply_viewport_type(
+                    fitted_viewport,
+                    viewport_type_id,
+                )
+
+            self.document.Regenerate()
+            width, height = self._viewport_box_size(fitted_viewport)
+            selected_scale = int(scale)
+
+            if viewport_fits(
+                width,
+                height,
+                target_width,
+                target_height,
+            ):
+                break
+
+        if fitted_viewport is None or selected_scale is None:
+            try:
+                self.document.Delete(fitted_view.Id)
+            except Exception:
+                pass
+            fallback = Viewport.Create(
+                self.document,
+                sheet.Id,
+                source_view.Id,
+                XYZ(point[0], point[1], 0.0),
+            )
+            self._apply_viewport_type(fallback, viewport_type_id)
+            warnings.append(
+                "07C : aucune échelle autorisée n'a pu être appliquée ; "
+                "vue logement d'origine conservée."
+            )
+            return (
+                source_view,
+                fallback,
+                current_scale,
+                False,
+                False,
+                warnings,
+            )
+
+        self.document.Regenerate()
+        final_width, final_height = self._viewport_box_size(
+            fitted_viewport
+        )
+        if not viewport_fits(
+            final_width,
+            final_height,
+            target_width,
+            target_height,
+        ):
+            warnings.append(
+                "07C : même à l'échelle 1:{}, la vue dépasse légèrement "
+                "la zone du modèle.".format(selected_scale)
+            )
+
+        return (
+            fitted_view,
+            fitted_viewport,
+            selected_scale,
+            selected_scale != current_scale,
+            True,
+            warnings,
+        )
+
+    def _unique_view_name(self, base_name):
+        from Autodesk.Revit.DB import FilteredElementCollector, View
+
+        existing = set()
+        for view in (
+            FilteredElementCollector(self.document)
+            .OfClass(View)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        ):
+            existing.add(str(getattr(view, "Name", "") or ""))
+
+        if base_name not in existing:
+            return base_name
+
+        index = 2
+        while True:
+            candidate = "{} ({})".format(base_name, index)
+            if candidate not in existing:
+                return candidate
+            index += 1
+
+    @staticmethod
+    def _viewport_box_size(viewport):
+        outline = viewport.GetBoxOutline()
+        minimum = outline.MinimumPoint
+        maximum = outline.MaximumPoint
+        return (
+            abs(float(maximum.X) - float(minimum.X)),
+            abs(float(maximum.Y) - float(minimum.Y)),
         )
 
     def _ensure_owned_by_sheet(self, element, sheet, role_label):
