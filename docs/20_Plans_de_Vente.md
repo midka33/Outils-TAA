@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.21
+**Version :** 1.22
 **Statut :** Développement — Étape 07 Assemblage de la feuille  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -4811,3 +4811,133 @@ deux crops avec une tolérance de 1 mm. Si le cadrage reste différent, le 07D
 arrête la génération au lieu de conserver silencieusement un repérage faux.
 
 **Statut : À retester dans Revit 2025.4.**
+
+
+## Étape 08 — Mise à jour d’un plan de vente existant
+
+**Build :** `stage08-regenerate-existing-plan-v1`
+
+Le 07D permet de créer un plan de vente complet à partir d'un logement et
+d'une feuille modèle. L'Étape 08 ajoute le chemin inverse attendu lorsque le
+plan existe déjà : **régénérer son contenu sans recréer la feuille**.
+
+### Objectif V1
+
+Pour un logement possédant déjà une feuille :
+
+```text
+PDV-<logement> — Plan de vente - <logement>
+```
+
+le moteur :
+
+1. retrouve la feuille existante ;
+2. mémorise la position actuelle de la vue logement ;
+3. mémorise la position actuelle du repérage ;
+4. mémorise les positions des nomenclatures lorsque leur nombre correspond au
+   modèle ;
+5. conserve la feuille et son cartouche ;
+6. supprime uniquement les artefacts PDV gérés du logement ;
+7. régénère la vue logement, les étiquettes, les cotations, le repérage et les
+   nomenclatures depuis la feuille modèle sélectionnée ;
+8. replace ces éléments sur la feuille existante ;
+9. réapplique la logique 07C d'échelle et de collision ;
+10. annule toute la mise à jour si une étape échoue.
+
+### Ce qui est conservé
+
+La V1 **conserve la feuille existante** elle-même :
+
+- même élément `ViewSheet` ;
+- même numéro de feuille ;
+- même nom de feuille ;
+- même cartouche ;
+- éléments de feuille non gérés par Plans de vente ;
+- position du viewport logement quand il est identifiable ;
+- position du viewport de repérage quand il est identifiable ;
+- positions des nomenclatures quand le nombre de nomenclatures existantes
+  correspond au nombre présent sur la feuille modèle ;
+- type des viewports existants lorsqu'il est identifiable.
+
+Si la structure des nomenclatures a changé entre l'ancien plan et la feuille
+modèle, les positions du modèle sont utilisées pour éviter une correspondance
+ambiguë.
+
+### Ce qui est régénéré
+
+Les artefacts suivants sont reconstruits depuis l'état courant de la maquette :
+
+- vue logement `PDV PROTO - <logement> - ...` ;
+- éventuelle vue de feuille `PDV SHEET - <logement> - AUTO` ;
+- étiquettes de pièces ;
+- cotations automatiques ;
+- repérage `PDV_<logement>_REP` ;
+- surbrillance du logement ;
+- nomenclatures générées du logement ;
+- filtres logement des nomenclatures.
+
+Les vues principales techniques `PDV MASTER - ...` ne sont jamais supprimées
+par l'Étape 08 car elles peuvent être partagées entre plusieurs logements.
+
+### Protection contre les suppressions accidentelles
+
+Avant toute mise à jour, le moteur vérifie si une vue ou une nomenclature PDV
+du logement est aussi utilisée sur une autre feuille.
+
+Dans ce cas, la mise à jour automatique est bloquée au lieu de supprimer cet
+usage manuel.
+
+Les nomenclatures à nettoyer sont reconnues à partir de l'identifiant du
+logement. Une nomenclature PDV d'un autre logement placée manuellement sur la
+feuille n'est pas supprimée uniquement parce que son nom commence par
+`PDV_`.
+
+### Transaction globale
+
+Comme le 07D, l'Étape 08 utilise un `TransactionGroup`.
+
+Le nettoyage de l'ancien contenu et la génération du nouveau contenu font
+partie de la même opération. En cas d'erreur :
+
+```text
+ancien plan
+    ↓
+tentative de mise à jour
+    ↓
+échec
+    ↓
+ROLLBACK
+    ↓
+ancien plan restauré
+```
+
+L'utilisateur ne doit donc pas se retrouver avec une feuille vidée après une
+erreur intermédiaire.
+
+### Limite volontaire de la V1
+
+Les positions de feuille sont préservées, mais le contenu des vues PDV gérées
+est **régénéré**.
+
+Une annotation ou une cote déplacée/ajoutée manuellement directement dans une
+vue PDV générée n'est pas garantie d'être conservée par cette première version.
+
+L'interface l'indique explicitement avant validation de la mise à jour.
+
+Une évolution ultérieure pourra traiter une mise à jour différentielle
+élément par élément afin de préserver davantage de retouches manuelles.
+
+### Interface
+
+Sous la génération complète 07D :
+
+```text
+Étape 08 — Mise à jour
+
+[ Mettre à jour le plan de vente ]
+```
+
+Le même logement et la même feuille modèle sont utilisés pour déterminer les
+règles graphiques de la régénération.
+
+**Statut Étape 08 V1 : À valider dans Revit 2025.4.**
