@@ -103,6 +103,7 @@ def test_stage07d_documentation_is_present():
     assert "## Étape 07D — Génération complète depuis la feuille modèle" in text
     assert "stage07d-template-driven-full-generation-v2" in text
     assert "nombre libre de nomenclatures" in text
+    assert "Correctif 07D.1 — repérage multi-niveau et crop de secours" in text
 
 
 
