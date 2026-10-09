@@ -4608,7 +4608,7 @@ La règle validée est la suivante :
 
 ## Étape 07D — Génération complète depuis la feuille modèle
 
-**Build :** `stage07d-template-driven-full-generation-v3`
+**Build :** `stage07d-template-driven-full-generation-v4`
 
 L'objectif du 07D est de supprimer les opérations intermédiaires de la V1.
 
@@ -4782,5 +4782,32 @@ autorise.
 
 Ainsi, le contenu de repérage doit garder la même fenêtre graphique et la même
 dimension apparente sur la feuille, quel que soit l'étage du logement.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+### Correctif 07D.3 — Scope Box et validation réelle du crop
+
+**Build :** `stage07d-template-driven-full-generation-v4`
+
+Le correctif 07D.2 copiait la forme du crop, mais certaines vues de repérage
+pouvaient rester pilotées par un Scope Box hérité de la vue source. Dans ce
+cas Revit acceptait les opérations API sans pour autant produire le même
+cadrage visuel que la feuille modèle.
+
+Le 07D v4 traite maintenant explicitement les deux cas :
+
+- si le repérage modèle utilise un Scope Box, le même Scope Box est appliqué à
+  la vue cible ;
+- si le repérage modèle n'utilise pas de Scope Box, celui de la vue cible est
+  retiré avant de copier le crop.
+
+Le rectangle de secours n'est plus copié en supposant que les coordonnées
+locales des deux vues sont identiques. Les coins du CropBox modèle sont
+convertis en coordonnées monde puis reprojetés dans le repère de la vue cible.
+
+Enfin, après régénération Revit, le moteur compare les limites XY réelles des
+deux crops avec une tolérance de 1 mm. Si le cadrage reste différent, le 07D
+arrête la génération au lieu de conserver silencieusement un repérage faux.
 
 **Statut : À retester dans Revit 2025.4.**
