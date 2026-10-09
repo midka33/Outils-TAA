@@ -30,6 +30,7 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Plans de vente : 07D v2 corrige le repérage multi-niveau, reprend son échelle depuis le modèle et utilise un crop rectangulaire de secours si Revit refuse le contour optimisé.
 - Plans de vente : 06F v9 détecte géométriquement les pièces en L/T prononcés et autorise jusqu'à 5 cotes locales ; le nom de la pièce n'intervient plus dans le choix du moteur.
 - Plans de vente : 06F v8 privilégie les largeurs locales des circulations ; une grande portée valide ne peut plus gagner sur la vraie largeur d'un bras d'entrée/dégagement.
 - Plans de vente : 06F v7 cote les largeurs locales des entrées/couloirs/dégagements (une par branche du L), sans longueur générale de secours. Les autres pièces gardent le moteur validé ; placement contraint au bras concerné, BUG-PDV-029.
