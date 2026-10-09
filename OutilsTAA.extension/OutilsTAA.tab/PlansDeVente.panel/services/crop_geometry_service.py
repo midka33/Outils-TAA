@@ -193,9 +193,26 @@ class CropGeometryService(object):
                 ).format(detail or "").strip()
 
         if not manager.IsCropRegionShapeValid(selected_loop):
-            raise ValueError(
-                "Le contour calculé n'est pas accepté par Revit comme crop."
-            )
+            fallback = crop_result.fallback_curve_loop
+            if (
+                fallback is not None
+                and manager.IsCropRegionShapeValid(fallback)
+            ):
+                selected_loop = fallback
+                mode = "Rectangle de secours"
+                detail = (
+                    "Le contour optimisé calculé n'a pas été accepté par Revit "
+                    "sur la vue cible. Un rectangle de secours a été appliqué."
+                )
+                warning = (
+                    "{} {}".format(warning, detail).strip()
+                    if warning
+                    else detail
+                )
+            else:
+                raise ValueError(
+                    "Le contour calculé n'est pas accepté par Revit comme crop."
+                )
 
         view.CropBoxActive = True
         view.CropBoxVisible = True
