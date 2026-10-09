@@ -4608,7 +4608,7 @@ La règle validée est la suivante :
 
 ## Étape 07D — Génération complète depuis la feuille modèle
 
-**Build :** `stage07d-template-driven-full-generation-v1`
+**Build :** `stage07d-template-driven-full-generation-v2`
 
 L'objectif du 07D est de supprimer les opérations intermédiaires de la V1.
 
@@ -4721,3 +4721,38 @@ principaux et signale que les viewports supplémentaires seront couverts par
 l'extension multi-vues.
 
 **Statut 07D : À valider dans Revit 2025.4.**
+
+
+### Correctif 07D.1 — repérage multi-niveau et crop de secours
+
+**Build :** `stage07d-template-driven-full-generation-v2`
+
+Premier retour Revit du 9 octobre 2026 :
+
+- une première génération a échoué car le contour optimisé n'était pas accepté
+  par Revit comme crop ;
+- les générations suivantes ont créé la feuille ;
+- le plan de repérage avait une mauvaise échelle ;
+- sur un logement d'un autre étage, le repérage pouvait reprendre une vue
+  recadrée correspondant à un autre logement.
+
+Corrections apportées :
+
+1. le repérage est maintenant détecté par la présence réelle d'éléments
+   `FilledRegion`, et non via une catégorie inexistante ;
+2. la vue source du repérage est résolue indépendamment de la vue source du
+   plan logement ;
+3. la recherche se limite au niveau du logement cible et privilégie une vue
+   de niveau large, compatible avec le type/gabarit du repérage modèle ;
+4. l'échelle du repérage généré reprend explicitement celle du repérage de la
+   feuille modèle ;
+5. les types d'étiquettes et de cotations sont aussi recherchés sur la vue
+   principale lorsqu'une vue modèle est dépendante ;
+6. si un contour optimisé calculé est refusé par Revit sur la vue cible, le
+   moteur essaie désormais le rectangle de secours avant d'abandonner toute la
+   génération.
+
+Le but est qu'un changement de niveau ne puisse plus conduire le repérage à
+afficher le crop d'un autre appartement.
+
+**Statut : À retester dans Revit 2025.4.**
