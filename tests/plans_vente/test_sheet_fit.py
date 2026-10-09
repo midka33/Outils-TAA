@@ -13,7 +13,7 @@ def test_parse_allowed_scales_accepts_commas_spaces_and_duplicates():
 
 
 def test_parse_allowed_scales_uses_default_when_empty():
-    assert parse_allowed_scales("") == [50, 75, 100]
+    assert parse_allowed_scales("") == [25, 50, 75, 100]
 
 
 def test_parse_allowed_scales_rejects_no_positive_value():
