@@ -306,6 +306,36 @@ def test_main_ui_exposes_only_folder_vocabulary_and_folder_icons():
     assert "TaaBookIcon" not in snippet
 
 
+def test_drop_mode_uses_header_height_when_folder_is_expanded():
+    mode = method(
+        "services/publication_tree_drag_drop.py",
+        "PublicationTreeDragDrop",
+        "_mode",
+    )
+
+    header = SimpleNamespace(ActualHeight=20.0)
+    target = SimpleNamespace(
+        ActualHeight=220.0,  # dossier ouvert + nombreux enfants
+        Header=header,
+    )
+
+    class Args(object):
+        def __init__(self, y):
+            self.y = y
+
+        def GetPosition(self, visual):
+            # Le test doit utiliser les coordonnées de l'en-tête, pas celles
+            # du TreeViewItem complet.
+            assert visual is header
+            return SimpleNamespace(Y=self.y)
+
+    manager = SimpleNamespace()
+
+    assert mode(manager, target, Args(10.0)) == "INSIDE"
+    assert mode(manager, target, Args(1.0)) == "BEFORE"
+    assert mode(manager, target, Args(19.0)) == "AFTER"
+
+
 def test_drag_drop_has_explorer_contracts():
     source = (
         PANEL / "services/publication_tree_drag_drop.py"
