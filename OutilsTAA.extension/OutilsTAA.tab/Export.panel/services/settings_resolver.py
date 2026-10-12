@@ -64,6 +64,10 @@ class SettingsResolver(object):
     def source_label(self, publication_set, field, folder=None, folders=None):
         """Nomme le dossier effectif pour distinguer héritage proche et lointain."""
         source = self.source_for(publication_set, field, folder=folder, folders=folders)
+        if source == "Carnet":
+            return "Dossier « {0} »".format(
+                getattr(publication_set, "name", "Publication")
+            )
         if source == "Dossier":
             for ancestor in self.folder_chain(folder, folders):
                 settings = getattr(ancestor, "publication_settings", None)
