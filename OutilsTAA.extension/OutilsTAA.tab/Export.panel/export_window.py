@@ -110,39 +110,76 @@ class ExportWindow(forms.WPFWindow):
             forms.alert("Impossible d'ouvrir les réglages DWG Revit :\n{}".format(exc), title="Export DWG")
 
     def _refresh_tree(self):
+        """Construit une seule arborescence visuelle de dossiers.
+
+        PublicationFolder et PublicationSet restent deux types internes pour la
+        compatibilité des stockages, mais partagent désormais tree_order et la
+        même représentation utilisateur.
+        """
         self._folders = self.controller.list_folders()
-        self._carnets = [c for c in self.controller.list_persistent() if self._belongs_to_current_project(c)]
-        for c in self.session_carnets:
-            if self._belongs_to_current_project(c):
-                self._carnets.append(c)
-        self._folders_by_id = dict((f.id, f) for f in self._folders)
+        self._carnets = [
+            value
+            for value in self.controller.list_persistent()
+            if self._belongs_to_current_project(value)
+        ]
+        for value in self.session_carnets:
+            if self._belongs_to_current_project(value):
+                self._carnets.append(value)
+
+        self._folders_by_id = dict(
+            (folder.id, folder)
+            for folder in self._folders
+        )
         self.PublicationTree.Items.Clear()
-        folder_items = {}
-        for folder in self._folders:
-            if folder.parent_id:
-                continue
+
+        def tree_order(value, kind_rank):
+            order = getattr(value, "tree_order", None)
+            if order is None:
+                order = 10 ** 9 + getattr(value, "sort_order", 0)
+            return (order, kind_rank, getattr(value, "name", ""))
+
+        def populate(folder, folder_node):
+            children = []
+            for child in self._folders:
+                if str(getattr(child, "parent_id", None)) == str(folder.id):
+                    children.append(("FOLDER", child))
+            for publication in self._carnets:
+                if str(getattr(publication, "folder_id", None)) == str(folder.id):
+                    children.append(("CARNET", publication))
+
+            children.sort(
+                key=lambda entry: tree_order(
+                    entry[1],
+                    0 if entry[0] == "FOLDER" else 1,
+                )
+            )
+
+            for kind, value in children:
+                if kind == "FOLDER":
+                    node = self._make_folder_node(value)
+                    folder_node.Items.Add(node)
+                    populate(value, node)
+                else:
+                    folder_node.Items.Add(
+                        self._make_carnet_node(value)
+                    )
+
+        roots = [
+            folder
+            for folder in self._folders
+            if getattr(folder, "parent_id", None) is None
+        ]
+        roots.sort(key=lambda value: tree_order(value, 0))
+
+        for folder in roots:
             node = self._make_folder_node(folder)
             self.PublicationTree.Items.Add(node)
-            folder_items[folder.id] = node
-        changed = True
-        while changed:
-            changed = False
-            for folder in self._folders:
-                if folder.id in folder_items or not folder.parent_id:
-                    continue
-                parent = folder_items.get(folder.parent_id)
-                if parent is not None:
-                    node = self._make_folder_node(folder)
-                    parent.Items.Add(node)
-                    folder_items[folder.id] = node
-                    changed = True
-        for carnet in self._carnets:
-            parent = folder_items.get(carnet.folder_id)
-            if parent is None and folder_items:
-                parent = next(iter(folder_items.values()))
-            if parent is not None:
-                parent.Items.Add(self._make_carnet_node(carnet))
-        self._folders_by_id = dict((f.id, f) for f in self._folders)
+            populate(folder, node)
+
+        self._folders_by_id = dict(
+            (folder.id, folder)
+            for folder in self._folders
+        )
         self._load_selected_settings()
 
     def _node_header(self, text, icon_key, bold=False):
