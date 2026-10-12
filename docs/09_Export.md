@@ -42,9 +42,13 @@ présents dans le moteur :
 Cette distinction n'est plus exposée dans l'interface. Les deux types utilisent
 l'icône dossier et partagent désormais un ordre commun `tree_order`.
 
-Le stockage passe au **schéma 7**. Un ancien schéma 6 est migré en mémoire en
+Le stockage passe au **schéma 8**. Un ancien schéma 6/7 est migré en mémoire en
 conservant exactement son ordre visuel historique ; il n'est réécrit qu'à la
 prochaine mutation volontaire du stockage.
+
+Depuis le schéma 8, tout dossier visuel persistant peut réellement servir de parent,
+y compris un ancien `PublicationSet` contenant déjà des mises en page. Un dossier
+peut donc contenir simultanément des sous-dossiers et ses propres mises en page.
 
 ### Glisser-déposer cible
 
@@ -53,7 +57,8 @@ Le comportement doit se rapprocher de l'Explorateur Windows :
 - seuil réel de déplacement depuis le MouseDown, pour éviter les drags accidentels ;
 - haut d'une ligne : insertion avant ;
 - bas d'une ligne : insertion après ;
-- centre d'un dossier d'organisation : déplacement dedans ;
+- zone centrale d'un dossier (**70 % de la hauteur de ligne**) : déplacement dedans ;
+- seuls les 15 % supérieurs/inférieurs servent à insérer avant/après ;
 - survol d'un dossier pendant environ 700 ms : ouverture automatique ;
 - proximité haut/bas de l'arbre : scroll automatique ;
 - sélection multiple Ctrl/Maj déplacée en bloc ;
