@@ -4815,7 +4815,7 @@ arrête la génération au lieu de conserver silencieusement un repérage faux.
 
 ## Étape 08 — Mise à jour d’un plan de vente existant
 
-**Build :** `stage08-regenerate-existing-plan-v3`
+**Build :** `stage08-regenerate-existing-plan-v4`
 
 Le 07D permet de créer un plan de vente complet à partir d'un logement et
 d'une feuille modèle. L'Étape 08 ajoute le chemin inverse attendu lorsque le
@@ -4995,5 +4995,38 @@ variable est disponible et où cette logique appartient fonctionnellement.
 
 Un test de non-régression vérifie maintenant que `_layout_override()` ne
 référence plus `housing` hors de sa portée.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+### Correctif 08.3 — purge multi-vues des annotations partagées
+
+**Build :** `stage08-regenerate-existing-plan-v4`
+
+Retour Revit : malgré la purge ajoutée en V2, certaines étiquettes du logement
+étaient encore détectées après nettoyage.
+
+Cause identifiée : lorsqu'une vue logement a été réduite par le 07C, la feuille
+peut contenir une copie `PDV SHEET - <logement> - AUTO`, alors que les
+annotations originales ont été créées dans la vue dépendante
+`PDV PROTO - <logement> - ...` et peuvent être réellement hébergées par la
+vue principale `PDV MASTER - ...`.
+
+La V4 inspecte maintenant, avant régénération :
+
+- la vue placée sur la feuille ;
+- toutes les vues PDV générées du logement ;
+- la vue principale de chaque vue dépendante.
+
+Les RoomTags ne sont supprimés que s'ils pointent vers une pièce appartenant
+au logement cible.
+
+Les dimensions partagées sont également recherchées sur ces vues, mais leur
+suppression est limitée spatialement à l'emprise du logement cible, augmentée
+d'une marge de 1,50 m afin de couvrir les lignes de cote placées autour des
+pièces sans toucher les dimensions d'un logement voisin.
+
+Cette purge reste incluse dans le `TransactionGroup` de l'Étape 08 : une
+erreur ultérieure restaure l'ancien plan.
 
 **Statut : À retester dans Revit 2025.4.**
