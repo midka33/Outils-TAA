@@ -65,6 +65,10 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Export Publisher : correction de la première simplification dossier/carnet :
+  tout dossier visuel persistant peut maintenant réellement recevoir des
+  sous-dossiers. La zone centrale « déposer dedans » occupe 70 % de la ligne,
+  contre 15 % pour avant et 15 % pour après.
 - Export PDF combiné : le nom est désormais résolu au niveau du carnet ; les
   variables propres à une feuille ne reprennent plus silencieusement la première
   mise en page.
