@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from common.transaction import RevitTransaction
 
 
-PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v3"
+PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v4"
 
 
 class ExistingPlanInspection(object):
@@ -687,7 +687,7 @@ class PlanUpdateService(object):
         housing_key = str(getattr(housing, "key", "") or "")
         main_viewport = state.get("main_viewport")
         annotation_ids = self._managed_annotation_ids(
-            main_viewport,
+            state,
             housing,
         )
 
@@ -742,77 +742,219 @@ class PlanUpdateService(object):
             for schedule_id in schedule_ids:
                 self.document.Delete(schedule_id)
 
-    def _managed_annotation_ids(self, main_viewport, housing):
-        """Annotations à purger avant de recréer la vue dépendante.
+    def _managed_annotation_ids(self, state, housing):
+        """Collecte les annotations gérées même si Revit les partage au master.
 
-        Les RoomTags et Dimensions d'une vue dépendante peuvent être hébergés
-        par sa vue principale. On les collecte donc depuis l'ancienne vue
-        logement avant de supprimer cette dernière.
+        Un logement peut avoir :
+        - une vue dépendante PDV PROTO ;
+        - une copie PDV SHEET - AUTO lorsque 07C change l'échelle ;
+        - une vue principale PDV MASTER qui héberge réellement certaines
+          annotations partagées.
+
+        La purge doit donc inspecter toutes ces vues, sans toucher aux RoomTags
+        des logements voisins.
         """
-        if main_viewport is None:
-            return []
-
-        view = self.document.GetElement(main_viewport.ViewId)
-        if view is None:
-            return []
-
         from Autodesk.Revit.DB import (
             BuiltInCategory,
+            ElementId,
             FilteredElementCollector,
         )
 
         room_ids = set()
+        room_boxes = []
         for unique_id in getattr(housing, "room_unique_ids", []) or []:
             room = self.document.GetElement(unique_id)
-            if room is not None:
-                room_ids.add(self._element_id_value(room.Id))
+            if room is None:
+                continue
+            room_ids.add(self._element_id_value(room.Id))
+            box = self._element_world_box(room)
+            if box is not None:
+                room_boxes.append(box)
+
+        housing_box = self._union_boxes(room_boxes)
+        if housing_box is not None:
+            housing_box = self._expand_box(
+                housing_box,
+                self._millimeters_to_internal(1500.0),
+            )
+
+        candidate_views = []
+        seen_view_ids = set()
+
+        def append_view(view):
+            if view is None:
+                return
+            key = self._element_id_value(view.Id)
+            if key < 0 or key in seen_view_ids:
+                return
+            seen_view_ids.add(key)
+            candidate_views.append(view)
+
+        main_viewport = state.get("main_viewport")
+        if main_viewport is not None:
+            append_view(self.document.GetElement(main_viewport.ViewId))
+
+        for view in state.get("generated_views", []) or []:
+            append_view(view)
+
+        # Ajouter aussi les vues principales des dépendantes / copies, car les
+        # annotations créées depuis une dépendante peuvent y être réellement
+        # hébergées et rester après suppression de la dépendante.
+        for view in list(candidate_views):
+            try:
+                primary_id = view.GetPrimaryViewId()
+            except Exception:
+                primary_id = ElementId.InvalidElementId
+            if (
+                primary_id is not None
+                and primary_id != ElementId.InvalidElementId
+            ):
+                append_view(self.document.GetElement(primary_id))
 
         result = []
-        seen = set()
+        seen_element_ids = set()
 
-        # Étiquettes : uniquement celles qui pointent vers une pièce du
-        # logement cible afin de ne jamais supprimer les tags d'un voisin.
-        try:
-            tags = (
-                FilteredElementCollector(self.document, view.Id)
-                .OfCategory(BuiltInCategory.OST_RoomTags)
-                .WhereElementIsNotElementType()
-                .ToElements()
-            )
-        except Exception:
-            tags = []
+        # RoomTags : filtre fort par pièce du logement cible.
+        for view in candidate_views:
+            try:
+                tags = (
+                    FilteredElementCollector(self.document, view.Id)
+                    .OfCategory(BuiltInCategory.OST_RoomTags)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+            except Exception:
+                tags = []
 
-        for tag in tags:
-            room_id = getattr(tag, "TaggedLocalRoomId", None)
-            if self._element_id_value(room_id) not in room_ids:
-                continue
-            key = self._element_id_value(tag.Id)
-            if key in seen:
-                continue
-            seen.add(key)
-            result.append(tag.Id)
+            for tag in tags:
+                room_id = getattr(tag, "TaggedLocalRoomId", None)
+                if self._element_id_value(room_id) not in room_ids:
+                    continue
+                key = self._element_id_value(tag.Id)
+                if key in seen_element_ids:
+                    continue
+                seen_element_ids.add(key)
+                result.append(tag.Id)
 
-        # Cotations : la V1 assume que les cotations visibles dans la vue PDV
-        # générée sont gérées par le moteur. C'est cohérent avec le contrat
-        # actuel : les retouches manuelles internes à la vue sont remplacées.
-        try:
-            dimensions = (
-                FilteredElementCollector(self.document, view.Id)
-                .OfCategory(BuiltInCategory.OST_Dimensions)
-                .WhereElementIsNotElementType()
-                .ToElements()
-            )
-        except Exception:
-            dimensions = []
+        # Cotations : les cotations partagées au master n'ont pas de référence
+        # directe vers la pièce. On ne conserve que celles dont l'emprise est
+        # située dans ou autour de l'emprise du logement cible.
+        for view in candidate_views:
+            try:
+                dimensions = (
+                    FilteredElementCollector(self.document, view.Id)
+                    .OfCategory(BuiltInCategory.OST_Dimensions)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+            except Exception:
+                dimensions = []
 
-        for dimension in dimensions:
-            key = self._element_id_value(dimension.Id)
-            if key in seen:
-                continue
-            seen.add(key)
-            result.append(dimension.Id)
+            for dimension in dimensions:
+                key = self._element_id_value(dimension.Id)
+                if key in seen_element_ids:
+                    continue
+
+                if housing_box is not None:
+                    dimension_box = self._element_world_box(
+                        dimension,
+                        view,
+                    )
+                    if (
+                        dimension_box is None
+                        or not self._boxes_overlap(
+                            dimension_box,
+                            housing_box,
+                        )
+                    ):
+                        continue
+
+                seen_element_ids.add(key)
+                result.append(dimension.Id)
 
         return result
+
+    def _element_world_box(self, element, view=None):
+        box = None
+        try:
+            box = element.get_BoundingBox(view)
+        except Exception:
+            box = None
+        if box is None and view is not None:
+            try:
+                box = element.get_BoundingBox(None)
+            except Exception:
+                box = None
+        if box is None:
+            return None
+
+        try:
+            from Autodesk.Revit.DB import XYZ
+            points = []
+            for x_value in (box.Min.X, box.Max.X):
+                for y_value in (box.Min.Y, box.Max.Y):
+                    for z_value in (box.Min.Z, box.Max.Z):
+                        points.append(
+                            box.Transform.OfPoint(
+                                XYZ(
+                                    float(x_value),
+                                    float(y_value),
+                                    float(z_value),
+                                )
+                            )
+                        )
+            return (
+                min(float(point.X) for point in points),
+                min(float(point.Y) for point in points),
+                max(float(point.X) for point in points),
+                max(float(point.Y) for point in points),
+            )
+        except Exception:
+            return None
+
+    @staticmethod
+    def _union_boxes(boxes):
+        values = [box for box in (boxes or []) if box is not None]
+        if not values:
+            return None
+        return (
+            min(box[0] for box in values),
+            min(box[1] for box in values),
+            max(box[2] for box in values),
+            max(box[3] for box in values),
+        )
+
+    @staticmethod
+    def _expand_box(box, amount):
+        amount = max(0.0, float(amount))
+        return (
+            float(box[0]) - amount,
+            float(box[1]) - amount,
+            float(box[2]) + amount,
+            float(box[3]) + amount,
+        )
+
+    @staticmethod
+    def _boxes_overlap(left, right):
+        return not (
+            float(left[2]) < float(right[0])
+            or float(right[2]) < float(left[0])
+            or float(left[3]) < float(right[1])
+            or float(right[3]) < float(left[1])
+        )
+
+    @staticmethod
+    def _millimeters_to_internal(value):
+        try:
+            from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+            return float(
+                UnitUtils.ConvertToInternalUnits(
+                    float(value),
+                    UnitTypeId.Millimeters,
+                )
+            )
+        except Exception:
+            return float(value) / 304.8
 
     def _external_usage_blocking_reason(
         self,
