@@ -80,6 +80,13 @@ def delete_selected(targets, controller, repository, session_carnets, folders):
                     ]
             elif str(value.id) == "default":
                 blocked.append("Général : dossier protégé")
+            elif any(
+                    str(_parent_id(item)) == str(value.id)
+                    for item in remaining):
+                blocked.append(
+                    value.name
+                    + " : contient un dossier temporaire de session"
+                )
             elif not controller.delete_folder(value.id):
                 blocked.append(
                     value.name
