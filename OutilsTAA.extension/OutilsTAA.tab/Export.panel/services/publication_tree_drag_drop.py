@@ -239,7 +239,13 @@ class PublicationTreeDragDrop(object):
         movable = set(self._key(n.Tag) for n in self._nodes(kind))
         if self._key(tag) not in movable:
             return
-        items = [key for key in self.selected if key in movable]
+        selected_set = set(self.selected)
+        items = [
+            self._key(node.Tag)
+            for node in self._nodes(kind)
+            if self._key(node.Tag) in selected_set
+            and self._key(node.Tag) in movable
+        ]
         if not items:
             return
         self.drag_started = True
@@ -296,30 +302,45 @@ class PublicationTreeDragDrop(object):
         kind = payload.get("kind")
         keys = payload.get("items", [])
 
-        if kind == "FOLDER" and tag[0] == "FOLDER":
+        if kind == "FOLDER" and tag[0] in ("FOLDER", "CARNET"):
             ids = [x.split(":", 1)[1] for x in keys if ":" in x]
-            if not ids or str(tag[1].id) == "default":
+            if not ids:
                 return None
-            for source_id in ids:
-                if (
-                    str(source_id) == str(tag[1].id)
-                    or self._folder_descendant(source_id, tag[1].id)
-                ):
+
+            if tag[0] == "FOLDER":
+                if str(tag[1].id) in [str(value) for value in ids]:
                     return None
-            return self._mode(target, args)
+                mode = self._mode(target, args)
+                if mode == "INSIDE":
+                    for source_id in ids:
+                        if self._folder_descendant(
+                                source_id, tag[1].id):
+                            return None
+                return mode
+
+            # Un dossier de publication est visuellement un dossier, mais il
+            # contient des feuilles. Un autre dossier s'insère donc avant/après.
+            mode = self._mode(target, args)
+            return "BEFORE" if mode == "BEFORE" else "AFTER"
 
         if kind == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
             ids = [x.split(":", 1)[1] for x in keys if ":" in x]
             if (
                 tag[0] == "CARNET"
-                and str(tag[1].id) in [str(x) for x in ids]
+                and str(tag[1].id) in [str(value) for value in ids]
             ):
                 return None
+
             if tag[0] == "FOLDER":
-                # Le centre d'un vrai dossier signifie « déplacer dedans ».
-                return "FOLDER"
-            # Un dossier de publication reste un dossier feuille : on l'insère
-            # avant/après, sans faire croire qu'il peut contenir un sous-dossier.
+                mode = self._mode(target, args)
+                if mode == "INSIDE":
+                    return "INSIDE"
+                # Un dossier de publication ne peut pas vivre à la racine :
+                # sur un dossier racine, les zones haut/bas gardent le dépôt dedans.
+                if getattr(tag[1], "parent_id", None) is None:
+                    return "INSIDE"
+                return mode
+
             mode = self._mode(target, args)
             return "BEFORE" if mode == "BEFORE" else "AFTER"
 
@@ -514,6 +535,39 @@ class PublicationTreeDragDrop(object):
             if str(n.Tag[1].id) in carnets:
                 n.IsExpanded = True
 
+    def _node_ref(self, tag):
+        if not tag or tag[0] not in ("FOLDER", "CARNET"):
+            return None
+        return (tag[0], str(tag[1].id))
+
+    def _before_node_for_mode(self, target, mode, moving_keys):
+        """Convertit avant/après en référence before_node commune."""
+        if mode == "BEFORE":
+            return self._node_ref(target.Tag)
+        if mode != "AFTER":
+            return None
+
+        parent = getattr(target, "Parent", None)
+        try:
+            siblings = list(parent.Items)
+        except Exception:
+            return None
+
+        try:
+            index = siblings.index(target)
+        except ValueError:
+            return None
+
+        for sibling in siblings[index + 1:]:
+            tag = getattr(sibling, "Tag", None)
+            if not tag or tag[0] not in ("FOLDER", "CARNET"):
+                continue
+            key = self._key(tag)
+            if key in moving_keys:
+                continue
+            return self._node_ref(tag)
+        return None
+
     def _next_sibling(self, values, target_id, moving):
         values = [v for v in values if str(getattr(v, "id", "")) not in moving]
         values.sort(key=lambda v: getattr(v, "sort_order", 0))
@@ -523,22 +577,66 @@ class PublicationTreeDragDrop(object):
         return None
 
     def _move_folders(self, payload, target, mode):
-        ids = [x.split(":", 1)[1] for x in payload["items"] if ":" in x]
-        folder = target.Tag[1]
-        if mode == "INSIDE":
-            return self.window.controller.move_folders_many(ids, folder.id, None)
-        siblings = [f for f in self.window._folders if str(getattr(f, "parent_id", None)) == str(getattr(folder, "parent_id", None))]
-        before = folder.id if mode == "BEFORE" else self._next_sibling(siblings, folder.id, set(ids))
-        return self.window.controller.move_folders_many(ids, folder.parent_id, before)
+        ids = [
+            value.split(":", 1)[1]
+            for value in payload["items"]
+            if ":" in value
+        ]
+        moving_keys = set(payload.get("items", []) or [])
+        tag = target.Tag
+
+        if tag[0] == "FOLDER" and mode == "INSIDE":
+            parent_id = tag[1].id
+            before = None
+        elif tag[0] == "FOLDER":
+            parent_id = tag[1].parent_id
+            before = self._before_node_for_mode(
+                target, mode, moving_keys
+            )
+        else:
+            parent_id = tag[1].folder_id
+            before = self._before_node_for_mode(
+                target, mode, moving_keys
+            )
+
+        return self.window.controller.move_tree_nodes(
+            [("FOLDER", value) for value in ids],
+            parent_id,
+            before,
+        )
 
     def _move_carnets(self, payload, target, mode):
-        ids = [x.split(":", 1)[1] for x in payload["items"] if ":" in x]
-        if target.Tag[0] == "FOLDER":
-            return self.window.controller.move_persistent_many(ids, target.Tag[1].id, None)
-        carnet = target.Tag[1]
-        siblings = [c for c in self.window._carnets if str(getattr(c, "folder_id", None)) == str(getattr(carnet, "folder_id", None))]
-        before = carnet.id if mode == "BEFORE" else self._next_sibling(siblings, carnet.id, set(ids))
-        return self.window.controller.move_persistent_many(ids, carnet.folder_id, before)
+        ids = [
+            value.split(":", 1)[1]
+            for value in payload["items"]
+            if ":" in value
+        ]
+        moving_keys = set(payload.get("items", []) or [])
+        tag = target.Tag
+
+        if tag[0] == "FOLDER" and mode == "INSIDE":
+            parent_id = tag[1].id
+            before = None
+        elif tag[0] == "FOLDER":
+            parent_id = tag[1].parent_id
+            if parent_id is None:
+                parent_id = tag[1].id
+                before = None
+            else:
+                before = self._before_node_for_mode(
+                    target, mode, moving_keys
+                )
+        else:
+            parent_id = tag[1].folder_id
+            before = self._before_node_for_mode(
+                target, mode, moving_keys
+            )
+
+        return self.window.controller.move_tree_nodes(
+            [("CARNET", value) for value in ids],
+            parent_id,
+            before,
+        )
 
     def _move_sheets(self, payload, target, mode):
         """Déplace des mises en page comme des fichiers entre deux dossiers.
