@@ -269,30 +269,52 @@ class PublicationTreeDragDrop(object):
         return None
 
     def _mode(self, target, args):
+        """15 % avant / 70 % dedans / 15 % après.
+
+        La grande zone centrale rend le dépôt dans un dossier beaucoup plus
+        proche du comportement de l'Explorateur Windows.
+        """
         try:
-            h = float(target.ActualHeight)
+            height = float(target.ActualHeight)
             y = args.GetPosition(target).Y
-            if h > 0:
-                third = h / 3.0
-                if y < third:
+            if height > 0:
+                edge = height * 0.15
+                if y < edge:
                     return "BEFORE"
-                if y > h - third:
+                if y > height - edge:
                     return "AFTER"
         except Exception:
             pass
         return "INSIDE"
 
-    def _folder_descendant(self, source_id, parent_id):
+    def _container_parent_id(self, value):
+        if value is None:
+            return None
+        if hasattr(value, "parent_id"):
+            return getattr(value, "parent_id", None)
+        return getattr(value, "folder_id", None)
+
+    def _container_by_id(self, value_id):
+        if value_id is None:
+            return None
+        key = str(value_id)
+        return (
+            getattr(self.window, "_folders_by_id", {}).get(key)
+            or getattr(self.window, "_sets_by_id", {}).get(key)
+        )
+
+    def _container_descendant(self, source_id, parent_id):
+        """True si parent_id est source_id ou un de ses descendants visuels."""
         current = parent_id
         seen = set()
         while current is not None and str(current) not in seen:
             if str(current) == str(source_id):
                 return True
             seen.add(str(current))
-            folder = self.window._folders_by_id.get(current)
-            if folder is None:
+            value = self._container_by_id(current)
+            if value is None:
                 return False
-            current = getattr(folder, "parent_id", None)
+            current = self._container_parent_id(value)
         return False
 
     def _target_mode(self, payload, target, args):
@@ -303,47 +325,42 @@ class PublicationTreeDragDrop(object):
         kind = payload.get("kind")
         keys = payload.get("items", [])
 
-        if kind == "FOLDER" and tag[0] in ("FOLDER", "CARNET"):
-            ids = [x.split(":", 1)[1] for x in keys if ":" in x]
+        if (
+            kind in ("FOLDER", "CARNET")
+            and tag[0] in ("FOLDER", "CARNET")
+        ):
+            ids = [
+                value.split(":", 1)[1]
+                for value in keys
+                if ":" in value
+            ]
             if not ids:
                 return None
 
-            if tag[0] == "FOLDER":
-                if str(tag[1].id) in [str(value) for value in ids]:
-                    return None
-                mode = self._mode(target, args)
-                if mode == "INSIDE":
-                    for source_id in ids:
-                        if self._folder_descendant(
-                                source_id, tag[1].id):
-                            return None
-                return mode
-
-            # Un dossier de publication est visuellement un dossier, mais il
-            # contient des feuilles. Un autre dossier s'insère donc avant/après.
-            mode = self._mode(target, args)
-            return "BEFORE" if mode == "BEFORE" else "AFTER"
-
-        if kind == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
-            ids = [x.split(":", 1)[1] for x in keys if ":" in x]
-            if (
-                tag[0] == "CARNET"
-                and str(tag[1].id) in [str(value) for value in ids]
-            ):
+            target_id = str(tag[1].id)
+            if target_id in [str(value) for value in ids]:
                 return None
 
-            if tag[0] == "FOLDER":
-                mode = self._mode(target, args)
-                if mode == "INSIDE":
-                    return "INSIDE"
-                # Un dossier de publication ne peut pas vivre à la racine :
-                # sur un dossier racine, les zones haut/bas gardent le dépôt dedans.
-                if getattr(tag[1], "parent_id", None) is None:
-                    return "INSIDE"
-                return mode
-
             mode = self._mode(target, args)
-            return "BEFORE" if mode == "BEFORE" else "AFTER"
+
+            if mode == "INSIDE":
+                for source_id in ids:
+                    if self._container_descendant(
+                            source_id, target_id):
+                        return None
+
+            # Un dossier de publication ne peut pas être déplacé à la racine.
+            # Si la cible est un dossier racine, une visée sur les bords reste
+            # interprétée comme « dedans » plutôt que comme un dépôt invalide.
+            if (
+                kind == "CARNET"
+                and tag[0] == "FOLDER"
+                and getattr(tag[1], "parent_id", None) is None
+                and mode != "INSIDE"
+            ):
+                return "INSIDE"
+
+            return mode
 
         if kind == "SHEET" and tag[0] in ("SHEET", "CARNET"):
             if tag[0] == "CARNET":
@@ -590,16 +607,11 @@ class PublicationTreeDragDrop(object):
         moving_keys = set(payload.get("items", []) or [])
         tag = target.Tag
 
-        if tag[0] == "FOLDER" and mode == "INSIDE":
+        if mode == "INSIDE":
             parent_id = tag[1].id
             before = None
-        elif tag[0] == "FOLDER":
-            parent_id = tag[1].parent_id
-            before = self._before_node_for_mode(
-                target, mode, moving_keys
-            )
         else:
-            parent_id = tag[1].folder_id
+            parent_id = self._container_parent_id(tag[1])
             before = self._before_node_for_mode(
                 target, mode, moving_keys
             )
@@ -619,23 +631,20 @@ class PublicationTreeDragDrop(object):
         moving_keys = set(payload.get("items", []) or [])
         tag = target.Tag
 
-        if tag[0] == "FOLDER" and mode == "INSIDE":
+        if mode == "INSIDE":
             parent_id = tag[1].id
             before = None
-        elif tag[0] == "FOLDER":
-            parent_id = tag[1].parent_id
+        else:
+            parent_id = self._container_parent_id(tag[1])
             if parent_id is None:
+                # PublicationSet ne peut pas devenir racine : préférer le dépôt
+                # dans le dossier racine plutôt qu'un échec silencieux.
                 parent_id = tag[1].id
                 before = None
             else:
                 before = self._before_node_for_mode(
                     target, mode, moving_keys
                 )
-        else:
-            parent_id = tag[1].folder_id
-            before = self._before_node_for_mode(
-                target, mode, moving_keys
-            )
 
         return self.window.controller.move_tree_nodes(
             [("CARNET", value) for value in ids],
