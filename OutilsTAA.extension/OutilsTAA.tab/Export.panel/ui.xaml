@@ -108,7 +108,7 @@
               </Grid>
               <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <TextBlock Text="Nom du fichier" VerticalAlignment="Center"/>
+                <TextBlock Text="Nommage PDF" VerticalAlignment="Center"/>
                 <TextBox x:Name="FilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Modèle de nommage. Les variables sont disponibles dans Options avancées."/>
               </Grid>
               <Grid Margin="0,0,0,4">
