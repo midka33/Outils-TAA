@@ -19,7 +19,7 @@ def test_stage08_service_parses_and_has_atomic_update_contract():
     text = UPDATE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v3"' in text
+    assert 'PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v4"' in text
     assert "class ExistingPlanInspection(object):" in text
     assert "class PlanUpdateResult(object):" in text
     assert "def inspect(" in text
@@ -124,7 +124,7 @@ def test_stage08_documentation_is_present():
     text = DOC.read_text(encoding="utf-8")
 
     assert "## Étape 08 — Mise à jour d’un plan de vente existant" in text
-    assert "stage08-regenerate-existing-plan-v3" in text
+    assert "stage08-regenerate-existing-plan-v4" in text
     assert "conserve la feuille" in text.lower()
     assert "Correctif 08.1 — annotations partagées des vues dépendantes" in text
     assert "Correctif 08.2 — portée de la variable housing" in text
@@ -175,3 +175,34 @@ def test_stage08_layout_override_does_not_reference_housing_out_of_scope():
 
     assert 'housing_key = str(getattr(housing, "key", "") or "")' in cleanup
     assert "self._managed_annotation_ids(" in cleanup
+
+
+
+def test_stage08_purges_tags_from_proto_sheet_and_primary_views():
+    text = UPDATE.read_text(encoding="utf-8")
+
+    block = text[
+        text.index("    def _managed_annotation_ids("):
+        text.index("    def _external_usage_blocking_reason(", text.index("    def _managed_annotation_ids("))
+    ]
+
+    assert 'for view in state.get("generated_views", []) or []:' in block
+    assert "view.GetPrimaryViewId()" in block
+    assert "append_view(self.document.GetElement(primary_id))" in block
+    assert "TaggedLocalRoomId" in block
+    assert "room_ids" in block
+    assert "BuiltInCategory.OST_RoomTags" in block
+
+
+def test_stage08_dimension_cleanup_is_spatially_limited_to_target_housing():
+    text = UPDATE.read_text(encoding="utf-8")
+
+    block = text[
+        text.index("    def _managed_annotation_ids("):
+        text.index("    def _external_usage_blocking_reason(", text.index("    def _managed_annotation_ids("))
+    ]
+
+    assert "housing_box = self._union_boxes(room_boxes)" in block
+    assert "self._millimeters_to_internal(1500.0)" in block
+    assert "self._boxes_overlap(" in block
+    assert "BuiltInCategory.OST_Dimensions" in block
