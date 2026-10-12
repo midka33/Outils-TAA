@@ -15,7 +15,7 @@ from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
 from carnet_manager_window import CarnetManagerWindow
-from publication_folder import PublicationFolder, _folder_targets
+from publication_folder import PublicationFolder, _folder_targets, _set_targets
 from publication_overview import formats_for, summarize_publication
 from publication_selection import publication_targets
 from pdf_settings_window import PdfSettingsWindow
@@ -323,8 +323,13 @@ class ExportWindow(forms.WPFWindow):
         return [node.Tag] if node is not None and getattr(node, "Tag", None) else []
 
     def _publication_targets(self):
-        return publication_targets(self._publication_selection_tags(),
-                                   lambda folder: _folder_targets(self, folder))
+        return publication_targets(
+            self._publication_selection_tags(),
+            lambda folder: _folder_targets(self, folder),
+            lambda publication_set: _set_targets(
+                self, publication_set
+            ),
+        )
 
     def _publication_selection_changed(self):
         """Ctrl/Maj ne déclenche pas l'événement natif de sélection WPF."""
