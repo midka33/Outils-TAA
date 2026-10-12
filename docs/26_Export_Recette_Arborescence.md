@@ -97,6 +97,28 @@ Déplacer un dossier :
 
 Après dépôt, l'ordre affiché est immédiatement le nouvel ordre enregistré.
 
+## TEST-TREE-06B — Déposer dans un ancien dossier de publication
+
+Choisir un dossier qui contient déjà des mises en page, par exemple
+`A1000 Plan de niveaux`.
+
+Glisser un autre dossier sur le **milieu** de sa ligne.
+
+### Attendu
+
+- la grande zone centrale (environ 70 % de la hauteur) affiche la surbrillance
+  complète « dedans » ;
+- le dossier devient réellement enfant de `A1000 Plan de niveaux` ;
+- `A1000 Plan de niveaux` conserve ses propres mises en page ;
+- le nouveau sous-dossier apparaît en développant A1000 ;
+- fermeture/réouverture d'Export : la hiérarchie persiste ;
+- sélectionner A1000 pour publication inclut aussi le contenu publiable du
+  sous-dossier ;
+- les réglages du sous-dossier peuvent hériter d'A1000.
+
+Vérifier aussi que viser très près du bord supérieur/inférieur continue à produire
+avant/après, mais que ces zones restent nettement plus petites.
+
 ## TEST-TREE-07 — Ordre mixte
 
 Dans un même dossier parent, disposer :
