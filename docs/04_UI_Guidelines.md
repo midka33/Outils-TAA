@@ -2652,3 +2652,56 @@ dimensionnement initial. Réduire d'abord marges, paddings et textes permanents.
 L'aperçu/rapport décrivent la stratégie DWG comme **Automatique** et ne promettent
 ni « aucun XRef » ni un fichier autonome garanti. Contrôle visuel WPF et échelle
 Windows : recette Revit 2025.4 encore à effectuer.
+
+
+---
+
+# Export — arborescence type Explorateur Windows
+
+L'arborescence Export doit être comprise sans connaître les concepts internes
+`PublicationFolder` et `PublicationSet`.
+
+## Vocabulaire
+
+Dans l'interface, utiliser uniquement :
+
+- **Dossier**
+- **Mise en page**
+
+Ne pas réintroduire « Carnet » dans les titres, boutons, tooltips, résumés ou messages
+d'erreur du Publisher principal.
+
+## Représentation
+
+Tous les conteneurs utilisent le pictogramme dossier. Un dossier contenant des mises
+en page peut être développé directement dans l'arbre.
+
+Le double-clic ouvre/ferme le dossier dans l'arborescence ; il ne doit pas ouvrir une
+fenêtre secondaire uniquement parce que le type interne est un PublicationSet.
+
+## Drag & drop
+
+Le drag ne démarre qu'après dépassement du seuil système depuis le point exact du
+MouseDown.
+
+Les indicateurs sont :
+
+- trait supérieur : insérer avant ;
+- trait inférieur : insérer après ;
+- surbrillance complète : déplacer dans le dossier.
+
+Pendant le drag :
+
+- auto-scroll à moins d'environ 28 px du haut/bas ;
+- auto-expansion après environ 700 ms de survol ;
+- aucune reconstruction d'arbre ne doit faire perdre la sélection, les dossiers
+  ouverts ou la position de scroll après le dépôt.
+
+Les mises en page peuvent être déplacées entre dossiers de publication. Les
+sélections multiples conservent leur ordre visuel, pas l'ordre des clics.
+
+## Ordre commun
+
+Dossiers d'organisation et dossiers contenant des mises en page partagent le même
+ordre visuel persistant. L'UI ne doit pas forcer tous les sous-dossiers avant tous
+les dossiers de publication.

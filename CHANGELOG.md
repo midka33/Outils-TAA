@@ -19,6 +19,16 @@ Le format suit les principes de *Keep a Changelog*.
 
 
 ### Changed
+- Export Publisher : l'interface n'expose plus la distinction Dossier / Carnet.
+  Les publications contenant des mises en page sont présentées comme des dossiers,
+  avec icône dossier et double-clic d'ouverture/fermeture.
+- Export drag/drop : comportement rapproché de l'Explorateur Windows avec vrai seuil
+  de déplacement, insertion avant/après, dépôt dans un dossier, auto-scroll,
+  auto-expansion au survol, maintien de la sélection/scroll et déplacement de mises
+  en page entre dossiers.
+- Export persistance : schéma 7 avec `tree_order` commun permettant d'intercaler
+  dossiers d'organisation et dossiers contenant des mises en page sans migration
+  destructive des anciens PublicationSet.
 - Calculs des pièces : ouverture optimisée en remplaçant trois parcours complets
   des pièces/paramètres par un seul scan, puis filtrage en mémoire des paramètres
   numériques et des destinations écrivable. Comportement métier inchangé ; validation
@@ -55,6 +65,10 @@ Le format suit les principes de *Keep a Changelog*.
   en V2 après finalisation/sortie V1 ; campagne de tests et feuille de route actualisées.
 
 ### Fixed
+- Export Publisher : correction de la première simplification dossier/carnet :
+  tout dossier visuel persistant peut maintenant réellement recevoir des
+  sous-dossiers. La zone centrale « déposer dedans » occupe 70 % de la ligne,
+  contre 15 % pour avant et 15 % pour après.
 - Export PDF combiné : le nom est désormais résolu au niveau du carnet ; les
   variables propres à une feuille ne reprennent plus silencieusement la première
   mise en page.

@@ -14,9 +14,8 @@ from System.Windows.Media import Stretch
 from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
-from carnet_sheets_window import CarnetSheetsWindow
 from carnet_manager_window import CarnetManagerWindow
-from publication_folder import PublicationFolder, _folder_targets
+from publication_folder import PublicationFolder, _folder_targets, _set_targets
 from publication_overview import formats_for, summarize_publication
 from publication_selection import publication_targets
 from pdf_settings_window import PdfSettingsWindow
@@ -111,39 +110,100 @@ class ExportWindow(forms.WPFWindow):
             forms.alert("Impossible d'ouvrir les réglages DWG Revit :\n{}".format(exc), title="Export DWG")
 
     def _refresh_tree(self):
+        """Construit une arborescence unique : tout conteneur est un dossier."""
         self._folders = self.controller.list_folders()
-        self._carnets = [c for c in self.controller.list_persistent() if self._belongs_to_current_project(c)]
-        for c in self.session_carnets:
-            if self._belongs_to_current_project(c):
-                self._carnets.append(c)
-        self._folders_by_id = dict((f.id, f) for f in self._folders)
+        self._carnets = [
+            value
+            for value in self.controller.list_persistent()
+            if self._belongs_to_current_project(value)
+        ]
+        for value in self.session_carnets:
+            if self._belongs_to_current_project(value):
+                self._carnets.append(value)
+
+        self._folders_by_id = dict(
+            (str(folder.id), folder)
+            for folder in self._folders
+        )
+        self._sets_by_id = dict(
+            (str(value.id), value)
+            for value in self._carnets
+            if getattr(value, "id", None) is not None
+        )
         self.PublicationTree.Items.Clear()
-        folder_items = {}
-        for folder in self._folders:
-            if folder.parent_id:
-                continue
+
+        def tree_order(value, kind_rank):
+            order = getattr(value, "tree_order", None)
+            if order is None:
+                order = 10 ** 9 + getattr(value, "sort_order", 0)
+            return (
+                order,
+                kind_rank,
+                getattr(value, "name", ""),
+            )
+
+        def container_children(parent_id):
+            children = []
+            for child in self._folders:
+                if str(getattr(child, "parent_id", None)) == str(parent_id):
+                    children.append(("FOLDER", child))
+            for publication in self._carnets:
+                if str(getattr(publication, "folder_id", None)) == str(parent_id):
+                    children.append(("CARNET", publication))
+            children.sort(
+                key=lambda entry: tree_order(
+                    entry[1],
+                    0 if entry[0] == "FOLDER" else 1,
+                )
+            )
+            return children
+
+        def populate(kind, value, node, visited):
+            key = "{0}:{1}".format(kind, getattr(value, "id", ""))
+            if key in visited:
+                return
+            visited = set(visited)
+            visited.add(key)
+
+            for child_kind, child_value in container_children(value.id):
+                if child_kind == "FOLDER":
+                    child_node = self._make_folder_node(child_value)
+                else:
+                    child_node = self._make_carnet_node(child_value)
+                node.Items.Add(child_node)
+                populate(
+                    child_kind,
+                    child_value,
+                    child_node,
+                    visited,
+                )
+
+            # Les mises en page appartiennent directement au dossier de
+            # publication historique. Les sous-dossiers restent affichés
+            # au-dessus afin de conserver une lecture naturelle.
+            if kind == "CARNET":
+                for item in (value.items or []):
+                    child = TreeViewItem()
+                    child.AllowDrop = True
+                    child.Tag = ("SHEET", item, value)
+                    child.Header = self._sheet_header(
+                        item,
+                        self._resolve_settings(value),
+                    )
+                    node.Items.Add(child)
+
+        roots = [
+            folder
+            for folder in self._folders
+            if getattr(folder, "parent_id", None) is None
+        ]
+        roots.sort(key=lambda value: tree_order(value, 0))
+
+        for folder in roots:
             node = self._make_folder_node(folder)
             self.PublicationTree.Items.Add(node)
-            folder_items[folder.id] = node
-        changed = True
-        while changed:
-            changed = False
-            for folder in self._folders:
-                if folder.id in folder_items or not folder.parent_id:
-                    continue
-                parent = folder_items.get(folder.parent_id)
-                if parent is not None:
-                    node = self._make_folder_node(folder)
-                    parent.Items.Add(node)
-                    folder_items[folder.id] = node
-                    changed = True
-        for carnet in self._carnets:
-            parent = folder_items.get(carnet.folder_id)
-            if parent is None and folder_items:
-                parent = next(iter(folder_items.values()))
-            if parent is not None:
-                parent.Items.Add(self._make_carnet_node(carnet))
-        self._folders_by_id = dict((f.id, f) for f in self._folders)
+            populate("FOLDER", folder, node, set())
+
         self._load_selected_settings()
 
     def _node_header(self, text, icon_key, bold=False):
@@ -172,18 +232,18 @@ class ExportWindow(forms.WPFWindow):
         return node
 
     def _make_carnet_node(self, carnet):
+        """Compatibilité interne : un PublicationSet est affiché comme dossier."""
         node = TreeViewItem()
         node.AllowDrop = True
         node.Tag = ("CARNET", carnet)
-        node.Header = self._node_header(carnet.name, "TaaBookIcon")
-        # L'ordre de la liste est volontaire : il représente l'ordre manuel
-        # défini par l'utilisateur dans l'arborescence de publication.
-        for item in (carnet.items or []):
-            child = TreeViewItem()
-            child.AllowDrop = True
-            child.Tag = ("SHEET", item, carnet)
-            child.Header = self._sheet_header(item, self._resolve_settings(carnet))
-            node.Items.Add(child)
+        node.Header = self._node_header(
+            carnet.name,
+            "TaaFolderIcon",
+            True,
+        )
+        node.ToolTip = "Dossier • {0} mise(s) en page".format(
+            len(carnet.items or [])
+        )
         return node
 
     def _sheet_header(self, item, settings):
@@ -233,11 +293,25 @@ class ExportWindow(forms.WPFWindow):
         elif tags:
             tag = tags[0]
             parent = tag[2] if tag[0] == "SHEET" else tag[1]
-            folder = self._folder_for_set(parent)
-            chain = self.settings_resolver.folder_chain(folder, self._folders)
-            path = " / ".join(f.name for f in reversed(chain))
-            scope = "cette mise en page" if tag[0] == "SHEET" else "tout le carnet"
-            context = "Dossier : {0} | Carnet : {1} | Périmètre : {2}".format(path, parent.name, scope)
+            chain = self.settings_resolver.container_chain(
+                parent,
+                folders=self._folders,
+                publication_sets=getattr(self, "_carnets", []),
+                include_self=True,
+            )
+            path = " / ".join(
+                value.name for value in reversed(chain)
+            )
+            scope = (
+                "cette mise en page"
+                if tag[0] == "SHEET"
+                else "tout le dossier"
+            )
+            full_path = path
+            context = "Dossier : {0} | Périmètre : {1}".format(
+                full_path,
+                scope,
+            )
         self.PublicationSummaryText.Text = context
         if targets:
             self.PublicationSummaryText.Text += "\n" + summarize_publication(
@@ -251,8 +325,13 @@ class ExportWindow(forms.WPFWindow):
         return [node.Tag] if node is not None and getattr(node, "Tag", None) else []
 
     def _publication_targets(self):
-        return publication_targets(self._publication_selection_tags(),
-                                   lambda folder: _folder_targets(self, folder))
+        return publication_targets(
+            self._publication_selection_tags(),
+            lambda folder: _folder_targets(self, folder),
+            lambda publication_set: _set_targets(
+                self, publication_set
+            ),
+        )
 
     def _publication_selection_changed(self):
         """Ctrl/Maj ne déclenche pas l'événement natif de sélection WPF."""
@@ -261,14 +340,58 @@ class ExportWindow(forms.WPFWindow):
     def _belongs_to_current_project(self, publication_set):
         return publication_set is not None and any(item is not None and item.unique_id in self.current_project_unique_ids for item in (publication_set.items or []))
 
+    def _container_by_id(self, value_id):
+        if value_id is None:
+            return None
+        key = str(value_id)
+        return (
+            self._folders_by_id.get(key)
+            or self._sets_by_id.get(key)
+        )
+
+    @staticmethod
+    def _container_parent_id(value):
+        if value is None:
+            return None
+        if hasattr(value, "parent_id"):
+            return getattr(value, "parent_id", None)
+        return getattr(value, "folder_id", None)
+
+    def _container_chain(self, value, include_self=True):
+        return self.settings_resolver.container_chain(
+            value,
+            folders=self._folders,
+            publication_sets=self._carnets,
+            include_self=include_self,
+        )
+
     def _folder_for_set(self, publication_set):
-        return self._folders_by_id.get(getattr(publication_set, "folder_id", None))
+        """Compatibilité : retourne le parent visuel, quel que soit son type."""
+        return self._container_by_id(
+            getattr(publication_set, "folder_id", None)
+        )
 
     def _resolve_settings(self, publication_set):
-        return self.settings_resolver.resolve(publication_set, folder=self._folder_for_set(publication_set), folders=self._folders)
+        return self.settings_resolver.resolve_node(
+            publication_set,
+            folders=self._folders,
+            publication_sets=self._carnets,
+        )
+
+    def _resolve_container_settings(self, value):
+        return self.settings_resolver.resolve_node(
+            value,
+            folders=self._folders,
+            publication_sets=self._carnets,
+        )
 
     def _setting_source(self, publication_set, field):
-        return self.settings_resolver.source_for(publication_set, field, folder=self._folder_for_set(publication_set), folders=self._folders)
+        return self.settings_resolver.source_for_node(
+            publication_set,
+            field,
+            folders=self._folders,
+            publication_sets=self._carnets,
+        )
 
     def Tree_SelectedItemChanged(self, sender, args):
         node = self.PublicationTree.SelectedItem
@@ -301,7 +424,7 @@ class ExportWindow(forms.WPFWindow):
         self._update_selection_info()
 
     def _set_no_selection(self):
-        self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
+        self.SelectedNodeText.Text = "Sélectionnez un dossier ou une mise en page dans l'arborescence."
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
         self.PublicationSummaryText.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
@@ -315,16 +438,17 @@ class ExportWindow(forms.WPFWindow):
             self._loading_profile = False
 
     def Tree_MouseDoubleClick(self, sender, args):
+        """Comportement Explorateur : double-clic = ouvrir/fermer un dossier."""
         node = self.PublicationTree.SelectedItem
         if node is None or not getattr(node, "Tag", None):
             return
         tag = node.Tag
-        if tag[0] == "CARNET":
-            value = tag[1]
-            if value.persistent:
-                resolution = self.controller.resolve_persistent(value)
-                value = _ResolvedCarnetView(value.name, resolution.items)
-            CarnetSheetsWindow(value, owner=self).ShowDialog()
+        if tag[0] in ("FOLDER", "CARNET"):
+            node.IsExpanded = not bool(node.IsExpanded)
+            try:
+                args.Handled = True
+            except Exception:
+                pass
 
     def _load_selected_settings(self):
         if self._selected_set is None:
@@ -337,7 +461,10 @@ class ExportWindow(forms.WPFWindow):
                 item = self._selected_item
                 self.SelectedNodeText.Text = "Mise en page : {0} — {1}".format(item.sheet_number or "", item.sheet_name or "")
             else:
-                self.SelectedNodeText.Text = "{0} • {1} mise(s) en page".format(self._selected_set.name, len(self._selected_set.items or []))
+                self.SelectedNodeText.Text = "Dossier : {0} • {1} mise(s) en page".format(
+                    self._selected_set.name,
+                    len(self._selected_set.items or []),
+                )
             self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
             self.PdfQualityCombo.SelectedItem = effective.pdf_quality
             self.PdfCheckBox.IsChecked = effective.pdf_enabled
@@ -361,7 +488,7 @@ class ExportWindow(forms.WPFWindow):
         folder = self._selected_folder
         if folder is None:
             return
-        settings = self.settings_resolver.resolve(None, folder=folder, folders=self._folders)
+        settings = self._resolve_container_settings(folder)
         self._loading_settings = True
         self._loading_profile = True
         try:
@@ -387,17 +514,24 @@ class ExportWindow(forms.WPFWindow):
         self._update_publication_overview()
 
     def _inheritance_description(self, publication_set, folder):
+        value = publication_set if publication_set is not None else folder
         groups = []
         labels = {}
         for field in self.INHERITABLE_FIELDS:
-            label = self.settings_resolver.source_label(
-                publication_set, field, folder=folder, folders=self._folders)
+            label = self.settings_resolver.source_label_node(
+                value,
+                field,
+                folders=self._folders,
+                publication_sets=getattr(self, "_carnets", []),
+            )
             if label not in labels:
                 labels[label] = []
                 groups.append(label)
             labels[label].append(self._field_label(field))
-        return " | ".join("{0} : {1}".format(label, ", ".join(labels[label]))
-                          for label in groups)
+        return " | ".join(
+            "{0} : {1}".format(label, ", ".join(labels[label]))
+            for label in groups
+        )
 
     def _update_folder_inheritance_info(self, folder):
         settings = folder.publication_settings
@@ -405,29 +539,51 @@ class ExportWindow(forms.WPFWindow):
             getattr(settings, field, None) is not None for field in self.INHERITABLE_FIELDS)
         self.InheritanceRow.Visibility = Visibility.Visible
         self.RevertInheritanceButton.Content = "Revenir à l'héritage"
-        self.RevertInheritanceButton.IsEnabled = bool(folder.parent_id and local)
+        self.RevertInheritanceButton.IsEnabled = bool(
+            getattr(folder, "parent_id", None) is not None and local
+        )
         self.InheritanceInfoText.Text = "Dossier « {0} » • {1}".format(folder.name, "réglages locaux" if local else "réglages hérités")
         self.InheritanceInfoText.ToolTip = self._inheritance_description(None, folder)
 
     def _update_inheritance_info(self, publication_set):
         sources = dict((field, self._setting_source(publication_set, field)) for field in self.INHERITABLE_FIELDS)
         self._set_inheritance_ui(True, sources)
-        folder = self._folder_for_set(publication_set)
-        local = any(value == "Carnet" for value in sources.values())
-        self.InheritanceInfoText.Text = "Réglages locaux + héritage" if local else "Hérité du dossier : {0}".format(getattr(folder, "name", "Général"))
-        self.InheritanceInfoText.ToolTip = self._inheritance_description(publication_set, folder)
+        parent = self._folder_for_set(publication_set)
+        local = any(
+            source is publication_set
+            for source in sources.values()
+            if source not in ("Profil", "Défaut")
+        )
+        self.InheritanceInfoText.Text = (
+            "Réglages locaux + héritage"
+            if local
+            else "Hérité du dossier : {0}".format(
+                getattr(parent, "name", "Général")
+            )
+        )
+        self.InheritanceInfoText.ToolTip = self._inheritance_description(
+            publication_set,
+            parent,
+        )
 
     def _set_inheritance_ui(self, enabled, sources):
         self.InheritanceRow.Visibility = Visibility.Visible if enabled else Visibility.Collapsed
         self.InheritanceInfoText.Text = ""
         self.RevertInheritanceButton.Content = "Revenir à l'héritage"
-        self.RevertInheritanceButton.IsEnabled = enabled and self._selected_set is not None and any(sources.get(field) == "Carnet" for field in self.INHERITABLE_FIELDS)
+        self.RevertInheritanceButton.IsEnabled = (
+            enabled
+            and self._selected_set is not None
+            and any(
+                sources.get(field) is self._selected_set
+                for field in self.INHERITABLE_FIELDS
+            )
+        )
 
     @staticmethod
     def _field_label(field):
         labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
-        labels["separate_carnet_subfolder"] = "sous-dossier du carnet"
+        labels["separate_carnet_subfolder"] = "dossier de sortie"
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
@@ -578,8 +734,11 @@ class ExportWindow(forms.WPFWindow):
         target = self._selected_folder if self._selected_kind == "FOLDER" else self._selected_set
         if target is None:
             return
-        effective = (self.settings_resolver.resolve(None, folder=target, folders=self._folders)
-                     if self._selected_kind == "FOLDER" else self._resolve_settings(target))
+        effective = (
+            self._resolve_container_settings(target)
+            if self._selected_kind == "FOLDER"
+            else self._resolve_settings(target)
+        )
         dialog = PdfSettingsWindow(effective, owner=self)
         dialog.ShowDialog()
         if not dialog.result:
@@ -614,8 +773,3 @@ class ExportWindow(forms.WPFWindow):
         else:
             self._save_selected_field(field)
 
-
-class _ResolvedCarnetView(object):
-    def __init__(self, name, items):
-        self.name = name
-        self.items = items

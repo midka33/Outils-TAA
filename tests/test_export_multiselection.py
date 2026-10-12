@@ -15,7 +15,7 @@ for directory in ('services', 'models'):
 from publication_selection import publication_targets
 from publication_set import PublicationSet
 from publication_item import PublicationItem
-from publication_folder import PublicationFolder, _folder_targets
+from publication_folder import PublicationFolder, _folder_targets, _set_targets
 from publication_settings import PublicationSettings
 from publication_overview import summarize_publication
 from publication_preview_service import PublicationPreviewService
@@ -84,6 +84,32 @@ def test_nested_folder_selection_keeps_root_paths_and_deduplicates_children():
     assert len(targets) == 1 and targets[0].items == parent.items
     assert targets[0].publication_folder_parts == ('DCE', 'ARCHI')
     assert not hasattr(parent, 'publication_folder_parts')
+
+
+def test_selected_publication_folder_includes_nested_publications():
+    root = PublicationFolder('DCE', 'root')
+    parent = carnet('A1000', 'p')
+    parent.folder_id = 'root'
+    child = carnet('A1100', 'c')
+    child.folder_id = 'p'
+    detail = PublicationFolder('DETAILS', 'detail', 'p')
+    nested = carnet('A1110', 'n')
+    nested.folder_id = 'detail'
+
+    window = SimpleNamespace(
+        _folders=[root, detail],
+        _carnets=[parent, child, nested],
+    )
+    targets = publication_targets(
+        [('CARNET', parent)],
+        lambda f: _folder_targets(window, f),
+        lambda s: _set_targets(window, s),
+    )
+
+    assert [target.id for target in targets] == ['p', 'c', 'n']
+    assert targets[0].publication_folder_parts == ()
+    assert targets[1].publication_folder_parts == ('A1000',)
+    assert targets[2].publication_folder_parts == ('A1000', 'DETAILS')
 
 
 def test_temporary_carnets_without_ids_are_not_merged():

@@ -7,6 +7,75 @@
 
 ---
 
+## Publisher à dossiers uniques — évolution du 2026-10-12
+
+L'interface Export ne distingue plus **Dossier** et **Carnet** pour l'utilisateur.
+
+La cible UX devient :
+
+```text
+📁 DCE
+   📁 Plans
+      📁 A1000 Plan de niveaux
+         A1101 — Bât A - Niveau 1
+         A1102 — Bât A - Niveau 2
+      📁 A2000 Coupes
+         A2101 — Coupe AA
+```
+
+L'utilisateur manipule seulement :
+
+- des **dossiers** ;
+- des **mises en page**.
+
+Un dossier peut servir uniquement à organiser d'autres dossiers ou représenter un
+dossier de publication contenant des mises en page.
+
+### Compatibilité interne
+
+Pour éviter une migration destructive, les types historiques restent temporairement
+présents dans le moteur :
+
+- `PublicationFolder` : dossier d'organisation ;
+- `PublicationSet` / tag interne `CARNET` : dossier contenant des mises en page.
+
+Cette distinction n'est plus exposée dans l'interface. Les deux types utilisent
+l'icône dossier et partagent désormais un ordre commun `tree_order`.
+
+Le stockage passe au **schéma 8**. Un ancien schéma 6/7 est migré en mémoire en
+conservant exactement son ordre visuel historique ; il n'est réécrit qu'à la
+prochaine mutation volontaire du stockage.
+
+Depuis le schéma 8, tout dossier visuel persistant peut réellement servir de parent,
+y compris un ancien `PublicationSet` contenant déjà des mises en page. Un dossier
+peut donc contenir simultanément des sous-dossiers et ses propres mises en page.
+
+### Glisser-déposer cible
+
+Le comportement doit se rapprocher de l'Explorateur Windows :
+
+- seuil réel de déplacement depuis le MouseDown, pour éviter les drags accidentels ;
+- haut d'une ligne : insertion avant ;
+- bas d'une ligne : insertion après ;
+- zone centrale d'un dossier (**70 % de la hauteur de ligne**) : déplacement dedans ;
+- seuls les 15 % supérieurs/inférieurs servent à insérer avant/après ;
+- survol d'un dossier pendant environ 700 ms : ouverture automatique ;
+- proximité haut/bas de l'arbre : scroll automatique ;
+- sélection multiple Ctrl/Maj déplacée en bloc ;
+- mises en page déplaçables d'un dossier de publication vers un autre ;
+- conservation des dossiers ouverts, de la sélection et de la position de scroll ;
+- double-clic sur un dossier : ouvrir/fermer dans l'arbre, sans fenêtre secondaire.
+
+L'ordre des dossiers d'organisation et des dossiers contenant des mises en page est
+désormais commun : ils peuvent être intercalés comme dans un explorateur de fichiers.
+
+**Statut : implémenté sur `feature/export-folder-publisher`, tests hors Revit et
+recette Revit 2025.4 requis avant fusion.**
+
+Voir : [`docs/26_Export_Recette_Arborescence.md`](26_Export_Recette_Arborescence.md).
+
+---
+
 ## Périmètre V1 — décision du 2026-09-30
 
 L'option « Publier uniquement les mises en page nouvelles ou modifiées » est retirée.

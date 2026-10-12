@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
 import json
-from System.Windows import DragDrop, DragDropEffects, DataObject, SystemParameters, Thickness
-from System.Windows.Controls import TreeViewItem
+from System import DateTime
+from System.Windows import (
+    DragDrop,
+    DragDropEffects,
+    DataObject,
+    SystemParameters,
+    Thickness,
+)
+from System.Windows.Controls import TreeViewItem, ScrollViewer
 from System.Windows.Input import MouseButtonState, Keyboard, Key, ModifierKeys
+from System.Windows.Media import VisualTreeHelper
 
 
 class PublicationTreeDragDrop(object):
@@ -15,6 +23,12 @@ class PublicationTreeDragDrop(object):
         self.selected_foreground = window.FindResource("TaaText")
         self.drag_node = None
         self.drag_started = False
+        self._mouse_down_point = None
+        self._hover_node = None
+        self._hover_mode = None
+        self._hover_since = None
+        self._post_drop_selection = None
+        self._tree_scroll_viewer = None
         self.selected = []
         self._selection_explicit = False
         self.drop_node = None
@@ -33,19 +47,37 @@ class PublicationTreeDragDrop(object):
             self._select([], fallback_to_native=True)
 
     def _item(self, source):
+        """Retrouve le TreeViewItem depuis n'importe quel enfant visuel WPF."""
         current = source
         seen = set()
         while current is not None:
             if isinstance(current, TreeViewItem):
                 return current
+
             marker = id(current)
             if marker in seen:
                 return None
             seen.add(marker)
+
+            parent = None
             try:
-                current = getattr(current, "Parent", None)
+                parent = VisualTreeHelper.GetParent(current)
             except Exception:
-                return None
+                parent = None
+
+            if parent is None:
+                try:
+                    parent = getattr(current, "Parent", None)
+                except Exception:
+                    parent = None
+
+            if parent is None:
+                try:
+                    parent = getattr(current, "TemplatedParent", None)
+                except Exception:
+                    parent = None
+
+            current = parent
         return None
 
     def _all(self):
@@ -145,6 +177,12 @@ class PublicationTreeDragDrop(object):
         node = self._item(args.OriginalSource)
         self.drag_node = node
         self.drag_started = False
+        try:
+            self._mouse_down_point = args.GetPosition(
+                self.window.PublicationTree
+            )
+        except Exception:
+            self._mouse_down_point = None
         key = self._valid_key(node) if node is not None else None
         if key is None:
             self._select([], fallback_to_native=True)
@@ -171,14 +209,28 @@ class PublicationTreeDragDrop(object):
             self._select([key])
 
     def _mouse_move(self, sender, args):
-        if self.drag_node is None or self.drag_started or args.LeftButton != MouseButtonState.Pressed:
+        if (
+            self.drag_node is None
+            or self.drag_started
+            or args.LeftButton != MouseButtonState.Pressed
+        ):
             return
-        try:
-            p = args.GetPosition(self.drag_node)
-            if abs(p.X) < SystemParameters.MinimumHorizontalDragDistance and abs(p.Y) < SystemParameters.MinimumVerticalDragDistance:
-                return
-        except Exception:
-            pass
+
+        # Utiliser un vrai delta depuis MouseDown. L'ancienne version
+        # comparait la position locale dans la ligne, ce qui pouvait lancer
+        # un drag presque immédiatement selon l'endroit cliqué.
+        if self._mouse_down_point is not None:
+            try:
+                current = args.GetPosition(self.window.PublicationTree)
+                dx = abs(current.X - self._mouse_down_point.X)
+                dy = abs(current.Y - self._mouse_down_point.Y)
+                if (
+                    dx < SystemParameters.MinimumHorizontalDragDistance
+                    and dy < SystemParameters.MinimumVerticalDragDistance
+                ):
+                    return
+            except Exception:
+                pass
         tag = getattr(self.drag_node, "Tag", None)
         if not tag or tag[0] not in ("FOLDER", "CARNET", "SHEET"):
             return
@@ -188,7 +240,13 @@ class PublicationTreeDragDrop(object):
         movable = set(self._key(n.Tag) for n in self._nodes(kind))
         if self._key(tag) not in movable:
             return
-        items = [key for key in self.selected if key in movable]
+        selected_set = set(self.selected)
+        items = [
+            self._key(node.Tag)
+            for node in self._nodes(kind)
+            if self._key(node.Tag) in selected_set
+            and self._key(node.Tag) in movable
+        ]
         if not items:
             return
         self.drag_started = True
@@ -211,57 +269,119 @@ class PublicationTreeDragDrop(object):
         return None
 
     def _mode(self, target, args):
+        """15 % avant / 70 % dedans / 15 % après sur la ligne du dossier.
+
+        Important : TreeViewItem.ActualHeight inclut ses enfants lorsqu'il est
+        déplié. Le calcul doit donc utiliser uniquement le visuel Header.
+        Sinon un dossier ouvert devient presque impossible à viser « dedans ».
+        """
         try:
-            h = float(target.ActualHeight)
-            y = args.GetPosition(target).Y
-            if h > 0:
-                third = h / 3.0
-                if y < third:
+            header = getattr(target, "Header", None)
+            if header is not None:
+                height = float(getattr(header, "ActualHeight", 0.0))
+                y = args.GetPosition(header).Y
+            else:
+                height = float(target.ActualHeight)
+                y = args.GetPosition(target).Y
+
+            if height > 0:
+                edge = height * 0.15
+                if y < edge:
                     return "BEFORE"
-                if y > h - third:
+                if y > height - edge:
                     return "AFTER"
         except Exception:
             pass
         return "INSIDE"
 
-    def _folder_descendant(self, source_id, parent_id):
+    def _container_parent_id(self, value):
+        if value is None:
+            return None
+        if hasattr(value, "parent_id"):
+            return getattr(value, "parent_id", None)
+        return getattr(value, "folder_id", None)
+
+    def _container_by_id(self, value_id):
+        if value_id is None:
+            return None
+        key = str(value_id)
+        return (
+            getattr(self.window, "_folders_by_id", {}).get(key)
+            or getattr(self.window, "_sets_by_id", {}).get(key)
+        )
+
+    def _container_descendant(self, source_id, parent_id):
+        """True si parent_id est source_id ou un de ses descendants visuels."""
         current = parent_id
         seen = set()
         while current is not None and str(current) not in seen:
             if str(current) == str(source_id):
                 return True
             seen.add(str(current))
-            folder = self.window._folders_by_id.get(current)
-            if folder is None:
+            value = self._container_by_id(current)
+            if value is None:
                 return False
-            current = getattr(folder, "parent_id", None)
+            current = self._container_parent_id(value)
         return False
 
     def _target_mode(self, payload, target, args):
         tag = getattr(target, "Tag", None)
         if not payload or not tag or len(tag) < 2:
             return None
+
         kind = payload.get("kind")
         keys = payload.get("items", [])
-        if kind == "FOLDER" and tag[0] == "FOLDER":
-            ids = [x.split(":", 1)[1] for x in keys if ":" in x]
-            if not ids or str(tag[1].id) == "default":
+
+        if (
+            kind in ("FOLDER", "CARNET")
+            and tag[0] in ("FOLDER", "CARNET")
+        ):
+            if (
+                tag[0] == "CARNET"
+                and not getattr(tag[1], "persistent", False)
+            ):
                 return None
-            for source_id in ids:
-                if str(source_id) == str(tag[1].id) or self._folder_descendant(source_id, tag[1].id):
-                    return None
-            return self._mode(target, args)
-        if kind == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
-            ids = [x.split(":", 1)[1] for x in keys if ":" in x]
-            if tag[0] == "CARNET" and str(tag[1].id) in [str(x) for x in ids]:
+            ids = [
+                value.split(":", 1)[1]
+                for value in keys
+                if ":" in value
+            ]
+            if not ids:
                 return None
-            return "FOLDER" if tag[0] == "FOLDER" else self._mode(target, args)
+
+            target_id = str(tag[1].id)
+            if target_id in [str(value) for value in ids]:
+                return None
+
+            mode = self._mode(target, args)
+
+            if mode == "INSIDE":
+                for source_id in ids:
+                    if self._container_descendant(
+                            source_id, target_id):
+                        return None
+
+            # Un dossier de publication ne peut pas être déplacé à la racine.
+            # Si la cible est un dossier racine, une visée sur les bords reste
+            # interprétée comme « dedans » plutôt que comme un dépôt invalide.
+            if (
+                kind == "CARNET"
+                and tag[0] == "FOLDER"
+                and getattr(tag[1], "parent_id", None) is None
+                and mode != "INSIDE"
+            ):
+                return "INSIDE"
+
+            return mode
+
         if kind == "SHEET" and tag[0] in ("SHEET", "CARNET"):
             if tag[0] == "CARNET":
-                return "APPEND" if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[1].id) for x in keys) else None
+                return "APPEND"
             if self._key(tag) in keys:
                 return None
-            return self._mode(target, args) if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[2].id) for x in keys) else None
+            mode = self._mode(target, args)
+            return "BEFORE" if mode == "BEFORE" else "AFTER"
+
         return None
 
     def _show_drop_indicator(self, node, mode):
@@ -289,14 +409,140 @@ class PublicationTreeDragDrop(object):
         self.drop_mode = None
         self._select(self.selected, fallback_to_native=not self._selection_explicit, notify=False)
 
+    def _scroll_viewer(self):
+        """Retrouve puis mémorise le ScrollViewer interne du TreeView."""
+        if self._tree_scroll_viewer is not None:
+            return self._tree_scroll_viewer
+
+        def find(node):
+            if node is None:
+                return None
+            if isinstance(node, ScrollViewer):
+                return node
+            try:
+                count = VisualTreeHelper.GetChildrenCount(node)
+            except Exception:
+                return None
+            for index in range(count):
+                try:
+                    child = VisualTreeHelper.GetChild(node, index)
+                except Exception:
+                    continue
+                result = find(child)
+                if result is not None:
+                    return result
+            return None
+
+        self._tree_scroll_viewer = find(self.window.PublicationTree)
+        return self._tree_scroll_viewer
+
+    def _auto_scroll(self, args):
+        """Scroll doux lorsque le pointeur approche du haut/bas de l'arbre."""
+        viewer = self._scroll_viewer()
+        if viewer is None:
+            return
+        try:
+            tree = self.window.PublicationTree
+            point = args.GetPosition(tree)
+            height = float(tree.ActualHeight)
+            margin = 28.0
+            if point.Y < margin:
+                viewer.LineUp()
+            elif point.Y > height - margin:
+                viewer.LineDown()
+        except Exception:
+            return
+
+    def _hover_expand(self, target, mode):
+        """Ouvre automatiquement un dossier après ~700 ms de survol."""
+        tag = getattr(target, "Tag", None)
+        can_expand = (
+            tag
+            and tag[0] in ("FOLDER", "CARNET")
+            and mode in ("FOLDER", "APPEND", "INSIDE")
+            and not bool(getattr(target, "IsExpanded", False))
+        )
+        if not can_expand:
+            self._hover_node = None
+            self._hover_mode = None
+            self._hover_since = None
+            return
+
+        if target is not self._hover_node or mode != self._hover_mode:
+            self._hover_node = target
+            self._hover_mode = mode
+            self._hover_since = DateTime.UtcNow
+            return
+
+        if self._hover_since is None:
+            self._hover_since = DateTime.UtcNow
+            return
+
+        try:
+            elapsed = (DateTime.UtcNow - self._hover_since).TotalMilliseconds
+            if elapsed >= 700:
+                target.IsExpanded = True
+                self._hover_since = None
+        except Exception:
+            return
+
+    def _scroll_offset(self):
+        viewer = self._scroll_viewer()
+        if viewer is None:
+            return None
+        try:
+            return float(viewer.VerticalOffset)
+        except Exception:
+            return None
+
+    def _restore_scroll(self, offset):
+        if offset is None:
+            return
+        viewer = self._scroll_viewer()
+        if viewer is None:
+            return
+        try:
+            viewer.ScrollToVerticalOffset(offset)
+        except Exception:
+            pass
+
+    def expand_to_key(self, key):
+        """Déplie les parents d'un nœud, utile après création/déplacement."""
+        if not key:
+            return
+        node = next(
+            (
+                value
+                for value in self._all()
+                if getattr(value, "Tag", None)
+                and self._key(value.Tag) == key
+            ),
+            None,
+        )
+        current = node
+        while current is not None:
+            try:
+                parent = getattr(current, "Parent", None)
+            except Exception:
+                parent = None
+            if isinstance(parent, TreeViewItem):
+                parent.IsExpanded = True
+            current = parent
+
     def _drag_over(self, sender, args):
+        self._auto_scroll(args)
         target = self._item(args.OriginalSource)
         payload = self._payload(args)
-        mode = self._target_mode(payload, target, args) if target is not None else None
+        mode = (
+            self._target_mode(payload, target, args)
+            if target is not None else None
+        )
         if mode is None:
+            self._hover_expand(None, None)
             self._clear_drop_indicator()
             args.Effects = DragDropEffects.None
         else:
+            self._hover_expand(target, mode)
             self._show_drop_indicator(target, mode)
             args.Effects = DragDropEffects.Move
         args.Handled = True
@@ -323,6 +569,39 @@ class PublicationTreeDragDrop(object):
             if str(n.Tag[1].id) in carnets:
                 n.IsExpanded = True
 
+    def _node_ref(self, tag):
+        if not tag or tag[0] not in ("FOLDER", "CARNET"):
+            return None
+        return (tag[0], str(tag[1].id))
+
+    def _before_node_for_mode(self, target, mode, moving_keys):
+        """Convertit avant/après en référence before_node commune."""
+        if mode == "BEFORE":
+            return self._node_ref(target.Tag)
+        if mode != "AFTER":
+            return None
+
+        parent = getattr(target, "Parent", None)
+        try:
+            siblings = list(parent.Items)
+        except Exception:
+            return None
+
+        try:
+            index = siblings.index(target)
+        except ValueError:
+            return None
+
+        for sibling in siblings[index + 1:]:
+            tag = getattr(sibling, "Tag", None)
+            if not tag or tag[0] not in ("FOLDER", "CARNET"):
+                continue
+            key = self._key(tag)
+            if key in moving_keys:
+                continue
+            return self._node_ref(tag)
+        return None
+
     def _next_sibling(self, values, target_id, moving):
         values = [v for v in values if str(getattr(v, "id", "")) not in moving]
         values.sort(key=lambda v: getattr(v, "sort_order", 0))
@@ -332,87 +611,254 @@ class PublicationTreeDragDrop(object):
         return None
 
     def _move_folders(self, payload, target, mode):
-        ids = [x.split(":", 1)[1] for x in payload["items"] if ":" in x]
-        folder = target.Tag[1]
+        ids = [
+            value.split(":", 1)[1]
+            for value in payload["items"]
+            if ":" in value
+        ]
+        moving_keys = set(payload.get("items", []) or [])
+        tag = target.Tag
+
         if mode == "INSIDE":
-            return self.window.controller.move_folders_many(ids, folder.id, None)
-        siblings = [f for f in self.window._folders if str(getattr(f, "parent_id", None)) == str(getattr(folder, "parent_id", None))]
-        before = folder.id if mode == "BEFORE" else self._next_sibling(siblings, folder.id, set(ids))
-        return self.window.controller.move_folders_many(ids, folder.parent_id, before)
+            parent_id = tag[1].id
+            before = None
+        else:
+            parent_id = self._container_parent_id(tag[1])
+            before = self._before_node_for_mode(
+                target, mode, moving_keys
+            )
+
+        return self.window.controller.move_tree_nodes(
+            [("FOLDER", value) for value in ids],
+            parent_id,
+            before,
+        )
 
     def _move_carnets(self, payload, target, mode):
-        ids = [x.split(":", 1)[1] for x in payload["items"] if ":" in x]
-        if target.Tag[0] == "FOLDER":
-            return self.window.controller.move_persistent_many(ids, target.Tag[1].id, None)
-        carnet = target.Tag[1]
-        siblings = [c for c in self.window._carnets if str(getattr(c, "folder_id", None)) == str(getattr(carnet, "folder_id", None))]
-        before = carnet.id if mode == "BEFORE" else self._next_sibling(siblings, carnet.id, set(ids))
-        return self.window.controller.move_persistent_many(ids, carnet.folder_id, before)
+        ids = [
+            value.split(":", 1)[1]
+            for value in payload["items"]
+            if ":" in value
+        ]
+        moving_keys = set(payload.get("items", []) or [])
+        tag = target.Tag
+
+        if mode == "INSIDE":
+            parent_id = tag[1].id
+            before = None
+        else:
+            parent_id = self._container_parent_id(tag[1])
+            if parent_id is None:
+                # PublicationSet ne peut pas devenir racine : préférer le dépôt
+                # dans le dossier racine plutôt qu'un échec silencieux.
+                parent_id = tag[1].id
+                before = None
+            else:
+                before = self._before_node_for_mode(
+                    target, mode, moving_keys
+                )
+
+        return self.window.controller.move_tree_nodes(
+            [("CARNET", value) for value in ids],
+            parent_id,
+            before,
+        )
 
     def _move_sheets(self, payload, target, mode):
-        selected_ids = []
-        carnet_id = None
-        for key in payload["items"]:
-            parts = key.split(":", 2)
-            if len(parts) != 3:
-                return False
-            carnet_id = parts[1] if carnet_id is None else carnet_id
-            if parts[1] != carnet_id:
-                return False
-            selected_ids.append(parts[2])
-        target_carnet = target.Tag[2] if target.Tag[0] == "SHEET" else target.Tag[1]
-        if str(target_carnet.id) != str(carnet_id):
+        """Déplace des mises en page comme des fichiers entre deux dossiers.
+
+        Le format de stockage reste PublicationSet pour compatibilité, mais
+        l'utilisateur peut désormais glisser des feuilles d'un dossier de
+        publication vers un autre.
+        """
+        keys = list(payload.get("items", []) or [])
+        if not keys:
             return False
-        carnet = next((c for c in self.window._carnets if str(getattr(c, "id", "")) == str(carnet_id)), None)
-        if carnet is None or not carnet.persistent:
-            return False
-        selected = [i for i in carnet.items if str(i.unique_id) in selected_ids]
-        remaining = [i for i in carnet.items if str(i.unique_id) not in selected_ids]
-        if not selected:
-            return False
-        if target.Tag[0] == "CARNET":
-            index = len(remaining)
-        else:
-            uid = str(target.Tag[1].unique_id)
-            if uid in selected_ids:
+
+        by_id = dict(
+            (str(getattr(value, "id", "")), value)
+            for value in self.window._carnets
+            if getattr(value, "id", None)
+        )
+
+        selected_keys = set(keys)
+        moved = []
+        touched = []
+        snapshots = {}
+
+        # L'ordre visuel de l'arbre prévaut sur l'ordre des Ctrl+clic.
+        for node in self._all():
+            tag = getattr(node, "Tag", None)
+            if not tag or tag[0] != "SHEET":
+                continue
+            key = self._key(tag)
+            if key not in selected_keys:
+                continue
+            source = tag[2]
+            if not getattr(source, "persistent", False):
                 return False
-            target_index = next((i for i, item in enumerate(remaining) if str(item.unique_id) == uid), len(remaining))
-            index = target_index if mode == "BEFORE" else target_index + 1
-        carnet.items = remaining[:index] + selected + remaining[index:]
-        self.window.controller.save_persistent(carnet)
-        return True
+            moved.append((source, tag[1]))
+
+        if len(moved) != len(selected_keys):
+            return False
+
+        target_set = target.Tag[2] if target.Tag[0] == "SHEET" else target.Tag[1]
+        if not getattr(target_set, "persistent", False):
+            return False
+
+        # Snapshot mémoire pour pouvoir restaurer l'UI en cas d'échec de sauvegarde.
+        all_sets = []
+        for source, item in moved:
+            if source not in all_sets:
+                all_sets.append(source)
+        if target_set not in all_sets:
+            all_sets.append(target_set)
+        for value in all_sets:
+            snapshots[str(value.id)] = list(value.items or [])
+
+        try:
+            moved_ids_by_set = {}
+            for source, item in moved:
+                moved_ids_by_set.setdefault(str(source.id), set()).add(
+                    str(item.unique_id)
+                )
+
+            for source in all_sets:
+                selected_ids = moved_ids_by_set.get(str(source.id), set())
+                if not selected_ids:
+                    continue
+                source.items = [
+                    item for item in (source.items or [])
+                    if str(item.unique_id) not in selected_ids
+                ]
+                if source not in touched:
+                    touched.append(source)
+
+            moving_items = [item for source, item in moved]
+            destination = list(target_set.items or [])
+
+            if target.Tag[0] == "CARNET":
+                index = len(destination)
+            else:
+                target_uid = str(target.Tag[1].unique_id)
+                if any(
+                    str(item.unique_id) == target_uid
+                    for item in moving_items
+                ):
+                    return False
+                target_index = next(
+                    (
+                        index
+                        for index, item in enumerate(destination)
+                        if str(item.unique_id) == target_uid
+                    ),
+                    len(destination),
+                )
+                index = (
+                    target_index
+                    if mode == "BEFORE"
+                    else target_index + 1
+                )
+
+            target_set.items = (
+                destination[:index]
+                + moving_items
+                + destination[index:]
+            )
+            if target_set not in touched:
+                touched.append(target_set)
+
+            for value in touched:
+                self.window.controller.save_persistent(value)
+
+            self._post_drop_selection = [
+                "SHEET:{0}:{1}".format(
+                    target_set.id,
+                    item.unique_id,
+                )
+                for item in moving_items
+            ]
+            return True
+
+        except Exception:
+            rollback_errors = []
+            for value in all_sets:
+                value.items = list(
+                    snapshots.get(str(value.id), value.items or [])
+                )
+            # Le repository réécrit le JSON complet à chaque sauvegarde.
+            # Restaurer aussi le stockage si une sauvegarde intermédiaire a réussi.
+            for value in all_sets:
+                try:
+                    self.window.controller.save_persistent(value)
+                except Exception as rollback_exc:
+                    rollback_errors.append(str(rollback_exc))
+            if rollback_errors:
+                raise RuntimeError(
+                    "Déplacement annulé, restauration incomplète : {0}".format(
+                        "; ".join(rollback_errors)
+                    )
+                )
+            raise
 
     def _drop(self, sender, args):
         target = self._item(args.OriginalSource)
         payload = self._payload(args)
-        mode = self._target_mode(payload, target, args) if target is not None else None
+        mode = (
+            self._target_mode(payload, target, args)
+            if target is not None else None
+        )
         if mode is None:
             self._clear_drop_indicator()
             args.Handled = True
             return
+
         try:
             expanded = self._expanded()
+            scroll_offset = self._scroll_offset()
+            self._post_drop_selection = None
+
             if payload["kind"] == "FOLDER":
                 moved = self._move_folders(payload, target, mode)
             elif payload["kind"] == "CARNET":
                 moved = self._move_carnets(payload, target, mode)
             else:
                 moved = self._move_sheets(payload, target, mode)
+
             if moved:
-                self._select([])
+                post_selection = (
+                    list(self._post_drop_selection)
+                    if self._post_drop_selection
+                    else list(payload.get("items", []) or [])
+                )
+
                 self.window._selected_set = None
                 self.window._selected_item = None
                 self.window._selected_kind = None
                 self.window._selected_folder = None
+
                 self.window._refresh_tree()
                 self._restore_expanded(expanded)
+                for key in post_selection:
+                    self.expand_to_key(key)
+                self._restore_scroll(scroll_offset)
+                self._select(post_selection)
                 self.window._update_selection_info()
+
         except Exception as exc:
             try:
                 from pyrevit import forms
-                forms.alert("Impossible de réorganiser les éléments.\n\n{0}".format(exc), title="Export")
+                forms.alert(
+                    "Impossible de réorganiser les éléments.\n\n{0}".format(exc),
+                    title="Export",
+                )
             except Exception:
                 pass
         finally:
+            self._hover_node = None
+            self._hover_mode = None
+            self._hover_since = None
+            self._post_drop_selection = None
             self._clear_drop_indicator()
+
         args.Handled = True

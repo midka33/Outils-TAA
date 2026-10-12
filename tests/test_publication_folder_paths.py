@@ -163,7 +163,7 @@ def test_cross_booklet_collision_blocks_confirmation():
     merged = namespace['_merge_previews']([
         {'rows': [SimpleNamespace(Path='/export/DCE/Plan.pdf')]},
         {'rows': [SimpleNamespace(Path='/export/DCE/plan.pdf')]}])
-    assert any('Collision entre carnets' in message for message in merged['errors'])
+    assert any('Collision entre dossiers' in message for message in merged['errors'])
 
 
 def test_recursive_settings_follow_parents_and_preserve_overrides():

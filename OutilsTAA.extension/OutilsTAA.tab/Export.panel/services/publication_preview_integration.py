@@ -71,7 +71,7 @@ def install_preview_on_export_window(export_window_class):
         tags = self._publication_selection_tags()
         targets = self._publication_targets()
         if not targets:
-            forms.alert("Sélectionnez au moins un carnet ou une mise en page à publier.", title="Publication")
+            forms.alert("Sélectionnez au moins un dossier ou une mise en page à publier.", title="Publication")
             return
         if len(tags) == 1 and tags[0][0] == "FOLDER":
             return _preview_then_publish_folder(self, targets)
@@ -82,7 +82,16 @@ def install_preview_on_export_window(export_window_class):
         if self._selected_kind == "FOLDER" and self._selected_folder is not None:
             target_folder_id = self._selected_folder.id
         elif self._selected_set is not None:
-            target_folder_id = getattr(self._selected_set, "folder_id", None) or "default"
+            if getattr(self._selected_set, "persistent", False):
+                target_folder_id = (
+                    getattr(self._selected_set, "id", None)
+                    or "default"
+                )
+            else:
+                target_folder_id = (
+                    getattr(self._selected_set, "folder_id", None)
+                    or "default"
+                )
 
         manager = CarnetManagerWindow(self.controller, owner=self, target_folder_id=target_folder_id)
         manager.ShowDialog()
@@ -100,7 +109,7 @@ def install_preview_on_export_window(export_window_class):
             return
         count = sum(len(target.items or []) for target in targets)
         if len(tags) > 1:
-            self.SelectionInfo.Text = "Sélection : {0} éléments • {1} carnet(s) • {2} mise(s) en page.".format(len(tags), len(targets), count)
+            self.SelectionInfo.Text = "Sélection : {0} éléments • {1} dossier(s) de publication • {2} mise(s) en page.".format(len(tags), len(targets), count)
             self.PublishButton.Content = "Publier la sélection"
         else:
             kind, value = tags[0][:2]
@@ -108,14 +117,18 @@ def install_preview_on_export_window(export_window_class):
                 self.SelectionInfo.Text = "Mise en page sélectionnée : {0} — {1}.".format(value.sheet_number or "", value.sheet_name or "")
                 self.PublishButton.Content = "Publier la mise en page"
             else:
-                label = "dossier" if kind == "FOLDER" else "carnet"
-                self.SelectionInfo.Text = "{0} : {1} • {2} mise(s) en page.".format(label.capitalize(), value.name, count)
-                self.PublishButton.Content = "Publier le {0} « {1} »".format(label, value.name)
+                label = "dossier"
+                self.SelectionInfo.Text = "Dossier : {0} • {1} mise(s) en page.".format(
+                    value.name, count
+                )
+                self.PublishButton.Content = "Publier le dossier « {0} »".format(
+                    value.name
+                )
         self.PublishButton.IsEnabled = count > 0
         self._update_publication_overview()
 
     def set_no_selection_compat(self, sender=None, args=None):
-        self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
+        self.SelectedNodeText.Text = "Sélectionnez un dossier ou une mise en page dans l'arborescence."
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
         self.PublishButton.IsEnabled = False
@@ -123,12 +136,40 @@ def install_preview_on_export_window(export_window_class):
         self._set_inheritance_ui(False, {})
 
     def new_folder_click(self, sender, args):
-        name = forms.ask_for_string(default="Nouveau dossier", prompt="Nom du dossier", title="Export")
+        name = forms.ask_for_string(
+            default="Nouveau dossier",
+            prompt="Nom du dossier",
+            title="Export",
+        )
         if not name or not name.strip():
             return
-        folder = PublicationFolder(name.strip(), str(Guid.NewGuid()), None, True)
+
+        parent_id = None
+        if self._selected_kind == "FOLDER" and self._selected_folder is not None:
+            parent_id = self._selected_folder.id
+        elif self._selected_set is not None:
+            # Un dossier persistant contenant déjà des mises en page peut aussi
+            # contenir des sous-dossiers. Un dossier temporaire reste feuille.
+            parent_id = (
+                getattr(self._selected_set, "id", None)
+                if getattr(self._selected_set, "persistent", False)
+                else getattr(self._selected_set, "folder_id", None)
+            )
+
+        folder = PublicationFolder(
+            name.strip(),
+            str(Guid.NewGuid()),
+            parent_id,
+            True,
+        )
         self.controller.save_folder(folder)
         self._refresh_tree()
+
+        manager = getattr(self, "_drag_drop_manager", None)
+        if manager is not None:
+            key = "FOLDER:" + str(folder.id)
+            manager._select([key])
+            manager.expand_to_key(key)
 
     def browse_output_click(self, sender, args):
         folder = forms.pick_folder(title="Choisir le dossier de publication")
@@ -145,10 +186,10 @@ def install_preview_on_export_window(export_window_class):
         tags = manager.selected_tags()
         targets = deletion_targets(tags)
         if not targets:
-            forms.alert("Sélectionnez des carnets ou dossiers (Ctrl / Maj). Les mises en page restent gérées dans le carnet.", title="Export")
+            forms.alert("Sélectionnez des dossiers (Ctrl / Maj). Les mises en page Revit restent intactes.", title="Export")
             return
         names = "\n".join("• " + tag[1].name for tag in targets)
-        message = "Supprimer ces {0} élément(s) ?\n{1}\n\nLes dossiers doivent être vides après suppression des carnets sélectionnés. Les feuilles Revit sont conservées.".format(len(targets), names)
+        message = "Supprimer ces {0} dossier(s) ?\n{1}\n\nUn dossier d'organisation doit être vide après suppression de ses sous-dossiers. Les feuilles Revit sont conservées.".format(len(targets), names)
         if not forms.alert(message, title="Export", yes=True, no=True):
             return
         self.session_carnets, blocked = delete_selected(
@@ -175,7 +216,7 @@ def install_preview_on_export_window(export_window_class):
         if not name:
             return
         if self._selected_kind not in ("CARNET", "SHEET") or self._selected_set is None:
-            self.ProfileInfoText.Text = "Sélectionnez un carnet ou une mise en page pour appliquer un profil."
+            self.ProfileInfoText.Text = "Sélectionnez un dossier de publication ou une mise en page pour appliquer un profil."
             return
         values = self.profile_service.get(str(name))
         if not values:
@@ -185,7 +226,7 @@ def install_preview_on_export_window(export_window_class):
             self._apply_profile_values(values)
             if self._selected_set.persistent:
                 self.controller.save_persistent(self._selected_set)
-            self.ProfileInfoText.Text = "Profil « {0} » appliqué au carnet.".format(name)
+            self.ProfileInfoText.Text = "Profil « {0} » appliqué au dossier.".format(name)
             self._load_selected_settings()
         except Exception as exc:
             self.ProfileInfoText.Text = "Impossible d'appliquer le profil : {0}".format(exc)
@@ -194,14 +235,16 @@ def install_preview_on_export_window(export_window_class):
 
     def save_profile_click(self, sender, args):
         if self._selected_kind not in ("FOLDER", "CARNET", "SHEET"):
-            forms.alert("Sélectionnez un dossier, un carnet ou une mise en page avant d'enregistrer un profil.", title="Profil")
+            forms.alert("Sélectionnez un dossier ou une mise en page avant d'enregistrer un profil.", title="Profil")
             return
         name = forms.ask_for_string(default="Nouveau profil", prompt="Nom du profil", title="Export")
         if not name or not name.strip():
             return
         try:
             if self._selected_kind == "FOLDER":
-                source = self.settings_resolver.resolve(None, folder=self._selected_folder, folders=self._folders)
+                source = self._resolve_container_settings(
+                    self._selected_folder
+                )
             else:
                 source = self._resolve_settings(self._selected_set)
             self.profile_service.save(name.strip(), source)
@@ -393,7 +436,7 @@ def _publish_targets(window, targets):
             success = bool(result.get("success"))
             all_success = all_success and success
 
-            target_progress.begin("finalize", "Historique et résultats du carnet")
+            target_progress.begin("finalize", "Historique et résultats du dossier")
             if success and history_info:
                 window._publication_history_service.record_publication(
                     publication_set,
@@ -404,7 +447,7 @@ def _publish_targets(window, targets):
             target_progress.finalize(success, empty=not effective_target.items)
         report = {
             "success": all_success,
-            "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
+            "carnet": "Publication : sélection ({0} dossier(s))".format(len(targets)),
             "results": all_results,
             "errors": all_errors,
             "warnings": all_warnings,
@@ -418,7 +461,7 @@ def _preview_then_publish_folder(window, targets):
     preview = _build_preview(window, targets)
     if not targets:
         preview["errors"].append(
-            "Le dossier « {0} » ne contient aucun carnet publiable.".format(window._selected_folder.name))
+            "Le dossier « {0} » ne contient aucune mise en page publiable.".format(window._selected_folder.name))
 
     dialog = PublicationPreviewWindow(preview, owner=window)
     dialog.ShowDialog()
@@ -476,7 +519,7 @@ def _merge_previews(previews):
             continue
         path = os.path.normcase(os.path.abspath(row.Path)).lower()
         if path in seen_paths:
-            errors.append("Collision entre carnets : {0}.".format(row.Path))
+            errors.append("Collision entre dossiers : {0}.".format(row.Path))
         seen_paths.add(path)
 
     if len(directories) == 1:

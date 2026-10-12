@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Ajouter des carnets — Outils TAA" Height="620" Width="900" MinHeight="520" MinWidth="760" WindowStartupLocation="CenterOwner" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource TaaBackground}" Foreground="{DynamicResource TaaText}" UseLayoutRounding="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Ajouter des mises en page — Outils TAA" Height="620" Width="900" MinHeight="520" MinWidth="760" WindowStartupLocation="CenterOwner" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource TaaBackground}" Foreground="{DynamicResource TaaText}" UseLayoutRounding="True">
   <Grid Margin="20">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -11,8 +11,8 @@
         <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Border>
       <StackPanel VerticalAlignment="Center">
-        <TextBlock Text="Ajouter des carnets" FontSize="20" FontWeight="SemiBold" Margin="0" />
-        <TextBlock Text="Préparer les carnets à ajouter à votre publication" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
+        <TextBlock Text="Ajouter des mises en page" FontSize="20" FontWeight="SemiBold" Margin="0" />
+        <TextBlock Text="Créer des dossiers de publication à partir de mises en page Revit" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
       </StackPanel>
     </DockPanel>
     <StackPanel Grid.Row="1">
@@ -34,11 +34,11 @@
         <TextBlock Grid.Row="1" x:Name="ParameterInfo" TextWrapping="Wrap" Margin="0,8,0,8" />
       </Grid>
       <StackPanel x:Name="ManualPanel" Visibility="Collapsed">
-        <TextBlock Text="Nom du carnet" FontWeight="Bold" Margin="0,0,0,5" />
+        <TextBlock Text="Nom du dossier" FontWeight="Bold" Margin="0,0,0,5" />
         <TextBox x:Name="CarnetNameTextBox" />
         <Button Content="Sélectionner les feuilles dans Revit" Click="SelectSheets_Click" Margin="0,8,0,0" ToolTip="Sélectionner les feuilles dans Revit" />
         <TextBlock x:Name="ManualSelectionInfo" Text="Aucune feuille sélectionnée." TextWrapping="Wrap" Margin="0,8,0,4" />
-        <CheckBox x:Name="PersistentCheckBox" Content="Enregistrer le carnet pour les prochaines sessions" IsChecked="True" Margin="4,4,4,4" />
+        <CheckBox x:Name="PersistentCheckBox" Content="Enregistrer ce dossier pour les prochaines sessions" IsChecked="True" Margin="4,4,4,4" />
       </StackPanel>
     </StackPanel>
     <Grid Grid.Row="2" Margin="0,8,0,12">
@@ -46,18 +46,18 @@
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
-      <TextBlock Grid.Row="0" x:Name="SelectionInfo" Text="Sélectionnez les carnets à ajouter." FontWeight="Bold" Margin="0,0,0,6" />
+      <TextBlock Grid.Row="0" x:Name="SelectionInfo" Text="Sélectionnez les dossiers à ajouter." FontWeight="Bold" Margin="0,0,0,6" />
       <DataGrid Grid.Row="1" x:Name="CarnetsGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="False" SelectionMode="Single" VerticalScrollBarVisibility="Auto" MouseLeftButtonUp="SelectionChanged_Click">
         <DataGrid.Columns>
           <DataGridCheckBoxColumn Header="Ajouter" Binding="{Binding IsSelected, Mode=TwoWay}" Width="65" />
-          <DataGridTextColumn Header="Carnet" Binding="{Binding Name}" Width="*" IsReadOnly="True" />
+          <DataGridTextColumn Header="Dossier" Binding="{Binding Name}" Width="*" IsReadOnly="True" />
           <DataGridTextColumn Header="Feuilles" Binding="{Binding Count}" Width="80" IsReadOnly="True" />
         </DataGrid.Columns>
       </DataGrid>
     </Grid>
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Annuler" Click="Cancel_Click" MinWidth="100" IsCancel="True" ToolTip="Annuler" />
-      <Button x:Name="AddButton" Content="Ajouter les carnets sélectionnés" Click="Add_Click" MinWidth="230" Style="{DynamicResource TaaPrimaryButton}" ToolTip="Ajouter les carnets sélectionnés" Margin="8,0,0,0" />
+      <Button x:Name="AddButton" Content="Ajouter les dossiers sélectionnés" Click="Add_Click" MinWidth="230" Style="{DynamicResource TaaPrimaryButton}" ToolTip="Ajouter les dossiers sélectionnés" Margin="8,0,0,0" />
     </StackPanel>
   </Grid>
 </Window>

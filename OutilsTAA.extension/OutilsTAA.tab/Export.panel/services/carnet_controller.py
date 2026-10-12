@@ -74,6 +74,12 @@ class CarnetController(object):
             raise RuntimeError("Le dépôt des dossiers n'est pas configuré.")
         return self.repository.move_folders(folder_ids, parent_id, before_folder_id)
 
+    def move_tree_nodes(self, nodes, parent_id, before_node=None):
+        """Déplace/reclasse dossiers d'organisation et dossiers de publication."""
+        if self.repository is None:
+            raise RuntimeError("Le dépôt des dossiers n'est pas configuré.")
+        return self.repository.move_tree_nodes(nodes, parent_id, before_node)
+
     def resolve_persistent(self, publication_set):
         if self.repository is None:
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")

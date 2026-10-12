@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Suppression explicite des carnets et dossiers sélectionnés, sans accès Revit."""
+"""Suppression explicite des dossiers sélectionnés, sans accès Revit."""
 
 
 def deletion_targets(tags):
@@ -15,34 +15,86 @@ def deletion_targets(tags):
     return result
 
 
+def _parent_id(value):
+    if value is None:
+        return None
+    if hasattr(value, "parent_id"):
+        return getattr(value, "parent_id", None)
+    return getattr(value, "folder_id", None)
+
+
 def delete_selected(targets, controller, repository, session_carnets, folders):
-    """Supprime les enfants sélectionnés avant leurs parents ; conserve les autres."""
+    """Supprime les descendants avant leurs parents, quel que soit le type interne."""
     remaining = list(session_carnets)
     blocked = []
-    by_id = dict((str(f.id), f) for f in folders)
+
+    persistent_sets = []
+    try:
+        persistent_sets = list(repository.list_all())
+    except Exception:
+        persistent_sets = []
+
+    by_id = {}
+    for value in list(folders or []) + persistent_sets + list(session_carnets or []):
+        value_id = getattr(value, "id", None)
+        if value_id is not None:
+            by_id[str(value_id)] = value
 
     def depth(tag):
-        value, seen = tag[1], set()
-        while value is not None and str(value.id) not in seen:
-            seen.add(str(value.id))
-            value = by_id.get(str(value.parent_id))
-        return len(seen)
+        value = tag[1]
+        seen = set()
+        count = 0
+        current = value
+        while current is not None:
+            key = str(getattr(current, "id", ""))
+            if key in seen:
+                break
+            seen.add(key)
+            count += 1
+            parent_id = _parent_id(current)
+            current = (
+                by_id.get(str(parent_id))
+                if parent_id is not None else None
+            )
+        return count
 
-    carnets = [t for t in targets if t[0] == "CARNET"]
-    directories = sorted([t for t in targets if t[0] == "FOLDER"], key=depth, reverse=True)
-    for kind, value in carnets + directories:
+    ordered = sorted(
+        list(targets or []),
+        key=depth,
+        reverse=True,
+    )
+
+    for kind, value in ordered:
         try:
             if kind == "CARNET":
                 if value.persistent:
-                    repository.delete(value.id)
+                    if not repository.delete(value.id):
+                        blocked.append(
+                            value.name
+                            + " : dossier non vide ou indisponible"
+                        )
                 else:
-                    remaining = [c for c in remaining if c.id != value.id]
+                    remaining = [
+                        item for item in remaining
+                        if item.id != value.id
+                    ]
             elif str(value.id) == "default":
                 blocked.append("Général : dossier protégé")
-            elif any(c.folder_id == value.id for c in remaining):
-                blocked.append(value.name + " : contient un carnet de session")
+            elif any(
+                    str(_parent_id(item)) == str(value.id)
+                    for item in remaining):
+                blocked.append(
+                    value.name
+                    + " : contient un dossier temporaire de session"
+                )
             elif not controller.delete_folder(value.id):
-                blocked.append(value.name + " : dossier non vide ou indisponible")
+                blocked.append(
+                    value.name
+                    + " : dossier non vide ou indisponible"
+                )
         except Exception as exc:
-            blocked.append("{0} : {1}".format(value.name, exc))
+            blocked.append(
+                "{0} : {1}".format(value.name, exc)
+            )
+
     return remaining, blocked
