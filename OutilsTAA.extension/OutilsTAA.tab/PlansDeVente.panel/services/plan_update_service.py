@@ -662,13 +662,6 @@ class PlanUpdateService(object):
             except Exception:
                 pass
 
-        housing_key = str(getattr(housing, "key", "") or "")
-        main_viewport = state.get("main_viewport")
-        annotation_ids = self._managed_annotation_ids(
-            main_viewport,
-            housing,
-        )
-
         schedule_instances = list(
             state.get("managed_schedule_instances", []) or []
         )
@@ -691,6 +684,13 @@ class PlanUpdateService(object):
         state,
         housing,
     ):
+        housing_key = str(getattr(housing, "key", "") or "")
+        main_viewport = state.get("main_viewport")
+        annotation_ids = self._managed_annotation_ids(
+            main_viewport,
+            housing,
+        )
+
         schedule_instances = list(
             state.get("managed_schedule_instances", []) or []
         )
