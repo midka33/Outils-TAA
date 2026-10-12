@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Fenêtre de gestion et d'ajout des carnets Export."""
+"""Fenêtre de création des dossiers de publication Export."""
 
 import os
 from pyrevit import forms
@@ -8,7 +8,7 @@ from System.Windows import Visibility
 
 
 class CarnetManagerWindow(forms.WPFWindow):
-    """Permet de préparer plusieurs carnets puis de les ajouter à la liste."""
+    """Permet de préparer des dossiers de publication contenant des mises en page."""
     def __init__(self, controller, owner=None, target_folder_id=None):
         self.controller = controller
         self.target_folder_id = target_folder_id or "default"
@@ -43,8 +43,8 @@ class CarnetManagerWindow(forms.WPFWindow):
         self._set_rows(self.parameter_carnets)
         total = sum(len(c.items) for c in self.parameter_carnets)
         self.ParameterInfo.Text = (
-            "{0} carnet(s) détecté(s) • {1} feuille(s) répartie(s). "
-            "Cochez uniquement les carnets à ajouter."
+            "{0} dossier(s) détecté(s) • {1} feuille(s) répartie(s). "
+            "Cochez uniquement les dossiers à ajouter."
         ).format(len(self.parameter_carnets), total)
 
     def _set_rows(self, carnets):
@@ -54,7 +54,7 @@ class CarnetManagerWindow(forms.WPFWindow):
 
     def _update_selection_info(self):
         selected = [row for row in self.rows if row.IsSelected]
-        self.SelectionInfo.Text = "{0} carnet(s) sélectionné(s).".format(len(selected))
+        self.SelectionInfo.Text = "{0} dossier(s) sélectionné(s).".format(len(selected))
 
     def SelectionChanged_Click(self, sender, args):
         self._update_selection_info()
@@ -63,19 +63,19 @@ class CarnetManagerWindow(forms.WPFWindow):
         if self.ModeParameter.IsChecked:
             self.ParameterPanel.Visibility = Visibility.Visible
             self.ManualPanel.Visibility = Visibility.Collapsed
-            self.AddButton.Content = "Ajouter les carnets sélectionnés"
+            self.AddButton.Content = "Ajouter les dossiers sélectionnés"
             self._load_parameter_carnets()
         elif self.ModeManual.IsChecked:
             self.ParameterPanel.Visibility = Visibility.Collapsed
             self.ManualPanel.Visibility = Visibility.Visible
             self.PersistentCheckBox.IsChecked = True
-            self.AddButton.Content = "Ajouter le carnet"
+            self.AddButton.Content = "Ajouter le dossier"
             self._set_rows([])
         else:
             self.ParameterPanel.Visibility = Visibility.Collapsed
             self.ManualPanel.Visibility = Visibility.Visible
             self.PersistentCheckBox.IsChecked = False
-            self.AddButton.Content = "Ajouter le carnet temporaire"
+            self.AddButton.Content = "Ajouter le dossier temporaire"
             self._set_rows([])
 
     def Mode_Checked(self, sender, args):
@@ -107,7 +107,7 @@ class CarnetManagerWindow(forms.WPFWindow):
         if self.ModeParameter.IsChecked:
             selected = [row.publication_set for row in self.rows if row.IsSelected]
             if not selected:
-                forms.alert("Cochez au moins un carnet à ajouter.", title="Export")
+                forms.alert("Cochez au moins un dossier à ajouter.", title="Export")
                 return
             persisted = []
             try:
@@ -116,7 +116,7 @@ class CarnetManagerWindow(forms.WPFWindow):
                     carnet.folder_id = self.target_folder_id
                     persisted.append(self.controller.save_persistent(carnet))
             except Exception as exc:
-                forms.alert("Impossible d'enregistrer les carnets sélectionnés.\n\n{0}".format(exc), title="Export")
+                forms.alert("Impossible d'enregistrer les dossiers sélectionnés.\n\n{0}".format(exc), title="Export")
                 return
             self.result = persisted
             self.Close()
@@ -127,7 +127,7 @@ class CarnetManagerWindow(forms.WPFWindow):
             return
         name = self.CarnetNameTextBox.Text
         if not name or not name.strip():
-            forms.alert("Saisissez un nom de carnet.", title="Export")
+            forms.alert("Saisissez un nom de dossier.", title="Export")
             return
 
         if self.ModeManual.IsChecked and self.PersistentCheckBox.IsChecked:
@@ -146,7 +146,7 @@ class CarnetManagerWindow(forms.WPFWindow):
 
 
 class _CarnetManagerRow(object):
-    """Ligne cochable de la liste des carnets détectés."""
+    """Ligne cochable de la liste des dossiers détectés."""
     def __init__(self, publication_set):
         self.publication_set = publication_set
         self.IsSelected = False
