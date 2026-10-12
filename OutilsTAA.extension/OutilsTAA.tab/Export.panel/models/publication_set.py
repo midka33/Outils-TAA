@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Modèle métier d'un carnet de publication."""
+"""Modèle interne historique d'un dossier de publication."""
 
 
 class PublicationSet(object):
-    """Conteneur logique d'éléments publiables."""
+    """Dossier feuille interne, conservé pour compatibilité des stockages existants."""
 
     def __init__(self, name, items=None, source=None, output_directory=None,
                  filename_template_id=None, set_id=None, persistent=False,
@@ -17,11 +17,14 @@ class PublicationSet(object):
         self.persistent = persistent
         # Dossier parent dans l'arborescence Export.
         self.folder_id = folder_id
-        # Réglages persistants du carnet (PDF/DWG/destination/etc.).
+        # Réglages persistants du dossier de publication.
         self.publication_settings = publication_settings
+        # Compatibilité historique + ordre commun avec PublicationFolder.
+        self.sort_order = 0
+        self.tree_order = None
 
     def add_item(self, item):
-        """Ajoute un élément au carnet s'il n'est pas déjà présent."""
+        """Ajoute une mise en page au dossier si elle n'est pas déjà présente."""
         if item is None:
             return False
 
