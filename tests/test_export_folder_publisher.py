@@ -67,7 +67,7 @@ def _set(name, set_id, folder_id):
     return value
 
 
-def test_schema7_migrates_old_visual_order_without_losing_data(tmp_path):
+def test_schema8_migrates_old_visual_order_without_losing_data(tmp_path):
     path = tmp_path / "sets.json"
     path.write_text(
         json.dumps({
@@ -117,7 +117,7 @@ def test_schema7_migrates_old_visual_order_without_losing_data(tmp_path):
     folders = repo.list_folders()
     sets = repo.list_all()
 
-    assert repo.SCHEMA_VERSION == 7
+    assert repo.SCHEMA_VERSION == 8
     assert next(f for f in folders if f.id == "child").tree_order == 0
     assert next(s for s in sets if s.id == "a").tree_order == 1
     assert next(s for s in sets if s.id == "b").tree_order == 2
@@ -161,6 +161,58 @@ def test_mixed_folders_and_publication_folders_share_one_order(tmp_path):
     assert sets["b"].tree_order == 0
     assert sets["a"].tree_order == 1
     assert folders["child"].tree_order == 2
+
+
+def test_any_visual_folder_can_become_a_real_parent(tmp_path):
+    repo = CarnetRepository(str(tmp_path / "sets.json"))
+    root = PublicationFolder("DCE", "root")
+    publication = _set("A1000", "a", "root")
+    child = PublicationFolder("Sous-dossier", "child", "root")
+    nested = _set("A1100", "nested", "root")
+
+    repo.save_folder(root)
+    repo.save(publication)
+    repo.save_folder(child)
+    repo.save(nested)
+
+    # Dossier d'organisation dans un ancien PublicationSet.
+    assert repo.move_tree_nodes(
+        [("FOLDER", "child")],
+        "a",
+        None,
+    )
+    # Autre dossier de publication dans ce même dossier.
+    assert repo.move_tree_nodes(
+        [("CARNET", "nested")],
+        "a",
+        None,
+    )
+
+    folders = dict((f.id, f) for f in repo.list_folders())
+    sets = dict((s.id, s) for s in repo.list_all())
+    assert folders["child"].parent_id == "a"
+    assert sets["nested"].folder_id == "a"
+
+    # Impossible de remettre le parent dans un de ses descendants.
+    assert not repo.move_tree_nodes(
+        [("CARNET", "a")],
+        "child",
+        None,
+    )
+
+
+def test_publication_folder_with_children_cannot_be_deleted(tmp_path):
+    repo = CarnetRepository(str(tmp_path / "sets.json"))
+    root = PublicationFolder("DCE", "root")
+    parent = _set("A1000", "a", "root")
+    child = PublicationFolder("Details", "child", "a")
+    repo.save_folder(root)
+    repo.save(parent)
+    repo.save_folder(child)
+
+    assert not repo.delete("a")
+    assert repo.delete_folder("child")
+    assert repo.delete("a")
 
 
 def test_move_sheet_between_publication_folders_keeps_visual_order():
@@ -267,3 +319,5 @@ def test_drag_drop_has_explorer_contracts():
     assert "expand_to_key" in source
     assert "_restore_scroll" in source
     assert "move_tree_nodes" in source
+    assert "height * 0.15" in source
+    assert "_container_descendant" in source
