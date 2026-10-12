@@ -23,7 +23,7 @@ from publication_settings import PublicationSettings
 class CarnetRepository(object):
     """Enregistre l'arborescence Export dans un fichier JSON isolé par projet."""
 
-    SCHEMA_VERSION = 7
+    SCHEMA_VERSION = 8
     DEFAULT_FOLDER_ID = "default"
     DEFAULT_FOLDER_NAME = "Général"
 
@@ -124,6 +124,8 @@ class CarnetRepository(object):
             parent_ids.add(folder.get("id"))
             parent_ids.add(folder.get("parent_id"))
         for value in sets:
+            # Un dossier de publication peut désormais être parent lui-même.
+            parent_ids.add(value.get("id"))
             parent_ids.add(
                 value.get("folder_id", self.DEFAULT_FOLDER_ID)
             )
@@ -338,8 +340,12 @@ class CarnetRepository(object):
         """Déplace/reclasse des dossiers de types internes différents.
 
         nodes : liste de tuples ("FOLDER"|"CARNET", id)
-        parent_id : PublicationFolder destination
+        parent_id : identifiant de n'importe quel dossier visuel destination
         before_node : tuple (kind, id) ou None pour ajouter en fin
+
+        Depuis le schéma 8, PublicationFolder et PublicationSet peuvent tous
+        deux servir de parent. L'ID parent reste stocké dans parent_id/folder_id
+        pour compatibilité avec les anciens JSON.
         """
         nodes = list(nodes or [])
         if not nodes:
@@ -347,14 +353,21 @@ class CarnetRepository(object):
 
         data = self._ensure_structure(self._read())
         folders = data.get("folders", [])
-        folder_map = dict(
-            (str(value.get("id")), value)
-            for value in folders
-        )
+        sets = data.get("sets", [])
+        container_map = {}
+        container_kind = {}
+        for value in folders:
+            key = str(value.get("id"))
+            container_map[key] = value
+            container_kind[key] = "FOLDER"
+        for value in sets:
+            key = str(value.get("id"))
+            container_map[key] = value
+            container_kind[key] = "CARNET"
 
         if (
             parent_id is not None
-            and str(parent_id) not in folder_map
+            and str(parent_id) not in container_map
         ):
             return False
 
@@ -398,10 +411,9 @@ class CarnetRepository(object):
             if parent_id is None:
                 return False
 
-        # Interdire qu'un dossier devienne son propre descendant.
+        # Interdire qu'un dossier visuel (quel que soit son type interne)
+        # devienne son propre descendant.
         for kind, value in normalized:
-            if kind != "FOLDER":
-                continue
             source_id = str(value.get("id"))
             current = str(parent_id) if parent_id is not None else None
             visited = set()
@@ -409,11 +421,19 @@ class CarnetRepository(object):
                 if current == source_id:
                     return False
                 visited.add(current)
-                parent = folder_map.get(current)
+                parent = container_map.get(current)
+                if parent is None:
+                    current = None
+                    continue
+                parent_kind = container_kind.get(current)
+                parent_id_value = (
+                    parent.get("parent_id")
+                    if parent_kind == "FOLDER"
+                    else parent.get("folder_id", self.DEFAULT_FOLDER_ID)
+                )
                 current = (
-                    str(parent.get("parent_id"))
-                    if parent is not None
-                    and parent.get("parent_id") is not None
+                    str(parent_id_value)
+                    if parent_id_value is not None
                     else None
                 )
 
@@ -497,10 +517,24 @@ class CarnetRepository(object):
 
     def delete(self, set_id):
         data = self._ensure_structure(self._read())
+        set_id = str(set_id)
+
+        # Un dossier contenant des sous-dossiers ne peut pas être supprimé
+        # directement, même s'il est historiquement stocké comme PublicationSet.
+        if any(
+                str(value.get("parent_id")) == set_id
+                for value in data.get("folders", [])):
+            return False
+        if any(
+                str(value.get("folder_id")) == set_id
+                for value in data.get("sets", [])
+                if str(value.get("id")) != set_id):
+            return False
+
         sets = data.get("sets", [])
         filtered = [
             value for value in sets
-            if str(value.get("id")) != str(set_id)
+            if str(value.get("id")) != set_id
         ]
         if len(filtered) == len(sets):
             return False
