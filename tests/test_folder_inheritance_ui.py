@@ -28,6 +28,64 @@ def ui_class():
     return namespace['Window']
 
 
+def test_inheritance_crosses_old_publication_set_parent():
+    root = PublicationFolder(
+        'DCE',
+        'root',
+        publication_settings=PublicationSettings(
+            pdf_mode='SEPARATE',
+            output_directory='Root',
+        ),
+    )
+    parent = PublicationSet(
+        'A1000',
+        set_id='set-parent',
+        folder_id='root',
+        persistent=True,
+        publication_settings=PublicationSettings(
+            pdf_mode='COMBINED',
+        ),
+    )
+    child_folder = PublicationFolder(
+        'DETAILS',
+        'details',
+        'set-parent',
+        publication_settings=PublicationSettings(),
+    )
+    nested = PublicationSet(
+        'A1100',
+        set_id='nested',
+        folder_id='details',
+        persistent=True,
+        publication_settings=PublicationSettings(),
+    )
+
+    resolver = SettingsResolver(None)
+    folders = [root, child_folder]
+    sets = [parent, nested]
+
+    child_settings = resolver.resolve_node(
+        child_folder,
+        folders=folders,
+        publication_sets=sets,
+    )
+    nested_settings = resolver.resolve_node(
+        nested,
+        folders=folders,
+        publication_sets=sets,
+    )
+
+    assert child_settings.pdf_mode == 'COMBINED'
+    assert child_settings.output_directory == 'Root'
+    assert nested_settings.pdf_mode == 'COMBINED'
+    assert resolver.source_label_node(
+        nested,
+        'pdf_mode',
+        folders=folders,
+        publication_sets=sets,
+    ) == 'Dossier « A1000 »'
+
+
 def test_intermediate_folder_reverts_and_persists_without_touching_children(tmp_path):
     root = PublicationFolder('DCE', 'root', publication_settings=PublicationSettings(pdf_mode='SEPARATE', output_directory='Pictures'))
     child = PublicationFolder('Plan', 'child', 'root', publication_settings=PublicationSettings(pdf_mode='COMBINED', output_directory='Documents'))
