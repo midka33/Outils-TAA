@@ -82,8 +82,16 @@ def install_preview_on_export_window(export_window_class):
         if self._selected_kind == "FOLDER" and self._selected_folder is not None:
             target_folder_id = self._selected_folder.id
         elif self._selected_set is not None:
-            # Tout dossier visuel peut recevoir un nouveau dossier de publication.
-            target_folder_id = getattr(self._selected_set, "id", None) or "default"
+            if getattr(self._selected_set, "persistent", False):
+                target_folder_id = (
+                    getattr(self._selected_set, "id", None)
+                    or "default"
+                )
+            else:
+                target_folder_id = (
+                    getattr(self._selected_set, "folder_id", None)
+                    or "default"
+                )
 
         manager = CarnetManagerWindow(self.controller, owner=self, target_folder_id=target_folder_id)
         manager.ShowDialog()
@@ -140,9 +148,13 @@ def install_preview_on_export_window(export_window_class):
         if self._selected_kind == "FOLDER" and self._selected_folder is not None:
             parent_id = self._selected_folder.id
         elif self._selected_set is not None:
-            # Un dossier contenant déjà des mises en page peut aussi contenir
-            # des sous-dossiers, comme dans l'Explorateur Windows.
-            parent_id = getattr(self._selected_set, "id", None)
+            # Un dossier persistant contenant déjà des mises en page peut aussi
+            # contenir des sous-dossiers. Un dossier temporaire reste feuille.
+            parent_id = (
+                getattr(self._selected_set, "id", None)
+                if getattr(self._selected_set, "persistent", False)
+                else getattr(self._selected_set, "folder_id", None)
+            )
 
         folder = PublicationFolder(
             name.strip(),
