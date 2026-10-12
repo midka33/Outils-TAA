@@ -96,6 +96,8 @@ def target(tmp_path, mode='SEPARATE', merge=True):
     settings.dwg_merge_views = merge
     settings.dwg_setup_name = 'TAA - DCE'
     settings.filename_template = '{carnet}-{numero}'
+    settings.dwg_filename_independent = True
+    settings.dwg_filename_template = '{carnet}-{numero}'
     return PublicationSet('Plans', [PublicationItem('u2', 2, 'SHEET', 'A2', 'Coupe'),
                                     PublicationItem('u1', 1, 'SHEET', 'A1', 'Plan')],
                           set_id='plans', folder_id='default', publication_settings=settings)
