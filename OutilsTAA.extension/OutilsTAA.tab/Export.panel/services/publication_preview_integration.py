@@ -230,7 +230,9 @@ def install_preview_on_export_window(export_window_class):
             return
         try:
             if self._selected_kind == "FOLDER":
-                source = self.settings_resolver.resolve(None, folder=self._selected_folder, folders=self._folders)
+                source = self._resolve_container_settings(
+                    self._selected_folder
+                )
             else:
                 source = self._resolve_settings(self._selected_set)
             self.profile_service.save(name.strip(), source)
