@@ -732,8 +732,11 @@ class ExportWindow(forms.WPFWindow):
         target = self._selected_folder if self._selected_kind == "FOLDER" else self._selected_set
         if target is None:
             return
-        effective = (self.settings_resolver.resolve(None, folder=target, folders=self._folders)
-                     if self._selected_kind == "FOLDER" else self._resolve_settings(target))
+        effective = (
+            self._resolve_container_settings(target)
+            if self._selected_kind == "FOLDER"
+            else self._resolve_settings(target)
+        )
         dialog = PdfSettingsWindow(effective, owner=self)
         dialog.ShowDialog()
         if not dialog.result:
