@@ -127,6 +127,7 @@ def test_stage08_documentation_is_present():
     assert "stage08-regenerate-existing-plan-v3" in text
     assert "conserve la feuille" in text.lower()
     assert "Correctif 08.1 — annotations partagées des vues dépendantes" in text
+    assert "Correctif 08.2 — portée de la variable housing" in text
 
 
 
