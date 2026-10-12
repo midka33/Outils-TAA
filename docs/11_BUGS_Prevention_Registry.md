@@ -802,6 +802,28 @@ Une simplification visuelle ne doit jamais masquer deux comportements incompatib
 **Anti-régression :** tests du schéma 8, parent PublicationSet, cycle, suppression
 d'un parent non vide, publication récursive et contrat 15/70/15.
 
+### BUG-EXPORT-052 — Dépôt « dedans » incorrect sur un dossier ouvert
+
+**Symptôme :** un dossier pouvait recevoir un autre dossier lorsqu'il était fermé,
+mais le même geste devenait difficile ou impossible lorsqu'il était déplié.
+
+**Cause racine :** le calcul des zones 15/70/15 utilisait
+`TreeViewItem.ActualHeight`. En WPF, cette hauteur inclut les enfants lorsque le
+nœud est ouvert. La position du pointeur sur la ligne d'en-tête était donc comparée
+à la hauteur de tout le sous-arbre.
+
+**Correction :** calculer les zones de dépôt uniquement avec le visuel
+`TreeViewItem.Header` et les coordonnées relatives à cet en-tête. La hauteur
+totale du nœud n'est utilisée qu'en fallback.
+
+**Règle préventive :** dans un TreeView hiérarchique, toute hit-zone correspondant à
+la ligne du nœud doit utiliser les dimensions du header, jamais
+`TreeViewItem.ActualHeight` lorsque le nœud peut être développé.
+
+**Anti-régression :** test avec un TreeViewItem simulé à 220 px et un header à
+20 px ; le centre du header doit rester `INSIDE`, indépendamment de la hauteur
+des enfants.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
