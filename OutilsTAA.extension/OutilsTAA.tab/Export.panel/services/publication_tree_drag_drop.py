@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
 import json
-from System.Windows import DragDrop, DragDropEffects, DataObject, SystemParameters, Thickness
-from System.Windows.Controls import TreeViewItem
+from System import DateTime
+from System.Windows import (
+    DragDrop,
+    DragDropEffects,
+    DataObject,
+    SystemParameters,
+    Thickness,
+)
+from System.Windows.Controls import TreeViewItem, ScrollViewer
 from System.Windows.Input import MouseButtonState, Keyboard, Key, ModifierKeys
+from System.Windows.Media import VisualTreeHelper
 
 
 class PublicationTreeDragDrop(object):
@@ -15,6 +23,11 @@ class PublicationTreeDragDrop(object):
         self.selected_foreground = window.FindResource("TaaText")
         self.drag_node = None
         self.drag_started = False
+        self._mouse_down_point = None
+        self._hover_node = None
+        self._hover_mode = None
+        self._hover_since = None
+        self._post_drop_selection = None
         self.selected = []
         self._selection_explicit = False
         self.drop_node = None
@@ -33,19 +46,37 @@ class PublicationTreeDragDrop(object):
             self._select([], fallback_to_native=True)
 
     def _item(self, source):
+        """Retrouve le TreeViewItem depuis n'importe quel enfant visuel WPF."""
         current = source
         seen = set()
         while current is not None:
             if isinstance(current, TreeViewItem):
                 return current
+
             marker = id(current)
             if marker in seen:
                 return None
             seen.add(marker)
+
+            parent = None
             try:
-                current = getattr(current, "Parent", None)
+                parent = VisualTreeHelper.GetParent(current)
             except Exception:
-                return None
+                parent = None
+
+            if parent is None:
+                try:
+                    parent = getattr(current, "Parent", None)
+                except Exception:
+                    parent = None
+
+            if parent is None:
+                try:
+                    parent = getattr(current, "TemplatedParent", None)
+                except Exception:
+                    parent = None
+
+            current = parent
         return None
 
     def _all(self):
@@ -145,6 +176,12 @@ class PublicationTreeDragDrop(object):
         node = self._item(args.OriginalSource)
         self.drag_node = node
         self.drag_started = False
+        try:
+            self._mouse_down_point = args.GetPosition(
+                self.window.PublicationTree
+            )
+        except Exception:
+            self._mouse_down_point = None
         key = self._valid_key(node) if node is not None else None
         if key is None:
             self._select([], fallback_to_native=True)
@@ -171,14 +208,28 @@ class PublicationTreeDragDrop(object):
             self._select([key])
 
     def _mouse_move(self, sender, args):
-        if self.drag_node is None or self.drag_started or args.LeftButton != MouseButtonState.Pressed:
+        if (
+            self.drag_node is None
+            or self.drag_started
+            or args.LeftButton != MouseButtonState.Pressed
+        ):
             return
-        try:
-            p = args.GetPosition(self.drag_node)
-            if abs(p.X) < SystemParameters.MinimumHorizontalDragDistance and abs(p.Y) < SystemParameters.MinimumVerticalDragDistance:
-                return
-        except Exception:
-            pass
+
+        # Utiliser un vrai delta depuis MouseDown. L'ancienne version
+        # comparait la position locale dans la ligne, ce qui pouvait lancer
+        # un drag presque immédiatement selon l'endroit cliqué.
+        if self._mouse_down_point is not None:
+            try:
+                current = args.GetPosition(self.window.PublicationTree)
+                dx = abs(current.X - self._mouse_down_point.X)
+                dy = abs(current.Y - self._mouse_down_point.Y)
+                if (
+                    dx < SystemParameters.MinimumHorizontalDragDistance
+                    and dy < SystemParameters.MinimumVerticalDragDistance
+                ):
+                    return
+            except Exception:
+                pass
         tag = getattr(self.drag_node, "Tag", None)
         if not tag or tag[0] not in ("FOLDER", "CARNET", "SHEET"):
             return
