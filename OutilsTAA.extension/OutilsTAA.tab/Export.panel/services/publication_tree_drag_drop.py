@@ -269,14 +269,21 @@ class PublicationTreeDragDrop(object):
         return None
 
     def _mode(self, target, args):
-        """15 % avant / 70 % dedans / 15 % après.
+        """15 % avant / 70 % dedans / 15 % après sur la ligne du dossier.
 
-        La grande zone centrale rend le dépôt dans un dossier beaucoup plus
-        proche du comportement de l'Explorateur Windows.
+        Important : TreeViewItem.ActualHeight inclut ses enfants lorsqu'il est
+        déplié. Le calcul doit donc utiliser uniquement le visuel Header.
+        Sinon un dossier ouvert devient presque impossible à viser « dedans ».
         """
         try:
-            height = float(target.ActualHeight)
-            y = args.GetPosition(target).Y
+            header = getattr(target, "Header", None)
+            if header is not None:
+                height = float(getattr(header, "ActualHeight", 0.0))
+                y = args.GetPosition(header).Y
+            else:
+                height = float(target.ActualHeight)
+                y = args.GetPosition(target).Y
+
             if height > 0:
                 edge = height * 0.15
                 if y < edge:
