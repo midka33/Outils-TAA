@@ -409,7 +409,7 @@ def test_xaml_and_modal_command_order_contract():
     assert 'DwgCombinedRadio' not in names
     assert root.get('Height') == '760'
     assert float(root.get('Height')) <= 800
-    assert names['CarnetSubfolderCheckBox'].get('Content') == 'Créer un dossier au nom du carnet'
+    assert names['CarnetSubfolderCheckBox'].get('Content') == 'Créer ce dossier dans la sortie'
     assert names['DwgSettingsButton'].get('Click') == 'DwgSettings_Click'
     assert names['DwgRefreshButton'].get('Click') == 'RefreshDwgSetups_Click'
     assert names['DwgMergeViewsCheckBox'].get('Checked') == 'SettingsChanged'
