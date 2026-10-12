@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from common.transaction import RevitTransaction
 
 
-PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v2"
+PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v3"
 
 
 class ExistingPlanInspection(object):
