@@ -220,7 +220,7 @@ def install_preview_on_export_window(export_window_class):
 
     def save_profile_click(self, sender, args):
         if self._selected_kind not in ("FOLDER", "CARNET", "SHEET"):
-            forms.alert("Sélectionnez un dossier, un carnet ou une mise en page avant d'enregistrer un profil.", title="Profil")
+            forms.alert("Sélectionnez un dossier ou une mise en page avant d'enregistrer un profil.", title="Profil")
             return
         name = forms.ask_for_string(default="Nouveau profil", prompt="Nom du profil", title="Export")
         if not name or not name.strip():
@@ -419,7 +419,7 @@ def _publish_targets(window, targets):
             success = bool(result.get("success"))
             all_success = all_success and success
 
-            target_progress.begin("finalize", "Historique et résultats du carnet")
+            target_progress.begin("finalize", "Historique et résultats du dossier")
             if success and history_info:
                 window._publication_history_service.record_publication(
                     publication_set,
@@ -430,7 +430,7 @@ def _publish_targets(window, targets):
             target_progress.finalize(success, empty=not effective_target.items)
         report = {
             "success": all_success,
-            "carnet": "Publication : sélection ({0} carnet(s))".format(len(targets)),
+            "carnet": "Publication : sélection ({0} dossier(s))".format(len(targets)),
             "results": all_results,
             "errors": all_errors,
             "warnings": all_warnings,
@@ -502,7 +502,7 @@ def _merge_previews(previews):
             continue
         path = os.path.normcase(os.path.abspath(row.Path)).lower()
         if path in seen_paths:
-            errors.append("Collision entre carnets : {0}.".format(row.Path))
+            errors.append("Collision entre dossiers : {0}.".format(row.Path))
         seen_paths.add(path)
 
     if len(directories) == 1:
