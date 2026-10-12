@@ -98,6 +98,16 @@ class PublicationService(object):
     def _filename(self, publication_set, item, extension):
         settings = getattr(publication_set, "publication_settings", None)
         template = getattr(settings, "filename_template", None) or "{carnet}"
+        if str(extension).lower() == ".dwg" and settings is not None:
+            independent = (
+                getattr(settings, "dwg_filename_independent", False)
+                or getattr(settings, "pdf_mode", None) == "COMBINED"
+            )
+            if independent:
+                template = (
+                    getattr(settings, "dwg_filename_template", None)
+                    or "{numero} {nom}"
+                )
         return self.filename_service.filename(
             template,
             publication_set,
