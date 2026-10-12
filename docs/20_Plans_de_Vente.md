@@ -4815,7 +4815,7 @@ arrête la génération au lieu de conserver silencieusement un repérage faux.
 
 ## Étape 08 — Mise à jour d’un plan de vente existant
 
-**Build :** `stage08-regenerate-existing-plan-v2`
+**Build :** `stage08-regenerate-existing-plan-v3`
 
 Le 07D permet de créer un plan de vente complet à partir d'un logement et
 d'une feuille modèle. L'Étape 08 ajoute le chemin inverse attendu lorsque le
@@ -4972,5 +4972,28 @@ Pour les dimensions, la V1 de l'Étape 08 considère que les dimensions visibles
 dans une vue PDV générée font partie du contenu géré, conformément à
 l'avertissement de l'interface indiquant que les retouches internes à la vue
 sont remplacées.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+### Correctif 08.2 — portée de la variable housing
+
+**Build :** `stage08-regenerate-existing-plan-v3`
+
+Retour Revit : la mise à jour échouait avant le nettoyage avec :
+
+```text
+global name 'housing' is not defined
+```
+
+Cause : le bloc préparant `housing_key` et les annotations à purger avait été
+inséré par erreur dans `_layout_override()`, méthode qui ne reçoit pas
+`housing`.
+
+Le bloc a été déplacé dans `_delete_managed_artifacts(..., housing)`, où la
+variable est disponible et où cette logique appartient fonctionnellement.
+
+Un test de non-régression vérifie maintenant que `_layout_override()` ne
+référence plus `housing` hors de sa portée.
 
 **Statut : À retester dans Revit 2025.4.**
