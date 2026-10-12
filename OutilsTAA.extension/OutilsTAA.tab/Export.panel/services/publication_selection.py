@@ -42,7 +42,8 @@ def publication_targets(tags, folder_targets, set_targets=None):
             else [tag[2]]
             if tag[0] == "SHEET"
             else []
-        )        for parent in candidates:
+        )
+        for parent in candidates:
             key = _set_key(parent)
             if key not in parents:
                 ordered.append(key)
