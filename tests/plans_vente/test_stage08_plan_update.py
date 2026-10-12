@@ -19,7 +19,7 @@ def test_stage08_service_parses_and_has_atomic_update_contract():
     text = UPDATE.read_text(encoding="utf-8")
     ast.parse(text)
 
-    assert 'PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v2"' in text
+    assert 'PLAN_UPDATE_BUILD = "stage08-regenerate-existing-plan-v3"' in text
     assert "class ExistingPlanInspection(object):" in text
     assert "class PlanUpdateResult(object):" in text
     assert "def inspect(" in text
@@ -124,7 +124,7 @@ def test_stage08_documentation_is_present():
     text = DOC.read_text(encoding="utf-8")
 
     assert "## Étape 08 — Mise à jour d’un plan de vente existant" in text
-    assert "stage08-regenerate-existing-plan-v2" in text
+    assert "stage08-regenerate-existing-plan-v3" in text
     assert "conserve la feuille" in text.lower()
     assert "Correctif 08.1 — annotations partagées des vues dépendantes" in text
 
@@ -153,3 +153,24 @@ def test_stage08_purges_shared_dependent_annotations_before_regeneration():
     assert "self._delete_managed_artifacts(" in text
     assert "for annotation_id in annotation_ids:" in text
     assert "self.document.Delete(annotation_id)" in text
+
+
+
+def test_stage08_layout_override_does_not_reference_housing_out_of_scope():
+    text = UPDATE.read_text(encoding="utf-8")
+
+    block = text[
+        text.index("    def _layout_override("):
+        text.index("    def _delete_managed_artifacts(", text.index("    def _layout_override("))
+    ]
+
+    assert "housing" not in block
+    assert "annotation_ids" not in block
+
+    cleanup = text[
+        text.index("    def _delete_managed_artifacts("):
+        text.index("    def _managed_annotation_ids(", text.index("    def _delete_managed_artifacts("))
+    ]
+
+    assert 'housing_key = str(getattr(housing, "key", "") or "")' in cleanup
+    assert "self._managed_annotation_ids(" in cleanup
