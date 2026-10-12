@@ -374,9 +374,15 @@ class PublicationTreeDragDrop(object):
 
             return mode
 
-        if kind == "SHEET" and tag[0] in ("SHEET", "CARNET"):
+        if kind == "SHEET" and tag[0] in ("SHEET", "CARNET", "FOLDER"):
             if tag[0] == "CARNET":
                 return "APPEND"
+            if tag[0] == "FOLDER":
+                if not getattr(tag[1], "persistent", False):
+                    return None
+                if getattr(tag[1], "parent_id", None) is None:
+                    return None
+                return "INSIDE"
             if self._key(tag) in keys:
                 return None
             mode = self._mode(target, args)
@@ -701,6 +707,21 @@ class PublicationTreeDragDrop(object):
 
         if len(moved) != len(selected_keys):
             return False
+
+        if target.Tag[0] == "FOLDER":
+            # FOLDER contains no items in the legacy schema. Promote it
+            # atomically on the first sheet drop, keeping its ID and children.
+            refs = [(str(source.id), str(item.unique_id))
+                    for source, item in moved]
+            result = self.window.controller.move_sheets_into_folder(
+                refs, target.Tag[1].id
+            )
+            if result:
+                self._post_drop_selection = [
+                    "SHEET:{0}:{1}".format(target.Tag[1].id, item.unique_id)
+                    for source, item in moved
+                ]
+            return result
 
         target_set = target.Tag[2] if target.Tag[0] == "SHEET" else target.Tag[1]
         if not getattr(target_set, "persistent", False):
