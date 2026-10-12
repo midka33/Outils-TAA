@@ -292,27 +292,45 @@ class PublicationTreeDragDrop(object):
         tag = getattr(target, "Tag", None)
         if not payload or not tag or len(tag) < 2:
             return None
+
         kind = payload.get("kind")
         keys = payload.get("items", [])
+
         if kind == "FOLDER" and tag[0] == "FOLDER":
             ids = [x.split(":", 1)[1] for x in keys if ":" in x]
             if not ids or str(tag[1].id) == "default":
                 return None
             for source_id in ids:
-                if str(source_id) == str(tag[1].id) or self._folder_descendant(source_id, tag[1].id):
+                if (
+                    str(source_id) == str(tag[1].id)
+                    or self._folder_descendant(source_id, tag[1].id)
+                ):
                     return None
             return self._mode(target, args)
+
         if kind == "CARNET" and tag[0] in ("FOLDER", "CARNET"):
             ids = [x.split(":", 1)[1] for x in keys if ":" in x]
-            if tag[0] == "CARNET" and str(tag[1].id) in [str(x) for x in ids]:
+            if (
+                tag[0] == "CARNET"
+                and str(tag[1].id) in [str(x) for x in ids]
+            ):
                 return None
-            return "FOLDER" if tag[0] == "FOLDER" else self._mode(target, args)
+            if tag[0] == "FOLDER":
+                # Le centre d'un vrai dossier signifie « déplacer dedans ».
+                return "FOLDER"
+            # Un dossier de publication reste un dossier feuille : on l'insère
+            # avant/après, sans faire croire qu'il peut contenir un sous-dossier.
+            mode = self._mode(target, args)
+            return "BEFORE" if mode == "BEFORE" else "AFTER"
+
         if kind == "SHEET" and tag[0] in ("SHEET", "CARNET"):
             if tag[0] == "CARNET":
-                return "APPEND" if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[1].id) for x in keys) else None
+                return "APPEND"
             if self._key(tag) in keys:
                 return None
-            return self._mode(target, args) if all(len(x.split(":", 2)) == 3 and x.split(":", 2)[1] == str(tag[2].id) for x in keys) else None
+            mode = self._mode(target, args)
+            return "BEFORE" if mode == "BEFORE" else "AFTER"
+
         return None
 
     def _show_drop_indicator(self, node, mode):
@@ -340,14 +358,136 @@ class PublicationTreeDragDrop(object):
         self.drop_mode = None
         self._select(self.selected, fallback_to_native=not self._selection_explicit, notify=False)
 
+    def _scroll_viewer(self):
+        """Retrouve le ScrollViewer interne du TreeView."""
+        def find(node):
+            if node is None:
+                return None
+            if isinstance(node, ScrollViewer):
+                return node
+            try:
+                count = VisualTreeHelper.GetChildrenCount(node)
+            except Exception:
+                return None
+            for index in range(count):
+                try:
+                    child = VisualTreeHelper.GetChild(node, index)
+                except Exception:
+                    continue
+                result = find(child)
+                if result is not None:
+                    return result
+            return None
+
+        return find(self.window.PublicationTree)
+
+    def _auto_scroll(self, args):
+        """Scroll doux lorsque le pointeur approche du haut/bas de l'arbre."""
+        viewer = self._scroll_viewer()
+        if viewer is None:
+            return
+        try:
+            tree = self.window.PublicationTree
+            point = args.GetPosition(tree)
+            height = float(tree.ActualHeight)
+            margin = 28.0
+            if point.Y < margin:
+                viewer.LineUp()
+            elif point.Y > height - margin:
+                viewer.LineDown()
+        except Exception:
+            return
+
+    def _hover_expand(self, target, mode):
+        """Ouvre automatiquement un dossier après ~700 ms de survol."""
+        tag = getattr(target, "Tag", None)
+        can_expand = (
+            tag
+            and tag[0] in ("FOLDER", "CARNET")
+            and mode in ("FOLDER", "APPEND", "INSIDE")
+            and not bool(getattr(target, "IsExpanded", False))
+        )
+        if not can_expand:
+            self._hover_node = None
+            self._hover_mode = None
+            self._hover_since = None
+            return
+
+        if target is not self._hover_node or mode != self._hover_mode:
+            self._hover_node = target
+            self._hover_mode = mode
+            self._hover_since = DateTime.UtcNow
+            return
+
+        if self._hover_since is None:
+            self._hover_since = DateTime.UtcNow
+            return
+
+        try:
+            elapsed = (DateTime.UtcNow - self._hover_since).TotalMilliseconds
+            if elapsed >= 700:
+                target.IsExpanded = True
+                self._hover_since = None
+        except Exception:
+            return
+
+    def _scroll_offset(self):
+        viewer = self._scroll_viewer()
+        if viewer is None:
+            return None
+        try:
+            return float(viewer.VerticalOffset)
+        except Exception:
+            return None
+
+    def _restore_scroll(self, offset):
+        if offset is None:
+            return
+        viewer = self._scroll_viewer()
+        if viewer is None:
+            return
+        try:
+            viewer.ScrollToVerticalOffset(offset)
+        except Exception:
+            pass
+
+    def expand_to_key(self, key):
+        """Déplie les parents d'un nœud, utile après création/déplacement."""
+        if not key:
+            return
+        node = next(
+            (
+                value
+                for value in self._all()
+                if getattr(value, "Tag", None)
+                and self._key(value.Tag) == key
+            ),
+            None,
+        )
+        current = node
+        while current is not None:
+            try:
+                parent = getattr(current, "Parent", None)
+            except Exception:
+                parent = None
+            if isinstance(parent, TreeViewItem):
+                parent.IsExpanded = True
+            current = parent
+
     def _drag_over(self, sender, args):
+        self._auto_scroll(args)
         target = self._item(args.OriginalSource)
         payload = self._payload(args)
-        mode = self._target_mode(payload, target, args) if target is not None else None
+        mode = (
+            self._target_mode(payload, target, args)
+            if target is not None else None
+        )
         if mode is None:
+            self._hover_expand(None, None)
             self._clear_drop_indicator()
             args.Effects = DragDropEffects.None
         else:
+            self._hover_expand(target, mode)
             self._show_drop_indicator(target, mode)
             args.Effects = DragDropEffects.Move
         args.Handled = True
