@@ -293,8 +293,10 @@ class ExportWindow(forms.WPFWindow):
         elif tags:
             tag = tags[0]
             parent = tag[2] if tag[0] == "SHEET" else tag[1]
-            chain = self._container_chain(
+            chain = self.settings_resolver.container_chain(
                 parent,
+                folders=self._folders,
+                publication_sets=getattr(self, "_carnets", []),
                 include_self=True,
             )
             path = " / ".join(
@@ -520,7 +522,7 @@ class ExportWindow(forms.WPFWindow):
                 value,
                 field,
                 folders=self._folders,
-                publication_sets=self._carnets,
+                publication_sets=getattr(self, "_carnets", []),
             )
             if label not in labels:
                 labels[label] = []
