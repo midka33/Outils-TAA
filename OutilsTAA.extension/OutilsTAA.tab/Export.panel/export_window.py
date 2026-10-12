@@ -481,7 +481,7 @@ class ExportWindow(forms.WPFWindow):
     def _field_label(field):
         labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
-        labels["separate_carnet_subfolder"] = "sous-dossier du carnet"
+        labels["separate_carnet_subfolder"] = "dossier de sortie"
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
