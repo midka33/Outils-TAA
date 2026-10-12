@@ -538,7 +538,7 @@ class ExportWindow(forms.WPFWindow):
         self.InheritanceRow.Visibility = Visibility.Visible
         self.RevertInheritanceButton.Content = "Revenir à l'héritage"
         self.RevertInheritanceButton.IsEnabled = bool(
-            self._container_parent_id(folder) is not None and local
+            getattr(folder, "parent_id", None) is not None and local
         )
         self.InheritanceInfoText.Text = "Dossier « {0} » • {1}".format(folder.name, "réglages locaux" if local else "réglages hérités")
         self.InheritanceInfoText.ToolTip = self._inheritance_description(None, folder)
