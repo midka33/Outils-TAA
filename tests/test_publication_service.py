@@ -109,6 +109,8 @@ class PublicationServiceTests(unittest.TestCase):
     def test_publish_exécute_pdf_et_dwg(self):
         settings = PublicationSettings.defaults()
         settings.filename_template = "{carnet}-{numero}"
+        settings.dwg_filename_independent = True
+        settings.dwg_filename_template = '{carnet}-{numero}'
         carnet = PublicationSet(
             "DCE", self.items, publication_settings=settings
         )
