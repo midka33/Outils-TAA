@@ -541,69 +541,186 @@ class PublicationTreeDragDrop(object):
         return self.window.controller.move_persistent_many(ids, carnet.folder_id, before)
 
     def _move_sheets(self, payload, target, mode):
-        selected_ids = []
-        carnet_id = None
-        for key in payload["items"]:
-            parts = key.split(":", 2)
-            if len(parts) != 3:
-                return False
-            carnet_id = parts[1] if carnet_id is None else carnet_id
-            if parts[1] != carnet_id:
-                return False
-            selected_ids.append(parts[2])
-        target_carnet = target.Tag[2] if target.Tag[0] == "SHEET" else target.Tag[1]
-        if str(target_carnet.id) != str(carnet_id):
+        """Déplace des mises en page comme des fichiers entre deux dossiers.
+
+        Le format de stockage reste PublicationSet pour compatibilité, mais
+        l'utilisateur peut désormais glisser des feuilles d'un dossier de
+        publication vers un autre.
+        """
+        keys = list(payload.get("items", []) or [])
+        if not keys:
             return False
-        carnet = next((c for c in self.window._carnets if str(getattr(c, "id", "")) == str(carnet_id)), None)
-        if carnet is None or not carnet.persistent:
-            return False
-        selected = [i for i in carnet.items if str(i.unique_id) in selected_ids]
-        remaining = [i for i in carnet.items if str(i.unique_id) not in selected_ids]
-        if not selected:
-            return False
-        if target.Tag[0] == "CARNET":
-            index = len(remaining)
-        else:
-            uid = str(target.Tag[1].unique_id)
-            if uid in selected_ids:
+
+        by_id = dict(
+            (str(getattr(value, "id", "")), value)
+            for value in self.window._carnets
+            if getattr(value, "id", None)
+        )
+
+        selected_keys = set(keys)
+        moved = []
+        touched = []
+        snapshots = {}
+
+        # L'ordre visuel de l'arbre prévaut sur l'ordre des Ctrl+clic.
+        for node in self._all():
+            tag = getattr(node, "Tag", None)
+            if not tag or tag[0] != "SHEET":
+                continue
+            key = self._key(tag)
+            if key not in selected_keys:
+                continue
+            source = tag[2]
+            if not getattr(source, "persistent", False):
                 return False
-            target_index = next((i for i, item in enumerate(remaining) if str(item.unique_id) == uid), len(remaining))
-            index = target_index if mode == "BEFORE" else target_index + 1
-        carnet.items = remaining[:index] + selected + remaining[index:]
-        self.window.controller.save_persistent(carnet)
-        return True
+            moved.append((source, tag[1]))
+
+        if len(moved) != len(selected_keys):
+            return False
+
+        target_set = target.Tag[2] if target.Tag[0] == "SHEET" else target.Tag[1]
+        if not getattr(target_set, "persistent", False):
+            return False
+
+        # Snapshot mémoire pour pouvoir restaurer l'UI en cas d'échec de sauvegarde.
+        all_sets = []
+        for source, item in moved:
+            if source not in all_sets:
+                all_sets.append(source)
+        if target_set not in all_sets:
+            all_sets.append(target_set)
+        for value in all_sets:
+            snapshots[str(value.id)] = list(value.items or [])
+
+        try:
+            moved_ids_by_set = {}
+            for source, item in moved:
+                moved_ids_by_set.setdefault(str(source.id), set()).add(
+                    str(item.unique_id)
+                )
+
+            for source in all_sets:
+                selected_ids = moved_ids_by_set.get(str(source.id), set())
+                if not selected_ids:
+                    continue
+                source.items = [
+                    item for item in (source.items or [])
+                    if str(item.unique_id) not in selected_ids
+                ]
+                if source not in touched:
+                    touched.append(source)
+
+            moving_items = [item for source, item in moved]
+            destination = list(target_set.items or [])
+
+            if target.Tag[0] == "CARNET":
+                index = len(destination)
+            else:
+                target_uid = str(target.Tag[1].unique_id)
+                if any(
+                    str(item.unique_id) == target_uid
+                    for item in moving_items
+                ):
+                    return False
+                target_index = next(
+                    (
+                        index
+                        for index, item in enumerate(destination)
+                        if str(item.unique_id) == target_uid
+                    ),
+                    len(destination),
+                )
+                index = (
+                    target_index
+                    if mode == "BEFORE"
+                    else target_index + 1
+                )
+
+            target_set.items = (
+                destination[:index]
+                + moving_items
+                + destination[index:]
+            )
+            if target_set not in touched:
+                touched.append(target_set)
+
+            for value in touched:
+                self.window.controller.save_persistent(value)
+
+            self._post_drop_selection = [
+                "SHEET:{0}:{1}".format(
+                    target_set.id,
+                    item.unique_id,
+                )
+                for item in moving_items
+            ]
+            return True
+
+        except Exception:
+            for value in all_sets:
+                value.items = list(
+                    snapshots.get(str(value.id), value.items or [])
+                )
+            raise
 
     def _drop(self, sender, args):
         target = self._item(args.OriginalSource)
         payload = self._payload(args)
-        mode = self._target_mode(payload, target, args) if target is not None else None
+        mode = (
+            self._target_mode(payload, target, args)
+            if target is not None else None
+        )
         if mode is None:
             self._clear_drop_indicator()
             args.Handled = True
             return
+
         try:
             expanded = self._expanded()
+            scroll_offset = self._scroll_offset()
+            self._post_drop_selection = None
+
             if payload["kind"] == "FOLDER":
                 moved = self._move_folders(payload, target, mode)
             elif payload["kind"] == "CARNET":
                 moved = self._move_carnets(payload, target, mode)
             else:
                 moved = self._move_sheets(payload, target, mode)
+
             if moved:
-                self._select([])
+                post_selection = (
+                    list(self._post_drop_selection)
+                    if self._post_drop_selection
+                    else list(payload.get("items", []) or [])
+                )
+
                 self.window._selected_set = None
                 self.window._selected_item = None
                 self.window._selected_kind = None
                 self.window._selected_folder = None
+
                 self.window._refresh_tree()
                 self._restore_expanded(expanded)
+                for key in post_selection:
+                    self.expand_to_key(key)
+                self._restore_scroll(scroll_offset)
+                self._select(post_selection)
                 self.window._update_selection_info()
+
         except Exception as exc:
             try:
                 from pyrevit import forms
-                forms.alert("Impossible de réorganiser les éléments.\n\n{0}".format(exc), title="Export")
+                forms.alert(
+                    "Impossible de réorganiser les éléments.\n\n{0}".format(exc),
+                    title="Export",
+                )
             except Exception:
                 pass
         finally:
+            self._hover_node = None
+            self._hover_mode = None
+            self._hover_since = None
+            self._post_drop_selection = None
             self._clear_drop_indicator()
+
         args.Handled = True
