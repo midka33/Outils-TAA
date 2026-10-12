@@ -329,6 +329,11 @@ class PublicationTreeDragDrop(object):
             kind in ("FOLDER", "CARNET")
             and tag[0] in ("FOLDER", "CARNET")
         ):
+            if (
+                tag[0] == "CARNET"
+                and not getattr(tag[1], "persistent", False)
+            ):
+                return None
             ids = [
                 value.split(":", 1)[1]
                 for value in keys
