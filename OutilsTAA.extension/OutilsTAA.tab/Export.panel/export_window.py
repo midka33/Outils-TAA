@@ -14,7 +14,6 @@ from System.Windows.Media import Stretch
 from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
-from carnet_sheets_window import CarnetSheetsWindow
 from carnet_manager_window import CarnetManagerWindow
 from publication_folder import PublicationFolder, _folder_targets
 from publication_overview import formats_for, summarize_publication
@@ -172,10 +171,18 @@ class ExportWindow(forms.WPFWindow):
         return node
 
     def _make_carnet_node(self, carnet):
+        """Compatibilité interne : un PublicationSet est affiché comme dossier."""
         node = TreeViewItem()
         node.AllowDrop = True
         node.Tag = ("CARNET", carnet)
-        node.Header = self._node_header(carnet.name, "TaaBookIcon")
+        node.Header = self._node_header(
+            carnet.name,
+            "TaaFolderIcon",
+            True,
+        )
+        node.ToolTip = "Dossier de publication • {0} mise(s) en page".format(
+            len(carnet.items or [])
+        )
         # L'ordre de la liste est volontaire : il représente l'ordre manuel
         # défini par l'utilisateur dans l'arborescence de publication.
         for item in (carnet.items or []):
@@ -236,8 +243,14 @@ class ExportWindow(forms.WPFWindow):
             folder = self._folder_for_set(parent)
             chain = self.settings_resolver.folder_chain(folder, self._folders)
             path = " / ".join(f.name for f in reversed(chain))
-            scope = "cette mise en page" if tag[0] == "SHEET" else "tout le carnet"
-            context = "Dossier : {0} | Carnet : {1} | Périmètre : {2}".format(path, parent.name, scope)
+            scope = "cette mise en page" if tag[0] == "SHEET" else "tout le dossier"
+            full_path = " / ".join(
+                [value for value in (path, parent.name) if value]
+            )
+            context = "Dossier : {0} | Périmètre : {1}".format(
+                full_path,
+                scope,
+            )
         self.PublicationSummaryText.Text = context
         if targets:
             self.PublicationSummaryText.Text += "\n" + summarize_publication(
@@ -301,7 +314,7 @@ class ExportWindow(forms.WPFWindow):
         self._update_selection_info()
 
     def _set_no_selection(self):
-        self.SelectedNodeText.Text = "Sélectionnez un dossier, un carnet ou une mise en page dans l'arborescence."
+        self.SelectedNodeText.Text = "Sélectionnez un dossier ou une mise en page dans l'arborescence."
         self.SelectionInfo.Text = "Aucune publication sélectionnée."
         self.PublicationSummaryText.Text = "Aucune publication sélectionnée."
         self.PublishButton.Content = "Publier…"
@@ -315,16 +328,17 @@ class ExportWindow(forms.WPFWindow):
             self._loading_profile = False
 
     def Tree_MouseDoubleClick(self, sender, args):
+        """Comportement Explorateur : double-clic = ouvrir/fermer un dossier."""
         node = self.PublicationTree.SelectedItem
         if node is None or not getattr(node, "Tag", None):
             return
         tag = node.Tag
-        if tag[0] == "CARNET":
-            value = tag[1]
-            if value.persistent:
-                resolution = self.controller.resolve_persistent(value)
-                value = _ResolvedCarnetView(value.name, resolution.items)
-            CarnetSheetsWindow(value, owner=self).ShowDialog()
+        if tag[0] in ("FOLDER", "CARNET"):
+            node.IsExpanded = not bool(node.IsExpanded)
+            try:
+                args.Handled = True
+            except Exception:
+                pass
 
     def _load_selected_settings(self):
         if self._selected_set is None:
@@ -337,7 +351,10 @@ class ExportWindow(forms.WPFWindow):
                 item = self._selected_item
                 self.SelectedNodeText.Text = "Mise en page : {0} — {1}".format(item.sheet_number or "", item.sheet_name or "")
             else:
-                self.SelectedNodeText.Text = "{0} • {1} mise(s) en page".format(self._selected_set.name, len(self._selected_set.items or []))
+                self.SelectedNodeText.Text = "Dossier : {0} • {1} mise(s) en page".format(
+                    self._selected_set.name,
+                    len(self._selected_set.items or []),
+                )
             self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
             self.PdfQualityCombo.SelectedItem = effective.pdf_quality
             self.PdfCheckBox.IsChecked = effective.pdf_enabled
@@ -614,8 +631,3 @@ class ExportWindow(forms.WPFWindow):
         else:
             self._save_selected_field(field)
 
-
-class _ResolvedCarnetView(object):
-    def __init__(self, name, items):
-        self.name = name
-        self.items = items
