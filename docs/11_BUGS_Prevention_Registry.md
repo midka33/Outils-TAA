@@ -777,6 +777,31 @@ persistant unique, même si plusieurs types internes y coexistent.
 **Anti-régression :** tests repository sur migration schema 6 → 7 et déplacement
 mixte dossier / dossier de publication.
 
+### BUG-EXPORT-051 — Un dossier visuel ne pouvait pas toujours recevoir un sous-dossier
+
+**Symptôme :** après suppression du vocabulaire « Carnet », tous les conteneurs
+avaient une icône dossier, mais les anciens PublicationSet n'acceptaient toujours
+pas un vrai sous-dossier. Il fallait aussi viser un tiers central trop étroit pour
+obtenir un dépôt « dedans ».
+
+**Cause racine :** la première simplification était principalement visuelle :
+`PublicationFolder` seul pouvait servir de parent structurel. Le drag utilisait
+encore une répartition 1/3 avant, 1/3 dedans, 1/3 après.
+
+**Correction :** schéma 8 avec parent générique par identifiant : PublicationFolder
+et PublicationSet persistants peuvent tous deux recevoir des sous-dossiers et
+d'autres dossiers de publication. L'arbre, la publication récursive, l'héritage des
+réglages, la suppression et la détection de cycles suivent cette hiérarchie réelle.
+La zone de dépôt « dedans » occupe désormais 70 % de la ligne, avec 15 % seulement
+pour avant/après.
+
+**Règle préventive :** si deux objets ont la même représentation et le même nom
+métier dans l'UI, leurs capacités structurelles fondamentales doivent être identiques.
+Une simplification visuelle ne doit jamais masquer deux comportements incompatibles.
+
+**Anti-régression :** tests du schéma 8, parent PublicationSet, cycle, suppression
+d'un parent non vide, publication récursive et contrat 15/70/15.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
