@@ -28,6 +28,7 @@ class PublicationTreeDragDrop(object):
         self._hover_mode = None
         self._hover_since = None
         self._post_drop_selection = None
+        self._tree_scroll_viewer = None
         self.selected = []
         self._selection_explicit = False
         self.drop_node = None
@@ -380,7 +381,10 @@ class PublicationTreeDragDrop(object):
         self._select(self.selected, fallback_to_native=not self._selection_explicit, notify=False)
 
     def _scroll_viewer(self):
-        """Retrouve le ScrollViewer interne du TreeView."""
+        """Retrouve puis mémorise le ScrollViewer interne du TreeView."""
+        if self._tree_scroll_viewer is not None:
+            return self._tree_scroll_viewer
+
         def find(node):
             if node is None:
                 return None
@@ -400,7 +404,8 @@ class PublicationTreeDragDrop(object):
                     return result
             return None
 
-        return find(self.window.PublicationTree)
+        self._tree_scroll_viewer = find(self.window.PublicationTree)
+        return self._tree_scroll_viewer
 
     def _auto_scroll(self, args):
         """Scroll doux lorsque le pointeur approche du haut/bas de l'arbre."""
@@ -755,9 +760,23 @@ class PublicationTreeDragDrop(object):
             return True
 
         except Exception:
+            rollback_errors = []
             for value in all_sets:
                 value.items = list(
                     snapshots.get(str(value.id), value.items or [])
+                )
+            # Le repository réécrit le JSON complet à chaque sauvegarde.
+            # Restaurer aussi le stockage si une sauvegarde intermédiaire a réussi.
+            for value in all_sets:
+                try:
+                    self.window.controller.save_persistent(value)
+                except Exception as rollback_exc:
+                    rollback_errors.append(str(rollback_exc))
+            if rollback_errors:
+                raise RuntimeError(
+                    "Déplacement annulé, restauration incomplète : {0}".format(
+                        "; ".join(rollback_errors)
+                    )
                 )
             raise
 
