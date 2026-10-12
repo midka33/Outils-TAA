@@ -119,6 +119,25 @@ Glisser un autre dossier sur le **milieu** de sa ligne.
 Vérifier aussi que viser très près du bord supérieur/inférieur continue à produire
 avant/après, mais que ces zones restent nettement plus petites.
 
+## TEST-TREE-06C — Même dépôt dossier fermé et ouvert
+
+Prendre un dossier A et un dossier B.
+
+1. Fermer B puis déposer A au milieu de B.
+2. Revenir à l'état initial.
+3. Ouvrir B, laisser ses enfants visibles, puis déposer A exactement au même endroit
+   sur la ligne de B.
+
+### Attendu
+
+Les deux opérations doivent produire exactement le même résultat :
+
+- la ligne de B est surlignée comme cible « dedans » ;
+- A devient enfant de B ;
+- les enfants visibles de B ne modifient pas la zone 15/70/15 ;
+- viser les 15 % supérieurs/inférieurs de la ligne de B continue à donner
+  avant/après.
+
 ## TEST-TREE-07 — Ordre mixte
 
 Dans un même dossier parent, disposer :
