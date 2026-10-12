@@ -717,6 +717,66 @@ stable pendant toute l'opération. Les compteurs techniques de l'API ne doivent 
 zone de statut stable ; tests UI sur l'affichage « Revit travaille… » et
 `X / Y` mises en page.
 
+### BUG-EXPORT-048 — Distinction Dossier / Carnet incompréhensible pour l'utilisateur
+
+**Symptôme :** l'utilisateur devait comprendre qu'un dossier organise des carnets,
+alors qu'un carnet contient les mises en page et porte les réglages de publication.
+Dans l'usage courant, les deux objets étaient manipulés comme des dossiers.
+
+**Cause racine :** la structure interne du moteur était exposée directement dans
+l'interface au lieu d'être traduite en un modèle utilisateur plus simple.
+
+**Correction :** l'interface présente désormais uniquement des dossiers et des mises
+en page. Les anciens PublicationSet/CARNET restent internes pour compatibilité mais
+utilisent l'icône et le vocabulaire dossier.
+
+**Règle préventive :** ne jamais exposer un type technique distinct si cette
+distinction n'apporte aucune décision métier utile à l'utilisateur. Adapter le
+modèle visuel au vocabulaire naturel de l'usage.
+
+**Anti-régression :** tests XAML et code vérifiant l'absence de « carnet » dans les
+libellés principaux et l'utilisation de `TaaFolderIcon` pour les PublicationSet.
+
+### BUG-EXPORT-049 — Drag/drop éloigné du comportement Explorateur Windows
+
+**Symptôme :** déplacements accidentels, difficulté à viser une position, dossiers
+qui ne s'ouvrent pas au survol, absence d'auto-scroll et perte de repères après le
+rafraîchissement de l'arbre.
+
+**Cause racine :** le seuil de drag comparait une position locale au lieu du delta
+depuis MouseDown, le TreeView était reconstruit sans restaurer complètement son
+état et aucun comportement de survol/scroll n'était implémenté.
+
+**Correction :** vrai delta MouseDown, auto-scroll, ouverture au survol ~700 ms,
+indicateurs avant/après/dedans, restauration de la sélection, des nœuds développés
+et du scroll, déplacement de mises en page entre dossiers.
+
+**Règle préventive :** pour une arborescence de type explorateur, le glisser-déposer
+doit préserver le contexte visuel. La reconstruction des données ne doit pas être
+perçue comme une remise à zéro de l'interface.
+
+**Anti-régression :** tests de contrat sur seuil système, auto-scroll,
+auto-expansion, restauration de scroll et déplacement inter-dossiers.
+
+### BUG-EXPORT-050 — Ordres séparés empêchant d'intercaler les dossiers
+
+**Symptôme :** les sous-dossiers apparaissaient systématiquement avant les anciens
+carnets, même lorsque l'utilisateur voulait les intercaler.
+
+**Cause racine :** `PublicationFolder.sort_order` et
+`PublicationSet.sort_order` étaient gérés séparément, et l'arbre ajoutait d'abord
+tous les dossiers puis tous les carnets.
+
+**Correction :** schéma de stockage 7 avec `tree_order` commun aux deux types.
+Le repository sait déplacer des nœuds de types différents dans un même ordre de
+fratrie. La migration reprend l'ordre visuel historique comme point de départ.
+
+**Règle préventive :** une liste visuelle unique doit avoir une source d'ordre
+persistant unique, même si plusieurs types internes y coexistent.
+
+**Anti-régression :** tests repository sur migration schema 6 → 7 et déplacement
+mixte dossier / dossier de publication.
+
 ### BUG-PDV-001 — Crop logement incliné dans une vue orientée
 
 **Symptôme :** le prototype crée correctement une vue dépendante et englobe le logement, mais le rectangle de crop peut apparaître légèrement incliné par rapport à l'écran de la vue.
