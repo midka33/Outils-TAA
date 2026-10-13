@@ -2,12 +2,17 @@ name: Export — tests hors Revit
 
 on:
   push:
-    branches: ["feature/export-progress-ui"]
+    branches: ["main", "feature/export-progress-ui"]
+  workflow_dispatch:
   pull_request:
     paths:
       - "OutilsTAA.extension/OutilsTAA.tab/Export.panel/**"
       - "tests/test_*.py"
       - ".github/workflows/export-progress-tests.yml"
+      - "docs/**"
+      - "CHANGELOG.md"
+      - "README.md"
+      - ".gitignore"
 
 permissions:
   contents: read
@@ -25,3 +30,22 @@ jobs:
         run: >-
           python -m pytest tests OutilsTAA.extension/OutilsTAA.tab/Export.panel/tests
           --ignore=tests/calculation --ignore=tests/plans_vente --import-mode=importlib -q
+      - name: Contrôler les fichiers de l'archive source
+        run: |
+          python - <<'PY'
+          import io
+          import subprocess
+          import tarfile
+          from pathlib import PurePosixPath
+
+          content = subprocess.check_output(["git", "archive", "--format=tar", "HEAD"])
+          forbidden_suffixes = (".tmp", ".pyc", ".pyo", ".bak", ".rvt", ".dwg", ".msi")
+          with tarfile.open(fileobj=io.BytesIO(content)) as archive:
+              invalid = [item.name for item in archive.getmembers()
+                         if item.name.lower().endswith(forbidden_suffixes)
+                         or any(part in ("__pycache__", ".pytest_cache")
+                                for part in PurePosixPath(item.name).parts)]
+          if invalid:
+              raise SystemExit("Archive non distribuable :\n" + "\n".join(invalid))
+          print("Archive source : aucun temporaire, cache ou modèle utilisateur détecté.")
+          PY

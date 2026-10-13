@@ -13,8 +13,8 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 
 | Module | Statut |
 |---|---|
-| **Export** | 🚧 En développement |
-| **Calculs des pièces** | 🚧 Migration |
+| **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
+| **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
 | **Plans de vente** | 🧪 Prototype contour logement optimisé |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |

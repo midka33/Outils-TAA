@@ -6,6 +6,34 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Préparation de v1.1.0 — Export
+
+Version proposée, non publiée. Périmètre vérifié depuis v1.0.3 : évolutions Export
+issues des PR #22 et #23, sans modification des modules Calculs ou Plans de vente.
+Voir le [bilan de préparation](docs/release/Preparation_v1.1.0.md).
+
+- **PR #22** : dossiers et anciens carnets unifiés visuellement, sous-dossiers,
+  glisser-déposer avant/dedans/après (15 % / 70 % / 15 %), dossiers ouverts ou
+  fermés, déplacement multiple, hiérarchie persistante, protection contre les
+  cycles, héritage et publication récursive ; migration automatique au schéma 8.
+- **PR #23** : déplacement des mises en page vers les nouveaux dossiers et entre
+  dossiers, conservation des dossiers devenus vides, des sous-dossiers, de leur
+  position et de leurs paramètres.
+- **PR #23** : nommage DWG visible en permanence, partagé avec le PDF et grisé
+  par défaut, dissociable manuellement et automatiquement indépendant en PDF
+  combiné ; héritage, persistance et compatibilité des anciennes configurations.
+- Fonctionnement confirmé par l'utilisateur dans Revit 2025.4 / pyRevit 5.x.
+  Vérification hors Revit du 13 octobre 2026 : **323 tests Export et 79 tests
+  Calculs réussis**. Les deux PR ont leurs contrôles GitHub Actions réussis.
+- Préparation de livraison : suppression de deux fichiers temporaires suivis,
+  exclusion des caches et temporaires, contrôle de l'archive source en CI et
+  déclenchement de la suite Export sur `main`.
+
+Les entrées thématiques ci-dessous conservent l'historique de développement ;
+leurs mentions de validation attendue sont historiques et ne constituent pas
+les notes de version de v1.1.0. Le bilan ci-dessus concerne uniquement les
+modifications vérifiées depuis v1.0.3 et la préparation documentaire associée.
+
 ### Added
 - Export DWG : case « Fusionner les vues et les liens dans le DWG », indépendante
   du mode de sortie, persistante et héritable (`dwg_merge_views`, True par défaut).
@@ -26,9 +54,9 @@ Le format suit les principes de *Keep a Changelog*.
   de déplacement, insertion avant/après, dépôt dans un dossier, auto-scroll,
   auto-expansion au survol, maintien de la sélection/scroll et déplacement de mises
   en page entre dossiers.
-- Export persistance : schéma 7 avec `tree_order` commun permettant d'intercaler
-  dossiers d'organisation et dossiers contenant des mises en page sans migration
-  destructive des anciens PublicationSet.
+- Export persistance : schéma 8 avec `tree_order` commun et parent générique,
+  permettant d’intercaler et d’imbriquer dossiers d’organisation et dossiers
+  contenant des mises en page, sans migration destructive des anciens PublicationSet.
 - Calculs des pièces : ouverture optimisée en remplaçant trois parcours complets
   des pièces/paramètres par un seul scan, puis filtrage en mémoire des paramètres
   numériques et des destinations écrivable. Comportement métier inchangé ; validation
