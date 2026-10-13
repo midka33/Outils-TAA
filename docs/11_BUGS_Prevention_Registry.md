@@ -1329,6 +1329,42 @@ validation réelle dans Revit 2025.4 de l'affichage des noms dans la ComboBox.
 **Validation Revit :** confirmée le **5 octobre 2026** ; les noms des types de
 zones remplies sont correctement affichés et sélectionnables.
 
+### BUG-COMMON-002 — Fichiers temporaires suivis dans les archives source
+
+**Symptôme :** l’archive de `main` au commit `44503dff` contient deux fichiers
+`docs/09_Export_Project_Persistence*.tmp`.
+
+**Cause racine :** ces fichiers temporaires étaient suivis par Git ; un simple
+nettoyage du répertoire de travail ou une exclusion locale ne les retire pas
+des archives d’une release.
+
+**Correction :** suppression des deux fichiers suivis et ajout d’exclusions
+pour temporaires et caches Python dans `.gitignore`.
+
+**Règle préventive :** vérifier le contenu de l’archive du commit à publier,
+pas seulement l’état du répertoire de travail.
+
+**Anti-régression :** le workflow Export inspecte `git archive HEAD` et bloque
+les suffixes temporaires/cache, modèles Revit, dessins DWG et MSI ; contrôle
+négatif sur le commit d’origine et positif sur l’arbre préparé.
+
+### BUG-TEST-006 — Aucun contrôle Export déclenché sur le commit de main
+
+**Symptôme :** les PR #22 et #23 sont vertes, mais aucune exécution ni check run
+n’est associé au commit de fusion `44503dff` de `main`.
+
+**Cause racine :** le workflow Export ne ciblait en push que l’ancienne branche
+`feature/export-progress-ui` ; aucun déclenchement manuel n’était disponible.
+
+**Correction :** ajout de `main` aux branches de push, de `workflow_dispatch`
+et des documents de livraison aux chemins de PR déclenchant la suite Export.
+
+**Règle préventive :** une vérification de release doit identifier le commit
+exact couvert par les résultats CI ; ne pas confondre tête de PR et merge commit.
+
+**Anti-régression :** contrôle des événements YAML, suite Export sur la PR,
+puis vérification des Actions du commit de `main` avant toute publication.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1377,6 +1413,7 @@ BUG-TEST-002
 BUG-TEST-003
 BUG-TEST-004
 BUG-TEST-005
+BUG-TEST-006
 BUG-CALCULS-001
 BUG-CALCULS-002
 BUG-CALCULS-003
@@ -1407,6 +1444,7 @@ BUG-PDV-023
 BUG-PDV-024
 BUG-ROOMCALC-001
 BUG-COMMON-001
+BUG-COMMON-002
 BUG-UI-001
 BUG-REVIT-001
 BUG-TEST-001

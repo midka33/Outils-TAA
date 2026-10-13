@@ -1,8 +1,12 @@
 # Export — recette arborescence à dossiers uniques
 
 **Cible :** Revit 2025.4 / pyRevit 5.x  
-**Branche :** `feature/export-folder-publisher`  
-**Statut :** à valider avant fusion de la PR #22.
+**Branche de référence :** `main`
+
+**Statut :** PR #22 et #23 fusionnées ; validation utilisateur Revit 2025.4
+confirmée le 13 octobre 2026. Les scénarios ci-dessous restent la recette de
+non-régression ; cette confirmation ne constitue pas un procès-verbal détaillé
+de chaque point de la checklist.
 
 ## Préparation
 
@@ -10,8 +14,8 @@ Fermer Revit puis, dans le dépôt utilisé par pyRevit :
 
 ```bash
 git fetch origin
-git switch feature/export-folder-publisher
-git pull --ff-only origin feature/export-folder-publisher
+git switch main
+git pull --ff-only origin main
 ```
 
 Redémarrer Revit 2025.4 ou faire Reload pyRevit.
@@ -52,8 +56,8 @@ Sélectionner un dossier existant puis cliquer **Nouveau dossier**.
 Le nouveau dossier est créé à l'intérieur du dossier actif et devient sélectionné /
 visible dans l'arborescence.
 
-Si un dossier contenant des mises en page est actif, le nouveau dossier est créé au
-même niveau que lui.
+Un dossier contenant déjà des mises en page peut également recevoir le nouveau
+sous-dossier ; les deux types internes ont la même capacité d'imbrication.
 
 ## TEST-TREE-04 — Double-clic
 
@@ -233,9 +237,14 @@ Après plusieurs réorganisations, publier :
 ### Attendu
 
 Les PDF/DWG, règles de nommage, progression, dossiers de sortie et rapport restent
-fonctionnellement identiques à la v1.0.3 hors changement volontaire d'organisation.
+fonctionnellement identiques à la v1.0.3 hors changement volontaire d’organisation
+et nouvelles options de nommage PDF/DWG de la PR #23 décrites dans `09_Export.md`.
 
 ## Fiche de validation
+
+Modèle pour une prochaine exécution détaillée. La validation fonctionnelle globale
+des PR #22 et #23 a été confirmée par l’utilisateur ; aucun relevé individuel
+TREE-01 à TREE-13 n’a été fourni pour remplir cette grille rétrospectivement.
 
 | Test | Résultat |
 |---|---|
@@ -253,4 +262,5 @@ fonctionnellement identiques à la v1.0.3 hors changement volontaire d'organisat
 | TREE-12 | À tester |
 | TREE-13 | À tester |
 
-Ne pas fusionner la PR #22 avant validation réelle de cette recette dans Revit 2025.4.
+Les PR #22 et #23 sont déjà fusionnées. Conserver cette recette pour les futures
+régressions d’arborescence dans Revit 2025.4.

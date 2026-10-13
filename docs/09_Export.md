@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 4.3
+**Version :** 4.4
 **Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -69,10 +69,33 @@ Le comportement doit se rapprocher de l'Explorateur Windows :
 L'ordre des dossiers d'organisation et des dossiers contenant des mises en page est
 désormais commun : ils peuvent être intercalés comme dans un explorateur de fichiers.
 
-**Statut : implémenté sur `feature/export-folder-publisher`, tests hors Revit et
-recette Revit 2025.4 requis avant fusion.**
+**Statut : PR #22 et #23 fusionnées dans `main`, fonctionnement confirmé par
+l'utilisateur dans Revit 2025.4 le 13 octobre 2026.**
 
 Voir : [`docs/26_Export_Recette_Arborescence.md`](26_Export_Recette_Arborescence.md).
+
+### Déplacement des mises en page — PR #23
+
+Une mise en page peut être déposée dans un dossier persistant nouvellement créé
+ou déplacée entre dossiers. Au premier dépôt, le dossier cible peut changer de
+type interne, mais conserve son identifiant, son nom, son parent, son ordre,
+ses paramètres et ses sous-dossiers. La conversion et le déplacement sont
+enregistrés ensemble. Le dossier source reste présent lorsqu'il devient vide.
+Les déplacements multiples conservent l'ordre visuel des mises en page.
+
+### Nommage PDF et DWG — PR #23
+
+Le champ **Nommage DWG** reste toujours visible sous **Nommage PDF**.
+Par défaut, hors PDF combiné, il reprend la règle PDF et reste grisé.
+La case **Nommage DWG indépendant du PDF** permet de saisir une règle distincte.
+Lorsque le PDF combiné est sélectionné, l'indépendance DWG est imposée
+automatiquement ; sa règle par défaut est `{numero} {nom}`.
+
+Les deux règles sont héritées et persistées avec les paramètres du dossier.
+L'aperçu et la publication utilisent la même règle DWG résolue. Les anciennes
+configurations restent lisibles et reçoivent les valeurs par défaut nécessaires.
+Le nommage DWG est distinct du réglage de fusion des vues/liens et du traitement
+automatique des exports par lot.
 
 ---
 
