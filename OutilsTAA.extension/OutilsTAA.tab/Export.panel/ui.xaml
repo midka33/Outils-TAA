@@ -108,9 +108,15 @@
               </Grid>
               <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <TextBlock Text="Nom du fichier" VerticalAlignment="Center"/>
+                <TextBlock Text="Nommage PDF" VerticalAlignment="Center"/>
                 <TextBox x:Name="FilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Modèle de nommage. Les variables sont disponibles dans Options avancées."/>
               </Grid>
+              <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <TextBlock Text="Nommage DWG" VerticalAlignment="Center"/>
+                <TextBox x:Name="DwgFilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Nom des fichiers DWG individuels. Par défaut, le nommage PDF est repris."/>
+              </Grid>
+              <CheckBox x:Name="DwgFilenameIndependentCheckBox" Content="Nommage DWG indépendant du PDF" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="100,0,0,5" ToolTip="En mode PDF combiné, ce réglage est obligatoire."/>
               <TextBlock x:Name="FilenamePreviewText" Text="—" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Margin="100,0,0,4" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
               <CheckBox x:Name="CarnetSubfolderCheckBox" Content="Créer ce dossier dans la sortie" Checked="SettingsChanged" Unchecked="SettingsChanged" Margin="0,0,0,6" ToolTip="Coché : reproduit ce dossier de publication dans la sortie, avec PDF et DWG. Décoché : écrit directement dans le dossier parent."/>
               <Expander x:Name="AdvancedOptions" Header="Options avancées" IsExpanded="False">

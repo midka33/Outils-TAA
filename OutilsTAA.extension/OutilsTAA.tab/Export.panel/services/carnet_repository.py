@@ -484,6 +484,74 @@ class CarnetRepository(object):
         self._write(data)
         return True
 
+    def move_sheets_into_folder(self, sheet_refs, folder_id):
+        """Move ordered (set_id, sheet_unique_id) pairs into an ordinary folder.
+
+        Promote the destination to a PublicationSet while preserving its ID,
+        position, parent, children, and inherited settings. One JSON write makes
+        the entire move atomic (including the promotion).
+        """
+        refs = [(str(sid), str(uid)) for sid, uid in (sheet_refs or [])]
+        if not refs or len(refs) != len(set(refs)):
+            return False
+
+        data = self._ensure_structure(self._read())
+        folder = next((f for f in data["folders"]
+                       if str(f.get("id")) == str(folder_id)), None)
+        if folder is None:
+            return False
+        if str(folder_id) == self.DEFAULT_FOLDER_ID:
+            # Root's parent is None; a PublicationSet cannot be a root.
+            return False
+
+        sources = dict((str(value.get("id")), value)
+                       for value in data["sets"])
+        moved = []
+        for sid, uid in refs:
+            source = sources.get(sid)
+            if source is None:
+                return False
+            item = next((item for item in source.get("items", [])
+                         if str(item.get("unique_id")) == uid), None)
+            if item is None:
+                return False
+            moved.append(item)
+
+        # Keep the stable node ID so existing children continue to point here.
+        promoted = {
+            "id": folder["id"],
+            "name": folder.get("name", ""),
+            "persistent": True,
+            "folder_id": folder.get("parent_id"),
+            "sort_order": folder.get("sort_order", 0),
+            "tree_order": folder.get("tree_order"),
+            "output_directory": None,
+            "filename_template_id": None,
+            "publication_settings": folder.get("publication_settings"),
+            "source": {"mode": PublicationSource.MANUAL,
+                       "parameter_name": None, "parameter_value": None},
+            "items": list(moved),
+        }
+
+        removals = {}
+        for sid, uid in refs:
+            removals.setdefault(sid, set()).add(uid)
+        for sid, removed in removals.items():
+            source = sources[sid]
+            source["items"] = [
+                item for item in source.get("items", [])
+                if str(item.get("unique_id")) not in removed
+            ]
+
+        data["folders"] = [
+            value for value in data["folders"]
+            if str(value.get("id")) != str(folder_id)
+        ]
+        data["sets"].append(promoted)
+        self._normalize_tree_order(data)
+        self._write(data)
+        return True
+
     def move_set(self, set_id, folder_id, before_set_id=None):
         return self.move_sets([set_id], folder_id, before_set_id)
 

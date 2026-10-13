@@ -120,6 +120,14 @@ class PublicationPreviewService(object):
                         item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
                     add_row("PDF", "SEPARATE", item, filename, unknown)
 
+        dwg_template = settings.filename_template or "{carnet}"
+        if (getattr(settings, "dwg_filename_independent", False)
+                or settings.pdf_mode == "COMBINED"):
+            dwg_template = (
+                getattr(settings, "dwg_filename_template", None)
+                or "{numero} {nom}"
+            )
+
         if settings.dwg_enabled and has_candidates:
             warnings.append(
                 "DWG — configuration : {} ; vues/liens : {}. "
@@ -135,7 +143,7 @@ class PublicationPreviewService(object):
             if len(candidates) == 1:
                 item = candidates[0]
                 filename, unknown = self.filename_service.filename(
-                    settings.filename_template or "{carnet}",
+                    dwg_template,
                     publication_set,
                     item=item,
                     folder_name=getattr(
@@ -158,7 +166,7 @@ class PublicationPreviewService(object):
                 )
                 for item in candidates:
                     filename, unknown = self.filename_service.filename(
-                        settings.filename_template or "{carnet}",
+                        dwg_template,
                         publication_set,
                         item=item,
                         folder_name=getattr(

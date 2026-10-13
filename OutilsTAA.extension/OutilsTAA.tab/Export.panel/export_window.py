@@ -338,7 +338,19 @@ class ExportWindow(forms.WPFWindow):
         self.Tree_SelectedItemChanged(None, None)
 
     def _belongs_to_current_project(self, publication_set):
-        return publication_set is not None and any(item is not None and item.unique_id in self.current_project_unique_ids for item in (publication_set.items or []))
+        if publication_set is None:
+            return False
+        items = list(publication_set.items or [])
+        # Keep a persistent publication folder when its last sheet moves out.
+        # Repository storage is scoped by project identity.
+        if not items:
+            return bool(getattr(publication_set, "persistent", False))
+        # Exclude nonempty sets belonging only to another project.
+        return any(
+            item is not None
+            and item.unique_id in self.current_project_unique_ids
+            for item in items
+        )
 
     def _container_by_id(self, value_id):
         if value_id is None:
@@ -475,6 +487,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgMergeViewsCheckBox.IsChecked = effective.dwg_merge_views
             self.OutputDirectoryTextBox.Text = effective.output_directory or ""
             self.FilenameTemplateTextBox.Text = effective.filename_template or "{carnet}"
+            self._sync_dwg_naming(effective)
             self._select_dwg_setup(effective.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
             self._update_inheritance_info(self._selected_set)
@@ -503,6 +516,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
             self.OutputDirectoryTextBox.Text = settings.output_directory or ""
             self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
+            self._sync_dwg_naming(settings)
             self._select_dwg_setup(settings.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
             self._update_folder_inheritance_info(folder)
@@ -581,7 +595,7 @@ class ExportWindow(forms.WPFWindow):
 
     @staticmethod
     def _field_label(field):
-        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage"}
+        labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage PDF", "dwg_filename_template": "nommage DWG", "dwg_filename_independent": "nommage DWG indépendant"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
         labels["separate_carnet_subfolder"] = "dossier de sortie"
         return labels.get(field, field)
@@ -608,6 +622,30 @@ class ExportWindow(forms.WPFWindow):
             self.controller.save_persistent(self._selected_set)
         self._load_selected_settings()
 
+    def _sync_dwg_naming(self, settings):
+        """Keep the DWG naming field visible, safely locked when shared."""
+        combined = settings.pdf_mode == "COMBINED"
+        independent = combined or bool(
+            getattr(settings, "dwg_filename_independent", False)
+        )
+        # Updating IsChecked/Text can raise SettingsChanged in WPF.
+        was_loading = self._loading_settings
+        self._loading_settings = True
+        try:
+            self.DwgFilenameIndependentCheckBox.IsChecked = independent
+            self.DwgFilenameIndependentCheckBox.IsEnabled = not combined
+            self.DwgFilenameTemplateTextBox.IsEnabled = independent
+            if independent:
+                template = (
+                    getattr(settings, "dwg_filename_template", None)
+                    or "{numero} {nom}"
+                )
+            else:
+                template = settings.filename_template or "{carnet}"
+            self.DwgFilenameTemplateTextBox.Text = template
+        finally:
+            self._loading_settings = was_loading
+
     def _control_value(self, field):
         values = {
             "pdf_quality": int(self.PdfQualityCombo.SelectedItem or 300),
@@ -619,7 +657,9 @@ class ExportWindow(forms.WPFWindow):
             "dwg_true_color": bool(self.DwgTrueColorCheckBox.IsChecked),
             "dwg_merge_views": bool(self.DwgMergeViewsCheckBox.IsChecked),
             "output_directory": (self.OutputDirectoryTextBox.Text or "").strip() or None,
-            "filename_template": self.FilenameTemplateTextBox.Text or "{carnet}"
+            "filename_template": self.FilenameTemplateTextBox.Text or "{carnet}",
+            "dwg_filename_independent": bool(self.DwgFilenameIndependentCheckBox.IsChecked),
+            "dwg_filename_template": self.DwgFilenameTemplateTextBox.Text or "{numero} {nom}"
         }
         return values.get(field)
 
@@ -765,11 +805,25 @@ class ExportWindow(forms.WPFWindow):
             "DwgCheckBox": "dwg_enabled",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
             "DwgMergeViewsCheckBox": "dwg_merge_views",
-            "OutputDirectoryTextBox": "output_directory", "FilenameTemplateTextBox": "filename_template"
+            "OutputDirectoryTextBox": "output_directory", "FilenameTemplateTextBox": "filename_template",
+            "DwgFilenameIndependentCheckBox": "dwg_filename_independent",
+            "DwgFilenameTemplateTextBox": "dwg_filename_template"
         }
         field = mapping.get(getattr(sender, "Name", ""))
         if self._selected_kind == "FOLDER":
             self._save_folder_settings(field)
         else:
             self._save_selected_field(field)
+        # Re-evaluate forced independence when PDF mode or checkbox changes,
+        # and mirror live PDF edits when the DWG field is shared.
+        if field in ("pdf_mode", "filename_template",
+                     "dwg_filename_independent", "dwg_filename_template"):
+            node = (self._selected_folder if self._selected_kind == "FOLDER"
+                    else self._selected_set)
+            if node is not None:
+                self._sync_dwg_naming(
+                    self._resolve_container_settings(node)
+                    if self._selected_kind == "FOLDER"
+                    else self._resolve_settings(node)
+                )
 

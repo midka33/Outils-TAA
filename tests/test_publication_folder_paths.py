@@ -38,6 +38,8 @@ def test_preview_matches_export_and_uses_format_folders(
     settings = PublicationSettings.defaults()
     settings.output_directory = str(tmp_path)
     settings.filename_template = '{carnet}-{numero}'
+    settings.dwg_filename_independent = True
+    settings.dwg_filename_template = '{carnet}-{numero}'
     settings.pdf_mode = 'COMBINED' if pdf_combined else 'SEPARATE'
     settings.separate_carnet_subfolder = create_carnet_folder
     target = target.with_settings(settings)

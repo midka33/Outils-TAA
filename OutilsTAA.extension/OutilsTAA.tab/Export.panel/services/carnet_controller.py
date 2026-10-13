@@ -59,6 +59,11 @@ class CarnetController(object):
             return False
         return self.repository.delete_folder(folder_id)
 
+    def move_sheets_into_folder(self, sheet_refs, folder_id):
+        if not self.repository:
+            return False
+        return self.repository.move_sheets_into_folder(sheet_refs, folder_id)
+
     def move_persistent(self, set_id, folder_id, before_set_id=None):
         if self.repository is None:
             raise RuntimeError("Le dépôt des carnets n'est pas configuré.")
