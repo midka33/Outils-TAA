@@ -338,7 +338,19 @@ class ExportWindow(forms.WPFWindow):
         self.Tree_SelectedItemChanged(None, None)
 
     def _belongs_to_current_project(self, publication_set):
-        return publication_set is not None and any(item is not None and item.unique_id in self.current_project_unique_ids for item in (publication_set.items or []))
+        if publication_set is None:
+            return False
+        items = list(publication_set.items or [])
+        # Keep a persistent publication folder when its last sheet moves out.
+        # Repository storage is scoped by project identity.
+        if not items:
+            return bool(getattr(publication_set, "persistent", False))
+        # Exclude nonempty sets belonging only to another project.
+        return any(
+            item is not None
+            and item.unique_id in self.current_project_unique_ids
+            for item in items
+        )
 
     def _container_by_id(self, value_id):
         if value_id is None:
