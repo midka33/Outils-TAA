@@ -63,7 +63,7 @@ import full_generation_service as _full_generation_service
 _full_generation_service = _reload_module(_full_generation_service)
 FullGenerationService = _full_generation_service.FullGenerationService
 
-from plans_vente_window import PlansVenteWindow
+from plans_vente_final_window import PlansVenteFinalWindow
 
 
 def main():
@@ -127,7 +127,7 @@ def main():
         full_generation_service=full_generation_service,
     )
 
-    window = PlansVenteWindow(controller)
+    window = PlansVenteFinalWindow(controller)
     window.ShowDialog()
 
 
