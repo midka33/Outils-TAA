@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
-FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"
+FULL_GENERATION_BUILD = "stage09a-batch-ui-v1"
 
 
 class FullGenerationInspection(object):
@@ -208,6 +208,8 @@ class FullGenerationService(object):
         descriptor,
         template_sheet_unique_id,
         allowed_scales=None,
+        crop_margin_mm=None,
+        auto_fit_main_view=True,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -301,7 +303,11 @@ class FullGenerationService(object):
                 self.prototype_view_service.create_dependent_crop_view(
                     housing=housing,
                     source_view_unique_id=source_candidate.unique_id,
-                    margin_mm=self.DEFAULT_CROP_MARGIN_MM,
+                    margin_mm=(
+                        float(crop_margin_mm)
+                        if crop_margin_mm is not None
+                        else self.DEFAULT_CROP_MARGIN_MM
+                    ),
                     target_scale=inspection.reference_scale,
                 )
             )
@@ -395,7 +401,7 @@ class FullGenerationService(object):
                 template_main_viewport_unique_id=inspection.main_viewport_unique_id,
                 template_location_viewport_unique_id=inspection.location_viewport_unique_id,
                 schedule_bindings=bindings,
-                auto_fit_main_view=True,
+                auto_fit_main_view=bool(auto_fit_main_view),
                 allowed_scales=allowed_scales,
             )
             warnings.extend(sheet_result.warnings)
