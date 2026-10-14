@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.22
+**Version :** 1.23
 **Statut :** Développement — Étape 09 Stabilisation interface V1  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -4958,4 +4958,75 @@ les génère pas lorsque le mode choisi nécessite plusieurs vues.
 
 La sous-étape **09B** devra implémenter la génération réelle multi-niveaux.
 
-**Statut 09A : À valider dans Revit 2025.4.**
+**Statut 09A : implémentée ; validation finale d'interface dans Revit 2025.4 à poursuivre.**
+
+## Étape 09B — Logements multi-niveaux
+
+### 09B.1 — Une feuille par niveau
+
+**Build interface :** `stage09b1-sheet-per-level-v1`
+
+Le premier mode multi-niveaux réellement activé est :
+
+```text
+Une feuille par niveau
+```
+
+Le logement métier reste identifié par sa valeur d'origine, par exemple
+`A101`. Pour la génération, le contrôleur le découpe en logements temporaires
+mono-niveau :
+
+```text
+A101
+├── RDC   → sortie A101-RDC
+└── R+1   → sortie A101-R-1
+```
+
+La **clé de sortie** sert uniquement aux noms des vues, nomenclatures et
+feuilles afin d'éviter les collisions entre niveaux.
+
+La **clé de filtre** reste la valeur logement originale (`A101`). Les
+nomenclatures continuent donc à filtrer les pièces avec la donnée métier
+existante dans Revit et ne recherchent jamais une valeur artificielle telle que
+`A101-RDC`.
+
+Chaque sous-logement mono-niveau réutilise ensuite le moteur 07D validé :
+
+```text
+logement multi-niveaux
+        ↓
+découpage métier par niveau
+        ↓
+Housing mono-niveau temporaire
+        ↓
+moteur 07D existant
+        ↓
+1 feuille par niveau
+```
+
+Le contrôle « créer uniquement les logements sans plan existant » s'effectue
+sur la clé de sortie. Il est donc possible d'avoir un niveau déjà généré et un
+autre restant à créer.
+
+Le mode `Ignorer les logements multi-niveaux` reste disponible.
+
+**Statut 09B.1 : implémenté, À TESTER dans Revit 2025.4.**
+
+### 09B.2 — Une feuille par logement avec une vue par niveau
+
+Ce mode reste volontairement protégé.
+
+Il nécessite une extension du service d'assemblage de feuille pour accepter
+plusieurs viewports logement sur une seule feuille, tout en conservant :
+
+- une seule feuille `PDV-<Appartement>` ;
+- une vue logement par niveau ;
+- les cotations et étiquettes propres à chaque vue ;
+- une seule série de nomenclatures filtrées sur le logement ;
+- un repérage cohérent du logement multi-niveaux ;
+- une règle de placement et de collision dérivée de la feuille modèle.
+
+Tant que cet assemblage multi-viewports n'est pas validé, sélectionner ce mode
+ne crée jamais une feuille partielle.
+
+**Statut 09B.2 : prochaine sous-étape.**
