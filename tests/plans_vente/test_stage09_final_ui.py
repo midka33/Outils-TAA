@@ -191,3 +191,15 @@ def test_stage09_reference_mockups_are_committed():
     assert "09_interface_principale.webp" in text
     assert "09_options_avancees.webp" in text
     assert "Étape 09B" in text
+
+
+def test_stage09b_generated_view_reuses_template_main_view_graphics():
+    full = FULL.read_text(encoding="utf-8")
+    prototype = (PANEL / "services" / "prototype_view_service.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "main_template = self._view_template(main_info.view)" in full
+    assert "view_template_unique_id=(" in full
+    assert "view_template_unique_id=None" in prototype
+    assert "created_view.ViewTemplateId = view_template.Id" in prototype
