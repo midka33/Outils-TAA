@@ -20,10 +20,14 @@
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="16"/>
         </Style>
-        <Style x:Key="PDVBrandButton" TargetType="Button"
-               BasedOn="{DynamicResource TAAPrimaryButton}">
+        <Style x:Key="PDVBrandButton" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderBrush" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style x:Key="PDVNumber" TargetType="Border">
             <Setter Property="Width" Value="34"/>
