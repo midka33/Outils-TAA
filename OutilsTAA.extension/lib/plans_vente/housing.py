@@ -18,9 +18,14 @@ class RoomSnapshot(object):
 class Housing(object):
     """Regroupement métier des pièces partageant un identifiant logement."""
 
-    def __init__(self, key, rooms=None):
+    def __init__(self, key, rooms=None, filter_key=None):
         self.key = key or ""
         self.rooms = list(rooms or [])
+        self.filter_key = (
+            self.key
+            if filter_key is None
+            else (filter_key or "")
+        )
 
     @property
     def room_count(self):
