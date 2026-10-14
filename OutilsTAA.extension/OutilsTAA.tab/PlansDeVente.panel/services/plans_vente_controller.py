@@ -31,6 +31,20 @@ class PlansVenteController(object):
     def analyze(self, descriptor):
         return self.analysis_service.analyze(descriptor)
 
+    def filter_housings(
+        self,
+        housings,
+        descriptor,
+        operator_key,
+        expected_value="",
+    ):
+        return self.analysis_service.filter_housings(
+            housings,
+            descriptor,
+            operator_key,
+            expected_value,
+        )
+
     def source_views_for_housing(self, housing):
         return self.prototype_view_service.source_views_for_housing(housing)
 
@@ -143,6 +157,9 @@ class PlansVenteController(object):
 
 
 
+    def plan_exists(self, housing_key):
+        return self.sheet_assembly_service.plan_exists(housing_key)
+
     def sheet_templates(self):
         return self.sheet_assembly_service.list_sheet_templates()
 
@@ -222,6 +239,8 @@ class PlansVenteController(object):
         descriptor,
         template_sheet_unique_id,
         allowed_scales=None,
+        crop_margin_mm=None,
+        auto_fit_main_view=True,
     ):
         if self.full_generation_service is None:
             raise RuntimeError("Service de génération complète 07D indisponible.")
@@ -230,6 +249,8 @@ class PlansVenteController(object):
             descriptor,
             template_sheet_unique_id,
             allowed_scales=allowed_scales,
+            crop_margin_mm=crop_margin_mm,
+            auto_fit_main_view=auto_fit_main_view,
         )
 
     def full_generation_build_id(self):
