@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b1-sheet-per-level-v1"
+    UI_BUILD = "stage09b1-sheet-per-level-v2"
 
     def __init__(self, controller):
         self.controller = controller
@@ -320,10 +320,15 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         )
         self._sheet_templates_loaded = True
 
+        self.SheetTemplateCombo.SelectedIndex = -1
         if self._sheet_template_choices:
-            self.SheetTemplateCombo.SelectedIndex = 0
+            self.TemplateDetailsText.Text = (
+                "Choisissez la feuille qui sert de modèle de plan de vente."
+            )
+            self.TemplatePreviewTitle.Text = (
+                "Aucun modèle sélectionné"
+            )
         else:
-            self.SheetTemplateCombo.SelectedIndex = -1
             self.TemplateDetailsText.Text = (
                 "Aucune feuille modèle n'a été trouvée."
             )
