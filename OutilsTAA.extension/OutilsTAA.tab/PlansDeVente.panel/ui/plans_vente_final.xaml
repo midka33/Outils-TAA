@@ -27,12 +27,22 @@
             <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
         </Style>
 
-        <Style x:Key="PDVPrimaryButton" TargetType="Button"
-               BasedOn="{DynamicResource TAAPrimaryButton}">
+        <Style x:Key="PDVPrimaryButton" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderBrush" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="MinHeight" Value="46"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource TAADisabledBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource TAADisabledBrush}"/>
+                    <Setter Property="Foreground" Value="#8A8A8A"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="PDVHousingGrid" TargetType="DataGrid">
