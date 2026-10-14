@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.multilevel import split_housing_by_level
+
 """Contrôleur du module Plans de vente."""
 
 
@@ -44,6 +46,9 @@ class PlansVenteController(object):
             operator_key,
             expected_value,
         )
+
+    def split_housing_by_level(self, housing):
+        return split_housing_by_level(housing)
 
     def source_views_for_housing(self, housing):
         return self.prototype_view_service.source_views_for_housing(housing)
