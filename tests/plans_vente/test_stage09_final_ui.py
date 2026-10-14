@@ -137,7 +137,7 @@ def test_stage09_advanced_options_expose_only_safe_overrides():
         assert 'x:Name="{}"'.format(name) in xaml
 
     assert "Automatique — feuille modèle" in xaml
-    assert "IsReadOnly="True"" in xaml
+    assert 'IsReadOnly="True"' in xaml
     assert "parse_allowed_scales(" in window
     assert '"crop_margin_mm"' in window
     assert '"skip_existing"' in window
