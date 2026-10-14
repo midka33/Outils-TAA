@@ -52,6 +52,7 @@ class PrototypeViewService(object):
         source_view_unique_id,
         margin_mm=500.0,
         target_scale=50,
+        view_template_unique_id=None,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -113,6 +114,20 @@ class PrototypeViewService(object):
                     target_scale,
                 )
             )
+
+            if view_template_unique_id:
+                view_template = self.document.GetElement(
+                    view_template_unique_id
+                )
+                if view_template is not None:
+                    try:
+                        created_view.ViewTemplateId = view_template.Id
+                    except Exception as error:
+                        raise RuntimeError(
+                            "Impossible d'appliquer le gabarit de la vue modèle "
+                            "à la vue logement générée : {}".format(error)
+                        )
+
             self.crop_geometry_service.apply_to_view(
                 created_view,
                 crop_result,
