@@ -113,6 +113,10 @@ class ScheduleService(object):
         exterior_template = self._get_schedule(exterior_template_unique_id)
         interior_name = schedule_name(housing.key, "INT")
         exterior_name = schedule_name(housing.key, "EXT")
+        filter_key = (
+            getattr(housing, "filter_key", None)
+            or housing.key
+        )
 
         self._ensure_name_available(interior_name)
         self._ensure_name_available(exterior_name)
@@ -129,14 +133,14 @@ class ScheduleService(object):
             if interior is None:
                 raise RuntimeError("Revit n'a pas retourné la nomenclature intérieure dupliquée.")
             interior.Name = interior_name
-            self._apply_housing_filter(interior, descriptor, housing.key)
+            self._apply_housing_filter(interior, descriptor, filter_key)
 
             exterior_id = exterior_template.Duplicate(ViewDuplicateOption.Duplicate)
             exterior = self.document.GetElement(exterior_id)
             if exterior is None:
                 raise RuntimeError("Revit n'a pas retourné la nomenclature extérieure dupliquée.")
             exterior.Name = exterior_name
-            self._apply_housing_filter(exterior, descriptor, housing.key)
+            self._apply_housing_filter(exterior, descriptor, filter_key)
 
         return SchedulePairResult(
             housing_key=housing.key,
@@ -205,6 +209,10 @@ class ScheduleService(object):
 
         items = []
         reserved_names = set()
+        filter_key = (
+            getattr(housing, "filter_key", None)
+            or housing.key
+        )
 
         with RevitTransaction(
             self.document,
@@ -240,7 +248,7 @@ class ScheduleService(object):
                     self._apply_housing_filter(
                         created,
                         descriptor,
-                        housing.key,
+                        filter_key,
                     )
                 reserved_names.add(target_name)
 
