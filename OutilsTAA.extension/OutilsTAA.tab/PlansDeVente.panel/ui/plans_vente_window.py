@@ -11,6 +11,7 @@ from common.wpf_resources import load_resource_dictionary
 from plans_vente.defaults import preferred_housing_parameter_index
 from plans_vente.view_grouping import normalize_scale
 from plans_vente.sheet_fit import parse_allowed_scales
+from advanced_options_window import AdvancedOptionsWindow
 
 
 class ParameterChoice(object):
@@ -89,6 +90,15 @@ class PlansVenteWindow(forms.WPFWindow):
         self._deferred_static_choices_loaded = False
         self._sheet_templates_loaded = False
         self._active_descriptor = None
+        self._stage09_rows = []
+        self._stage09_options = {
+            "only_without_existing": True,
+            "crop_margin_mm": 500.0,
+            "auto_scale_on_collision": True,
+            "allowed_scales": "50, 75, 100, 125, 150",
+            "detailed_report": True,
+            "log_warnings": True,
+        }
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "plans_vente.xaml")
@@ -105,6 +115,7 @@ class PlansVenteWindow(forms.WPFWindow):
         self.SheetTemplateCombo.ItemsSource = []
         self.SheetTemplateCombo.SelectedIndex = -1
         self._clear_sheet_role_choices()
+        self._stage09_initialize()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -1731,6 +1742,235 @@ class PlansVenteWindow(forms.WPFWindow):
         if float(value).is_integer():
             return str(int(value))
         return str(value)
+
+
+    # -------------------------------------------------------------------------
+    # Étape 09A — interface agence
+    # -------------------------------------------------------------------------
+    def _stage09_initialize(self):
+        self.Stage09FilterParameterCombo.ItemsSource = self._choices
+        if self._choices:
+            index = preferred_housing_parameter_index(
+                [choice.descriptor for choice in self._choices]
+            )
+            self.Stage09FilterParameterCombo.SelectedIndex = index
+        self.Stage09FilterConditionCombo.SelectedIndex = 0
+        self.Stage09TemplateCombo.ItemsSource = []
+        self.Stage09TemplateCombo.SelectedIndex = -1
+        self.Stage09FilterPanel.IsEnabled = False
+        self.Stage09StatusText.Text = (
+            "Choisissez la portée puis analysez les logements."
+        )
+
+    def Stage09ScopeChanged(self, sender, args):
+        self.Stage09FilterPanel.IsEnabled = bool(
+            self.Stage09FilterRadio.IsChecked
+        )
+
+    @staticmethod
+    def _stage09_matches(value, condition, expected):
+        value = (value or "").strip()
+        expected = (expected or "").strip()
+        left = value.lower()
+        right = expected.lower()
+        if condition == "est égal à":
+            return left == right
+        if condition == "contient":
+            return right in left
+        if condition == "se termine par":
+            return left.endswith(right)
+        if condition == "est différent de":
+            return left != right
+        if condition == "est vide":
+            return not value
+        if condition == "n'est pas vide":
+            return bool(value)
+        return left.startswith(right)
+
+    def Stage09Analyze_Click(self, sender, args):
+        choice = self.Stage09FilterParameterCombo.SelectedItem
+        if choice is None and self._choices:
+            choice = self._choices[0]
+        descriptor = getattr(choice, "descriptor", None)
+        if descriptor is None:
+            forms.alert(
+                "Aucun paramètre texte de pièce n'est disponible.",
+                title="Plans de vente — Analyse",
+                warn_icon=True,
+            )
+            return
+
+        self.Stage09AnalyzeButton.IsEnabled = False
+        self.Stage09StatusText.Text = "Analyse des logements..."
+        try:
+            result = self.controller.analyze(descriptor)
+            rows = [HousingRow(housing) for housing in result.housings]
+            if self.Stage09FilterRadio.IsChecked:
+                selected = self.Stage09FilterConditionCombo.SelectedItem
+                condition = getattr(selected, "Content", "commence par")
+                expected = self.Stage09FilterValueTextBox.Text
+                rows = [
+                    row for row in rows
+                    if self._stage09_matches(row.Key, condition, expected)
+                ]
+
+            self._active_descriptor = descriptor
+            self._housing_rows = rows
+            self._stage09_rows = rows
+            self.Stage09HousingGrid.ItemsSource = rows
+            self.Stage09HousingCountText.Text = "{} logement(s)".format(len(rows))
+            self.Stage09SummaryText.Text = (
+                "{} logement(s) prêt(s) pour la sélection de la feuille modèle."
+            ).format(len(rows))
+            self.Stage09StatusText.Text = (
+                "{} pièce(s) affectée(s), {} logement(s) dans la portée."
+            ).format(result.room_count, len(rows))
+            self._load_sheet_templates()
+            self.Stage09TemplateCombo.ItemsSource = self._sheet_template_labels
+            if self._sheet_template_labels:
+                self.Stage09TemplateCombo.SelectedIndex = 0
+            self._stage09_update_create_state()
+        except Exception as error:
+            self.Stage09StatusText.Text = "Erreur pendant l'analyse."
+            forms.alert(
+                str(error),
+                title="Plans de vente — Analyse",
+                warn_icon=True,
+            )
+        finally:
+            self.Stage09AnalyzeButton.IsEnabled = True
+
+    def Stage09Template_DropDownOpened(self, sender, args):
+        try:
+            self._load_sheet_templates()
+            self.Stage09TemplateCombo.ItemsSource = self._sheet_template_labels
+        except Exception as error:
+            self.Stage09TemplateInfoText.Text = str(error)
+
+    def Stage09Template_Changed(self, sender, args):
+        index = self.Stage09TemplateCombo.SelectedIndex
+        if index < 0 or index >= len(self._sheet_template_choices):
+            self.Stage09TemplateInfoText.Text = "Choisissez une feuille modèle."
+            self._stage09_update_create_state()
+            return
+        template = self._sheet_template_choices[index].Candidate
+        self.Stage09TemplateInfoText.Text = getattr(template, "label", str(template))
+        self._stage09_update_create_state()
+
+    def _stage09_selected_template(self):
+        index = self.Stage09TemplateCombo.SelectedIndex
+        if 0 <= index < len(self._sheet_template_choices):
+            return self._sheet_template_choices[index].Candidate
+        return None
+
+    def _stage09_is_multilevel(self, row):
+        housing = getattr(row, "Housing", None)
+        count = getattr(housing, "level_count", None)
+        if count is not None:
+            return int(count) > 1
+        label = (getattr(row, "Levels", "") or "").strip()
+        return "," in label or ";" in label or " / " in label
+
+    def _stage09_update_create_state(self):
+        enabled = bool(
+            self._stage09_rows
+            and self._active_descriptor is not None
+            and self._stage09_selected_template() is not None
+        )
+        self.Stage09CreateButton.IsEnabled = enabled
+
+    def Stage09Advanced_Click(self, sender, args):
+        window = AdvancedOptionsWindow(
+            self,
+            self._choices,
+            self._active_descriptor,
+            dict(self._stage09_options),
+        )
+        window.ShowDialog()
+        if getattr(window, "accepted", False):
+            self._stage09_options = window.options
+            descriptor = getattr(window, "selected_descriptor", None)
+            if descriptor is not None:
+                self._active_descriptor = descriptor
+            self.Stage09StatusText.Text = "Options avancées mises à jour."
+
+    def Stage09CreateAll_Click(self, sender, args):
+        template = self._stage09_selected_template()
+        descriptor = self._active_descriptor
+        rows = list(self._stage09_rows or [])
+        if template is None or descriptor is None or not rows:
+            return
+
+        allowed_scales = parse_allowed_scales(
+            self._stage09_options.get(
+                "allowed_scales", "50, 75, 100, 125, 150"
+            )
+        )
+
+        multi = [row for row in rows if self._stage09_is_multilevel(row)]
+        process_rows = [row for row in rows if row not in multi]
+        if multi and not self.Stage09MultiIgnoreRadio.IsChecked:
+            names = ", ".join(row.Key for row in multi[:8])
+            forms.alert(
+                (
+                    "Les logements multi-niveaux ne sont pas encore générés en 09A "
+                    "afin d'éviter une feuille incomplète.\n\n"
+                    "Ils seront pris en charge par l'étape 09B : {}"
+                ).format(names),
+                title="Plans de vente — Multi-niveaux",
+                warn_icon=True,
+            )
+
+        if not process_rows:
+            self.Stage09StatusText.Text = "Aucun logement mono-niveau à générer."
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer {} plan(s) de vente depuis la feuille modèle sélectionnée ?\n\n"
+                "{} logement(s) multi-niveaux seront ignoré(s) en 09A."
+            ).format(len(process_rows), len(multi)),
+            title="Plans de vente — Création par lot",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        created = []
+        failed = []
+        warnings = []
+        self.Stage09CreateButton.IsEnabled = False
+        try:
+            for index, row in enumerate(process_rows, 1):
+                self.Stage09StatusText.Text = (
+                    "Création {}/{} — {}"
+                ).format(index, len(process_rows), row.Key)
+                try:
+                    result = self.controller.generate_full_plan(
+                        housing=row.Housing,
+                        descriptor=descriptor,
+                        template_sheet_unique_id=template.unique_id,
+                        allowed_scales=allowed_scales,
+                    )
+                    created.append(row.Key)
+                    for warning in list(getattr(result, "warnings", []) or []):
+                        warnings.append("{} : {}".format(row.Key, warning))
+                except Exception as error:
+                    failed.append("{} : {}".format(row.Key, error))
+
+            report = (
+                "Créés : {}\nIgnorés multi-niveaux : {}\nÉchecs : {}"
+            ).format(len(created), len(multi), len(failed))
+            if failed:
+                report += "\n\n" + "\n".join(failed[:10])
+            if warnings and self._stage09_options.get("detailed_report", True):
+                report += "\n\nAvertissements :\n" + "\n".join(warnings[:10])
+            forms.alert(report, title="Plans de vente — Rapport")
+            self.Stage09SummaryText.Text = report.replace("\n", " · ")
+            self.Stage09StatusText.Text = "Création terminée."
+        finally:
+            self._stage09_update_create_state()
 
     def Close_Click(self, sender, args):
         self.Close()
