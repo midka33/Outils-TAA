@@ -362,21 +362,16 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             inspection.template_sheet_label
         )
         self.PreviewMainViewText.Text = (
-            "{}
-1:{}".format(
+            "{}\n1:{}".format(
                 inspection.main_view_name or "Vue logement",
                 inspection.reference_scale or "?",
             )
         )
         self.TemplateDetailsText.Text = (
-            "Échelle logement : 1:{}
-"
-            "Nomenclatures : {}
-"
-            "Repérage : {}
-"
-            "Étiquette : {}
-"
+            "Échelle logement : 1:{}\n"
+            "Nomenclatures : {}\n"
+            "Repérage : {}\n"
+            "Étiquette : {}\n"
             "Cote : {}"
         ).format(
             inspection.reference_scale or "?",
@@ -560,9 +555,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         if not processable and multilevel:
             forms.alert(
                 (
-                    "La sélection contient uniquement des logements multi-niveaux.
-
-"
+                    "La sélection contient uniquement des logements multi-niveaux.\n\n"
                     "L'interface et le batch sont en place, mais la génération "
                     "multi-vues sera activée dans la sous-étape 09B. Aucun plan "
                     "incomplet ne sera créé avec ce build."
@@ -582,20 +575,12 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                     pass
 
         message = (
-            "Créer les plans de vente maintenant ?
-
-"
-            "Feuille modèle : {}
-"
-            "Logements correspondant au filtre : {}
-"
-            "Logements mono-niveau traitables : {}
-"
-            "Plans existants à ignorer : {}
-"
-            "Logements multi-niveaux reportés à 09B : {}
-
-"
+            "Créer les plans de vente maintenant ?\n\n"
+            "Feuille modèle : {}\n"
+            "Logements correspondant au filtre : {}\n"
+            "Logements mono-niveau traitables : {}\n"
+            "Plans existants à ignorer : {}\n"
+            "Logements multi-niveaux reportés à 09B : {}\n\n"
             "Chaque logement est généré dans sa propre transaction complète. "
             "Un échec sur un logement n'interrompt pas les suivants."
         ).format(
@@ -721,8 +706,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         elif failures:
             forms.alert(
                 (
-                    "{} plan(s) créé(s).
-"
+                    "{} plan(s) créé(s).\n"
                     "{} logement(s) en échec."
                 ).format(
                     len(created),
@@ -789,8 +773,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 )
 
         forms.alert(
-            "
-".join(lines),
+            "\n".join(lines),
             title="Plans de vente — Rapport de création",
             warn_icon=bool(failures),
         )
