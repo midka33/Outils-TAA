@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b1-sheet-per-level-v2"
+    UI_BUILD = "stage09b1-sheet-per-level-v3"
 
     def __init__(self, controller):
         self.controller = controller
@@ -60,7 +60,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         self._sheet_template_choices = []
         self._sheet_templates_loaded = False
         self._template_inspection = None
-        self._multilevel_mode = "one_sheet"
+        self._multilevel_mode = "sheet_per_level"
         self._busy = False
         self._settings = {
             "skip_existing": True,
