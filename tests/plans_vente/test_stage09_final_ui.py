@@ -96,7 +96,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09a-final-ui-v1"' in main
+    assert 'UI_BUILD = "stage09b1-sheet-per-level-v1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -108,17 +108,17 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"' in full
 
 
-def test_stage09_batch_never_generates_multilevel_housing_in_09a():
+def test_stage09b_sheet_per_level_uses_safe_level_split_and_keeps_multiview_protected():
     text = MAIN_WINDOW.read_text(encoding="utf-8")
     block = text[
         text.index("    def CreateBatch_Click("):
         text.index("    def _run_batch(", text.index("    def CreateBatch_Click("))
     ]
 
-    assert "single_level" in block
-    assert "multilevel" in block
-    assert "processable = single_level" in block
-    assert "09B" in block
+    assert 'self._multilevel_mode == "sheet_per_level"' in block
+    assert "self.controller.split_housing_by_level(housing)" in block
+    assert "deferred_multilevel = multilevel" in block
+    assert "09B.2" in block
 
 
 def test_stage09_advanced_options_expose_only_safe_overrides():
@@ -150,6 +150,7 @@ def test_stage09_controller_services_support_filter_existing_check_and_options()
     full = FULL.read_text(encoding="utf-8")
 
     assert "def filter_housings(" in controller
+    assert "def split_housing_by_level(" in controller
     assert "def filter_housings(" in analysis
     assert "def plan_exists(" in controller
     assert "def plan_exists(" in sheet
