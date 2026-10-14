@@ -215,6 +215,7 @@
                                                   Style="{DynamicResource TAAComboBox}"/>
                                         <ComboBox x:Name="FilterOperatorCombo"
                                                   Grid.Row="2" Grid.Column="2"
+                                                  DisplayMemberPath="label"
                                                   SelectionChanged="FilterChoiceChanged"
                                                   Style="{DynamicResource TAAComboBox}"/>
                                         <TextBox x:Name="FilterValueTextBox"
@@ -292,6 +293,7 @@
                                     <TextBlock Text="Modèle de feuille"
                                                Margin="0,0,0,4"/>
                                     <ComboBox x:Name="SheetTemplateCombo"
+                                              DisplayMemberPath="Label"
                                               DropDownOpened="SheetTemplateDropDownOpened"
                                               SelectionChanged="SheetTemplateChanged"
                                               Style="{DynamicResource TAAComboBox}"/>
