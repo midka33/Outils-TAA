@@ -2,12 +2,12 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.21
-**Statut :** Développement — Étape 07 Assemblage de la feuille  
+**Version :** 1.22
+**Statut :** Développement — Étape 09 Stabilisation interface V1  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-08
+**Date :** 2026-10-14
 
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
@@ -4811,3 +4811,151 @@ deux crops avec une tolérance de 1 mm. Si le cadrage reste différent, le 07D
 arrête la génération au lieu de conserver silencieusement un repérage faux.
 
 **Statut : À retester dans Revit 2025.4.**
+
+
+## Validation 07D
+
+Les essais Revit 2025.4 ont validé la génération complète depuis une feuille
+modèle, y compris sur d'autres niveaux que le logement modèle.
+
+Le build moteur conservé comme base stable est :
+
+```text
+stage07d-template-driven-full-generation-v4
+```
+
+**Étape 07D : VALIDÉE.**
+
+## Étape 09 — Stabilisation de l’interface V1
+
+**Branche :**
+`feature/plans-de-vente-stage09-ui-stabilization`
+
+**Build interface :**
+`stage09a-final-ui-v1`
+
+L'Étape 09 transforme les écrans de prototypes des étapes précédentes en une
+interface destinée à l'utilisation courante en agence.
+
+Le module final est centré uniquement sur la **création** des plans de vente.
+La fonction expérimentale de mise à jour développée séparément en Étape 08
+n'est pas intégrée dans cette branche.
+
+### 09A — Interface principale
+
+La fenêtre principale suit quatre étapes :
+
+1. portée de génération ;
+2. choix de la feuille modèle ;
+3. comportement des logements multi-niveaux ;
+4. création des plans de vente.
+
+La portée de génération permet :
+
+- de traiter tous les logements ;
+- ou de filtrer les logements par un paramètre texte des pièces ;
+- de choisir une condition ;
+- de saisir une valeur de filtre.
+
+Conditions disponibles :
+
+```text
+commence par
+est égal à
+contient
+se termine par
+est différent de
+est vide
+n'est pas vide
+```
+
+Exemple :
+
+```text
+Paramètre : N° Appartement
+Condition : commence par
+Valeur     : A5
+```
+
+Le tableau affiche le nombre de pièces et le nombre de niveaux pour chaque
+logement correspondant.
+
+### Création par lot
+
+Le bouton principal crée tous les logements correspondant à la portée choisie.
+
+Chaque logement réutilise le moteur 07D validé et conserve sa transaction
+globale propre. Ainsi, l'échec d'un logement n'empêche pas le traitement des
+suivants.
+
+Par défaut, les logements possédant déjà une feuille
+`PDV-<Appartement>` sont ignorés afin que cette version reste un outil de
+création et non de mise à jour.
+
+Un rapport final récapitule :
+
+- plans créés ;
+- logements ignorés ;
+- échecs ;
+- avertissements.
+
+### Options avancées
+
+Le bouton **Options avancées** ouvre une fenêtre séparée reprenant la même
+charte graphique Outils TAA.
+
+Réglages actifs en 09A :
+
+- créer uniquement les logements sans plan existant ;
+- paramètre identifiant le logement ;
+- marge de crop ;
+- réduction automatique de l'échelle en cas de collision ;
+- échelles de repli autorisées ;
+- rapport détaillé ;
+- journalisation des avertissements.
+
+Les réglages déduits automatiquement de la feuille modèle restent affichés en
+lecture seule lorsqu'un remplacement manuel n'est pas encore garanti par le
+moteur.
+
+### Charte graphique
+
+La nouvelle interface réutilise la charte commune du module :
+
+- typographie : Segoe UI ;
+- taille de base : 13 ;
+- couleur de mise en avant Tallandier :
+  `TAABrandOrangeBrush = #FA641F` ;
+- fonds, bordures, champs et boutons issus du ResourceDictionary TAA.
+
+La sélection des logements et les actions principales utilisent le orange
+Tallandier demandé.
+
+### Références visuelles
+
+Les deux maquettes approuvées sont conservées dans :
+
+```text
+docs/references/plans-vente/
+├── 09_interface_principale.webp
+├── 09_options_avancees.webp
+└── README.md
+```
+
+Elles constituent la référence d'intention pour la finition WPF.
+
+### Logements multi-niveaux — préparation 09B
+
+L'interface expose dès 09A les trois comportements prévus :
+
+- une feuille par logement avec une vue par niveau ;
+- une feuille par niveau ;
+- ignorer les logements multi-niveaux.
+
+Le moteur 07D actuel reste mono-niveau. Pour éviter de produire une feuille
+fausse ou incomplète, le build 09A signale les logements multi-niveaux et ne
+les génère pas lorsque le mode choisi nécessite plusieurs vues.
+
+La sous-étape **09B** devra implémenter la génération réelle multi-niveaux.
+
+**Statut 09A : À valider dans Revit 2025.4.**
