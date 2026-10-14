@@ -256,6 +256,7 @@ class FullGenerationService(object):
                 "Impossible de déterminer le type de zone remplie du repérage modèle."
             )
 
+        main_template = self._view_template(main_info.view)
         location_template = self._view_template(location_info.view)
         schedule_instances = self._schedule_instances(sheet)
         template_schedule_ids = []
@@ -309,6 +310,14 @@ class FullGenerationService(object):
                         else self.DEFAULT_CROP_MARGIN_MM
                     ),
                     target_scale=inspection.reference_scale,
+                    view_template_unique_id=(
+                        str(
+                            getattr(main_template, "UniqueId", "")
+                            or ""
+                        )
+                        if main_template is not None
+                        else None
+                    ),
                 )
             )
 
