@@ -89,6 +89,11 @@ def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
     assert 'Click="AdvancedOptions_Click"' in xaml
     assert 'DisplayMemberPath="label"' in xaml
     assert 'DisplayMemberPath="Label"' in xaml
+    assert 'Content="1 feuille par logement, 1 vue par niveau — bientôt"' in xaml
+    assert 'x:Name="MultiLevelOneSheetRadio"' in xaml
+    assert 'IsEnabled="False"' in xaml
+    assert 'x:Name="MultiLevelOneSheetPerLevelRadio"' in xaml
+    assert 'IsChecked="True"' in xaml
 
 
 def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
@@ -98,7 +103,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b1-sheet-per-level-v2"' in main
+    assert 'UI_BUILD = "stage09b1-sheet-per-level-v3"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
