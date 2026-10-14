@@ -330,8 +330,9 @@
 
                             <RadioButton x:Name="MultiLevelOneSheetRadio"
                                          Margin="24,14,0,0"
-                                         Content="1 feuille par logement, 1 vue par niveau"
-                                         IsChecked="True"
+                                         Content="1 feuille par logement, 1 vue par niveau — bientôt"
+                                         IsEnabled="False"
+                                         ToolTip="Mode prévu pour l'étape 09B.2."
                                          Checked="MultiLevelModeChanged"/>
                             <Border Margin="46,6,0,6"
                                     Padding="10"
@@ -343,6 +344,7 @@
                             <RadioButton x:Name="MultiLevelOneSheetPerLevelRadio"
                                          Margin="24,2,0,0"
                                          Content="1 feuille par niveau"
+                                         IsChecked="True"
                                          Checked="MultiLevelModeChanged"/>
                             <RadioButton x:Name="MultiLevelIgnoreRadio"
                                          Margin="24,2,0,0"
@@ -350,7 +352,7 @@
                                          Checked="MultiLevelModeChanged"/>
                             <TextBlock x:Name="MultiLevelInfoText"
                                        Margin="46,6,0,0"
-                                       Text="La génération multi-niveaux sera activée dans la sous-étape 09B. Le batch 09A signale ces logements sans créer de résultat incorrect."
+                                       Text="09B.1 actif : le module peut créer une feuille distincte pour chaque niveau. Le mode « 1 feuille par logement, 1 vue par niveau » sera activé en 09B.2."
                                        Foreground="{DynamicResource TAABrandOrangeBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
