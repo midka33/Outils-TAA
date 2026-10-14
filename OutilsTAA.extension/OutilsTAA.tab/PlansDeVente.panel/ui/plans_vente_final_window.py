@@ -404,7 +404,12 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         )
 
     def MultiLevelModeChanged(self, sender, args):
-        if not hasattr(self, "MultiLevelOneSheetRadio"):
+        required = (
+            "MultiLevelOneSheetRadio",
+            "MultiLevelOneSheetPerLevelRadio",
+            "MultiLevelIgnoreRadio",
+        )
+        if not all(hasattr(self, name) for name in required):
             return
 
         if bool(self.MultiLevelIgnoreRadio.IsChecked):
