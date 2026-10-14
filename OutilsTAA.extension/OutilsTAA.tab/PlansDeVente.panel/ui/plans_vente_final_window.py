@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09a-final-ui-v1"
+    UI_BUILD = "stage09b1-sheet-per-level-v1"
 
     def __init__(self, controller):
         self.controller = controller
@@ -451,8 +451,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             details += " {} multi-niveau(x).".format(multilevel)
             if self._multilevel_mode != "ignore":
                 details += (
-                    " Support multi-niveaux prévu en 09B ; ils seront "
-                    "signalés et non générés par le build 09A."
+                    (
+                        " Mode « une feuille par niveau » disponible en 09B.1."
+                        if self._multilevel_mode == "sheet_per_level"
+                        else " Mode multi-vues prévu en 09B.2."
+                    )
                 )
         self.CreationInfoText.Text = details
 
@@ -546,21 +549,33 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             if len(housing.level_names or []) <= 1
         ]
 
+        deferred_multilevel = []
         if self._multilevel_mode == "ignore":
             processable = single_level
+            deferred_multilevel = multilevel
+        elif self._multilevel_mode == "sheet_per_level":
+            processable = list(single_level)
+            for housing in multilevel:
+                processable.extend(
+                    self.controller.split_housing_by_level(housing)
+                )
         else:
-            # Étape 09A : on ne fabrique jamais un résultat incomplet ou faux.
+            # 09B.2 : une seule feuille comportant plusieurs vues logement.
+            # Ce mode reste protégé tant que l'assemblage multi-viewports
+            # n'est pas validé dans Revit.
             processable = single_level
+            deferred_multilevel = multilevel
 
-        if not processable and multilevel:
+        if not processable and deferred_multilevel:
             forms.alert(
                 (
                     "La sélection contient uniquement des logements multi-niveaux.\n\n"
-                    "L'interface et le batch sont en place, mais la génération "
-                    "multi-vues sera activée dans la sous-étape 09B. Aucun plan "
-                    "incomplet ne sera créé avec ce build."
+                    "Le mode « une feuille par niveau » est disponible en 09B.1. "
+                    "Le mode « une feuille par logement, une vue par niveau » "
+                    "sera activé en 09B.2 après validation de l'assemblage "
+                    "multi-viewports."
                 ),
-                title="Plans de vente — Étape 09A",
+                title="Plans de vente — Étape 09B",
                 warn_icon=True,
             )
             return
@@ -578,9 +593,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "Créer les plans de vente maintenant ?\n\n"
             "Feuille modèle : {}\n"
             "Logements correspondant au filtre : {}\n"
-            "Logements mono-niveau traitables : {}\n"
+            "Sorties à générer : {}\n"
             "Plans existants à ignorer : {}\n"
-            "Logements multi-niveaux reportés à 09B : {}\n\n"
+            "Logements multi-niveaux reportés : {}\n\n"
             "Chaque logement est généré dans sa propre transaction complète. "
             "Un échec sur un logement n'interrompt pas les suivants."
         ).format(
@@ -588,7 +603,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             len(selected),
             len(processable),
             existing_count,
-            len(multilevel),
+            len(deferred_multilevel),
         )
 
         confirmed = forms.alert(
@@ -602,14 +617,14 @@ class PlansVenteFinalWindow(forms.WPFWindow):
 
         self._run_batch(
             processable,
-            multilevel,
+            deferred_multilevel,
             template,
         )
 
     def _run_batch(
         self,
         processable,
-        multilevel,
+        deferred_multilevel,
         template,
     ):
         self._busy = True
@@ -678,11 +693,16 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         )
                     )
 
-            for housing in multilevel or []:
-                skipped.append(
-                    "{} : logement multi-niveaux — génération 09B".format(
-                        housing.key
+            for housing in deferred_multilevel or []:
+                if self._multilevel_mode == "ignore":
+                    reason = "logement multi-niveaux ignoré par l'utilisateur"
+                else:
+                    reason = (
+                        "logement multi-niveaux — mode une feuille / plusieurs vues "
+                        "prévu en 09B.2"
                     )
+                skipped.append(
+                    "{} : {}".format(housing.key, reason)
                 )
         finally:
             self._busy = False
