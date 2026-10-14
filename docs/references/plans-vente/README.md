@@ -62,11 +62,18 @@ Implémenté :
 
 ### Étape 09B
 
-À réaliser :
+Implémenté en **09B.1** :
 
-- génération correcte des logements comportant plusieurs niveaux ;
-- une feuille avec une vue par niveau ;
-- option « une feuille par niveau » ;
+- détection des logements comportant plusieurs niveaux ;
+- découpage métier en sous-logements mono-niveau ;
+- option « une feuille par niveau » raccordée au moteur 07D ;
+- conservation de l'identifiant logement original pour les filtres de nomenclatures ;
+- noms de sortie distincts par niveau afin d'éviter les collisions.
+
+À réaliser en **09B.2** :
+
+- une feuille unique avec une vue logement par niveau ;
+- placement multi-viewports dérivé de la feuille modèle ;
 - repérage multi-niveaux adapté.
 
-Le build 09A ne génère volontairement pas de plan multi-niveau incomplet.
+Le mode multi-viewports reste volontairement protégé tant qu'il n'est pas validé dans Revit 2025.4.
