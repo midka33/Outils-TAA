@@ -187,6 +187,25 @@ class SheetAssemblyService(object):
         self.document = document
         self.build_id = SHEET_ASSEMBLY_BUILD
 
+    def plan_exists(self, housing_key):
+        """Retourne True si la feuille finale du logement existe déjà."""
+        from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
+
+        expected_number = "PDV-{}".format(str(housing_key or ""))
+        expected_name = "Plan de vente - {}".format(str(housing_key or ""))
+
+        for sheet in (
+            FilteredElementCollector(self.document)
+            .OfClass(ViewSheet)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        ):
+            if str(getattr(sheet, "SheetNumber", "") or "") == expected_number:
+                return True
+            if str(getattr(sheet, "Name", "") or "") == expected_name:
+                return True
+        return False
+
     def list_sheet_templates(self):
         """Liste toutes les feuilles ; l'utilisateur choisit explicitement.
 
