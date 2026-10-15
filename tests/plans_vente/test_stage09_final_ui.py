@@ -102,7 +102,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b2-one-sheet-multilevel-v1"' in main
+    assert 'UI_BUILD = "stage09b2-one-sheet-multilevel-v2"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -315,3 +315,19 @@ def test_stage09b2_multilevel_engine_contract():
     assert "main_view_unique_ids" in sheet
     assert "placed_main_viewports" in sheet
     assert "all_levels=False" in schedules
+
+
+def test_stage09b2_common_scale_and_non_overlap_layout():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "def _create_common_scale_multilevel_viewports(" in sheet
+    assert "scale_candidates_from_reference(" in sheet
+    assert "horizontal_fits" in sheet
+    assert "vertical_fits" in sheet
+    assert 'layout_mode = "horizontal"' in sheet
+    assert 'layout_mode = "vertical"' in sheet
+    assert "viewport.SetBoxCenter(" in sheet
+    assert "def _rectangle_inside(" in sheet
+    assert "rectangles_overlap(" in sheet
+    assert "échelle commune" in sheet
+    assert "sans chevauchement" in sheet
