@@ -362,18 +362,14 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 "Modèle non exploitable : {}"
             ).format(str(error) or repr(error))
             self.TemplatePreviewTitle.Text = choice.label
+            self._render_template_preview(None)
             self._refresh_creation_state()
             return
 
         self.TemplatePreviewTitle.Text = (
             inspection.template_sheet_label
         )
-        self.PreviewMainViewText.Text = (
-            "{}\n1:{}".format(
-                inspection.main_view_name or "Vue logement",
-                inspection.reference_scale or "?",
-            )
-        )
+        self._render_template_preview(inspection)
         self.TemplateDetailsText.Text = (
             "Échelle logement : 1:{}\n"
             "Nomenclatures : {}\n"
@@ -396,6 +392,109 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self.StatusText.Text = "Feuille modèle prête."
 
         self._refresh_creation_state()
+
+    def TemplatePreviewCanvas_SizeChanged(self, sender, args):
+        if self._template_inspection is not None:
+            self._render_template_preview(self._template_inspection)
+
+    def _render_template_preview(self, inspection):
+        if not hasattr(self, "TemplatePreviewCanvas"):
+            return
+
+        canvas = self.TemplatePreviewCanvas
+        try:
+            canvas.Children.Clear()
+        except Exception:
+            return
+
+        placeholder = getattr(self, "TemplatePreviewPlaceholder", None)
+        if (
+            inspection is None
+            or not getattr(inspection, "preview_bounds", None)
+            or not getattr(inspection, "preview_items", None)
+        ):
+            if placeholder is not None:
+                placeholder.Visibility = 0
+            return
+
+        if placeholder is not None:
+            placeholder.Visibility = 1
+
+        try:
+            width = float(canvas.ActualWidth or 0.0)
+            height = float(canvas.ActualHeight or 0.0)
+        except Exception:
+            return
+        if width <= 10.0 or height <= 10.0:
+            return
+
+        bounds = inspection.preview_bounds
+        if len(bounds) != 4:
+            return
+        min_x, min_y, max_x, max_y = [float(value) for value in bounds]
+        sheet_width = max_x - min_x
+        sheet_height = max_y - min_y
+        if sheet_width <= 0.0 or sheet_height <= 0.0:
+            return
+
+        from System.Windows import Thickness
+        from System.Windows.Controls import Canvas, TextBlock
+        from System.Windows.Media import Brushes
+        from System.Windows.Shapes import Rectangle
+
+        margin = 12.0
+        usable_w = max(1.0, width - (2.0 * margin))
+        usable_h = max(1.0, height - (2.0 * margin))
+        scale = min(usable_w / sheet_width, usable_h / sheet_height)
+        draw_w = sheet_width * scale
+        draw_h = sheet_height * scale
+        origin_x = (width - draw_w) / 2.0
+        origin_y = (height - draw_h) / 2.0
+
+        sheet_rect = Rectangle()
+        sheet_rect.Width = draw_w
+        sheet_rect.Height = draw_h
+        sheet_rect.Stroke = Brushes.LightGray
+        sheet_rect.StrokeThickness = 1.0
+        sheet_rect.Fill = Brushes.White
+        Canvas.SetLeft(sheet_rect, origin_x)
+        Canvas.SetTop(sheet_rect, origin_y)
+        canvas.Children.Add(sheet_rect)
+
+        for item in inspection.preview_items or []:
+            try:
+                item_min_x = float(item.get("min_x"))
+                item_min_y = float(item.get("min_y"))
+                item_max_x = float(item.get("max_x"))
+                item_max_y = float(item.get("max_y"))
+            except Exception:
+                continue
+
+            left = origin_x + ((item_min_x - min_x) * scale)
+            top = origin_y + ((max_y - item_max_y) * scale)
+            item_w = max(4.0, (item_max_x - item_min_x) * scale)
+            item_h = max(4.0, (item_max_y - item_min_y) * scale)
+
+            rect = Rectangle()
+            rect.Width = item_w
+            rect.Height = item_h
+            rect.Stroke = Brushes.Gray
+            rect.StrokeThickness = 1.0
+            rect.Fill = Brushes.Transparent
+            Canvas.SetLeft(rect, left)
+            Canvas.SetTop(rect, top)
+            canvas.Children.Add(rect)
+
+            label = TextBlock()
+            label.Text = str(item.get("label", "") or "")
+            label.FontSize = 10.0
+            label.TextWrapping = 1
+            label.Margin = Thickness(3)
+            label.MaxWidth = max(1.0, item_w - 6.0)
+            label.MaxHeight = max(1.0, item_h - 6.0)
+            Canvas.SetLeft(label, left + 2.0)
+            Canvas.SetTop(label, top + 2.0)
+            canvas.Children.Add(label)
 
     def _selected_sheet_template(self):
         item = self.SheetTemplateCombo.SelectedItem
