@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b1-sheet-per-level-v3"
+    UI_BUILD = "stage09b1-sheet-image-preview-v1"
 
     def __init__(self, controller):
         self.controller = controller
@@ -60,6 +60,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         self._sheet_template_choices = []
         self._sheet_templates_loaded = False
         self._template_inspection = None
+        self._template_preview_path = None
         self._multilevel_mode = "sheet_per_level"
         self._busy = False
         self._settings = {
@@ -362,14 +363,14 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 "Modèle non exploitable : {}"
             ).format(str(error) or repr(error))
             self.TemplatePreviewTitle.Text = choice.label
-            self._render_template_preview(None)
+            self._show_sheet_preview(None, None)
             self._refresh_creation_state()
             return
 
         self.TemplatePreviewTitle.Text = (
             inspection.template_sheet_label
         )
-        self._render_template_preview(inspection)
+        self._export_and_show_sheet_preview(choice, inspection)
         self.TemplateDetailsText.Text = (
             "Échelle logement : 1:{}\n"
             "Nomenclatures : {}\n"
@@ -393,39 +394,139 @@ class PlansVenteFinalWindow(forms.WPFWindow):
 
         self._refresh_creation_state()
 
-    def TemplatePreviewCanvas_SizeChanged(self, sender, args):
+    def TemplatePreviewOverlay_SizeChanged(self, sender, args):
         if self._template_inspection is not None:
-            self._render_template_preview(self._template_inspection)
+            self._render_preview_overlays()
 
-    def _render_template_preview(self, inspection):
-        from System.Windows import FontWeights, Thickness, TextWrapping, Visibility
-        from System.Windows.Controls import Canvas, TextBlock
-        from System.Windows.Media import Brushes
-        from System.Windows.Shapes import Rectangle
+    def ExpectedResultOverlay_SizeChanged(self, sender, args):
+        if self._template_inspection is not None:
+            self._render_preview_overlays()
 
-        if not hasattr(self, "TemplatePreviewCanvas"):
-            return
+    def _export_and_show_sheet_preview(self, choice, inspection):
+        import tempfile
 
-        canvas = self.TemplatePreviewCanvas
         try:
-            canvas.Children.Clear()
-        except Exception:
+            base_name = "OutilsTAA_PDV_preview_{}".format(
+                abs(hash(str(choice.unique_id or "")))
+            )
+            output_base = os.path.join(
+                tempfile.gettempdir(),
+                base_name,
+            )
+            image_path = self.controller.export_sheet_preview(
+                choice.unique_id,
+                output_base,
+            )
+            self._template_preview_path = image_path
+            self._show_sheet_preview(image_path, inspection)
+        except Exception as error:
+            self._template_preview_path = None
+            self._show_sheet_preview(None, inspection)
+            self.StatusText.Text = (
+                "Feuille analysée, mais aperçu image indisponible : {}"
+            ).format(str(error) or repr(error))
+
+    def _show_sheet_preview(self, image_path, inspection):
+        from System.Windows import Visibility
+
+        preview_placeholder = getattr(
+            self,
+            "TemplatePreviewPlaceholder",
+            None,
+        )
+        result_placeholder = getattr(
+            self,
+            "ExpectedResultPlaceholder",
+            None,
+        )
+
+        bitmap = self._load_bitmap(image_path)
+        if bitmap is None:
+            if hasattr(self, "TemplatePreviewImage"):
+                self.TemplatePreviewImage.Source = None
+            if hasattr(self, "ExpectedResultImage"):
+                self.ExpectedResultImage.Source = None
+            if preview_placeholder is not None:
+                preview_placeholder.Visibility = Visibility.Visible
+            if result_placeholder is not None:
+                result_placeholder.Visibility = Visibility.Visible
+            self._clear_preview_overlays()
             return
 
-        placeholder = getattr(self, "TemplatePreviewPlaceholder", None)
+        self.TemplatePreviewImage.Source = bitmap
+        self.ExpectedResultImage.Source = bitmap
+        if preview_placeholder is not None:
+            preview_placeholder.Visibility = Visibility.Collapsed
+        if result_placeholder is not None:
+            result_placeholder.Visibility = Visibility.Collapsed
+        self._render_preview_overlays()
+
+    @staticmethod
+    def _load_bitmap(image_path):
+        if not image_path or not os.path.exists(image_path):
+            return None
+        try:
+            from System import Uri, UriKind
+            from System.Windows.Media.Imaging import (
+                BitmapCacheOption,
+                BitmapImage,
+            )
+
+            bitmap = BitmapImage()
+            bitmap.BeginInit()
+            bitmap.CacheOption = BitmapCacheOption.OnLoad
+            bitmap.UriSource = Uri(
+                os.path.abspath(image_path),
+                UriKind.Absolute,
+            )
+            bitmap.EndInit()
+            bitmap.Freeze()
+            return bitmap
+        except Exception:
+            return None
+
+    def _clear_preview_overlays(self):
+        for name in (
+            "TemplatePreviewOverlay",
+            "ExpectedResultOverlay",
+        ):
+            canvas = getattr(self, name, None)
+            if canvas is None:
+                continue
+            try:
+                canvas.Children.Clear()
+            except Exception:
+                pass
+
+    def _render_preview_overlays(self):
+        inspection = self._template_inspection
         if (
             inspection is None
             or not getattr(inspection, "preview_bounds", None)
             or not getattr(inspection, "preview_items", None)
         ):
-            if placeholder is not None:
-                placeholder.Visibility = Visibility.Visible
+            self._clear_preview_overlays()
             return
 
-        if placeholder is not None:
-            placeholder.Visibility = Visibility.Collapsed
+        self._render_overlay_canvas(
+            self.TemplatePreviewOverlay,
+            inspection,
+            compact=True,
+        )
+        self._render_overlay_canvas(
+            self.ExpectedResultOverlay,
+            inspection,
+            compact=False,
+        )
+
+    def _render_overlay_canvas(self, canvas, inspection, compact=False):
+        from System.Windows import FontWeights, Thickness, TextWrapping
+        from System.Windows.Controls import Canvas, TextBlock
+        from System.Windows.Media import Brushes
+        from System.Windows.Shapes import Rectangle
 
         try:
+            canvas.Children.Clear()
             width = float(canvas.ActualWidth or 0.0)
             height = float(canvas.ActualHeight or 0.0)
         except Exception:
@@ -436,32 +537,29 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         bounds = inspection.preview_bounds
         if len(bounds) != 4:
             return
-        min_x, min_y, max_x, max_y = [float(value) for value in bounds]
+        min_x, min_y, max_x, max_y = [float(v) for v in bounds]
         sheet_width = max_x - min_x
         sheet_height = max_y - min_y
         if sheet_width <= 0.0 or sheet_height <= 0.0:
             return
 
-        margin = 12.0
-        usable_w = max(1.0, width - (2.0 * margin))
-        usable_h = max(1.0, height - (2.0 * margin))
-        scale = min(usable_w / sheet_width, usable_h / sheet_height)
+        scale = min(width / sheet_width, height / sheet_height)
         draw_w = sheet_width * scale
         draw_h = sheet_height * scale
         origin_x = (width - draw_w) / 2.0
         origin_y = (height - draw_h) / 2.0
 
-        sheet_rect = Rectangle()
-        sheet_rect.Width = draw_w
-        sheet_rect.Height = draw_h
-        sheet_rect.Stroke = Brushes.LightGray
-        sheet_rect.StrokeThickness = 1.0
-        sheet_rect.Fill = Brushes.White
-        Canvas.SetLeft(sheet_rect, origin_x)
-        Canvas.SetTop(sheet_rect, origin_y)
-        canvas.Children.Add(sheet_rect)
+        labels = {
+            "main_view": "Vue logement",
+            "location_view": "Repérage",
+            "schedule": "Nomenclature",
+        }
 
         for item in inspection.preview_items or []:
+            kind = str(item.get("kind", "") or "")
+            if kind not in labels:
+                continue
+
             try:
                 item_min_x = float(item.get("min_x"))
                 item_min_y = float(item.get("min_y"))
@@ -475,43 +573,37 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             item_w = max(4.0, (item_max_x - item_min_x) * scale)
             item_h = max(4.0, (item_max_y - item_min_y) * scale)
 
-            kind = str(item.get("kind", "") or "")
-
             rect = Rectangle()
             rect.Width = item_w
             rect.Height = item_h
-            rect.StrokeThickness = 2.0 if kind in (
-                "main_view",
-                "location_view",
-                "schedule",
-            ) else 1.0
-            if kind == "main_view":
-                rect.Stroke = Brushes.OrangeRed
-            elif kind == "location_view":
-                rect.Stroke = Brushes.DarkOrange
-            elif kind == "schedule":
-                rect.Stroke = Brushes.SteelBlue
-            else:
-                rect.Stroke = Brushes.DarkGray
+            rect.StrokeThickness = 3.0 if not compact else 2.0
+            rect.Stroke = (
+                Brushes.OrangeRed
+                if kind == "main_view"
+                else (
+                    Brushes.DarkOrange
+                    if kind == "location_view"
+                    else Brushes.DodgerBlue
+                )
+            )
             rect.Fill = Brushes.Transparent
             Canvas.SetLeft(rect, left)
             Canvas.SetTop(rect, top)
             canvas.Children.Add(rect)
 
+            if compact and item_w < 45.0:
+                continue
+
             label = TextBlock()
-            label.Text = str(item.get("label", "") or "")
-            label.FontSize = 10.0
-            label.FontWeight = (
-                FontWeights.SemiBold
-                if kind in ("main_view", "location_view", "schedule")
-                else FontWeights.Normal
-            )
-            label.TextWrapping = TextWrapping.Wrap
-            label.Margin = Thickness(3)
-            label.MaxWidth = max(1.0, item_w - 6.0)
-            label.MaxHeight = max(1.0, item_h - 6.0)
-            Canvas.SetLeft(label, left + 2.0)
-            Canvas.SetTop(label, top + 2.0)
+            label.Text = labels[kind]
+            label.FontSize = 11.0
+            label.FontWeight = FontWeights.SemiBold
+            label.Foreground = rect.Stroke
+            label.Background = Brushes.White
+            label.Padding = Thickness(3, 1, 3, 1)
+            label.TextWrapping = TextWrapping.NoWrap
+            Canvas.SetLeft(label, left + 3.0)
+            Canvas.SetTop(label, max(0.0, top - 20.0))
             canvas.Children.Add(label)
 
     def _selected_sheet_template(self):
