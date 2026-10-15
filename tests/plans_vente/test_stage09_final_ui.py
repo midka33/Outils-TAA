@@ -272,3 +272,17 @@ def test_stage09b_multiple_levels_are_all_written_to_floor_field():
 
     assert "def _floor_numbers(" in full
     assert 'result["floor"] = " / ".join(floors)' in full
+
+
+def test_stage09_template_preview_uses_real_sheet_layout():
+    xaml = MAIN_XAML.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+
+    assert 'x:Name="TemplatePreviewCanvas"' in xaml
+    assert 'SizeChanged="TemplatePreviewCanvas_SizeChanged"' in xaml
+    assert "def _render_template_preview(" in main
+    assert "inspection.preview_items" in main
+    assert "def _sheet_preview_bounds(" in full
+    assert "def _sheet_preview_items(" in full
+    assert '"kind": "schedule"' in full
