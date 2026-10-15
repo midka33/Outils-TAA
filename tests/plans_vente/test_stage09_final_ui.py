@@ -135,6 +135,8 @@ def test_stage09_advanced_options_expose_only_safe_overrides():
     for name in (
         "SkipExistingCheckBox",
         "HousingParameterCombo",
+        "BuildingParameterCombo",
+        "TypologyParameterCombo",
         "CropMarginTextBox",
         "AutoScaleCheckBox",
         "AllowedScalesTextBox",
@@ -233,3 +235,24 @@ def test_stage09b_cartouche_receives_room_metadata():
     assert '("building", ("Bâtiment", "Batiment"), "Bâtiment")' in sheet
     assert '("floor", ("Étage", "Etage"), "Étage")' in sheet
     assert '("typology", ("Zone",), "Typologie (paramètre cartouche Zone)")' in sheet
+
+
+def test_stage09b_cartouche_parameter_sources_are_user_configurable():
+    advanced_xaml = ADVANCED_XAML.read_text(encoding="utf-8")
+    advanced = ADVANCED_WINDOW.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+
+    assert 'x:Name="BuildingParameterCombo"' in advanced_xaml
+    assert 'x:Name="TypologyParameterCombo"' in advanced_xaml
+    assert '"building_parameter_name"' in advanced
+    assert '"typology_parameter_name"' in advanced
+    assert '"building_parameter_name"' in main
+    assert '"typology_parameter_name"' in main
+    assert "building_parameter_name=" in controller
+    assert "typology_parameter_name=" in controller
+    assert "building_parameter_name=" in full
+    assert "typology_parameter_name=" in full
+    assert "def _floor_number(" in full
+    assert 'return "0"' in full
