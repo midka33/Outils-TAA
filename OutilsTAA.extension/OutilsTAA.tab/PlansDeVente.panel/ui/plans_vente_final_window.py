@@ -69,6 +69,8 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "allowed_scales": [50, 75, 100, 125, 150],
             "detailed_report": True,
             "log_warnings": True,
+            "building_parameter_name": "",
+            "typology_parameter_name": "",
         }
 
         current_dir = os.path.dirname(__file__)
@@ -679,6 +681,14 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         auto_fit_main_view=self._settings.get(
                             "auto_scale",
                             True,
+                        ),
+                        building_parameter_name=self._settings.get(
+                            "building_parameter_name",
+                            "",
+                        ),
+                        typology_parameter_name=self._settings.get(
+                            "typology_parameter_name",
+                            "",
                         ),
                     )
                     created.append(result)
