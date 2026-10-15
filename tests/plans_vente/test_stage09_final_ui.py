@@ -204,3 +204,16 @@ def test_stage09b_generated_view_reuses_template_main_view_graphics():
     assert "view_template_unique_id=None" in prototype
     assert "master_view.ViewTemplateId = view_template.Id" in prototype
     assert "view_template_unique_id=view_template_unique_id" in prototype
+
+
+def test_stage09b_sheet_cartouche_uses_business_housing_value():
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert 'housing_display_value=(' in full
+    assert 'getattr(housing, "filter_key", None)' in full
+    assert 'housing_parameter_name=str(' in full
+    assert "def _write_housing_display_value(" in sheet
+    assert "target.LookupParameter(name)" in sheet
+    assert "parameter.Set(value)" in sheet
+    assert "Numéro de feuille" in sheet
