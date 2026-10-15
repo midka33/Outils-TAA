@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.23
+**Version :** 1.24
 **Statut :** Développement — Étape 09 Stabilisation interface V1  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -5029,4 +5029,43 @@ plusieurs viewports logement sur une seule feuille, tout en conservant :
 Tant que cet assemblage multi-viewports n'est pas validé, sélectionner ce mode
 ne crée jamais une feuille partielle.
 
-**Statut 09B.2 : prochaine sous-étape.**
+**Statut 09B.2 : implémenté, À TESTER dans Revit 2025.4.**
+
+### Comportement 09B.2 implémenté
+
+Le mode suivant est maintenant activé dans l'interface :
+
+```text
+1 feuille par logement, 1 vue par niveau
+```
+
+Pour un logement multi-niveaux, le moteur :
+
+1. découpe temporairement le logement par niveau ;
+2. génère une vue logement par niveau ;
+3. crée les étiquettes et cotations propres à chaque vue ;
+4. conserve une seule série de nomenclatures, filtrées sur le logement complet ;
+5. crée un repérage unique basé sur le niveau bas ;
+6. crée une seule feuille `PDV-<Appartement>` ;
+7. place les vues logement côte à côte dans la zone occupée par la vue logement de la feuille modèle ;
+8. réduit l'échelle uniquement si une collision est détectée, selon les règles 07C ;
+9. renseigne le champ Niveau du cartouche avec tous les étages représentés, par exemple `0 / 1`.
+
+Le mode 09B.1 « une feuille par niveau » reste disponible sans modification.
+
+### Aperçu image de la feuille modèle
+
+L'interface Étape 09 utilise désormais un export PNG temporaire de la vraie feuille Revit sélectionnée.
+
+Deux vues de cette image sont affichées :
+
+- **Aperçu du modèle de feuille** ;
+- **Résultat attendu**.
+
+Les éléments recréés par le moteur sont mis en évidence par surcouche :
+
+- vue logement ;
+- nomenclatures ;
+- repérage.
+
+En cas d'échec de l'export image, l'interface conserve un message de repli sans bloquer la génération.
