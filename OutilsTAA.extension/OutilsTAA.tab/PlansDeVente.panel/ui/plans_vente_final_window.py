@@ -414,11 +414,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             or not getattr(inspection, "preview_items", None)
         ):
             if placeholder is not None:
-                placeholder.Visibility = 0
+                placeholder.Visibility = Visibility.Visible
             return
 
         if placeholder is not None:
-            placeholder.Visibility = 1
+            placeholder.Visibility = Visibility.Collapsed
 
         try:
             width = float(canvas.ActualWidth or 0.0)
@@ -437,7 +437,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         if sheet_width <= 0.0 or sheet_height <= 0.0:
             return
 
-        from System.Windows import Thickness
+        from System.Windows import Thickness, TextWrapping, Visibility
         from System.Windows.Controls import Canvas, TextBlock
         from System.Windows.Media import Brushes
         from System.Windows.Shapes import Rectangle
@@ -488,7 +488,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             label = TextBlock()
             label.Text = str(item.get("label", "") or "")
             label.FontSize = 10.0
-            label.TextWrapping = 1
+            label.TextWrapping = TextWrapping.Wrap
             label.Margin = Thickness(3)
             label.MaxWidth = max(1.0, item_w - 6.0)
             label.MaxHeight = max(1.0, item_h - 6.0)
