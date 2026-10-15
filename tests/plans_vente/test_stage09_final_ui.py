@@ -265,3 +265,10 @@ def test_stage09b_floor_comes_from_generated_main_view():
     assert "def _main_view_level_name(" in full
     assert 'getattr(view, "GenLevel", None)' in full
     assert "def _lowest_level_name(" in full
+
+
+def test_stage09b_multiple_levels_are_all_written_to_floor_field():
+    full = FULL.read_text(encoding="utf-8")
+
+    assert "def _floor_numbers(" in full
+    assert 'result["floor"] = " / ".join(floors)' in full
