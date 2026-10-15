@@ -443,11 +443,58 @@
                                 BorderThickness="1"
                                 CornerRadius="4">
                             <Grid Margin="18">
-                                <Canvas x:Name="TemplatePreviewCanvas"
-                                        Background="White"
-                                        SizeChanged="TemplatePreviewCanvas_SizeChanged"/>
-                                <TextBlock x:Name="TemplatePreviewPlaceholder"
-                                           Text="Sélectionnez une feuille modèle pour afficher sa mise en page."
+                                <Border Background="White"
+                                        BorderBrush="{DynamicResource TAABorderBrush}"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Image x:Name="TemplatePreviewImage"
+                                               Stretch="Uniform"/>
+                                        <Canvas x:Name="TemplatePreviewOverlay"
+                                                IsHitTestVisible="False"
+                                                SizeChanged="TemplatePreviewOverlay_SizeChanged"/>
+                                        <TextBlock x:Name="TemplatePreviewPlaceholder"
+                                                   Text="Sélectionnez une feuille modèle pour afficher son image."
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Margin="40"
+                                                   Style="{DynamicResource TAASecondaryText}"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Style="{StaticResource PDVCard}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Résultat attendu"
+                                       FontSize="17"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="La feuille modèle sert de base. Les éléments encadrés seront recréés pour le logement."
+                                       Margin="0,3,0,0"
+                                       Style="{DynamicResource TAASecondaryText}"/>
+                        </StackPanel>
+                        <Border Grid.Row="2"
+                                Background="White"
+                                BorderBrush="{DynamicResource TAABorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <Grid>
+                                <Image x:Name="ExpectedResultImage"
+                                       Stretch="Uniform"/>
+                                <Canvas x:Name="ExpectedResultOverlay"
+                                        IsHitTestVisible="False"
+                                        SizeChanged="ExpectedResultOverlay_SizeChanged"/>
+                                <TextBlock x:Name="ExpectedResultPlaceholder"
+                                           Text="L'aperçu du résultat apparaîtra après sélection d'une feuille modèle."
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            TextAlignment="Center"
@@ -457,85 +504,6 @@
                             </Grid>
                         </Border>
                     </Grid>
-                </Border>
-
-                <Border Grid.Row="2" Style="{StaticResource PDVCard}">
-                    <StackPanel>
-                        <TextBlock Text="Résultat attendu"
-                                   FontSize="17"
-                                   FontWeight="SemiBold"/>
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="10"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="10"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <Border Grid.Column="0" BorderBrush="{DynamicResource TAABorderBrush}"
-                                    BorderThickness="1" CornerRadius="4" Padding="10">
-                                <StackPanel>
-                                    <Border Height="120" Background="#F7F7F7">
-                                        <TextBlock Text="PLAN"
-                                                   FontSize="20"
-                                                   Foreground="{DynamicResource TAASecondaryTextBrush}"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
-                                    </Border>
-                                    <TextBlock Text="Vue logement — niveau bas"
-                                               Margin="0,8,0,0"
-                                               HorizontalAlignment="Center"/>
-                                    <TextBlock Text="échelle modèle ou adaptée"
-                                               HorizontalAlignment="Center"
-                                               Style="{DynamicResource TAASecondaryText}"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Grid.Column="2" BorderBrush="{DynamicResource TAABorderBrush}"
-                                    BorderThickness="1" CornerRadius="4" Padding="10">
-                                <StackPanel>
-                                    <Border Height="120" Background="#F7F7F7">
-                                        <TextBlock Text="PLAN"
-                                                   FontSize="20"
-                                                   Foreground="{DynamicResource TAASecondaryTextBrush}"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
-                                    </Border>
-                                    <TextBlock Text="Vue logement — niveau haut"
-                                               Margin="0,8,0,0"
-                                               HorizontalAlignment="Center"/>
-                                    <TextBlock Text="si logement multi-niveaux"
-                                               HorizontalAlignment="Center"
-                                               Style="{DynamicResource TAASecondaryText}"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Grid.Column="4" BorderBrush="{DynamicResource TAABorderBrush}"
-                                    BorderThickness="1" CornerRadius="4" Padding="10">
-                                <StackPanel>
-                                    <Border Height="120" Background="#F7F7F7">
-                                        <Grid>
-                                            <Rectangle Width="70" Height="70"
-                                                       Fill="#D9D9D9"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"/>
-                                            <Rectangle Width="28" Height="28"
-                                                       Fill="{DynamicResource TAABrandOrangeBrush}"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                    <TextBlock Text="Repérage du niveau"
-                                               Margin="0,8,0,0"
-                                               HorizontalAlignment="Center"/>
-                                    <TextBlock Text="même cadrage que le modèle"
-                                               HorizontalAlignment="Center"
-                                               Style="{DynamicResource TAASecondaryText}"/>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                    </StackPanel>
                 </Border>
             </Grid>
         </Grid>
