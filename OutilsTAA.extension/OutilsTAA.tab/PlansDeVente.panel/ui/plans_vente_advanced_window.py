@@ -20,6 +20,8 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
         "allowed_scales": [50, 75, 100, 125, 150],
         "detailed_report": True,
         "log_warnings": True,
+        "building_parameter_name": "",
+        "typology_parameter_name": "",
     }
 
     def __init__(
@@ -72,6 +74,15 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
             self._descriptor_index(self.active_descriptor)
         )
 
+        self.BuildingParameterCombo.ItemsSource = self.parameter_choices
+        self.BuildingParameterCombo.SelectedIndex = self._parameter_name_index(
+            self.settings.get("building_parameter_name", "")
+        )
+        self.TypologyParameterCombo.ItemsSource = self.parameter_choices
+        self.TypologyParameterCombo.SelectedIndex = self._parameter_name_index(
+            self.settings.get("typology_parameter_name", "")
+        )
+
         self.BatchModeCombo.ItemsSource = ["Par lot"]
         self.BatchModeCombo.SelectedIndex = 0
 
@@ -113,6 +124,31 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
             ):
                 return index
         return 0
+
+    def _parameter_name_index(self, name):
+        target = str(name or "").strip().lower()
+        if not target:
+            return -1
+        for index, choice in enumerate(self.parameter_choices):
+            descriptor = getattr(choice, "descriptor", None)
+            candidate = str(
+                getattr(descriptor, "name", "") or ""
+            ).strip().lower()
+            if candidate == target:
+                return index
+        return -1
+
+    @staticmethod
+    def _selected_parameter_name(combo):
+        item = combo.SelectedItem
+        descriptor = (
+            getattr(item, "descriptor", None)
+            if item is not None
+            else None
+        )
+        return str(
+            getattr(descriptor, "name", "") or ""
+        ).strip()
 
     def Reset_Click(self, sender, args):
         self.settings = dict(self.DEFAULTS)
@@ -179,6 +215,12 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
             ),
             "log_warnings": bool(
                 self.LogWarningsCheckBox.IsChecked
+            ),
+            "building_parameter_name": self._selected_parameter_name(
+                self.BuildingParameterCombo
+            ),
+            "typology_parameter_name": self._selected_parameter_name(
+                self.TypologyParameterCombo
             ),
         }
         self.accepted = True
