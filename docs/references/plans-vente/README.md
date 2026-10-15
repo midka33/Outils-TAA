@@ -70,10 +70,15 @@ Implémenté en **09B.1** :
 - conservation de l'identifiant logement original pour les filtres de nomenclatures ;
 - noms de sortie distincts par niveau afin d'éviter les collisions.
 
-À réaliser en **09B.2** :
+Implémenté en **09B.2** — à tester dans Revit 2025.4 :
 
 - une feuille unique avec une vue logement par niveau ;
-- placement multi-viewports dérivé de la feuille modèle ;
-- repérage multi-niveaux adapté.
+- vues de niveau placées côte à côte dans la zone de la vue logement modèle ;
+- échelle modèle conservée tant qu'il n'y a pas de collision ;
+- une seule série de nomenclatures globales au logement ;
+- repérage unique basé sur le niveau bas ;
+- champ Niveau du cartouche renseigné avec tous les niveaux représentés (ex. `0 / 1`).
 
-Le mode multi-viewports reste volontairement protégé tant qu'il n'est pas validé dans Revit 2025.4.
+### Aperçu de feuille
+
+L'interface utilise maintenant une image PNG temporaire exportée directement depuis la feuille Revit choisie. La vue logement, les nomenclatures et le repérage sont mis en évidence par une surcouche. Le même principe est utilisé dans la zone « Résultat attendu » afin d'éviter les anciens schémas abstraits.
