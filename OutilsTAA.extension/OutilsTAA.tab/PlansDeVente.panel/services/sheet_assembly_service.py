@@ -1162,17 +1162,12 @@ class SheetAssemblyService(object):
                     raise ValueError("layout-does-not-fit")
 
                 if horizontal_fits and vertical_fits:
-                    horizontal_fill = max(
-                        horizontal_width / zone_w,
-                        horizontal_height / zone_h,
-                    )
-                    vertical_fill = max(
-                        vertical_width / zone_w,
-                        vertical_height / zone_h,
-                    )
+                    # Quand les deux dispositions sont possibles, suivre la
+                    # forme de la zone logement du modèle : paysage =
+                    # gauche/droite, portrait = haut/bas.
                     layout_mode = (
                         "horizontal"
-                        if horizontal_fill <= vertical_fill
+                        if zone_w >= zone_h
                         else "vertical"
                     )
                 elif horizontal_fits:
