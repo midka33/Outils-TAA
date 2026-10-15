@@ -210,6 +210,8 @@ class FullGenerationService(object):
         allowed_scales=None,
         crop_margin_mm=None,
         auto_fit_main_view=True,
+        building_parameter_name="",
+        typology_parameter_name="",
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -278,7 +280,11 @@ class FullGenerationService(object):
                 )
             )
 
-        room_metadata, metadata_warnings = self._room_metadata(housing)
+        room_metadata, metadata_warnings = self._room_metadata(
+            housing,
+            building_parameter_name=building_parameter_name,
+            typology_parameter_name=typology_parameter_name,
+        )
 
         warnings = []
         warnings.extend(inspection.warnings)
@@ -445,7 +451,12 @@ class FullGenerationService(object):
             warnings=warnings,
         )
 
-    def _room_metadata(self, housing):
+    def _room_metadata(
+        self,
+        housing,
+        building_parameter_name="",
+        typology_parameter_name="",
+    ):
         """Lit les informations de cartouche depuis les pièces du logement."""
         rooms = []
         for unique_id in list(
@@ -461,19 +472,19 @@ class FullGenerationService(object):
         warnings = []
         result = {}
 
-        mappings = (
-            ("building", ("Bâtiment", "Batiment")),
-            ("floor", ("Étage", "Etage", "Niveau")),
-            ("typology", ("Typologie", "Type de logement", "Zone")),
+        sources = (
+            ("building", building_parameter_name, "Bâtiment"),
+            ("typology", typology_parameter_name, "Typologie"),
         )
 
-        for key, aliases in mappings:
+        for key, parameter_name, label in sources:
+            name = str(parameter_name or "").strip()
+            if not name:
+                continue
+
             values = []
             for room in rooms:
-                value = self._first_room_parameter_value(
-                    room,
-                    aliases,
-                )
+                value = self._room_parameter_value(room, name)
                 if value and value not in values:
                     values.append(value)
 
@@ -482,44 +493,74 @@ class FullGenerationService(object):
             elif len(values) > 1:
                 warnings.append(
                     "09B : plusieurs valeurs trouvées dans les pièces pour "
-                    "{} : {}. Le cartouche n'a pas été renseigné pour ce champ."
-                    .format(
-                        "/".join(aliases),
+                    "{} (paramètre « {} ») : {}. Le cartouche n'a pas été "
+                    "renseigné pour ce champ.".format(
+                        label,
+                        name,
                         ", ".join(values),
                     )
                 )
 
-        if not result.get("floor"):
-            levels = list(getattr(housing, "level_names", []) or [])
-            if len(levels) == 1:
-                result["floor"] = levels[0]
+        levels = list(getattr(housing, "level_names", []) or [])
+        if len(levels) == 1:
+            floor = self._floor_number(levels[0])
+            if floor != "":
+                result["floor"] = floor
+            else:
+                warnings.append(
+                    "09B : impossible d'extraire le numéro d'étage depuis "
+                    "le niveau Revit « {} ».".format(levels[0])
+                )
 
         return result, warnings
 
     @staticmethod
-    def _first_room_parameter_value(room, aliases):
-        for name in aliases or []:
-            try:
-                parameter = room.LookupParameter(name)
-            except Exception:
-                parameter = None
-            if parameter is None:
-                continue
+    def _room_parameter_value(room, name):
+        try:
+            parameter = room.LookupParameter(name)
+        except Exception:
+            parameter = None
+        if parameter is None:
+            return ""
 
+        value = ""
+        try:
+            value = parameter.AsString() or ""
+        except Exception:
             value = ""
+        if not value:
             try:
-                value = parameter.AsString() or ""
+                value = parameter.AsValueString() or ""
             except Exception:
                 value = ""
-            if not value:
-                try:
-                    value = parameter.AsValueString() or ""
-                except Exception:
-                    value = ""
-            value = str(value or "").strip()
-            if value:
-                return value
-        return ""
+        return str(value or "").strip()
+
+    @staticmethod
+    def _floor_number(level_name):
+        import re
+
+        text = str(level_name or "").strip()
+        if not text:
+            return ""
+
+        lowered = text.lower()
+        if (
+            "rdc" in lowered
+            or "rez-de-chaussée" in lowered
+            or "rez de chaussée" in lowered
+            or "rez-de-chaussee" in lowered
+            or "rez de chaussee" in lowered
+        ):
+            return "0"
+
+        match = re.search(r"[-+]?\d+", text)
+        if not match:
+            return ""
+
+        try:
+            return str(int(match.group(0)))
+        except Exception:
+            return match.group(0).lstrip("+")
 
     def _classify_viewports(self, sheet):
         infos = []
