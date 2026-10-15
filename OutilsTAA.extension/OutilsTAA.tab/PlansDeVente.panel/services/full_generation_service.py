@@ -412,6 +412,13 @@ class FullGenerationService(object):
                 schedule_bindings=bindings,
                 auto_fit_main_view=bool(auto_fit_main_view),
                 allowed_scales=allowed_scales,
+                housing_display_value=(
+                    getattr(housing, "filter_key", None)
+                    or housing.key
+                ),
+                housing_parameter_name=str(
+                    getattr(descriptor, "name", "") or ""
+                ),
             )
             warnings.extend(sheet_result.warnings)
 
