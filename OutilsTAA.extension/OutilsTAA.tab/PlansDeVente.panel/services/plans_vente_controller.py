@@ -328,6 +328,30 @@ class PlansVenteController(object):
             typology_parameter_name=typology_parameter_name,
         )
 
+    def generate_multilevel_one_sheet(
+        self,
+        housing,
+        descriptor,
+        template_sheet_unique_id,
+        allowed_scales=None,
+        crop_margin_mm=None,
+        auto_fit_main_view=True,
+        building_parameter_name="",
+        typology_parameter_name="",
+    ):
+        if self.full_generation_service is None:
+            raise RuntimeError("Service de génération complète 07D indisponible.")
+        return self.full_generation_service.generate_multilevel_one_sheet(
+            housing=housing,
+            descriptor=descriptor,
+            template_sheet_unique_id=template_sheet_unique_id,
+            allowed_scales=allowed_scales,
+            crop_margin_mm=crop_margin_mm,
+            auto_fit_main_view=auto_fit_main_view,
+            building_parameter_name=building_parameter_name,
+            typology_parameter_name=typology_parameter_name,
+        )
+
     def full_generation_build_id(self):
         if self.full_generation_service is None:
             return "full-generation-service-indisponible"
