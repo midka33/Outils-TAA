@@ -596,6 +596,18 @@ class FullGenerationService(object):
             )
 
         level_housings = list(split_housing_by_level(housing) or [])
+        try:
+            level_housings.sort(
+                key=lambda item: int(
+                    self._floor_number(
+                        (item.level_names or [""])[0]
+                    )
+                    or 9999
+                )
+            )
+        except Exception:
+            pass
+
         if len(level_housings) < 2:
             return self.generate(
                 housing=housing,
