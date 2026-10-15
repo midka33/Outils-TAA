@@ -256,3 +256,12 @@ def test_stage09b_cartouche_parameter_sources_are_user_configurable():
     assert "typology_parameter_name=" in full
     assert "def _floor_number(" in full
     assert 'return "0"' in full
+
+
+def test_stage09b_floor_comes_from_generated_main_view():
+    full = FULL.read_text(encoding="utf-8")
+
+    assert "main_view_unique_id=main_result.view_unique_id" in full
+    assert "def _main_view_level_name(" in full
+    assert 'getattr(view, "GenLevel", None)' in full
+    assert "def _lowest_level_name(" in full
