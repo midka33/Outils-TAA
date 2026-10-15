@@ -53,3 +53,14 @@ def test_generated_level_key_does_not_change_schedule_filter_key():
         "A101-Niveau-01",
         "A101-Niveau-02",
     }
+
+
+def test_multilevel_schedule_contract_keeps_business_key_for_all_levels():
+    housing = Housing(
+        "A101",
+        [room("1", "RDC"), room("2", "R+1")],
+    )
+    result = split_housing_by_level(housing)
+
+    assert all(item.filter_key == "A101" for item in result)
+    assert all(item.key != item.filter_key for item in result)
