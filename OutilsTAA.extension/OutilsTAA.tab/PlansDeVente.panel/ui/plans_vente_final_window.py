@@ -398,6 +398,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self._render_template_preview(self._template_inspection)
 
     def _render_template_preview(self, inspection):
+        from System.Windows import Thickness, TextWrapping, Visibility
+        from System.Windows.Controls import Canvas, TextBlock
+        from System.Windows.Media import Brushes
+        from System.Windows.Shapes import Rectangle
+
         if not hasattr(self, "TemplatePreviewCanvas"):
             return
 
@@ -436,11 +441,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         sheet_height = max_y - min_y
         if sheet_width <= 0.0 or sheet_height <= 0.0:
             return
-
-        from System.Windows import Thickness, TextWrapping, Visibility
-        from System.Windows.Controls import Canvas, TextBlock
-        from System.Windows.Media import Brushes
-        from System.Windows.Shapes import Rectangle
 
         margin = 12.0
         usable_w = max(1.0, width - (2.0 * margin))
