@@ -458,6 +458,7 @@ class FullGenerationService(object):
         housing,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_unique_id=None,
     ):
         """Lit les informations de cartouche depuis les pièces du logement."""
         rooms = []
