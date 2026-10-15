@@ -492,6 +492,8 @@ class SheetAssemblyService(object):
         schedule_bindings,
         auto_fit_main_view=True,
         allowed_scales=None,
+        housing_display_value=None,
+        housing_parameter_name=None,
     ):
         """07D : assemble la feuille avec N nomenclatures issues du modèle."""
         if housing is None:
@@ -612,6 +614,18 @@ class SheetAssemblyService(object):
 
             sheet.SheetNumber = sheet_number
             sheet.Name = sheet_name
+
+            display_warning = self._write_housing_display_value(
+                sheet=sheet,
+                housing_value=(
+                    housing_display_value
+                    if housing_display_value is not None
+                    else getattr(housing, "filter_key", None) or housing.key
+                ),
+                parameter_name=housing_parameter_name,
+            )
+            if display_warning:
+                fit_warnings.append(display_warning)
 
             location_viewport = Viewport.Create(
                 self.document,
@@ -881,6 +895,63 @@ class SheetAssemblyService(object):
             interior_schedule_name=str(getattr(interior, "Name", "") or ""),
             exterior_schedule_name=str(getattr(exterior, "Name", "") or ""),
         )
+
+    def _write_housing_display_value(
+        self,
+        sheet,
+        housing_value,
+        parameter_name,
+    ):
+        """Écrit l'identifiant métier du logement sur la feuille/cartouche.
+
+        Le numéro de feuille reste technique et unique. Le champ affiché dans
+        le cartouche doit utiliser un paramètre dédié (par exemple
+        « N° Appartement ») afin que plusieurs feuilles d'un même logement
+        puissent afficher la même valeur.
+        """
+        name = str(parameter_name or "").strip()
+        value = str(housing_value or "").strip()
+        if not name or not value:
+            return None
+
+        targets = [sheet]
+
+        try:
+            from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
+            title_blocks = list(
+                FilteredElementCollector(self.document, sheet.Id)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            )
+            targets.extend(title_blocks)
+        except Exception:
+            pass
+
+        written = 0
+        for target in targets:
+            try:
+                parameter = target.LookupParameter(name)
+            except Exception:
+                parameter = None
+            if parameter is None:
+                continue
+            try:
+                if bool(getattr(parameter, "IsReadOnly", False)):
+                    continue
+                if parameter.Set(value):
+                    written += 1
+            except Exception:
+                continue
+
+        if written:
+            return None
+
+        return (
+            "09B : le paramètre « {} » n'existe pas en écriture sur la "
+            "feuille/cartouche. Le champ LOGEMENT N° doit utiliser ce "
+            "paramètre dédié au lieu de Numéro de feuille."
+        ).format(name)
 
     def _validate_placeable_view(self, view, role_label):
         from Autodesk.Revit.DB import FilteredElementCollector, Viewport
