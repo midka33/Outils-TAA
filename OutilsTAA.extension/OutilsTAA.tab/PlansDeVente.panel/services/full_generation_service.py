@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
+from plans_vente.multilevel import split_housing_by_level
+
 FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"
 
 
@@ -571,6 +573,302 @@ class FullGenerationService(object):
             schedule_result=schedule_result,
             tag_result=tag_result,
             dimension_result=dimension_result,
+            warnings=warnings,
+        )
+
+    def generate_multilevel_one_sheet(
+        self,
+        housing,
+        descriptor,
+        template_sheet_unique_id,
+        allowed_scales=None,
+        crop_margin_mm=None,
+        auto_fit_main_view=True,
+        building_parameter_name="",
+        typology_parameter_name="",
+    ):
+        """09B.2 : génère une feuille unique avec une vue logement par niveau."""
+        if housing is None:
+            raise ValueError("Sélectionnez un logement.")
+        if descriptor is None:
+            raise ValueError(
+                "Choisissez et analysez d'abord le paramètre logement."
+            )
+
+        level_housings = list(split_housing_by_level(housing) or [])
+        if len(level_housings) < 2:
+            return self.generate(
+                housing=housing,
+                descriptor=descriptor,
+                template_sheet_unique_id=template_sheet_unique_id,
+                allowed_scales=allowed_scales,
+                crop_margin_mm=crop_margin_mm,
+                auto_fit_main_view=auto_fit_main_view,
+                building_parameter_name=building_parameter_name,
+                typology_parameter_name=typology_parameter_name,
+            )
+
+        inspection = self.inspect_template(
+            template_sheet_unique_id,
+            descriptor,
+        )
+        sheet = self._get_element(
+            inspection.template_sheet_unique_id,
+            "La feuille modèle n'existe plus.",
+        )
+        main_info, location_info, classifier_warnings = (
+            self._classify_viewports(sheet)
+        )
+
+        tag_type = self._dominant_element_type(
+            main_info.view,
+            "OST_RoomTags",
+        )
+        dimension_type = self._dominant_element_type(
+            main_info.view,
+            "OST_Dimensions",
+        )
+        fill_type = self._filled_region_type(location_info.view)
+        if fill_type is None:
+            raise ValueError(
+                "Impossible de déterminer le type de zone remplie du repérage modèle."
+            )
+
+        main_template = self._view_template(main_info.view)
+        location_template = self._view_template(location_info.view)
+        schedule_instances = self._schedule_instances(sheet)
+        template_schedule_ids = []
+        instance_to_template = []
+
+        for instance in schedule_instances:
+            schedule = self.document.GetElement(instance.ScheduleId)
+            if schedule is None:
+                continue
+            schedule_uid = str(
+                getattr(schedule, "UniqueId", "") or ""
+            )
+            if schedule_uid not in template_schedule_ids:
+                template_schedule_ids.append(schedule_uid)
+            instance_to_template.append(
+                (
+                    str(getattr(instance, "UniqueId", "") or ""),
+                    schedule_uid,
+                )
+            )
+
+        warnings = []
+        warnings.extend(inspection.warnings)
+        warnings.extend(classifier_warnings)
+
+        from Autodesk.Revit.DB import TransactionGroup
+
+        group = TransactionGroup(
+            self.document,
+            "Plans de vente - Génération multi-niveaux {}".format(
+                housing.key
+            ),
+        )
+        group.Start()
+
+        main_results = []
+        tag_results = []
+        dimension_results = []
+        location_result = None
+        schedule_result = None
+        sheet_result = None
+
+        try:
+            for level_housing in level_housings:
+                source_candidate, source_warnings = self._resolve_source_view(
+                    level_housing,
+                    main_info.view,
+                )
+                warnings.extend(source_warnings)
+
+                main_result = (
+                    self.prototype_view_service.create_dependent_crop_view(
+                        housing=level_housing,
+                        source_view_unique_id=source_candidate.unique_id,
+                        margin_mm=(
+                            float(crop_margin_mm)
+                            if crop_margin_mm is not None
+                            else self.DEFAULT_CROP_MARGIN_MM
+                        ),
+                        target_scale=inspection.reference_scale,
+                        view_template_unique_id=(
+                            str(
+                                getattr(main_template, "UniqueId", "")
+                                or ""
+                            )
+                            if main_template is not None
+                            else None
+                        ),
+                    )
+                )
+                main_results.append(main_result)
+
+                if tag_type is not None:
+                    tag_result = self.room_tag_service.create_tags(
+                        level_housing,
+                        main_result.view_unique_id,
+                        str(getattr(tag_type, "UniqueId", "") or ""),
+                    )
+                    tag_results.append(tag_result)
+                    warnings.extend(tag_result.warnings)
+                else:
+                    warnings.append(
+                        "09B.2 : étiquettes non créées, aucun type "
+                        "n'a été déduit du modèle."
+                    )
+
+                if dimension_type is not None:
+                    dimension_result = self.dimension_service.create_dimensions(
+                        level_housing,
+                        main_result.view_unique_id,
+                        str(
+                            getattr(dimension_type, "UniqueId", "")
+                            or ""
+                        ),
+                    )
+                    dimension_results.append(dimension_result)
+                    warnings.extend(dimension_result.warnings)
+                else:
+                    warnings.append(
+                        "09B.2 : cotations non créées, aucun type "
+                        "n'a été déduit du modèle."
+                    )
+
+            lower_housing = level_housings[0]
+            try:
+                level_housings.sort(
+                    key=lambda item: int(
+                        self._floor_number(
+                            (item.level_names or [""])[0]
+                        )
+                        or 9999
+                    )
+                )
+                lower_housing = level_housings[0]
+            except Exception:
+                pass
+
+            (
+                location_source_candidate,
+                location_source_warnings,
+            ) = self._resolve_location_source_view(
+                lower_housing,
+                location_info.view,
+            )
+            warnings.extend(location_source_warnings)
+
+            location_result = (
+                self.location_plan_service.create_location_plan(
+                    housing=lower_housing,
+                    source_view_unique_id=location_source_candidate.unique_id,
+                    filled_region_type_unique_id=str(
+                        getattr(fill_type, "UniqueId", "") or ""
+                    ),
+                    template_unique_id=(
+                        str(
+                            getattr(location_template, "UniqueId", "")
+                            or ""
+                        )
+                        if location_template is not None
+                        else None
+                    ),
+                    target_scale=int(
+                        getattr(location_info.view, "Scale", 0) or 0
+                    ),
+                    crop_reference_view_unique_id=str(
+                        getattr(location_info.view, "UniqueId", "") or ""
+                    ),
+                )
+            )
+
+            schedule_result = (
+                self.schedule_service.duplicate_templates_for_housing(
+                    housing,
+                    descriptor,
+                    template_schedule_ids,
+                    allow_unfiltered=True,
+                    all_levels=True,
+                )
+            )
+            warnings.extend(schedule_result.warnings)
+
+            generated_by_template = dict(
+                (
+                    item.template_unique_id,
+                    item.schedule_unique_id,
+                )
+                for item in schedule_result.items
+            )
+            bindings = []
+            for instance_uid, template_uid in instance_to_template:
+                generated_uid = generated_by_template.get(template_uid)
+                if not generated_uid:
+                    raise RuntimeError(
+                        "Aucune nomenclature générée ne correspond au modèle {}."
+                        .format(template_uid)
+                    )
+                bindings.append(
+                    {
+                        "template_instance_unique_id": instance_uid,
+                        "schedule_unique_id": generated_uid,
+                    }
+                )
+
+            room_metadata, metadata_warnings = self._room_metadata(
+                housing,
+                building_parameter_name=building_parameter_name,
+                typology_parameter_name=typology_parameter_name,
+                main_view_unique_id=None,
+            )
+            warnings.extend(metadata_warnings)
+
+            sheet_result = (
+                self.sheet_assembly_service
+                .create_multilevel_sheet_from_blueprint(
+                    housing=housing,
+                    template_sheet_unique_id=inspection.template_sheet_unique_id,
+                    main_view_unique_ids=[
+                        item.view_unique_id
+                        for item in main_results
+                    ],
+                    location_view_unique_id=location_result.view_unique_id,
+                    template_main_viewport_unique_id=inspection.main_viewport_unique_id,
+                    template_location_viewport_unique_id=inspection.location_viewport_unique_id,
+                    schedule_bindings=bindings,
+                    auto_fit_main_view=bool(auto_fit_main_view),
+                    allowed_scales=allowed_scales,
+                    housing_display_value=(
+                        getattr(housing, "filter_key", None)
+                        or housing.key
+                    ),
+                    housing_parameter_name=str(
+                        getattr(descriptor, "name", "") or ""
+                    ),
+                    room_metadata=room_metadata,
+                )
+            )
+            warnings.extend(sheet_result.warnings)
+
+            group.Assimilate()
+        except Exception:
+            try:
+                group.RollBack()
+            except Exception:
+                pass
+            raise
+
+        return FullGenerationResult(
+            housing_key=housing.key,
+            sheet_result=sheet_result,
+            main_view_result=main_results,
+            location_result=location_result,
+            schedule_result=schedule_result,
+            tag_result=tag_results,
+            dimension_result=dimension_results,
             warnings=warnings,
         )
 
