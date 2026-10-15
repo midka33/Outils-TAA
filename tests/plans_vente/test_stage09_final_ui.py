@@ -202,4 +202,5 @@ def test_stage09b_generated_view_reuses_template_main_view_graphics():
     assert "main_template = self._view_template(main_info.view)" in full
     assert "view_template_unique_id=(" in full
     assert "view_template_unique_id=None" in prototype
-    assert "created_view.ViewTemplateId = view_template.Id" in prototype
+    assert "master_view.ViewTemplateId = view_template.Id" in prototype
+    assert "view_template_unique_id=view_template_unique_id" in prototype
