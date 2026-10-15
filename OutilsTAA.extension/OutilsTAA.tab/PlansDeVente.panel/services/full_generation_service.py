@@ -278,8 +278,11 @@ class FullGenerationService(object):
                 )
             )
 
+        room_metadata, metadata_warnings = self._room_metadata(housing)
+
         warnings = []
         warnings.extend(inspection.warnings)
+        warnings.extend(metadata_warnings)
         warnings.extend(classifier_warnings)
         warnings.extend(source_warnings)
         warnings.extend(location_source_warnings)
@@ -419,6 +422,7 @@ class FullGenerationService(object):
                 housing_parameter_name=str(
                     getattr(descriptor, "name", "") or ""
                 ),
+                room_metadata=room_metadata,
             )
             warnings.extend(sheet_result.warnings)
 
@@ -440,6 +444,82 @@ class FullGenerationService(object):
             dimension_result=dimension_result,
             warnings=warnings,
         )
+
+    def _room_metadata(self, housing):
+        """Lit les informations de cartouche depuis les pièces du logement."""
+        rooms = []
+        for unique_id in list(
+            getattr(housing, "room_unique_ids", []) or []
+        ):
+            try:
+                room = self.document.GetElement(unique_id)
+            except Exception:
+                room = None
+            if room is not None:
+                rooms.append(room)
+
+        warnings = []
+        result = {}
+
+        mappings = (
+            ("building", ("Bâtiment", "Batiment")),
+            ("floor", ("Étage", "Etage", "Niveau")),
+            ("typology", ("Typologie", "Type de logement", "Zone")),
+        )
+
+        for key, aliases in mappings:
+            values = []
+            for room in rooms:
+                value = self._first_room_parameter_value(
+                    room,
+                    aliases,
+                )
+                if value and value not in values:
+                    values.append(value)
+
+            if len(values) == 1:
+                result[key] = values[0]
+            elif len(values) > 1:
+                warnings.append(
+                    "09B : plusieurs valeurs trouvées dans les pièces pour "
+                    "{} : {}. Le cartouche n'a pas été renseigné pour ce champ."
+                    .format(
+                        "/".join(aliases),
+                        ", ".join(values),
+                    )
+                )
+
+        if not result.get("floor"):
+            levels = list(getattr(housing, "level_names", []) or [])
+            if len(levels) == 1:
+                result["floor"] = levels[0]
+
+        return result, warnings
+
+    @staticmethod
+    def _first_room_parameter_value(room, aliases):
+        for name in aliases or []:
+            try:
+                parameter = room.LookupParameter(name)
+            except Exception:
+                parameter = None
+            if parameter is None:
+                continue
+
+            value = ""
+            try:
+                value = parameter.AsString() or ""
+            except Exception:
+                value = ""
+            if not value:
+                try:
+                    value = parameter.AsValueString() or ""
+                except Exception:
+                    value = ""
+            value = str(value or "").strip()
+            if value:
+                return value
+        return ""
 
     def _classify_viewports(self, sheet):
         infos = []
