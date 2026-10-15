@@ -504,13 +504,6 @@ class FullGenerationService(object):
                 )
 
         floor_label = self._main_view_level_name(main_view_unique_id)
-        if not floor_label:
-            levels = list(getattr(housing, "level_names", []) or [])
-            if len(levels) == 1:
-                floor_label = levels[0]
-            elif len(levels) > 1:
-                floor_label = self._lowest_level_name(levels)
-
         if floor_label:
             floor = self._floor_number(floor_label)
             if floor != "":
@@ -520,6 +513,11 @@ class FullGenerationService(object):
                     "09B : impossible d'extraire le numéro d'étage depuis "
                     "le niveau Revit « {} ».".format(floor_label)
                 )
+        else:
+            levels = list(getattr(housing, "level_names", []) or [])
+            floors = self._floor_numbers(levels)
+            if floors:
+                result["floor"] = " / ".join(floors)
 
         return result, warnings
 
@@ -536,8 +534,8 @@ class FullGenerationService(object):
         return str(getattr(level, "Name", "") or "").strip()
 
     @classmethod
-    def _lowest_level_name(cls, levels):
-        candidates = []
+    def _floor_numbers(cls, levels):
+        values = []
         for level_name in levels or []:
             number = cls._floor_number(level_name)
             if number == "":
@@ -546,11 +544,14 @@ class FullGenerationService(object):
                 numeric = int(number)
             except Exception:
                 continue
-            candidates.append((numeric, str(level_name or "")))
-        if not candidates:
-            return ""
-        candidates.sort(key=lambda item: item[0])
-        return candidates[0][1]
+            values.append((numeric, str(number)))
+        values.sort(key=lambda item: item[0])
+
+        result = []
+        for _, number in values:
+            if number not in result:
+                result.append(number)
+        return result
 
     @staticmethod
     def _room_parameter_value(room, name):
