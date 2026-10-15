@@ -731,6 +731,290 @@ class SheetAssemblyService(object):
             ],
         )
 
+    def create_multilevel_sheet_from_blueprint(
+        self,
+        housing,
+        template_sheet_unique_id,
+        main_view_unique_ids,
+        location_view_unique_id,
+        template_main_viewport_unique_id,
+        template_location_viewport_unique_id,
+        schedule_bindings,
+        auto_fit_main_view=True,
+        allowed_scales=None,
+        housing_display_value=None,
+        housing_parameter_name=None,
+        room_metadata=None,
+    ):
+        """09B.2 : assemble une feuille unique avec une vue logement par niveau."""
+        if housing is None:
+            raise ValueError("Sélectionnez un logement.")
+
+        main_ids = [
+            str(value or "")
+            for value in (main_view_unique_ids or [])
+            if str(value or "")
+        ]
+        if len(main_ids) < 2:
+            raise ValueError(
+                "09B.2 nécessite au moins deux vues logement générées."
+            )
+
+        fit_scales = parse_allowed_scales(allowed_scales)
+        template_sheet = self._get_element(
+            template_sheet_unique_id,
+            "Sélectionnez une feuille modèle valide.",
+        )
+        main_viewport_model = self._get_element(
+            template_main_viewport_unique_id,
+            "Le viewport modèle de la vue logement n'existe plus.",
+        )
+        location_viewport_model = self._get_element(
+            template_location_viewport_unique_id,
+            "Le viewport modèle du repérage n'existe plus.",
+        )
+
+        self._ensure_owned_by_sheet(
+            main_viewport_model,
+            template_sheet,
+            "vue logement",
+        )
+        self._ensure_owned_by_sheet(
+            location_viewport_model,
+            template_sheet,
+            "repérage",
+        )
+
+        main_views = []
+        for unique_id in main_ids:
+            view = self._get_element(
+                unique_id,
+                "Une vue logement générée n'existe plus.",
+            )
+            self._validate_placeable_view(view, "vue logement")
+            main_views.append(view)
+
+        location_view = self._get_element(
+            location_view_unique_id,
+            "Le plan de repérage généré n'existe plus.",
+        )
+        self._validate_placeable_view(location_view, "plan de repérage")
+
+        bindings = list(schedule_bindings or [])
+        resolved_schedules = []
+        for binding in bindings:
+            template_instance_id = (
+                binding.get("template_instance_unique_id")
+                if isinstance(binding, dict)
+                else getattr(binding, "template_instance_unique_id", "")
+            )
+            schedule_unique_id = (
+                binding.get("schedule_unique_id")
+                if isinstance(binding, dict)
+                else getattr(binding, "schedule_unique_id", "")
+            )
+            template_instance = self._get_element(
+                template_instance_id,
+                "Une instance de nomenclature modèle n'existe plus.",
+            )
+            self._ensure_owned_by_sheet(
+                template_instance,
+                template_sheet,
+                "nomenclature",
+            )
+            schedule = self._get_element(
+                schedule_unique_id,
+                "Une nomenclature générée n'existe plus.",
+            )
+            self._validate_schedule_not_placed(
+                schedule,
+                "nomenclature générée",
+            )
+            resolved_schedules.append((template_instance, schedule))
+
+        sheet_number = "PDV-{}".format(housing.key)
+        sheet_name = "Plan de vente - {}".format(housing.key)
+        self._ensure_sheet_identity_available(sheet_number, sheet_name)
+
+        from Autodesk.Revit.DB import ScheduleSheetInstance, ViewSheet, Viewport, XYZ
+
+        template_main_view = self.document.GetElement(
+            main_viewport_model.ViewId
+        )
+        reference_scale = int(
+            getattr(template_main_view, "Scale", 0) or 0
+        )
+
+        try:
+            main_viewport_type_id = main_viewport_model.GetTypeId()
+        except Exception:
+            main_viewport_type_id = None
+        try:
+            location_viewport_type_id = location_viewport_model.GetTypeId()
+        except Exception:
+            location_viewport_type_id = None
+
+        main_outline = main_viewport_model.GetBoxOutline()
+        min_x = float(main_outline.MinimumPoint.X)
+        max_x = float(main_outline.MaximumPoint.X)
+        center_y = float(main_viewport_model.GetBoxCenter().Y)
+        available_width = max_x - min_x
+        count = len(main_views)
+        step = available_width / float(count)
+
+        sheet = None
+        fit_warnings = []
+        placed_schedule_instances = []
+        placed_main_viewports = []
+        placed_main_views = []
+        fit_scales_used = []
+
+        with RevitTransaction(
+            self.document,
+            "Plans de vente - Feuille multi-niveaux {}".format(housing.key),
+        ):
+            title_block_type = self._template_title_block_type(template_sheet)
+            sheet = ViewSheet.Create(
+                self.document,
+                title_block_type.Id,
+            )
+            if sheet is None:
+                raise RuntimeError("Revit n'a pas retourné la feuille créée.")
+
+            sheet.SheetNumber = sheet_number
+            sheet.Name = sheet_name
+
+            display_warning = self._write_housing_display_value(
+                sheet=sheet,
+                housing_value=(
+                    housing_display_value
+                    if housing_display_value is not None
+                    else getattr(housing, "filter_key", None) or housing.key
+                ),
+                parameter_name=housing_parameter_name,
+            )
+            if display_warning:
+                fit_warnings.append(display_warning)
+
+            fit_warnings.extend(
+                self._write_room_metadata(
+                    sheet,
+                    room_metadata or {},
+                )
+            )
+
+            location_center = location_viewport_model.GetBoxCenter()
+            location_viewport = Viewport.Create(
+                self.document,
+                sheet.Id,
+                location_view.Id,
+                XYZ(
+                    float(location_center.X),
+                    float(location_center.Y),
+                    0.0,
+                ),
+            )
+            self._apply_viewport_type(
+                location_viewport,
+                location_viewport_type_id,
+            )
+
+            for template_instance, schedule in resolved_schedules:
+                point = template_instance.Point
+                created_instance = ScheduleSheetInstance.Create(
+                    self.document,
+                    sheet.Id,
+                    schedule.Id,
+                    XYZ(float(point.X), float(point.Y), 0.0),
+                )
+                placed_schedule_instances.append(created_instance)
+
+            for index, main_view in enumerate(main_views):
+                point_x = min_x + (step * (float(index) + 0.5))
+                obstacles = [location_viewport]
+                obstacles.extend(placed_schedule_instances)
+                obstacles.extend(placed_main_viewports)
+
+                if auto_fit_main_view:
+                    (
+                        view_for_sheet,
+                        viewport,
+                        fit_scale,
+                        fit_adjusted,
+                        fit_duplicated,
+                        warnings,
+                    ) = self._create_reference_scale_main_viewport(
+                        sheet=sheet,
+                        housing_key="{}-N{}".format(housing.key, index + 1),
+                        source_view=main_view,
+                        point=(point_x, center_y),
+                        viewport_type_id=main_viewport_type_id,
+                        reference_scale=reference_scale,
+                        allowed_scales=fit_scales,
+                        obstacle_elements=tuple(obstacles),
+                    )
+                    fit_warnings.extend(warnings)
+                else:
+                    viewport = Viewport.Create(
+                        self.document,
+                        sheet.Id,
+                        main_view.Id,
+                        XYZ(point_x, center_y, 0.0),
+                    )
+                    self._apply_viewport_type(
+                        viewport,
+                        main_viewport_type_id,
+                    )
+                    view_for_sheet = main_view
+                    fit_scale = int(
+                        getattr(main_view, "Scale", 0) or 0
+                    )
+
+                placed_main_viewports.append(viewport)
+                placed_main_views.append(view_for_sheet)
+                fit_scales_used.append(fit_scale)
+
+        template_label = "{} — {}".format(
+            getattr(template_sheet, "SheetNumber", "") or "Sans numéro",
+            getattr(template_sheet, "Name", "") or "",
+        ).rstrip(" —")
+
+        return SheetAssemblyResult(
+            housing_key=housing.key,
+            sheet_number=sheet.SheetNumber,
+            sheet_name=sheet.Name,
+            title_block_label="{} : {}".format(
+                self._family_name(
+                    self._template_title_block_type(template_sheet)
+                ),
+                self._element_type_name(
+                    self._template_title_block_type(template_sheet)
+                ),
+            ),
+            main_view_name=" + ".join(
+                str(getattr(view, "Name", "") or "")
+                for view in placed_main_views
+            ),
+            location_view_name_value=str(
+                getattr(location_view, "Name", "") or ""
+            ),
+            interior_schedule_name="",
+            exterior_schedule_name="",
+            template_sheet_label=template_label,
+            main_view_scale=(
+                max(fit_scales_used)
+                if fit_scales_used
+                else None
+            ),
+            main_view_auto_fitted=True,
+            main_view_was_duplicated=False,
+            warnings=fit_warnings,
+            schedule_names=[
+                str(getattr(schedule, "Name", "") or "")
+                for _, schedule in resolved_schedules
+            ],
+        )
+
     def list_title_block_types(self):
         from Autodesk.Revit.DB import (
             BuiltInCategory,
