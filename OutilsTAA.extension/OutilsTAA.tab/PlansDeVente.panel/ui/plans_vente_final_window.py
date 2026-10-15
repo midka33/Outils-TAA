@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b1-sheet-image-preview-v1"
+    UI_BUILD = "stage09b2-one-sheet-multilevel-v1"
 
     def __init__(self, controller):
         self.controller = controller
@@ -668,9 +668,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             if self._multilevel_mode != "ignore":
                 details += (
                     (
-                        " Mode « une feuille par niveau » disponible en 09B.1."
+                        " Mode « une feuille par niveau » actif."
                         if self._multilevel_mode == "sheet_per_level"
-                        else " Mode multi-vues prévu en 09B.2."
+                        else " Mode « une feuille par logement, une vue par niveau » actif."
                     )
                 )
         self.CreationInfoText.Text = details
@@ -776,25 +776,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                     self.controller.split_housing_by_level(housing)
                 )
         else:
-            # 09B.2 : une seule feuille comportant plusieurs vues logement.
-            # Ce mode reste protégé tant que l'assemblage multi-viewports
-            # n'est pas validé dans Revit.
-            processable = single_level
-            deferred_multilevel = multilevel
-
-        if not processable and deferred_multilevel:
-            forms.alert(
-                (
-                    "La sélection contient uniquement des logements multi-niveaux.\n\n"
-                    "Le mode « une feuille par niveau » est disponible en 09B.1. "
-                    "Le mode « une feuille par logement, une vue par niveau » "
-                    "sera activé en 09B.2 après validation de l'assemblage "
-                    "multi-viewports."
-                ),
-                title="Plans de vente — Étape 09B",
-                warn_icon=True,
-            )
-            return
+            # 09B.2 : une seule feuille comportant une vue logement par niveau.
+            processable = list(single_level) + list(multilevel)
+            deferred_multilevel = []
 
         existing_count = 0
         if self._settings.get("skip_existing", True):
@@ -876,30 +860,62 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         )
 
                 try:
-                    result = self.controller.generate_full_plan(
-                        housing=housing,
-                        descriptor=self._active_descriptor,
-                        template_sheet_unique_id=template.unique_id,
-                        allowed_scales=self._settings.get(
-                            "allowed_scales"
-                        ),
-                        crop_margin_mm=self._settings.get(
-                            "crop_margin_mm",
-                            500.0,
-                        ),
-                        auto_fit_main_view=self._settings.get(
-                            "auto_scale",
-                            True,
-                        ),
-                        building_parameter_name=self._settings.get(
-                            "building_parameter_name",
-                            "",
-                        ),
-                        typology_parameter_name=self._settings.get(
-                            "typology_parameter_name",
-                            "",
-                        ),
-                    )
+                    is_multilevel = len(
+                        getattr(housing, "level_names", []) or []
+                    ) > 1
+                    if (
+                        is_multilevel
+                        and self._multilevel_mode == "one_sheet"
+                    ):
+                        result = self.controller.generate_multilevel_one_sheet(
+                            housing=housing,
+                            descriptor=self._active_descriptor,
+                            template_sheet_unique_id=template.unique_id,
+                            allowed_scales=self._settings.get(
+                                "allowed_scales"
+                            ),
+                            crop_margin_mm=self._settings.get(
+                                "crop_margin_mm",
+                                500.0,
+                            ),
+                            auto_fit_main_view=self._settings.get(
+                                "auto_scale",
+                                True,
+                            ),
+                            building_parameter_name=self._settings.get(
+                                "building_parameter_name",
+                                "",
+                            ),
+                            typology_parameter_name=self._settings.get(
+                                "typology_parameter_name",
+                                "",
+                            ),
+                        )
+                    else:
+                        result = self.controller.generate_full_plan(
+                            housing=housing,
+                            descriptor=self._active_descriptor,
+                            template_sheet_unique_id=template.unique_id,
+                            allowed_scales=self._settings.get(
+                                "allowed_scales"
+                            ),
+                            crop_margin_mm=self._settings.get(
+                                "crop_margin_mm",
+                                500.0,
+                            ),
+                            auto_fit_main_view=self._settings.get(
+                                "auto_scale",
+                                True,
+                            ),
+                            building_parameter_name=self._settings.get(
+                                "building_parameter_name",
+                                "",
+                            ),
+                            typology_parameter_name=self._settings.get(
+                                "typology_parameter_name",
+                                "",
+                            ),
+                        )
                     created.append(result)
                     if self._settings.get("log_warnings", True):
                         for warning in result.warnings or []:
