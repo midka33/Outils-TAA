@@ -170,6 +170,7 @@ class ScheduleService(object):
         descriptor,
         template_schedule_unique_ids,
         allow_unfiltered=False,
+        all_levels=False,
     ):
         """Duplique N nomenclatures modèles et remplace leur filtre logement."""
         if housing is None:
@@ -213,7 +214,7 @@ class ScheduleService(object):
             getattr(housing, "filter_key", None)
             or housing.key
         )
-        all_levels_for_housing = (
+        all_levels_for_housing = bool(all_levels) or (
             str(filter_key or "") != str(housing.key or "")
         )
 
