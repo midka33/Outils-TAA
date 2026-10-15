@@ -217,3 +217,19 @@ def test_stage09b_sheet_cartouche_uses_business_housing_value():
     assert "target.LookupParameter(name)" in sheet
     assert "parameter.Set(value)" in sheet
     assert "Numéro de feuille" in sheet
+
+
+def test_stage09b_cartouche_receives_room_metadata():
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "room_metadata, metadata_warnings = self._room_metadata(housing)" in full
+    assert '("building", ("Bâtiment", "Batiment"))' in full
+    assert '("floor", ("Étage", "Etage", "Niveau"))' in full
+    assert '("typology", ("Typologie", "Type de logement", "Zone"))' in full
+    assert "room_metadata=room_metadata" in full
+
+    assert "def _write_room_metadata(" in sheet
+    assert '("building", ("Bâtiment", "Batiment"), "Bâtiment")' in sheet
+    assert '("floor", ("Étage", "Etage"), "Étage")' in sheet
+    assert '("typology", ("Zone",), "Typologie (paramètre cartouche Zone)")' in sheet
