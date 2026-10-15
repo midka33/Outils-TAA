@@ -168,6 +168,44 @@ class PlansVenteController(object):
     def sheet_templates(self):
         return self.sheet_assembly_service.list_sheet_templates()
 
+    def export_sheet_preview(self, template_sheet_unique_id, output_base_path):
+        """Exporte la feuille sélectionnée en image PNG temporaire."""
+        if not template_sheet_unique_id:
+            raise ValueError("Sélectionnez une feuille modèle.")
+        if not output_base_path:
+            raise ValueError("Chemin d'aperçu manquant.")
+
+        document = self.full_generation_service.document
+        sheet = document.GetElement(template_sheet_unique_id)
+        if sheet is None:
+            raise ValueError("La feuille modèle n'existe plus.")
+
+        from Autodesk.Revit.DB import (
+            ExportRange,
+            ImageExportOptions,
+            ImageFileType,
+            ImageResolution,
+            ZoomFitType,
+        )
+        from System.Collections.Generic import List
+        from Autodesk.Revit.DB import ElementId
+
+        options = ImageExportOptions()
+        options.ExportRange = ExportRange.SetOfViews
+        options.FilePath = output_base_path
+        options.HLRandWFViewsFileType = ImageFileType.PNG
+        options.ShadowViewsFileType = ImageFileType.PNG
+        options.ImageResolution = ImageResolution.DPI_150
+        options.ZoomType = ZoomFitType.FitToPage
+        options.PixelSize = 1800
+
+        view_ids = List[ElementId]()
+        view_ids.Add(sheet.Id)
+        options.SetViewsAndSheets(view_ids)
+        document.ExportImage(options)
+
+        return output_base_path
+
     def inspect_sheet_template(self, template_sheet_unique_id):
         return self.sheet_assembly_service.inspect_sheet_template(
             template_sheet_unique_id
