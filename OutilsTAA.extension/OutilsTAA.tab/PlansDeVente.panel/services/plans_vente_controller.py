@@ -204,7 +204,35 @@ class PlansVenteController(object):
         options.SetViewsAndSheets(view_ids)
         document.ExportImage(options)
 
-        return output_base_path
+        import os
+
+        folder = os.path.dirname(output_base_path)
+        prefix = os.path.basename(output_base_path)
+        candidates = []
+        try:
+            for name in os.listdir(folder):
+                lowered = name.lower()
+                if (
+                    name.startswith(prefix)
+                    and lowered.endswith(".png")
+                ):
+                    full_path = os.path.join(folder, name)
+                    candidates.append(
+                        (os.path.getmtime(full_path), full_path)
+                    )
+        except Exception:
+            candidates = []
+
+        if not candidates:
+            direct = output_base_path + ".png"
+            if os.path.exists(direct):
+                return direct
+            raise RuntimeError(
+                "Revit n'a pas produit l'image PNG de la feuille modèle."
+            )
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1]
 
     def inspect_sheet_template(self, template_sheet_unique_id):
         return self.sheet_assembly_service.inspect_sheet_template(
