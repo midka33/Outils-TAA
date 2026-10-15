@@ -1064,6 +1064,8 @@ class SheetAssemblyService(object):
             working_views = []
             duplicated_ids = []
             viewports = []
+            success = False
+            valid = False
 
             try:
                 for index, source_view in enumerate(views):
@@ -1252,6 +1254,7 @@ class SheetAssemblyService(object):
                             break
 
                 if valid:
+                    success = True
                     return (
                         working_views,
                         viewports,
@@ -1264,18 +1267,6 @@ class SheetAssemblyService(object):
                 if str(error) != "layout-does-not-fit":
                     raise
             finally:
-                # En cas de succès les éléments doivent rester dans le document.
-                # Le test ci-dessous permet de savoir si les viewports sont
-                # encore nécessaires.
-                success = bool(
-                    viewports
-                    and all(
-                        getattr(viewport, "Document", None) is not None
-                        for viewport in viewports
-                    )
-                    and 'valid' in locals()
-                    and valid
-                )
                 if not success:
                     for viewport in reversed(viewports):
                         try:
