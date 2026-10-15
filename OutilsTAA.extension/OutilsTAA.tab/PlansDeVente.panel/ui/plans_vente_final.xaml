@@ -330,9 +330,8 @@
 
                             <RadioButton x:Name="MultiLevelOneSheetRadio"
                                          Margin="24,14,0,0"
-                                         Content="1 feuille par logement, 1 vue par niveau — bientôt"
-                                         IsEnabled="False"
-                                         ToolTip="Mode prévu pour l'étape 09B.2."
+                                         Content="1 feuille par logement, 1 vue par niveau"
+                                         ToolTip="09B.2 : une feuille unique avec une vue logement par niveau."
                                          Checked="MultiLevelModeChanged"/>
                             <Border Margin="46,6,0,6"
                                     Padding="10"
@@ -352,7 +351,7 @@
                                          Checked="MultiLevelModeChanged"/>
                             <TextBlock x:Name="MultiLevelInfoText"
                                        Margin="46,6,0,0"
-                                       Text="09B.1 actif : le module peut créer une feuille distincte pour chaque niveau. Le mode « 1 feuille par logement, 1 vue par niveau » sera activé en 09B.2."
+                                       Text="09B.2 actif : vous pouvez créer soit une feuille unique avec une vue par niveau, soit une feuille distincte par niveau."
                                        Foreground="{DynamicResource TAABrandOrangeBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
@@ -416,9 +415,9 @@
             <!-- Colonne droite -->
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="58*"/>
+                    <RowDefinition Height="52*"/>
                     <RowDefinition Height="14"/>
-                    <RowDefinition Height="42*"/>
+                    <RowDefinition Height="48*"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Style="{StaticResource PDVCard}">
