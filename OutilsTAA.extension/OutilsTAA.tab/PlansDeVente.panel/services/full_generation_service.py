@@ -212,6 +212,7 @@ class FullGenerationService(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_unique_id=None,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -280,15 +281,8 @@ class FullGenerationService(object):
                 )
             )
 
-        room_metadata, metadata_warnings = self._room_metadata(
-            housing,
-            building_parameter_name=building_parameter_name,
-            typology_parameter_name=typology_parameter_name,
-        )
-
         warnings = []
         warnings.extend(inspection.warnings)
-        warnings.extend(metadata_warnings)
         warnings.extend(classifier_warnings)
         warnings.extend(source_warnings)
         warnings.extend(location_source_warnings)
@@ -329,6 +323,14 @@ class FullGenerationService(object):
                     ),
                 )
             )
+
+            room_metadata, metadata_warnings = self._room_metadata(
+                housing,
+                building_parameter_name=building_parameter_name,
+                typology_parameter_name=typology_parameter_name,
+                main_view_unique_id=main_result.view_unique_id,
+            )
+            warnings.extend(metadata_warnings)
 
             if tag_type is not None:
                 tag_result = self.room_tag_service.create_tags(
@@ -501,18 +503,54 @@ class FullGenerationService(object):
                     )
                 )
 
-        levels = list(getattr(housing, "level_names", []) or [])
-        if len(levels) == 1:
-            floor = self._floor_number(levels[0])
+        floor_label = self._main_view_level_name(main_view_unique_id)
+        if not floor_label:
+            levels = list(getattr(housing, "level_names", []) or [])
+            if len(levels) == 1:
+                floor_label = levels[0]
+            elif len(levels) > 1:
+                floor_label = self._lowest_level_name(levels)
+
+        if floor_label:
+            floor = self._floor_number(floor_label)
             if floor != "":
                 result["floor"] = floor
             else:
                 warnings.append(
                     "09B : impossible d'extraire le numéro d'étage depuis "
-                    "le niveau Revit « {} ».".format(levels[0])
+                    "le niveau Revit « {} ».".format(floor_label)
                 )
 
         return result, warnings
+
+    def _main_view_level_name(self, view_unique_id):
+        if not view_unique_id:
+            return ""
+        try:
+            view = self.document.GetElement(view_unique_id)
+        except Exception:
+            view = None
+        if view is None:
+            return ""
+        level = getattr(view, "GenLevel", None)
+        return str(getattr(level, "Name", "") or "").strip()
+
+    @classmethod
+    def _lowest_level_name(cls, levels):
+        candidates = []
+        for level_name in levels or []:
+            number = cls._floor_number(level_name)
+            if number == "":
+                continue
+            try:
+                numeric = int(number)
+            except Exception:
+                continue
+            candidates.append((numeric, str(level_name or "")))
+        if not candidates:
+            return ""
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1]
 
     @staticmethod
     def _room_parameter_value(room, name):
