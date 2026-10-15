@@ -254,12 +254,16 @@ class FullGenerationService(object):
         add_viewport(
             main_info,
             "main_view",
-            str(getattr(main_info.view, "Name", "") or "Vue logement"),
+            "Vue logement — {}".format(
+                str(getattr(main_info.view, "Name", "") or "sans nom")
+            ),
         )
         add_viewport(
             location_info,
             "location_view",
-            str(getattr(location_info.view, "Name", "") or "Repérage"),
+            "Repérage — {}".format(
+                str(getattr(location_info.view, "Name", "") or "sans nom")
+            ),
         )
 
         for index, instance in enumerate(schedule_instances or [], 1):
@@ -275,12 +279,42 @@ class FullGenerationService(object):
                 schedule = self.document.GetElement(instance.ScheduleId)
             except Exception:
                 schedule = None
-            label = str(
-                getattr(schedule, "Name", "") or "Nomenclature {}".format(index)
+            label = "Nomenclature — {}".format(
+                str(
+                    getattr(schedule, "Name", "")
+                    or "Nomenclature {}".format(index)
+                )
             )
             items.append({
                 "kind": "schedule",
                 "label": label,
+                "min_x": float(box.Min.X),
+                "min_y": float(box.Min.Y),
+                "max_x": float(box.Max.X),
+                "max_y": float(box.Max.Y),
+            })
+
+        try:
+            from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
+            title_blocks = list(
+                FilteredElementCollector(self.document, sheet.Id)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            )
+        except Exception:
+            title_blocks = []
+
+        for title_block in title_blocks:
+            try:
+                box = title_block.get_BoundingBox(sheet)
+            except Exception:
+                box = None
+            if box is None:
+                continue
+            items.append({
+                "kind": "title_block",
+                "label": "Cartouche",
                 "min_x": float(box.Min.X),
                 "min_y": float(box.Min.Y),
                 "max_x": float(box.Max.X),
