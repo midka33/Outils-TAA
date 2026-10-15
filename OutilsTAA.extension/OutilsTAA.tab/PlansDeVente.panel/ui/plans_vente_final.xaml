@@ -443,49 +443,17 @@
                                 BorderThickness="1"
                                 CornerRadius="4">
                             <Grid Margin="18">
-                                <Rectangle Stroke="#C8C8C8"
-                                           StrokeThickness="1"
-                                           Fill="White"/>
-                                <Grid Margin="34">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="76*"/>
-                                        <ColumnDefinition Width="4"/>
-                                        <ColumnDefinition Width="24*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0"
-                                            BorderBrush="#BBBBBB"
-                                            BorderThickness="1"
-                                            Margin="0,20,12,34">
-                                        <TextBlock x:Name="PreviewMainViewText"
-                                                   Text="Vue logement modèle"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TAASecondaryTextBrush}"/>
-                                    </Border>
-                                    <StackPanel Grid.Column="2">
-                                        <Border Height="74" BorderBrush="#BBBBBB"
-                                                BorderThickness="1" Margin="0,20,0,6">
-                                            <TextBlock Text="Cartouche"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Style="{DynamicResource TAASecondaryText}"/>
-                                        </Border>
-                                        <Border Height="126" BorderBrush="#BBBBBB"
-                                                BorderThickness="1" Margin="0,0,0,6">
-                                            <TextBlock Text="Nomenclatures"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Style="{DynamicResource TAASecondaryText}"/>
-                                        </Border>
-                                        <Border Height="86" BorderBrush="#BBBBBB"
-                                                BorderThickness="1">
-                                            <TextBlock Text="Repérage"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Style="{DynamicResource TAASecondaryText}"/>
-                                        </Border>
-                                    </StackPanel>
-                                </Grid>
+                                <Canvas x:Name="TemplatePreviewCanvas"
+                                        Background="White"
+                                        SizeChanged="TemplatePreviewCanvas_SizeChanged"/>
+                                <TextBlock x:Name="TemplatePreviewPlaceholder"
+                                           Text="Sélectionnez une feuille modèle pour afficher sa mise en page."
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Margin="40"
+                                           Style="{DynamicResource TAASecondaryText}"/>
                             </Grid>
                         </Border>
                     </Grid>
