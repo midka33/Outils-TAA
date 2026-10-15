@@ -89,9 +89,8 @@ def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
     assert 'Click="AdvancedOptions_Click"' in xaml
     assert 'DisplayMemberPath="label"' in xaml
     assert 'DisplayMemberPath="Label"' in xaml
-    assert 'Content="1 feuille par logement, 1 vue par niveau — bientôt"' in xaml
+    assert 'Content="1 feuille par logement, 1 vue par niveau"' in xaml
     assert 'x:Name="MultiLevelOneSheetRadio"' in xaml
-    assert 'IsEnabled="False"' in xaml
     assert 'x:Name="MultiLevelOneSheetPerLevelRadio"' in xaml
     assert 'IsChecked="True"' in xaml
 
@@ -103,7 +102,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b1-sheet-image-preview-v1"' in main
+    assert 'UI_BUILD = "stage09b2-one-sheet-multilevel-v1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -115,17 +114,22 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"' in full
 
 
-def test_stage09b_sheet_per_level_uses_safe_level_split_and_keeps_multiview_protected():
+def test_stage09b_supports_both_sheet_per_level_and_one_sheet_modes():
     text = MAIN_WINDOW.read_text(encoding="utf-8")
     block = text[
         text.index("    def CreateBatch_Click("):
         text.index("    def _run_batch(", text.index("    def CreateBatch_Click("))
     ]
+    run_block = text[
+        text.index("    def _run_batch("):
+        text.index("    def _show_batch_report(", text.index("    def _run_batch("))
+    ]
 
     assert 'self._multilevel_mode == "sheet_per_level"' in block
     assert "self.controller.split_housing_by_level(housing)" in block
-    assert "deferred_multilevel = multilevel" in block
-    assert "09B.2" in block
+    assert "processable = list(single_level) + list(multilevel)" in block
+    assert 'self._multilevel_mode == "one_sheet"' in run_block
+    assert "self.controller.generate_multilevel_one_sheet(" in run_block
 
 
 def test_stage09_advanced_options_expose_only_safe_overrides():
@@ -293,3 +297,21 @@ def test_stage09_template_preview_uses_real_revit_sheet_image():
     assert "document.ExportImage(options)" in controller
     assert "def _sheet_preview_bounds(" in full
     assert "def _sheet_preview_items(" in full
+
+
+def test_stage09b2_multilevel_engine_contract():
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+    schedules = (PANEL / "services" / "schedule_service.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "def generate_multilevel_one_sheet(" in controller
+    assert "def generate_multilevel_one_sheet(" in full
+    assert "split_housing_by_level(housing)" in full
+    assert "all_levels=True" in full
+    assert "def create_multilevel_sheet_from_blueprint(" in sheet
+    assert "main_view_unique_ids" in sheet
+    assert "placed_main_viewports" in sheet
+    assert "all_levels=False" in schedules
