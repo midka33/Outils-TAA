@@ -398,7 +398,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self._render_template_preview(self._template_inspection)
 
     def _render_template_preview(self, inspection):
-        from System.Windows import Thickness, TextWrapping, Visibility
+        from System.Windows import FontWeights, Thickness, TextWrapping, Visibility
         from System.Windows.Controls import Canvas, TextBlock
         from System.Windows.Media import Brushes
         from System.Windows.Shapes import Rectangle
@@ -502,9 +502,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             label.Text = str(item.get("label", "") or "")
             label.FontSize = 10.0
             label.FontWeight = (
-                __import__("System.Windows", fromlist=["FontWeights"]).FontWeights.SemiBold
+                FontWeights.SemiBold
                 if kind in ("main_view", "location_view", "schedule")
-                else __import__("System.Windows", fromlist=["FontWeights"]).FontWeights.Normal
+                else FontWeights.Normal
             )
             label.TextWrapping = TextWrapping.Wrap
             label.Margin = Thickness(3)
