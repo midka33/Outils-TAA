@@ -494,6 +494,7 @@ class SheetAssemblyService(object):
         allowed_scales=None,
         housing_display_value=None,
         housing_parameter_name=None,
+        room_metadata=None,
     ):
         """07D : assemble la feuille avec N nomenclatures issues du modèle."""
         if housing is None:
@@ -626,6 +627,12 @@ class SheetAssemblyService(object):
             )
             if display_warning:
                 fit_warnings.append(display_warning)
+
+            metadata_warnings = self._write_room_metadata(
+                sheet,
+                room_metadata or {},
+            )
+            fit_warnings.extend(metadata_warnings)
 
             location_viewport = Viewport.Create(
                 self.document,
@@ -895,6 +902,70 @@ class SheetAssemblyService(object):
             interior_schedule_name=str(getattr(interior, "Name", "") or ""),
             exterior_schedule_name=str(getattr(exterior, "Name", "") or ""),
         )
+
+    def _write_room_metadata(self, sheet, metadata):
+        """Écrit Bâtiment, Étage et Typologie/Zone sur feuille et cartouche."""
+        values = dict(metadata or {})
+        mappings = (
+            ("building", ("Bâtiment", "Batiment"), "Bâtiment"),
+            ("floor", ("Étage", "Etage"), "Étage"),
+            ("typology", ("Zone",), "Typologie (paramètre cartouche Zone)"),
+        )
+
+        warnings = []
+        for key, target_names, label in mappings:
+            value = str(values.get(key, "") or "").strip()
+            if not value:
+                continue
+            if not self._set_sheet_or_titleblock_parameter(
+                sheet,
+                target_names,
+                value,
+            ):
+                warnings.append(
+                    "09B : impossible de renseigner {} avec « {} » ; "
+                    "aucun paramètre cartouche/feuille compatible n'a été trouvé."
+                    .format(label, value)
+                )
+        return warnings
+
+    def _set_sheet_or_titleblock_parameter(
+        self,
+        sheet,
+        parameter_names,
+        value,
+    ):
+        targets = [sheet]
+        try:
+            from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector
+            targets.extend(
+                list(
+                    FilteredElementCollector(self.document, sheet.Id)
+                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+            )
+        except Exception:
+            pass
+
+        written = False
+        for target in targets:
+            for name in parameter_names or []:
+                try:
+                    parameter = target.LookupParameter(name)
+                except Exception:
+                    parameter = None
+                if parameter is None:
+                    continue
+                try:
+                    if bool(getattr(parameter, "IsReadOnly", False)):
+                        continue
+                    if parameter.Set(str(value)):
+                        written = True
+                except Exception:
+                    continue
+        return written
 
     def _write_housing_display_value(
         self,
