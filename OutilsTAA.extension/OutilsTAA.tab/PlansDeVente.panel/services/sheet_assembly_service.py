@@ -908,7 +908,7 @@ class SheetAssemblyService(object):
         values = dict(metadata or {})
         mappings = (
             ("building", ("Bâtiment", "Batiment"), "Bâtiment"),
-            ("floor", ("Étage", "Etage"), "Étage"),
+            ("floor", ("Niveau", "Étage", "Etage"), "Étage/Niveau"),
             ("typology", ("Zone",), "Typologie (paramètre cartouche Zone)"),
         )
 
