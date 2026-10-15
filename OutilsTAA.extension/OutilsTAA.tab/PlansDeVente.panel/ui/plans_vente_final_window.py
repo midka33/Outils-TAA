@@ -475,11 +475,24 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             item_w = max(4.0, (item_max_x - item_min_x) * scale)
             item_h = max(4.0, (item_max_y - item_min_y) * scale)
 
+            kind = str(item.get("kind", "") or "")
+
             rect = Rectangle()
             rect.Width = item_w
             rect.Height = item_h
-            rect.Stroke = Brushes.Gray
-            rect.StrokeThickness = 1.0
+            rect.StrokeThickness = 2.0 if kind in (
+                "main_view",
+                "location_view",
+                "schedule",
+            ) else 1.0
+            if kind == "main_view":
+                rect.Stroke = Brushes.OrangeRed
+            elif kind == "location_view":
+                rect.Stroke = Brushes.DarkOrange
+            elif kind == "schedule":
+                rect.Stroke = Brushes.SteelBlue
+            else:
+                rect.Stroke = Brushes.DarkGray
             rect.Fill = Brushes.Transparent
             Canvas.SetLeft(rect, left)
             Canvas.SetTop(rect, top)
@@ -488,6 +501,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             label = TextBlock()
             label.Text = str(item.get("label", "") or "")
             label.FontSize = 10.0
+            label.FontWeight = (
+                __import__("System.Windows", fromlist=["FontWeights"]).FontWeights.SemiBold
+                if kind in ("main_view", "location_view", "schedule")
+                else __import__("System.Windows", fromlist=["FontWeights"]).FontWeights.Normal
+            )
             label.TextWrapping = TextWrapping.Wrap
             label.Margin = Thickness(3)
             label.MaxWidth = max(1.0, item_w - 6.0)
