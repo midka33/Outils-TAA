@@ -103,7 +103,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b1-sheet-per-level-v3"' in main
+    assert 'UI_BUILD = "stage09b1-sheet-image-preview-v1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -225,15 +225,14 @@ def test_stage09b_cartouche_receives_room_metadata():
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
 
-    assert "room_metadata, metadata_warnings = self._room_metadata(housing)" in full
-    assert '("building", ("Bâtiment", "Batiment"))' in full
-    assert '("floor", ("Étage", "Etage", "Niveau"))' in full
-    assert '("typology", ("Typologie", "Type de logement", "Zone"))' in full
+    assert "room_metadata, metadata_warnings = self._room_metadata(" in full
+    assert "building_parameter_name=building_parameter_name" in full
+    assert "typology_parameter_name=typology_parameter_name" in full
     assert "room_metadata=room_metadata" in full
 
     assert "def _write_room_metadata(" in sheet
     assert '("building", ("Bâtiment", "Batiment"), "Bâtiment")' in sheet
-    assert '("floor", ("Étage", "Etage"), "Étage")' in sheet
+    assert '("floor", ("Niveau", "Étage", "Etage"), "Étage/Niveau")' in sheet
     assert '("typology", ("Zone",), "Typologie (paramètre cartouche Zone)")' in sheet
 
 
@@ -264,7 +263,7 @@ def test_stage09b_floor_comes_from_generated_main_view():
     assert "main_view_unique_id=main_result.view_unique_id" in full
     assert "def _main_view_level_name(" in full
     assert 'getattr(view, "GenLevel", None)' in full
-    assert "def _lowest_level_name(" in full
+    assert "def _floor_numbers(" in full
 
 
 def test_stage09b_multiple_levels_are_all_written_to_floor_field():
@@ -274,15 +273,23 @@ def test_stage09b_multiple_levels_are_all_written_to_floor_field():
     assert 'result["floor"] = " / ".join(floors)' in full
 
 
-def test_stage09_template_preview_uses_real_sheet_layout():
+def test_stage09_template_preview_uses_real_revit_sheet_image():
     xaml = MAIN_XAML.read_text(encoding="utf-8")
     main = MAIN_WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
     full = FULL.read_text(encoding="utf-8")
 
-    assert 'x:Name="TemplatePreviewCanvas"' in xaml
-    assert 'SizeChanged="TemplatePreviewCanvas_SizeChanged"' in xaml
-    assert "def _render_template_preview(" in main
-    assert "inspection.preview_items" in main
+    assert 'x:Name="TemplatePreviewImage"' in xaml
+    assert 'x:Name="ExpectedResultImage"' in xaml
+    assert 'x:Name="TemplatePreviewOverlay"' in xaml
+    assert 'x:Name="ExpectedResultOverlay"' in xaml
+    assert "def _export_and_show_sheet_preview(" in main
+    assert "self.controller.export_sheet_preview(" in main
+    assert "def _load_bitmap(" in main
+    assert "def _render_preview_overlays(" in main
+    assert "def export_sheet_preview(" in controller
+    assert "ImageExportOptions()" in controller
+    assert "ExportRange.SetOfViews" in controller
+    assert "document.ExportImage(options)" in controller
     assert "def _sheet_preview_bounds(" in full
     assert "def _sheet_preview_items(" in full
-    assert '"kind": "schedule"' in full
