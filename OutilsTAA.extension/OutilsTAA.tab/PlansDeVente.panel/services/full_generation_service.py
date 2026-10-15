@@ -22,6 +22,8 @@ class FullGenerationInspection(object):
         dimension_type_name="",
         filled_region_type_name="",
         warnings=None,
+        preview_bounds=None,
+        preview_items=None,
     ):
         self.template_sheet_unique_id = template_sheet_unique_id or ""
         self.template_sheet_label = template_sheet_label or ""
@@ -38,6 +40,8 @@ class FullGenerationInspection(object):
         self.dimension_type_name = dimension_type_name or ""
         self.filled_region_type_name = filled_region_type_name or ""
         self.warnings = list(warnings or [])
+        self.preview_bounds = tuple(preview_bounds or ())
+        self.preview_items = list(preview_items or [])
 
     @property
     def summary(self):
@@ -200,7 +204,90 @@ class FullGenerationService(object):
             dimension_type_name=self._element_type_name(dimension_type),
             filled_region_type_name=self._element_type_name(fill_type),
             warnings=warnings,
+            preview_bounds=self._sheet_preview_bounds(sheet),
+            preview_items=self._sheet_preview_items(
+                sheet,
+                main_info,
+                location_info,
+                schedule_instances,
+            ),
         )
+
+    @staticmethod
+    def _sheet_preview_bounds(sheet):
+        try:
+            outline = sheet.Outline
+            return (
+                float(outline.Min.U),
+                float(outline.Min.V),
+                float(outline.Max.U),
+                float(outline.Max.V),
+            )
+        except Exception:
+            return ()
+
+    def _sheet_preview_items(
+        self,
+        sheet,
+        main_info,
+        location_info,
+        schedule_instances,
+    ):
+        items = []
+
+        def add_viewport(info, role, label):
+            if info is None or info.viewport is None:
+                return
+            try:
+                outline = info.viewport.GetBoxOutline()
+                items.append({
+                    "kind": role,
+                    "label": label,
+                    "min_x": float(outline.MinimumPoint.X),
+                    "min_y": float(outline.MinimumPoint.Y),
+                    "max_x": float(outline.MaximumPoint.X),
+                    "max_y": float(outline.MaximumPoint.Y),
+                })
+            except Exception:
+                pass
+
+        add_viewport(
+            main_info,
+            "main_view",
+            str(getattr(main_info.view, "Name", "") or "Vue logement"),
+        )
+        add_viewport(
+            location_info,
+            "location_view",
+            str(getattr(location_info.view, "Name", "") or "Repérage"),
+        )
+
+        for index, instance in enumerate(schedule_instances or [], 1):
+            try:
+                box = instance.get_BoundingBox(sheet)
+            except Exception:
+                box = None
+            if box is None:
+                continue
+
+            schedule = None
+            try:
+                schedule = self.document.GetElement(instance.ScheduleId)
+            except Exception:
+                schedule = None
+            label = str(
+                getattr(schedule, "Name", "") or "Nomenclature {}".format(index)
+            )
+            items.append({
+                "kind": "schedule",
+                "label": label,
+                "min_x": float(box.Min.X),
+                "min_y": float(box.Min.Y),
+                "max_x": float(box.Max.X),
+                "max_y": float(box.Max.Y),
+            })
+
+        return items
 
     def generate(
         self,
