@@ -213,6 +213,9 @@ class ScheduleService(object):
             getattr(housing, "filter_key", None)
             or housing.key
         )
+        all_levels_for_housing = (
+            str(filter_key or "") != str(housing.key or "")
+        )
 
         with RevitTransaction(
             self.document,
@@ -245,6 +248,8 @@ class ScheduleService(object):
                     getattr(template, "UniqueId", "") or ""
                 )
                 if filterable.get(template_uid, False):
+                    if all_levels_for_housing:
+                        self._remove_level_filters(created)
                     self._apply_housing_filter(
                         created,
                         descriptor,
@@ -383,6 +388,48 @@ class ScheduleService(object):
                 "Le champ « {} » de la nomenclature « {} » ne peut pas être utilisé comme filtre de valeur.".format(
                     descriptor.name, getattr(schedule, "Name", "")))
         return field_id
+
+    def _remove_level_filters(self, schedule):
+        """09B.1 : rend la nomenclature globale au logement.
+
+        Une feuille par niveau ne doit pas limiter les tableaux au niveau de la
+        vue. Les filtres de niveau hérités de la nomenclature modèle sont donc
+        retirés pour les sous-logements 09B.1. Les autres filtres métier sont
+        conservés.
+        """
+        definition = schedule.Definition
+        indexes = []
+
+        for index in range(definition.GetFilterCount()):
+            current = definition.GetFilter(index)
+            field = None
+            try:
+                field = definition.GetField(current.FieldId)
+            except Exception:
+                field = None
+            if field is None:
+                continue
+
+            try:
+                name = str(field.GetName() or "").strip().lower()
+            except Exception:
+                name = ""
+
+            normalized = (
+                name.replace("é", "e")
+                .replace("è", "e")
+                .replace("ê", "e")
+                .replace("à", "a")
+            )
+            if (
+                normalized in ("niveau", "level")
+                or normalized.startswith("niveau ")
+                or normalized.startswith("level ")
+            ):
+                indexes.append(index)
+
+        for index in reversed(indexes):
+            definition.RemoveFilter(index)
 
     def _apply_housing_filter(self, schedule, descriptor, housing_key):
         from Autodesk.Revit.DB import ScheduleFilter, ScheduleFilterType
