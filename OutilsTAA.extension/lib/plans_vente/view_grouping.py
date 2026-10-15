@@ -55,11 +55,27 @@ def _source_token(source_unique_id):
     return text[-8:]
 
 
-def master_view_name(level_name, target_scale, source_unique_id):
-    """Nom déterministe d'une vue principale technique PDV."""
+def master_view_name(
+    level_name,
+    target_scale,
+    source_unique_id,
+    view_template_unique_id=None,
+):
+    """Nom déterministe d'une vue principale technique PDV.
+
+    Le gabarit fait partie du groupe de compatibilité. Deux plans du même
+    niveau et à la même échelle ne doivent pas partager une vue principale
+    technique s'ils utilisent des gabarits différents.
+    """
     scale = normalize_scale(target_scale)
-    return "PDV MASTER - {} - 1-{} - {}".format(
+    base = "PDV MASTER - {} - 1-{} - {}".format(
         _safe_label(level_name),
         scale,
         _source_token(source_unique_id),
     )
+    if view_template_unique_id:
+        return "{} - T{}".format(
+            base,
+            _source_token(view_template_unique_id),
+        )
+    return base
