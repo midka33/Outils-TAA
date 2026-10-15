@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b2-one-sheet-multilevel-v1"
+    UI_BUILD = "stage09b2-one-sheet-multilevel-v2"
 
     def __init__(self, controller):
         self.controller = controller
