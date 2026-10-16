@@ -1238,6 +1238,51 @@ class FullGenerationService(object):
 
         return main, location, warnings
 
+    def diagnose_template_zones(
+        self,
+        template_sheet_unique_id,
+        subcategory_name="Cartouches",
+    ):
+        """Diagnostic sans modification de la feuille modèle."""
+        sheet = self._get_element(
+            template_sheet_unique_id,
+            "La feuille modèle n'existe plus.",
+        )
+
+        mode = self.detect_multilevel_template_mode(
+            template_sheet_unique_id
+        )
+        main_count = int(mode.get("main_view_count", 1) or 1)
+
+        if main_count >= 2:
+            (
+                main_infos,
+                location_info,
+                _scale,
+                _layout,
+                _warnings,
+            ) = self._classify_multilevel_viewports(
+                sheet,
+                expected_levels=main_count,
+            )
+            main_viewports = [
+                info.viewport for info in main_infos
+            ]
+        else:
+            main_info, _location_info, _warnings = (
+                self._classify_viewports(sheet)
+            )
+            main_viewports = [main_info.viewport]
+
+        result = self.sheet_assembly_service.diagnose_titleblock_zones(
+            sheet,
+            main_viewports,
+            subcategory_name=subcategory_name,
+        )
+        result["sheet_label"] = self._sheet_label(sheet)
+        result["mode_summary"] = mode.get("summary", "")
+        return result
+
     def detect_multilevel_template_mode(self, template_sheet_unique_id):
         """Déduit le comportement multi-niveaux depuis la feuille modèle.
 
