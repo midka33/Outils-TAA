@@ -950,8 +950,16 @@ class FullGenerationService(object):
                         for info in main_infos
                     ],
                     template_location_viewport_unique_id=(
-                        inspection.location_viewport_unique_id
-                        or None
+                        str(
+                            getattr(
+                                location_info.viewport,
+                                "UniqueId",
+                                "",
+                            )
+                            or ""
+                        )
+                        if location_info is not None
+                        else None
                     ),
                     schedule_bindings=bindings,
                     auto_fit_main_view=bool(auto_fit_main_view),
