@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc7"' in main
+    assert 'UI_BUILD = "stage09-rc8"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -499,3 +499,14 @@ def test_stage09_rc7_duplex_alignment_uses_real_crop_shape():
     assert "curve.Tessellate()" in sheet
     assert "transform.OfPoint(point)" in sheet
     assert "_view_outline_center_on_sheet" not in sheet
+
+
+def test_stage09_rc8_multilevel_uses_equal_available_zones():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "def _multilevel_available_zone(" in sheet
+    assert "def _split_available_zone(" in sheet
+    assert "def _multilevel_orientation(" in sheet
+    assert 'return "side_by_side" if x_span > y_span else "stacked"' in sheet
+    assert "zone principale divisée en" in sheet
+    assert "fixed_template_elements" in sheet
