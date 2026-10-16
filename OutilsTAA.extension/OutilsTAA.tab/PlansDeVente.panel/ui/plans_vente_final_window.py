@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b2-template-auto-v2"
+    UI_BUILD = "stage09-rc1"
 
     def __init__(self, controller):
         self.controller = controller
