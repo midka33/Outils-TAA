@@ -397,56 +397,58 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 )
             lines.append("")
 
-        zones = list(result.get("zones", []) or [])
-        if zones:
-            lines.append("Zones détectées :")
-            for index, zone in enumerate(zones, 1):
+        views = list(result.get("views", []) or [])
+        lines.append("Centres et zones des vues logement :")
+        for item in views:
+            zone = item.get("zone")
+            lines.append(
+                "- Vue {} : X {:.1f} mm | Y {:.1f} mm".format(
+                    item.get("index", "?"),
+                    mm(item.get("center_x", 0.0)),
+                    mm(item.get("center_y", 0.0)),
+                )
+            )
+            if zone is None:
+                lines.append("  Zone autour du centre : aucune")
+            else:
                 lines.append(
-                    "- Zone {} : X {:.1f} → {:.1f} mm | "
-                    "Y {:.1f} → {:.1f} mm | {:.1f} × {:.1f} mm".format(
-                        index,
+                    "  Zone : G {:.1f} | D {:.1f} | B {:.1f} | H {:.1f} mm"
+                    .format(
                         mm(zone[0]),
                         mm(zone[2]),
                         mm(zone[1]),
                         mm(zone[3]),
+                    )
+                )
+                lines.append(
+                    "  Taille : {:.1f} × {:.1f} mm".format(
                         mm(zone[2] - zone[0]),
                         mm(zone[3] - zone[1]),
                     )
                 )
-            lines.append("")
+
+        common = result.get("common_zone")
+        lines.append("")
+        if common is None:
+            lines.append("Zone commune proposée : aucune")
         else:
             lines.append(
-                "Aucune zone rectangulaire fermée n'a été reconstruite."
+                "Zone commune proposée : G {:.1f} | D {:.1f} | "
+                "B {:.1f} | H {:.1f} mm".format(
+                    mm(common[0]),
+                    mm(common[2]),
+                    mm(common[1]),
+                    mm(common[3]),
+                )
             )
-            lines.append("")
-
-        views = list(result.get("views", []) or [])
-        lines.append("Centres des vues logement :")
-        for item in views:
-            zone_ids = list(item.get("zone_ids", []) or [])
             lines.append(
-                "- Vue {} : X {:.1f} mm | Y {:.1f} mm | zone(s) : {}".format(
-                    item.get("index", "?"),
-                    mm(item.get("center_x", 0.0)),
-                    mm(item.get("center_y", 0.0)),
-                    (
-                        ", ".join(str(value) for value in zone_ids)
-                        if zone_ids
-                        else "aucune"
-                    ),
+                "Taille zone commune : {:.1f} × {:.1f} mm".format(
+                    mm(common[2] - common[0]),
+                    mm(common[3] - common[1]),
                 )
             )
 
-        common = list(result.get("common_zone_ids", []) or [])
         lines.extend([
-            "",
-            "Zone(s) commune(s) aux centres : {}".format(
-                (
-                    ", ".join(str(value) for value in common)
-                    if common
-                    else "aucune"
-                )
-            ),
             "Orientation détectée : {}".format(
                 result.get("orientation") or "non déterminée"
             ),
