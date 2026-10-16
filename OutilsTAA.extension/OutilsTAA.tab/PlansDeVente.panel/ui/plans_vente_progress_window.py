@@ -69,6 +69,49 @@ class PlansVenteProgressWindow(forms.WPFWindow):
         self.ItemText.Text = item_label
         self.StatusText.Text = message or "{} en cours…".format(phase)
 
+        self._set_active_phase(phase)
+        self._flush_ui()
+
+    def update_progress(
+        self,
+        overall_fraction,
+        current_plan,
+        housing_key="—",
+        phase="Création",
+        message="",
+        item_label="Revit travaille…",
+    ):
+        try:
+            fraction = float(overall_fraction)
+        except Exception:
+            fraction = 0.0
+        fraction = max(0.0, min(fraction, 1.0))
+
+        percent = int(round(100.0 * fraction))
+        if fraction < 1.0:
+            percent = min(percent, 99)
+
+        try:
+            current_plan = int(current_plan)
+        except Exception:
+            current_plan = 1
+        current_plan = max(1, min(current_plan, self._total))
+
+        self.ProgressBar.Value = percent
+        self.PercentText.Text = "{} %".format(percent)
+        self.HousingText.Text = housing_key or "—"
+        self.UnitsText.Text = "{} / {}".format(
+            current_plan,
+            self._total,
+        )
+        self.PhaseText.Text = phase
+        self.ItemText.Text = item_label
+        self.StatusText.Text = message or "{} en cours…".format(phase)
+
+        self._set_active_phase(phase)
+        self._flush_ui()
+
+    def _set_active_phase(self, phase):
         active = "prepare"
         phase_lower = (phase or "").lower()
         if "création" in phase_lower:
@@ -85,8 +128,6 @@ class PlansVenteProgressWindow(forms.WPFWindow):
             ("finalize", self.FinalizeStep),
         ):
             control.Opacity = 1.0 if key == active else 0.45
-
-        self._flush_ui()
 
     def finish(self, created, skipped, failures):
         self.ProgressBar.Value = 100
