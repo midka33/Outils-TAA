@@ -769,6 +769,14 @@ class FullGenerationService(object):
                 "Choisissez et analysez d'abord le paramètre logement."
             )
 
+        self._notify_progress(
+            progress_callback,
+            0.02,
+            "Préparation",
+            "Analyse du logement",
+            "Lecture du logement multi-niveaux {}…".format(housing.key),
+        )
+
         level_housings = list(split_housing_by_level(housing) or [])
         try:
             level_housings.sort(
@@ -793,6 +801,7 @@ class FullGenerationService(object):
                 building_parameter_name=building_parameter_name,
                 typology_parameter_name=typology_parameter_name,
                 main_view_zone_line_style=main_view_zone_line_style,
+                progress_callback=progress_callback,
             )
 
         inspection = self.inspect_template(
@@ -861,6 +870,16 @@ class FullGenerationService(object):
         warnings.extend(inspection.warnings)
         warnings.extend(classifier_warnings)
 
+        self._notify_progress(
+            progress_callback,
+            0.08,
+            "Préparation",
+            "Feuille modèle analysée",
+            "{} niveau(x) à générer sur une seule feuille.".format(
+                len(level_housings)
+            ),
+        )
+
         from Autodesk.Revit.DB import TransactionGroup
 
         group = TransactionGroup(
@@ -877,9 +896,12 @@ class FullGenerationService(object):
         location_result = None
         schedule_result = None
         sheet_result = None
+        level_count = max(1, len(level_housings))
+        level_span = 0.50 / float(level_count)
 
         try:
             for level_index, level_housing in enumerate(level_housings):
+                level_base = 0.10 + (level_span * level_index)
                 model_main_info = main_infos[level_index]
                 source_candidate, source_warnings = self._resolve_source_view(
                     level_housing,
@@ -913,6 +935,16 @@ class FullGenerationService(object):
                 )
                 main_results.append(main_result)
 
+                self._notify_progress(
+                    progress_callback,
+                    level_base + (level_span * 0.34),
+                    "Création",
+                    "Vue niveau {} créée".format(level_index + 1),
+                    "Vue principale du niveau {} créée et cadrée.".format(
+                        level_index + 1
+                    ),
+                )
+
                 if tag_type is not None:
                     tag_result = self.room_tag_service.create_tags(
                         level_housing,
@@ -926,6 +958,16 @@ class FullGenerationService(object):
                         "09B.2 : étiquettes non créées, aucun type "
                         "n'a été déduit du modèle."
                     )
+
+                self._notify_progress(
+                    progress_callback,
+                    level_base + (level_span * 0.67),
+                    "Création",
+                    "Étiquettes niveau {} traitées".format(level_index + 1),
+                    "Étiquettes du niveau {} terminées.".format(
+                        level_index + 1
+                    ),
+                )
 
                 if dimension_type is not None:
                     dimension_result = self.dimension_service.create_dimensions(
@@ -943,6 +985,16 @@ class FullGenerationService(object):
                         "09B.2 : cotations non créées, aucun type "
                         "n'a été déduit du modèle."
                     )
+
+                self._notify_progress(
+                    progress_callback,
+                    level_base + level_span,
+                    "Création",
+                    "Cotations niveau {} traitées".format(level_index + 1),
+                    "Cotations du niveau {} terminées.".format(
+                        level_index + 1
+                    ),
+                )
 
             lower_housing = level_housings[0]
             try:
@@ -1000,6 +1052,14 @@ class FullGenerationService(object):
                     "n'est présent sur la feuille modèle."
                 )
 
+            self._notify_progress(
+                progress_callback,
+                0.68,
+                "Création",
+                "Repérage traité",
+                "Création du plan de repérage terminée.",
+            )
+
             schedule_result = (
                 self.schedule_service.duplicate_templates_for_housing(
                     housing,
@@ -1010,6 +1070,14 @@ class FullGenerationService(object):
                 )
             )
             warnings.extend(schedule_result.warnings)
+
+            self._notify_progress(
+                progress_callback,
+                0.80,
+                "Création",
+                "Nomenclatures créées",
+                "Les nomenclatures multi-niveaux sont prêtes.",
+            )
 
             generated_by_template = dict(
                 (
@@ -1040,6 +1108,14 @@ class FullGenerationService(object):
                 main_view_unique_id=None,
             )
             warnings.extend(metadata_warnings)
+
+            self._notify_progress(
+                progress_callback,
+                0.84,
+                "Assemblage",
+                "Création de la feuille",
+                "Assemblage des niveaux sur la mise en page…",
+            )
 
             sheet_result = (
                 self.sheet_assembly_service
@@ -1090,7 +1166,22 @@ class FullGenerationService(object):
             )
             warnings.extend(sheet_result.warnings)
 
+            self._notify_progress(
+                progress_callback,
+                0.96,
+                "Assemblage",
+                "Feuille assemblée",
+                "Les vues des niveaux sont placées sur la feuille.",
+            )
+
             group.Assimilate()
+            self._notify_progress(
+                progress_callback,
+                1.0,
+                "Finalisation",
+                "Plan terminé",
+                "Plan de vente {} créé.".format(housing.key),
+            )
         except Exception:
             try:
                 group.RollBack()
