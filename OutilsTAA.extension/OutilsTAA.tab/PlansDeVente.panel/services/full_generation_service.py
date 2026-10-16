@@ -689,6 +689,7 @@ class FullGenerationService(object):
                 auto_fit_main_view=auto_fit_main_view,
                 building_parameter_name=building_parameter_name,
                 typology_parameter_name=typology_parameter_name,
+                main_view_zone_line_style=main_view_zone_line_style,
             )
 
         inspection = self.inspect_template(
