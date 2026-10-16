@@ -2162,9 +2162,11 @@ class SheetAssemblyService(object):
         main_viewports,
         subcategory_name="Cartouches",
     ):
-        """Diagnostic uniquement : reconstruit les zones du cartouche.
+        """Diagnostic uniquement : trouve la zone autour de chaque centre.
 
-        Aucune modification du document n'est effectuée.
+        Au lieu de reconstruire toutes les cellules du cartouche, on part du
+        centre de chaque vue logement et on cherche les limites Cartouches les
+        plus proches à gauche, à droite, en haut et en bas.
         """
         segments, style_counts = self._title_block_segments_by_subcategory(
             sheet,
@@ -2172,41 +2174,47 @@ class SheetAssemblyService(object):
         )
 
         tolerance = self._millimeters_to_internal(1.0)
-        zones = self._rectangular_zones_from_segments(
-            segments,
-            tolerance,
-        )
-
         views = []
+
         for index, viewport in enumerate(list(main_viewports or []), 1):
             center = viewport.GetBoxCenter()
             x_value = float(center.X)
             y_value = float(center.Y)
-            zone_ids = []
-            for zone_index, zone in enumerate(zones, 1):
-                if (
-                    x_value >= zone[0] - tolerance
-                    and x_value <= zone[2] + tolerance
-                    and y_value >= zone[1] - tolerance
-                    and y_value <= zone[3] + tolerance
-                ):
-                    zone_ids.append(zone_index)
+
+            zone = self._zone_around_point_from_segments(
+                segments,
+                x_value,
+                y_value,
+                tolerance,
+            )
+
             views.append({
                 "index": index,
                 "center_x": x_value,
                 "center_y": y_value,
-                "zone_ids": zone_ids,
+                "zone": zone,
             })
 
-        common_zone_ids = None
-        for item in views:
-            current = set(item["zone_ids"])
-            common_zone_ids = (
-                current
-                if common_zone_ids is None
-                else common_zone_ids.intersection(current)
-            )
-        common_zone_ids = sorted(common_zone_ids or [])
+        common_zone = None
+        detected_zones = [
+            item.get("zone")
+            for item in views
+            if item.get("zone") is not None
+        ]
+        if len(detected_zones) == len(views) and detected_zones:
+            first = detected_zones[0]
+            if all(
+                self._rectangles_equal(first, zone, tolerance)
+                for zone in detected_zones[1:]
+            ):
+                common_zone = first
+            else:
+                common_zone = (
+                    min(zone[0] for zone in detected_zones),
+                    min(zone[1] for zone in detected_zones),
+                    max(zone[2] for zone in detected_zones),
+                    max(zone[3] for zone in detected_zones),
+                )
 
         orientation = None
         if len(views) >= 2:
@@ -2226,11 +2234,77 @@ class SheetAssemblyService(object):
             "subcategory": subcategory_name,
             "segment_count": len(segments),
             "style_counts": style_counts,
-            "zones": zones,
             "views": views,
-            "common_zone_ids": common_zone_ids,
+            "common_zone": common_zone,
             "orientation": orientation,
         }
+
+    def _zone_around_point_from_segments(
+        self,
+        segments,
+        point_x,
+        point_y,
+        tolerance,
+    ):
+        vertical = []
+        horizontal = []
+
+        for start, end in list(segments or []):
+            x1, y1 = start
+            x2, y2 = end
+
+            if abs(x1 - x2) <= tolerance:
+                x_value = (x1 + x2) / 2.0
+                y_min = min(y1, y2)
+                y_max = max(y1, y2)
+                if point_y >= y_min - tolerance and point_y <= y_max + tolerance:
+                    vertical.append(x_value)
+
+            elif abs(y1 - y2) <= tolerance:
+                y_value = (y1 + y2) / 2.0
+                x_min = min(x1, x2)
+                x_max = max(x1, x2)
+                if point_x >= x_min - tolerance and point_x <= x_max + tolerance:
+                    horizontal.append(y_value)
+
+        left_candidates = [
+            value for value in vertical
+            if value < point_x - tolerance
+        ]
+        right_candidates = [
+            value for value in vertical
+            if value > point_x + tolerance
+        ]
+        bottom_candidates = [
+            value for value in horizontal
+            if value < point_y - tolerance
+        ]
+        top_candidates = [
+            value for value in horizontal
+            if value > point_y + tolerance
+        ]
+
+        if not (
+            left_candidates
+            and right_candidates
+            and bottom_candidates
+            and top_candidates
+        ):
+            return None
+
+        return (
+            max(left_candidates),
+            max(bottom_candidates),
+            min(right_candidates),
+            min(top_candidates),
+        )
+
+    @staticmethod
+    def _rectangles_equal(first, second, tolerance):
+        return all(
+            abs(float(a) - float(b)) <= tolerance
+            for a, b in zip(first, second)
+        )
 
     def _title_block_segments_by_subcategory(
         self,
