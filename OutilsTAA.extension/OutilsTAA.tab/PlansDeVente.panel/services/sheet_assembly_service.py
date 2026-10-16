@@ -2248,12 +2248,14 @@ class SheetAssemblyService(object):
         style_counts = {}
         options = Options()
 
-        for title_block in (
+        title_blocks = list(
             FilteredElementCollector(self.document, sheet.Id)
             .OfCategory(BuiltInCategory.OST_TitleBlocks)
             .WhereElementIsNotElementType()
             .ToElements()
-        ):
+        )
+
+        for title_block in title_blocks:
             try:
                 geometry = title_block.get_Geometry(options)
             except Exception:
@@ -2267,7 +2269,134 @@ class SheetAssemblyService(object):
                 Transform.Identity,
             )
 
+        # Les familles de cartouche sont des familles d'annotation 2D :
+        # leurs lignes symboliques ne sont souvent pas exposées dans la
+        # géométrie d'instance du projet. Si aucune ligne stylée n'a été
+        # trouvée, lire directement les CurveElement du document famille.
+        if not segments and title_blocks:
+            for title_block in title_blocks:
+                family_segments, family_styles = (
+                    self._title_block_family_curve_segments(
+                        title_block,
+                        subcategory_name,
+                    )
+                )
+                segments.extend(family_segments)
+                for name, count in family_styles.items():
+                    style_counts[name] = (
+                        style_counts.get(name, 0) + count
+                    )
+
         return segments, style_counts
+
+    def _title_block_family_curve_segments(
+        self,
+        title_block,
+        subcategory_name,
+    ):
+        """Lit directement les lignes 2D du document famille du cartouche."""
+        from Autodesk.Revit.DB import CurveElement, FilteredElementCollector
+
+        output = []
+        style_counts = {}
+        family_doc = None
+
+        try:
+            symbol = getattr(title_block, "Symbol", None)
+            family = getattr(symbol, "Family", None)
+            if family is None:
+                return output, style_counts
+
+            family_doc = self.document.EditFamily(family)
+            if family_doc is None:
+                return output, style_counts
+
+            try:
+                instance_transform = title_block.GetTransform()
+            except Exception:
+                instance_transform = None
+
+            for curve_element in (
+                FilteredElementCollector(family_doc)
+                .OfClass(CurveElement)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            ):
+                style_name = ""
+                try:
+                    line_style = curve_element.LineStyle
+                    category = getattr(
+                        line_style,
+                        "GraphicsStyleCategory",
+                        None,
+                    )
+                    style_name = str(
+                        getattr(category, "Name", "") or ""
+                    )
+                except Exception:
+                    style_name = ""
+
+                if style_name:
+                    style_counts[style_name] = (
+                        style_counts.get(style_name, 0) + 1
+                    )
+
+                if str(style_name).strip().lower() != str(
+                    subcategory_name
+                ).strip().lower():
+                    continue
+
+                try:
+                    curve = curve_element.GeometryCurve
+                except Exception:
+                    curve = None
+                if curve is None:
+                    continue
+
+                try:
+                    points = list(curve.Tessellate() or [])
+                except Exception:
+                    points = []
+
+                if len(points) < 2:
+                    try:
+                        points = [
+                            curve.GetEndPoint(0),
+                            curve.GetEndPoint(1),
+                        ]
+                    except Exception:
+                        points = []
+
+                transformed = []
+                for point in points:
+                    if instance_transform is not None:
+                        try:
+                            point = instance_transform.OfPoint(point)
+                        except Exception:
+                            pass
+                    transformed.append(point)
+
+                for first, second in zip(
+                    transformed,
+                    transformed[1:],
+                ):
+                    output.append(
+                        (
+                            (float(first.X), float(first.Y)),
+                            (float(second.X), float(second.Y)),
+                        )
+                    )
+
+        except Exception:
+            return output, style_counts
+        finally:
+            if family_doc is not None:
+                try:
+                    family_doc.Close(False)
+                except Exception:
+                    pass
+
+        return output, style_counts
 
     def _collect_geometry_segments_by_subcategory(
         self,
