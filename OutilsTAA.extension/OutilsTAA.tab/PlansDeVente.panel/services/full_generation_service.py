@@ -555,6 +555,9 @@ class FullGenerationService(object):
                         ),
                     )
                 )
+                warnings.extend(
+                    list(getattr(location_result, "warnings", []) or [])
+                )
             else:
                 warnings.append(
                     "Repérage non créé : aucun repérage exploitable n'est présent "
@@ -880,6 +883,9 @@ class FullGenerationService(object):
                             getattr(location_info.view, "UniqueId", "") or ""
                         ),
                     )
+                )
+                warnings.extend(
+                    list(getattr(location_result, "warnings", []) or [])
                 )
             else:
                 warnings.append(
