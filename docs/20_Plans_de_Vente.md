@@ -2,12 +2,12 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.26
-**Statut :** Développement — Étape 09 Stabilisation interface V1  
+**Version :** 1.27
+**Statut :** Release Candidate — Étape 09 stabilisée, RC16 à valider  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-14
+**Date :** 2026-10-16
 
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
@@ -5070,30 +5070,6 @@ Revit.
 **Build :** `stage09-rc2`
 
 
-### Diagnostic des zones de cartouche
-
-Un diagnostic non destructif a été ajouté avant toute nouvelle modification du
-placement multi-vues.
-
-Dans l'étape « Choix de la feuille modèle », le bouton
-**Diagnostiquer les zones du cartouche** :
-
-- analyse uniquement la géométrie de la sous-catégorie `Cartouches` ;
-- compte les segments graphiques trouvés ;
-- reconstruit les zones rectangulaires fermées à partir des lignes
-  horizontales et verticales ;
-- relève le centre des vues logement modèle ;
-- indique dans quelle(s) zone(s) tombe chaque centre ;
-- cherche une zone commune aux centres ;
-- déduit l'orientation haut/bas ou gauche/droite.
-
-Ce diagnostic ne modifie ni la feuille modèle ni le moteur de génération.
-Il sert à valider ce que l'API Revit expose réellement avant de brancher cette
-détection sur le placement automatique.
-
-**Build diagnostic :** `stage09-rc13-diagnostic`.
-
-
 ### Zones explicites des vues principales — contrat final Étape 09
 
 Le placement des **vues principales logement** ne dépend plus d'une estimation
@@ -5141,4 +5117,34 @@ Avant de lancer un lot, l'interface vérifie :
 Si ce contrat n'est pas respecté, la création est bloquée avant toute
 génération.
 
-**Build de stabilisation :** `stage09-rc15-explicit-main-zones`.
+**Build de stabilisation :** `stage09-rc16-progress`.
+
+### Progression de création — RC16
+
+La création par lot affiche désormais une fenêtre de progression dédiée,
+cohérente avec celle du module **Export**.
+
+La fenêtre affiche :
+
+- le logement en cours ;
+- le nombre de plans traités sur le nombre total ;
+- un pourcentage global monotone basé sur les logements réellement terminés ;
+- la phase courante ;
+- l'état de l'opération (`Revit travaille…`, plan terminé, plan ignoré ou échec).
+
+La fenêtre principale Plans de vente est temporairement désactivée pendant la
+création puis restaurée automatiquement, y compris si une exception survient.
+
+Aucun pourcentage artificiel n'est inventé à l'intérieur d'une génération
+Revit longue : la progression peut rester fixe pendant la création d'un
+logement, puis avancer lorsque ce logement est réellement terminé.
+
+**Build :** `stage09-rc16-progress`.
+
+### Harmonisation du ruban avant release
+
+La palette des icônes **Calculs des pièces**, **Export** et **Plans de vente**
+est harmonisée sur l'orange visuel Plans de vente : `#FD8B5A`.
+
+Les dessins et fonctions des boutons restent inchangés ; seule la palette
+graphique est harmonisée.
