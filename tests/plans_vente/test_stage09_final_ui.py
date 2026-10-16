@@ -63,7 +63,7 @@ def test_stage09_main_and_advanced_xaml_are_valid_and_use_taa_brand_orange():
 
     assert "Portée de génération" in main
     assert "Choix de la feuille modèle" in main
-    assert "Logements sur 2 niveaux" in main
+    assert "Logements sur 2 niveaux" not in main
     assert "Création des plans de vente" in main
 
 
@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc1"' in main
+    assert 'UI_BUILD = "stage09-rc2"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -405,3 +405,35 @@ def test_stage09_optional_location_plan_never_blocks_template_selection():
     assert "Repérage non créé" in full
     assert "location_viewport_model = None" in sheet
     assert "if template_location_viewport_unique_id:" in sheet
+
+
+def test_stage09_rc2_duplex_slots_share_one_scale():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "def _place_multilevel_views_in_template_slots(" in sheet
+    assert "scale_candidates_from_reference(" in sheet
+    assert "slot_sizes" in sheet
+    assert "fits_slots" in sheet
+    assert "no_overlap" in sheet
+    assert "les deux vues ont été réduites ensemble" in sheet
+
+
+def test_stage09_rc2_location_highlight_failure_is_non_blocking():
+    location = (PANEL / "services" / "location_plan_service.py").read_text(
+        encoding="utf-8"
+    )
+    full = FULL.read_text(encoding="utf-8")
+
+    assert "highlight_available" in location
+    assert "Repérage créé sans surbrillance" in location
+    assert "warnings=warnings" in location
+    assert 'getattr(location_result, "warnings", [])' in full
+
+
+def test_stage09_rc2_batch_reports_duration():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    assert "batch_started_at = time.time()" in main
+    assert "elapsed_seconds" in main
+    assert "Durée totale" in main
+    assert "Temps moyen / plan créé" in main
