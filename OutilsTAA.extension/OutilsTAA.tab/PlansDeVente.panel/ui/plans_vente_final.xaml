@@ -322,44 +322,6 @@
                                                VerticalAlignment="Center"/>
                                 </Border>
                                 <TextBlock Grid.Column="1"
-                                           Text="Logements sur 2 niveaux"
-                                           FontSize="17"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-
-                            <Border Margin="24,14,0,0"
-                                    Padding="12"
-                                    Background="#F4F4F4"
-                                    CornerRadius="4">
-                                <StackPanel>
-                                    <TextBlock Text="Comportement automatique selon la feuille modèle"
-                                               FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="MultiLevelInfoText"
-                                               Margin="0,6,0,0"
-                                               Text="Choisissez une feuille modèle : le module détectera automatiquement s'il doit créer une feuille par niveau ou une feuille unique avec deux vues."
-                                               Foreground="{DynamicResource TAABrandOrangeBrush}"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Etape 4 -->
-                    <Border Margin="0,14,0,0" Style="{StaticResource PDVCard}">
-                        <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="46"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Style="{StaticResource PDVStepCircle}">
-                                    <TextBlock Text="4" Foreground="White"
-                                               FontWeight="SemiBold" FontSize="15"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                                </Border>
-                                <TextBlock Grid.Column="1"
                                            Text="Création des plans de vente"
                                            FontSize="17"
                                            FontWeight="SemiBold"
