@@ -303,11 +303,6 @@
                                     <ComboBox x:Name="MainViewZoneLineStyleCombo"
                                               IsEnabled="False"
                                               Style="{DynamicResource TAAComboBox}"/>
-                                    <Button x:Name="DiagnoseZonesButton"
-                                            Margin="0,8,0,0"
-                                            Content="Diagnostiquer les zones des vues principales"
-                                            Click="DiagnoseZones_Click"
-                                            Style="{DynamicResource TAASecondaryButton}"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="2"
                                            x:Name="TemplateDetailsText"
