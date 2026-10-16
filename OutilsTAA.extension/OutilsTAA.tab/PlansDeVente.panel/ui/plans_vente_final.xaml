@@ -337,7 +337,8 @@
                                     Padding="10"
                                     Background="#F4F4F4"
                                     CornerRadius="4">
-                                <TextBlock Text="Mode final prévu : une feuille unique avec un plan niveau bas + un plan niveau haut, les nomenclatures du logement et un repérage adapté."
+                                <TextBlock Text="Ce mode nécessite une feuille modèle contenant déjà 2 vues logement + 1 repérage. Les 2 vues logement doivent être à la même échelle ; leurs positions seront reprises exactement."
+                                           TextWrapping="Wrap"
                                            Style="{DynamicResource TAASecondaryText}"/>
                             </Border>
                             <RadioButton x:Name="MultiLevelOneSheetPerLevelRadio"
@@ -351,7 +352,7 @@
                                          Checked="MultiLevelModeChanged"/>
                             <TextBlock x:Name="MultiLevelInfoText"
                                        Margin="46,6,0,0"
-                                       Text="09B.2 actif : vous pouvez créer soit une feuille unique avec une vue par niveau, soit une feuille distincte par niveau."
+                                       Text="09B.2 actif : pour une feuille unique, choisissez un modèle multi-niveaux préparé avec les 2 vues logement."
                                        Foreground="{DynamicResource TAABrandOrangeBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
