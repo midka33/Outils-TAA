@@ -1080,6 +1080,7 @@ class SheetAssemblyService(object):
         allowed_scales,
         auto_fit=True,
         fixed_template_elements=None,
+        main_view_zone_line_style="",
     ):
         """Place les vues multi-niveaux dans une grande zone disponible.
 
@@ -1116,18 +1117,54 @@ class SheetAssemblyService(object):
         )
 
         orientation = self._multilevel_orientation(models)
-        available_zone = self._multilevel_available_zone(
-            template_sheet,
-            models,
-            fixed_template_elements or [],
+
+        line_style_name = str(
+            main_view_zone_line_style or ""
+        ).strip()
+        if not line_style_name:
+            raise ValueError(
+                "Choisissez le style de ligne utilisé pour dessiner les zones "
+                "des vues principales sur la feuille modèle."
+            )
+
+        zone_segments, _zone_styles = (
+            self._sheet_curve_segments_by_line_style(
+                template_sheet,
+                line_style_name,
+            )
         )
-        target_zones = self._split_available_zone(
-            available_zone,
-            len(views),
-            orientation,
-        )
+        if not zone_segments:
+            raise ValueError(
+                "Aucune ligne de détail du style « {} » n'a été trouvée sur "
+                "la feuille modèle.".format(line_style_name)
+            )
 
         tolerance = self._millimeters_to_internal(1.0)
+        target_zones = []
+        for index, model in enumerate(models):
+            center = model.GetBoxCenter()
+            zone = self._zone_around_point_from_segments(
+                zone_segments,
+                float(center.X),
+                float(center.Y),
+                tolerance,
+            )
+            if zone is None:
+                raise ValueError(
+                    "Aucune zone fermée en lignes « {} » n'entoure le centre "
+                    "de la vue logement modèle {}.".format(
+                        line_style_name,
+                        index + 1,
+                    )
+                )
+            target_zones.append(zone)
+
+        if len(target_zones) != len(views):
+            raise ValueError(
+                "Le nombre de zones détectées ne correspond pas au nombre "
+                "de vues principales à placer."
+            )
+
         warnings = []
 
         for candidate in candidates:
@@ -1234,9 +1271,10 @@ class SheetAssemblyService(object):
                     )
 
                 warnings.append(
-                    "09B.2 : zone principale divisée en {} selon "
-                    "l'orientation {} du modèle.".format(
+                    "09B.2 : {} zone(s) explicite(s) « {} » utilisée(s) "
+                    "pour les vues principales ({})".format(
                         len(target_zones),
+                        line_style_name,
                         (
                             "haut / bas"
                             if orientation == "stacked"
@@ -1271,10 +1309,10 @@ class SheetAssemblyService(object):
                         pass
 
         raise RuntimeError(
-            "Impossible de faire rentrer les vues multi-niveaux dans la zone "
-            "principale disponible à une échelle commune. Autorisez une "
-            "échelle de repli plus petite ou agrandissez la zone disponible "
-            "sur la feuille modèle."
+            "Impossible de faire rentrer les vues multi-niveaux dans les "
+            "zones explicites dessinées sur la feuille modèle à une échelle "
+            "commune. Autorisez une échelle de repli plus petite ou "
+            "agrandissez les rectangles de zone."
         )
 
     @staticmethod
