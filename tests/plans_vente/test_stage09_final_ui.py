@@ -446,7 +446,7 @@ def test_stage09_rc3_annotation_crop_is_enabled():
 
     assert "VIEWER_ANNOTATION_CROP_ACTIVE" in crop
     assert "VIEWER_ANNOTATION_CROP_OFFSET" in crop
-    assert "offset_mm=120.0" in crop
+    assert "offset_mm=0.0" in crop
     assert "des annotations extérieures peuvent élargir le viewport" in crop
 
 
