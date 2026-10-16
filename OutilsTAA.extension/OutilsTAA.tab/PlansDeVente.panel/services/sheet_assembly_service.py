@@ -999,6 +999,7 @@ class SheetAssemblyService(object):
                 scale_warnings,
             ) = self._place_multilevel_views_in_template_slots(
                 sheet=sheet,
+                template_sheet=template_sheet,
                 housing_key=housing.key,
                 source_views=main_views,
                 template_viewports=main_viewport_models,
@@ -1006,6 +1007,13 @@ class SheetAssemblyService(object):
                 reference_scale=reference_scale,
                 allowed_scales=allowed_scales,
                 auto_fit=bool(auto_fit_main_view),
+                fixed_template_elements=[
+                    item[0] for item in resolved_schedules
+                ] + (
+                    [location_viewport_model]
+                    if location_viewport_model is not None
+                    else []
+                ),
             )
             fit_warnings.extend(scale_warnings)
 
@@ -1061,6 +1069,7 @@ class SheetAssemblyService(object):
     def _place_multilevel_views_in_template_slots(
         self,
         sheet,
+        template_sheet,
         housing_key,
         source_views,
         template_viewports,
@@ -1068,12 +1077,16 @@ class SheetAssemblyService(object):
         reference_scale,
         allowed_scales,
         auto_fit=True,
+        fixed_template_elements=None,
     ):
-        """Place plusieurs vues dans les emplacements du modèle.
+        """Place les vues multi-niveaux dans une grande zone disponible.
 
-        Les positions des centres sont conservées. Si les vues générées sont
-        plus grandes que leurs viewports modèles, toutes les vues sont réduites
-        ensemble à la même échelle.
+        Le modèle sert uniquement à déterminer l'orientation générale :
+        - vues superposées -> deux bandes horizontales ;
+        - vues côte à côte -> deux bandes verticales.
+
+        La zone principale disponible est calculée sur la feuille modèle puis
+        divisée en zones égales. Toutes les vues utilisent la même échelle.
         """
         from Autodesk.Revit.DB import ViewDuplicateOption, Viewport, XYZ
 
@@ -1084,6 +1097,10 @@ class SheetAssemblyService(object):
         if len(views) != len(models):
             raise ValueError(
                 "Le nombre de vues générées ne correspond pas au modèle."
+            )
+        if len(views) < 2:
+            raise ValueError(
+                "Le placement multi-niveaux nécessite au moins deux vues."
             )
 
         reference_scale = int(reference_scale or 0)
@@ -1096,35 +1113,19 @@ class SheetAssemblyService(object):
             else [reference_scale]
         )
 
-        slot_sizes = []
-        slot_centers = []
-        for viewport_model in models:
-            model_view = self.document.GetElement(
-                viewport_model.ViewId
-            )
-            if model_view is None:
-                raise RuntimeError(
-                    "Une vue logement du modèle n'existe plus."
-                )
-            crop_rectangle = self._view_crop_rectangle_on_sheet(
-                model_view,
-                viewport_model,
-            )
-            slot_sizes.append(
-                (
-                    crop_rectangle[2] - crop_rectangle[0],
-                    crop_rectangle[3] - crop_rectangle[1],
-                )
-            )
-            slot_centers.append(
-                (
-                    (crop_rectangle[0] + crop_rectangle[2]) / 2.0,
-                    (crop_rectangle[1] + crop_rectangle[3]) / 2.0,
-                )
-            )
+        orientation = self._multilevel_orientation(models)
+        available_zone = self._multilevel_available_zone(
+            template_sheet,
+            models,
+            fixed_template_elements or [],
+        )
+        target_zones = self._split_available_zone(
+            available_zone,
+            len(views),
+            orientation,
+        )
 
         tolerance = self._millimeters_to_internal(1.0)
-        clearance = self._millimeters_to_internal(2.0)
         warnings = []
 
         for candidate in candidates:
@@ -1179,13 +1180,38 @@ class SheetAssemblyService(object):
 
                     working_views.append(working_view)
 
+                fits = True
                 for index, working_view in enumerate(working_views):
-                    center = slot_centers[index]
+                    zone = target_zones[index]
+                    zone_width = zone[2] - zone[0]
+                    zone_height = zone[3] - zone[1]
+                    view_width, view_height = self._view_crop_paper_size(
+                        working_view,
+                        candidate,
+                    )
+                    if (
+                        view_width > zone_width + tolerance
+                        or view_height > zone_height + tolerance
+                    ):
+                        fits = False
+                        break
+
+                if not fits:
+                    continue
+
+                # Créer chaque viewport au centre de sa zone, puis recaler le
+                # centre réel du crop sur ce centre. Les annotations ne
+                # participent pas au placement.
+                for index, working_view in enumerate(working_views):
+                    zone = target_zones[index]
+                    target_x = (zone[0] + zone[2]) / 2.0
+                    target_y = (zone[1] + zone[3]) / 2.0
+
                     viewport = Viewport.Create(
                         self.document,
                         sheet.Id,
                         working_view.Id,
-                        XYZ(center[0], center[1], 0.0),
+                        XYZ(target_x, target_y, 0.0),
                     )
                     self._apply_viewport_type(
                         viewport,
@@ -1195,86 +1221,59 @@ class SheetAssemblyService(object):
 
                 self.document.Regenerate()
 
-                # Recaler chaque viewport sur le centre exact de sa vraie
-                # forme de crop projetée sur la feuille. Les annotations ne
-                # participent donc pas au positionnement.
                 for index, viewport in enumerate(created_viewports):
-                    working_view = working_views[index]
-                    target_x, target_y = slot_centers[index]
-                    actual_rectangle = self._view_crop_rectangle_on_sheet(
-                        working_view,
+                    zone = target_zones[index]
+                    target_x = (zone[0] + zone[2]) / 2.0
+                    target_y = (zone[1] + zone[3]) / 2.0
+                    crop_rectangle = self._view_crop_rectangle_on_sheet(
+                        working_views[index],
                         viewport,
                     )
                     actual_x = (
-                        actual_rectangle[0] + actual_rectangle[2]
+                        crop_rectangle[0] + crop_rectangle[2]
                     ) / 2.0
                     actual_y = (
-                        actual_rectangle[1] + actual_rectangle[3]
+                        crop_rectangle[1] + crop_rectangle[3]
                     ) / 2.0
-                    delta_x = target_x - actual_x
-                    delta_y = target_y - actual_y
 
                     box_center = viewport.GetBoxCenter()
                     viewport.SetBoxCenter(
                         XYZ(
-                            float(box_center.X) + delta_x,
-                            float(box_center.Y) + delta_y,
+                            float(box_center.X) + (target_x - actual_x),
+                            float(box_center.Y) + (target_y - actual_y),
                             0.0,
                         )
                     )
 
                 self.document.Regenerate()
+                success = True
 
-                fits_slots = True
-                geometry_rectangles = []
-                for index, viewport in enumerate(created_viewports):
-                    crop_rectangle = self._view_crop_rectangle_on_sheet(
-                        working_views[index],
-                        viewport,
+                if candidate != reference_scale:
+                    warnings.append(
+                        "09B.2 : les vues ont été réduites ensemble de "
+                        "1:{} à 1:{} pour rentrer dans les zones disponibles."
+                        .format(reference_scale, candidate)
                     )
-                    width = crop_rectangle[2] - crop_rectangle[0]
-                    height = crop_rectangle[3] - crop_rectangle[1]
-                    slot_width, slot_height = slot_sizes[index]
-                    if (
-                        width > slot_width + tolerance
-                        or height > slot_height + tolerance
-                    ):
-                        fits_slots = False
-                        break
 
-                    geometry_rectangles.append(crop_rectangle)
-
-                no_overlap = True
-                for index, rectangle in enumerate(geometry_rectangles):
-                    for other in geometry_rectangles[index + 1:]:
-                        if rectangles_overlap(
-                            rectangle,
-                            other,
-                            clearance=clearance,
-                        ):
-                            no_overlap = False
-                            break
-                    if not no_overlap:
-                        break
-
-                if fits_slots and no_overlap:
-                    success = True
-                    if candidate != reference_scale:
-                        warnings.append(
-                            "09B.2 : les deux vues ont été réduites ensemble "
-                            "de 1:{} à 1:{} pour respecter les emplacements "
-                            "de la feuille modèle.".format(
-                                reference_scale,
-                                candidate,
-                            )
-                        )
-                    return (
-                        working_views,
-                        created_viewports,
-                        candidate,
-                        bool(duplicated_ids),
-                        warnings,
+                warnings.append(
+                    "09B.2 : zone principale divisée en {} selon "
+                    "l'orientation {} du modèle.".format(
+                        len(target_zones),
+                        (
+                            "haut / bas"
+                            if orientation == "stacked"
+                            else "gauche / droite"
+                        ),
                     )
+                )
+
+                return (
+                    working_views,
+                    created_viewports,
+                    candidate,
+                    bool(duplicated_ids),
+                    warnings,
+                )
 
             finally:
                 if not success:
@@ -1294,11 +1293,149 @@ class SheetAssemblyService(object):
                         pass
 
         raise RuntimeError(
-            "Impossible de faire rentrer les vues multi-niveaux dans les "
-            "emplacements de la feuille modèle à une échelle commune. "
-            "Agrandissez les emplacements du modèle ou autorisez une échelle "
-            "de repli plus petite."
+            "Impossible de faire rentrer les vues multi-niveaux dans la zone "
+            "principale disponible à une échelle commune. Autorisez une "
+            "échelle de repli plus petite ou agrandissez la zone disponible "
+            "sur la feuille modèle."
         )
+
+    @staticmethod
+    def _multilevel_orientation(template_viewports):
+        centers = []
+        for viewport in list(template_viewports or []):
+            center = viewport.GetBoxCenter()
+            centers.append(
+                (float(center.X), float(center.Y))
+            )
+
+        if len(centers) < 2:
+            return "stacked"
+
+        x_span = max(item[0] for item in centers) - min(
+            item[0] for item in centers
+        )
+        y_span = max(item[1] for item in centers) - min(
+            item[1] for item in centers
+        )
+        return "side_by_side" if x_span > y_span else "stacked"
+
+    def _multilevel_available_zone(
+        self,
+        template_sheet,
+        template_viewports,
+        fixed_template_elements,
+    ):
+        """Calcule le grand rectangle principal libre de la feuille modèle."""
+        outline = getattr(template_sheet, "Outline", None)
+        if outline is None:
+            raise RuntimeError(
+                "Impossible de déterminer les limites de la feuille modèle."
+            )
+
+        margin = self._millimeters_to_internal(5.0)
+        gap = self._millimeters_to_internal(4.0)
+
+        left = float(outline.Min.U) + margin
+        bottom = float(outline.Min.V) + margin
+        right = float(outline.Max.U) - margin
+        top = float(outline.Max.V) - margin
+
+        # Emprise des vues principales du modèle : elle permet de sélectionner
+        # les séparations du cartouche qui encadrent réellement la zone plans.
+        main_rectangles = []
+        for viewport in list(template_viewports or []):
+            try:
+                main_rectangles.append(
+                    self._viewport_rectangle(viewport)
+                )
+            except Exception:
+                pass
+
+        if main_rectangles:
+            main_left = min(r[0] for r in main_rectangles)
+            main_bottom = min(r[1] for r in main_rectangles)
+            main_right = max(r[2] for r in main_rectangles)
+            main_top = max(r[3] for r in main_rectangles)
+            main_center_x = (main_left + main_right) / 2.0
+            main_center_y = (main_bottom + main_top) / 2.0
+        else:
+            main_center_x = (left + right) / 2.0
+            main_center_y = (bottom + top) / 2.0
+
+        # Les nomenclatures et le repérage donnent une limite droite fiable
+        # lorsqu'ils sont disposés dans une colonne latérale.
+        for element in list(fixed_template_elements or []):
+            rectangle = self._element_rectangle(
+                element,
+                template_sheet,
+            )
+            if rectangle is None:
+                continue
+            if rectangle[0] > main_center_x:
+                right = min(right, rectangle[0] - gap)
+
+        # Lire également la géométrie du cartouche. La première verticale à
+        # droite de la zone plans devient la limite droite ; la première
+        # horizontale située sous la zone plans devient la limite basse.
+        vertical_candidates = []
+        horizontal_candidates = []
+        for start, end in self._title_block_segments(template_sheet):
+            x1, y1 = start
+            x2, y2 = end
+            if abs(x1 - x2) <= self._millimeters_to_internal(0.5):
+                x_value = (x1 + x2) / 2.0
+                if x_value > main_center_x:
+                    vertical_candidates.append(x_value)
+            if abs(y1 - y2) <= self._millimeters_to_internal(0.5):
+                y_value = (y1 + y2) / 2.0
+                if y_value < main_center_y:
+                    horizontal_candidates.append(y_value)
+
+        if vertical_candidates:
+            candidate = min(vertical_candidates)
+            if candidate > left:
+                right = min(right, candidate - gap)
+
+        if horizontal_candidates:
+            candidate = max(horizontal_candidates)
+            if candidate < top:
+                bottom = max(bottom, candidate + gap)
+
+        if right <= left or top <= bottom:
+            raise RuntimeError(
+                "La zone principale disponible de la feuille modèle est invalide."
+            )
+
+        return (left, bottom, right, top)
+
+    def _split_available_zone(self, zone, count, orientation):
+        if count <= 0:
+            raise ValueError("Nombre de zones invalide.")
+
+        left, bottom, right, top = zone
+        gap = self._millimeters_to_internal(6.0)
+        zones = []
+
+        if orientation == "side_by_side":
+            usable = (right - left) - gap * float(count - 1)
+            width = usable / float(count)
+            cursor = left
+            for _ in range(count):
+                zones.append(
+                    (cursor, bottom, cursor + width, top)
+                )
+                cursor += width + gap
+        else:
+            usable = (top - bottom) - gap * float(count - 1)
+            height = usable / float(count)
+            cursor = top
+            for _ in range(count):
+                zones.append(
+                    (left, cursor - height, right, cursor)
+                )
+                cursor -= height + gap
+
+        return zones
 
     def list_title_block_types(self):
         from Autodesk.Revit.DB import (
