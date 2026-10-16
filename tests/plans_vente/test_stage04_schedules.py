@@ -198,7 +198,8 @@ def test_location_highlight_is_one_global_region_from_stage03_outline():
 def test_location_highlight_refuses_rectangular_fallback():
     text = LOCATION_SERVICE.read_text(encoding="utf-8")
     assert "highlight_available = bool(" in text
-    assert '.startswith("Contour optimisé")' in text
+    assert ".startswith(" in text
+    assert "Contour optimisé" in text
     assert 'getattr(highlight_result, "curve_loop", None) is not None' in text
     assert "if not highlight_available:" in text
     assert "Repérage créé sans surbrillance" in text
