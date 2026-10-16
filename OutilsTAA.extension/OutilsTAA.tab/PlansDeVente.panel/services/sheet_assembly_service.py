@@ -1099,17 +1099,17 @@ class SheetAssemblyService(object):
         slot_sizes = []
         slot_centers = []
         for viewport_model in models:
-            outline = viewport_model.GetBoxOutline()
+            model_view = self.document.GetElement(
+                viewport_model.ViewId
+            )
+            if model_view is None:
+                raise RuntimeError(
+                    "Une vue logement du modèle n'existe plus."
+                )
             slot_sizes.append(
-                (
-                    abs(
-                        float(outline.MaximumPoint.X)
-                        - float(outline.MinimumPoint.X)
-                    ),
-                    abs(
-                        float(outline.MaximumPoint.Y)
-                        - float(outline.MinimumPoint.Y)
-                    ),
+                self._view_crop_paper_size(
+                    model_view,
+                    reference_scale,
                 )
             )
             center = viewport_model.GetBoxCenter()
@@ -1190,8 +1190,12 @@ class SheetAssemblyService(object):
                 self.document.Regenerate()
 
                 fits_slots = True
-                for index, viewport in enumerate(created_viewports):
-                    width, height = self._viewport_box_size(viewport)
+                geometry_rectangles = []
+                for index, working_view in enumerate(working_views):
+                    width, height = self._view_crop_paper_size(
+                        working_view,
+                        candidate,
+                    )
                     slot_width, slot_height = slot_sizes[index]
                     if (
                         width > slot_width + tolerance
@@ -1200,13 +1204,19 @@ class SheetAssemblyService(object):
                         fits_slots = False
                         break
 
-                rectangles = [
-                    self._viewport_rectangle(viewport)
-                    for viewport in created_viewports
-                ]
+                    center_x, center_y = slot_centers[index]
+                    geometry_rectangles.append(
+                        (
+                            center_x - (width / 2.0),
+                            center_y - (height / 2.0),
+                            center_x + (width / 2.0),
+                            center_y + (height / 2.0),
+                        )
+                    )
+
                 no_overlap = True
-                for index, rectangle in enumerate(rectangles):
-                    for other in rectangles[index + 1:]:
+                for index, rectangle in enumerate(geometry_rectangles):
+                    for other in geometry_rectangles[index + 1:]:
                         if rectangles_overlap(
                             rectangle,
                             other,
@@ -2149,6 +2159,43 @@ class SheetAssemblyService(object):
             if candidate not in existing:
                 return candidate
             index += 1
+
+    @staticmethod
+    def _view_crop_paper_size(view, scale=None):
+        """Retourne l'emprise du crop géométrique sur la feuille, en pieds papier.
+
+        Contrairement au viewport, cette mesure ignore les annotations, titres
+        de vue et autres éléments graphiques. Elle sert donc de référence
+        stable pour choisir l'échelle d'un plan de vente.
+        """
+        if view is None:
+            raise ValueError("Vue manquante pour mesurer le cadrage.")
+
+        crop = getattr(view, "CropBox", None)
+        if crop is None:
+            raise ValueError(
+                "La vue ne possède pas de cadrage mesurable."
+            )
+
+        effective_scale = int(
+            scale or getattr(view, "Scale", 0) or 0
+        )
+        if effective_scale <= 0:
+            raise ValueError(
+                "Échelle de vue invalide pour mesurer le cadrage."
+            )
+
+        width_model = abs(
+            float(crop.Max.X) - float(crop.Min.X)
+        )
+        height_model = abs(
+            float(crop.Max.Y) - float(crop.Min.Y)
+        )
+
+        return (
+            width_model / float(effective_scale),
+            height_model / float(effective_scale),
+        )
 
     @staticmethod
     def _viewport_box_size(viewport):
