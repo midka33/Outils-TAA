@@ -712,17 +712,21 @@ class FullGenerationService(object):
             main_infos[0].view,
             "OST_Dimensions",
         )
-        fill_type = self._filled_region_type(location_info.view)
-        if fill_type is None:
-            raise ValueError(
-                "Impossible de déterminer le type de zone remplie du repérage modèle."
-            )
+        fill_type = (
+            self._filled_region_type(location_info.view)
+            if location_info is not None
+            else None
+        )
 
         main_templates = [
             self._view_template(info.view)
             for info in main_infos
         ]
-        location_template = self._view_template(location_info.view)
+        location_template = (
+            self._view_template(location_info.view)
+            if location_info is not None
+            else None
+        )
         schedule_instances = self._schedule_instances(sheet)
         template_schedule_ids = []
         instance_to_template = []
@@ -844,38 +848,44 @@ class FullGenerationService(object):
             except Exception:
                 pass
 
-            (
-                location_source_candidate,
-                location_source_warnings,
-            ) = self._resolve_location_source_view(
-                lower_housing,
-                location_info.view,
-            )
-            warnings.extend(location_source_warnings)
-
-            location_result = (
-                self.location_plan_service.create_location_plan(
-                    housing=lower_housing,
-                    source_view_unique_id=location_source_candidate.unique_id,
-                    filled_region_type_unique_id=str(
-                        getattr(fill_type, "UniqueId", "") or ""
-                    ),
-                    template_unique_id=(
-                        str(
-                            getattr(location_template, "UniqueId", "")
-                            or ""
-                        )
-                        if location_template is not None
-                        else None
-                    ),
-                    target_scale=int(
-                        getattr(location_info.view, "Scale", 0) or 0
-                    ),
-                    crop_reference_view_unique_id=str(
-                        getattr(location_info.view, "UniqueId", "") or ""
-                    ),
+            if location_info is not None and fill_type is not None:
+                (
+                    location_source_candidate,
+                    location_source_warnings,
+                ) = self._resolve_location_source_view(
+                    lower_housing,
+                    location_info.view,
                 )
-            )
+                warnings.extend(location_source_warnings)
+
+                location_result = (
+                    self.location_plan_service.create_location_plan(
+                        housing=lower_housing,
+                        source_view_unique_id=location_source_candidate.unique_id,
+                        filled_region_type_unique_id=str(
+                            getattr(fill_type, "UniqueId", "") or ""
+                        ),
+                        template_unique_id=(
+                            str(
+                                getattr(location_template, "UniqueId", "")
+                                or ""
+                            )
+                            if location_template is not None
+                            else None
+                        ),
+                        target_scale=int(
+                            getattr(location_info.view, "Scale", 0) or 0
+                        ),
+                        crop_reference_view_unique_id=str(
+                            getattr(location_info.view, "UniqueId", "") or ""
+                        ),
+                    )
+                )
+            else:
+                warnings.append(
+                    "09B.2 : repérage non créé, aucun repérage exploitable "
+                    "n'est présent sur la feuille modèle."
+                )
 
             schedule_result = (
                 self.schedule_service.duplicate_templates_for_housing(
@@ -927,7 +937,11 @@ class FullGenerationService(object):
                         item.view_unique_id
                         for item in main_results
                     ],
-                    location_view_unique_id=location_result.view_unique_id,
+                    location_view_unique_id=(
+                        location_result.view_unique_id
+                        if location_result is not None
+                        else None
+                    ),
                     template_main_viewport_unique_ids=[
                         str(
                             getattr(info.viewport, "UniqueId", "")
@@ -935,7 +949,10 @@ class FullGenerationService(object):
                         )
                         for info in main_infos
                     ],
-                    template_location_viewport_unique_id=inspection.location_viewport_unique_id,
+                    template_location_viewport_unique_id=(
+                        inspection.location_viewport_unique_id
+                        or None
+                    ),
                     schedule_bindings=bindings,
                     auto_fit_main_view=bool(auto_fit_main_view),
                     allowed_scales=allowed_scales,
@@ -1376,10 +1393,10 @@ class FullGenerationService(object):
                 )
             )
 
-        if len(infos) < int(expected_levels or 0) + 1:
+        if len(infos) < int(expected_levels or 0):
             raise ValueError(
-                "Le modèle multi-niveaux doit contenir {} vues logement "
-                "et un plan de repérage.".format(expected_levels)
+                "Le modèle multi-niveaux doit contenir au moins {} vues logement."
+                .format(expected_levels)
             )
 
         warnings = []
@@ -1395,17 +1412,26 @@ class FullGenerationService(object):
                 )
             )
             location = location_candidates[0]
+            mains = [
+                info for info in infos
+                if info.viewport.Id != location.viewport.Id
+            ]
         else:
-            location = min(infos, key=lambda item: item.area)
-            warnings.append(
-                "09B.2 : repérage déduit par la plus petite emprise de "
-                "viewport, car aucune zone remplie n'a été détectée."
-            )
-
-        mains = [
-            info for info in infos
-            if info.viewport.Id != location.viewport.Id
-        ]
+            location = None
+            mains = list(infos)
+            if len(infos) > int(expected_levels or 0):
+                location = min(infos, key=lambda item: item.area)
+                mains = [
+                    info for info in infos
+                    if info.viewport.Id != location.viewport.Id
+                ]
+                warnings.append(
+                    "09B.2 : repérage déduit par la plus petite emprise de viewport."
+                )
+            else:
+                warnings.append(
+                    "09B.2 : aucun repérage détecté sur le modèle multi-niveaux."
+                )
         if len(mains) != int(expected_levels or 0):
             raise ValueError(
                 "Le modèle multi-niveaux doit contenir exactement {} vues "
