@@ -458,9 +458,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "Segments retenus : {}".format(
                 result.get("segment_count", 0)
             ),
-            "Zones rectangulaires détectées : {}".format(
-                len(result.get("zones", []) or [])
-            ),
             "",
         ]
 
