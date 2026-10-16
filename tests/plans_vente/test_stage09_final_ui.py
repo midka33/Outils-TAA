@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc16-progress"' in main
+    assert 'UI_BUILD = "stage09-rc17-progress-stages"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -598,7 +598,7 @@ def test_stage09_zone_validation_remains_internal_before_generation():
     assert "curve_element.GeometryCurve" in diagnostic
 
 
-def test_stage09_rc16_progress_window_contract():
+def test_stage09_rc17_progress_window_contract():
     main = MAIN_WINDOW.read_text(encoding="utf-8")
     progress_py = (
         ROOT
@@ -620,11 +620,14 @@ def test_stage09_rc16_progress_window_contract():
     assert 'UI_BUILD = "stage09-rc16-progress"' in main
     assert "from plans_vente_progress_window import PlansVenteProgressSession" in main
     assert "with PlansVenteProgressSession(self, total) as progress:" in main
-    assert "progress.update(" in main
+    assert "progress.update_progress(" in main
+    assert "def _progress_callback(" in main
+    assert "progress_callback=_progress_callback" in main
     assert "progress.finish(" in main
 
     assert "class PlansVenteProgressWindow" in progress_py
     assert "class PlansVenteProgressSession" in progress_py
+    assert "def update_progress(" in progress_py
     assert "owner.IsEnabled = False" in progress_py
     assert "self.owner.IsEnabled = self.was_enabled" in progress_py
     assert "DispatcherPriority.Loaded" in progress_py
@@ -639,3 +642,30 @@ def test_stage09_rc16_progress_window_contract():
     assert 'x:Name="PhaseText"' in progress_xaml
     assert '#FD8B5A' in progress_xaml
     assert '#FA641F' in progress_xaml
+
+
+def test_stage09_rc17_engine_emits_real_progress_milestones():
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+
+    assert "progress_callback=None" in controller
+    assert "progress_callback=progress_callback" in controller
+
+    assert "def _notify_progress(" in full
+    assert "progress_callback=None" in full
+    assert '"Préparation"' in full
+    assert '"Création"' in full
+    assert '"Assemblage"' in full
+    assert '"Finalisation"' in full
+    assert '"Vue logement créée"' in full
+    assert '"Étiquettes traitées"' in full
+    assert '"Cotations traitées"' in full
+    assert '"Repérage traité"' in full
+    assert '"Nomenclatures créées"' in full
+    assert '"Feuille assemblée"' in full
+    assert '"Plan terminé"' in full
+
+    # Le duplex publie aussi des jalons par niveau.
+    assert '"Vue niveau {} créée"' in full
+    assert '"Étiquettes niveau {} traitées"' in full
+    assert '"Cotations niveau {} traitées"' in full
