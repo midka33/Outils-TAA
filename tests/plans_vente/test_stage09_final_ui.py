@@ -627,3 +627,13 @@ def test_stage09_zone_diagnostic_reconstructs_rectangles_from_axes():
     assert "def _axis_interval_covered(" in sheet
     assert '"common_zone_ids"' in sheet
     assert '"orientation"' in sheet
+
+
+def test_stage09_zone_diagnostic_uses_symbol_geometry_for_styles():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "GetSymbolGeometry()" in sheet
+    assert "GraphicsStyleCategory" in sheet
+    assert "Transform.Identity" in sheet
+    assert "accumulated_transform.Multiply(" in sheet
+    assert "accumulated_transform.OfPoint(point)" in sheet
