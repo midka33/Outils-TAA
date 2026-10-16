@@ -1356,40 +1356,76 @@ class SheetAssemblyService(object):
             if rectangle[0] >= main_right:
                 right = min(right, rectangle[0] - gap)
 
-        # Lire également la géométrie du cartouche. La première verticale à
-        # droite de la zone plans devient la limite droite ; la première
-        # horizontale située sous la zone plans devient la limite basse.
+        # Lire la géométrie du cartouche, mais ne retenir que les lignes
+        # structurantes. Une petite ligne interne du cartouche (case, texte,
+        # sous-cadre...) ne doit jamais devenir une limite de la zone plans.
         vertical_candidates = []
         horizontal_candidates = []
+
+        plan_width = max(
+            self._millimeters_to_internal(1.0),
+            main_right - main_left,
+        )
+        plan_height = max(
+            self._millimeters_to_internal(1.0),
+            main_top - main_bottom,
+        )
+
+        axis_tolerance = self._millimeters_to_internal(0.5)
+        minimum_vertical_overlap = plan_height * 0.55
+        minimum_horizontal_overlap = plan_width * 0.55
+
         for start, end in self._title_block_segments(template_sheet):
             x1, y1 = start
             x2, y2 = end
-            if abs(x1 - x2) <= self._millimeters_to_internal(0.5):
+
+            if abs(x1 - x2) <= axis_tolerance:
                 x_value = (x1 + x2) / 2.0
-                if x_value > main_right:
-                    vertical_candidates.append(x_value)
-            if abs(y1 - y2) <= self._millimeters_to_internal(0.5):
+                segment_bottom = min(y1, y2)
+                segment_top = max(y1, y2)
+                overlap = max(
+                    0.0,
+                    min(segment_top, main_top)
+                    - max(segment_bottom, main_bottom),
+                )
+                if (
+                    x_value > main_right
+                    and overlap >= minimum_vertical_overlap
+                ):
+                    vertical_candidates.append(
+                        (x_value, overlap)
+                    )
+
+            if abs(y1 - y2) <= axis_tolerance:
                 y_value = (y1 + y2) / 2.0
-                if y_value < main_bottom:
-                    horizontal_candidates.append(y_value)
+                segment_left = min(x1, x2)
+                segment_right = max(x1, x2)
+                overlap = max(
+                    0.0,
+                    min(segment_right, main_right)
+                    - max(segment_left, main_left),
+                )
+                if (
+                    y_value < main_bottom
+                    and overlap >= minimum_horizontal_overlap
+                ):
+                    horizontal_candidates.append(
+                        (y_value, overlap)
+                    )
 
         if vertical_candidates:
-            candidate = min(vertical_candidates)
+            candidate = min(
+                item[0] for item in vertical_candidates
+            )
             if candidate > left:
                 right = min(right, candidate - gap)
-        elif main_rectangles:
-            fallback_right = main_right + gap
-            if fallback_right > left + self._millimeters_to_internal(50.0):
-                right = min(right, fallback_right)
 
         if horizontal_candidates:
-            candidate = max(horizontal_candidates)
+            candidate = max(
+                item[0] for item in horizontal_candidates
+            )
             if candidate < top:
                 bottom = max(bottom, candidate + gap)
-        elif main_rectangles:
-            fallback_bottom = main_bottom - gap
-            if fallback_bottom < top - self._millimeters_to_internal(50.0):
-                bottom = max(bottom, fallback_bottom)
 
         sheet_left = float(outline.Min.U) + margin
         sheet_bottom = float(outline.Min.V) + margin
