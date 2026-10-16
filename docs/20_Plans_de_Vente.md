@@ -5092,3 +5092,53 @@ Il sert à valider ce que l'API Revit expose réellement avant de brancher cette
 détection sur le placement automatique.
 
 **Build diagnostic :** `stage09-rc13-diagnostic`.
+
+
+### Zones explicites des vues principales — contrat final Étape 09
+
+Le placement des **vues principales logement** ne dépend plus d'une estimation
+automatique de l'espace libre du cartouche.
+
+La feuille modèle définit explicitement les zones cibles au moyen de
+**lignes de détail dessinées directement sur la feuille**.
+
+#### Principe
+
+- l'utilisateur choisit le style de ligne utilisé pour dessiner les zones ;
+- le style `<Lignes>` est proposé par défaut lorsqu'il existe ;
+- le plugin lit uniquement les `CurveElement` appartenant à la feuille modèle ;
+- pour chaque viewport logement modèle, son centre doit être contenu dans un
+  rectangle fermé dessiné avec le style choisi ;
+- le rectangle qui contient le centre devient la zone cible de la vue générée ;
+- la vue est centrée dans cette zone ;
+- l'échelle du modèle est conservée si la vue rentre ;
+- sinon, les échelles de repli autorisées sont essayées ;
+- pour plusieurs vues principales sur une même feuille, toutes utilisent la
+  même échelle.
+
+#### Contrat selon le modèle
+
+- **1 vue logement modèle + 1 rectangle** : une vue principale est créée et
+  centrée dans ce rectangle ;
+- **2 vues logement modèle + 2 rectangles** : chaque niveau est placé dans le
+  rectangle entourant le centre de la vue modèle correspondante ;
+- la même logique pourra fonctionner avec davantage de vues principales si le
+  modèle et le moteur multi-niveaux sont étendus ultérieurement.
+
+Les rectangles servent uniquement aux vues principales. Les nomenclatures,
+le repérage, le cartouche et les autres éléments de feuille conservent leur
+logique de placement issue de la feuille modèle.
+
+#### Validation avant génération
+
+Avant de lancer un lot, l'interface vérifie :
+
+1. qu'un style de ligne de zones est sélectionné ;
+2. que des lignes de ce style existent sur la feuille modèle ;
+3. que chaque vue principale modèle possède un rectangle fermé autour de son
+   centre.
+
+Si ce contrat n'est pas respecté, la création est bloquée avant toute
+génération.
+
+**Build de stabilisation :** `stage09-rc15-explicit-main-zones`.
