@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc5"' in main
+    assert 'UI_BUILD = "stage09-rc6"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -478,3 +478,13 @@ def test_stage09_rc5_duplex_scale_ignores_annotation_extents():
         sheet.index("    def _place_multilevel_views_in_template_slots("):
         sheet.index("    def list_title_block_types(")
     ]
+
+
+def test_stage09_rc6_duplex_alignment_uses_geometric_view_center():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "def _view_outline_center_on_sheet(" in sheet
+    assert "GetProjectionToSheetTransform()" in sheet
+    assert "viewport.SetBoxCenter(" in sheet
+    assert "actual_center = self._view_outline_center_on_sheet(" in sheet
+    assert "target_x, target_y = slot_centers[index]" in sheet
