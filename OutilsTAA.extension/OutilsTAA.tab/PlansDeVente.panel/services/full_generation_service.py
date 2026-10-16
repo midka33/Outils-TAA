@@ -686,7 +686,10 @@ class FullGenerationService(object):
                 "Impossible de déterminer le type de zone remplie du repérage modèle."
             )
 
-        main_template = self._view_template(main_info.view)
+        main_templates = [
+            self._view_template(info.view)
+            for info in main_infos
+        ]
         location_template = self._view_template(location_info.view)
         schedule_instances = self._schedule_instances(sheet)
         template_schedule_ids = []
