@@ -1112,9 +1112,12 @@ class SheetAssemblyService(object):
                     reference_scale,
                 )
             )
-            center = viewport_model.GetBoxCenter()
+            crop_center = self._view_outline_center_on_sheet(
+                model_view,
+                viewport_model,
+            )
             slot_centers.append(
-                (float(center.X), float(center.Y))
+                (float(crop_center.X), float(crop_center.Y))
             )
 
         tolerance = self._millimeters_to_internal(1.0)
@@ -1186,6 +1189,32 @@ class SheetAssemblyService(object):
                         types[index] if index < len(types) else None,
                     )
                     created_viewports.append(viewport)
+
+                self.document.Regenerate()
+
+                # Viewport.Create / SetBoxCenter travaillent sur le centre du
+                # viewport complet. Les annotations peuvent décaler ce centre.
+                # Recaler donc chaque viewport sur le centre géométrique de la
+                # vue (View.Outline projeté sur la feuille), qui est la vraie
+                # référence de la feuille modèle.
+                for index, viewport in enumerate(created_viewports):
+                    working_view = working_views[index]
+                    target_x, target_y = slot_centers[index]
+                    actual_center = self._view_outline_center_on_sheet(
+                        working_view,
+                        viewport,
+                    )
+                    delta_x = target_x - float(actual_center.X)
+                    delta_y = target_y - float(actual_center.Y)
+
+                    box_center = viewport.GetBoxCenter()
+                    viewport.SetBoxCenter(
+                        XYZ(
+                            float(box_center.X) + delta_x,
+                            float(box_center.Y) + delta_y,
+                            0.0,
+                        )
+                    )
 
                 self.document.Regenerate()
 
@@ -2159,6 +2188,43 @@ class SheetAssemblyService(object):
             if candidate not in existing:
                 return candidate
             index += 1
+
+    @staticmethod
+    def _view_outline_center_on_sheet(view, viewport):
+        """Centre géométrique du cadrage de vue dans les coordonnées feuille.
+
+        View.Outline est exprimé en espace papier et n'est pas influencé par
+        les annotations. GetProjectionToSheetTransform() convertit ce point
+        vers les coordonnées de la feuille en tenant compte de la position et
+        de la rotation du viewport.
+        """
+        if view is None or viewport is None:
+            raise ValueError(
+                "Vue ou viewport manquant pour calculer le centre de cadrage."
+            )
+
+        outline = view.Outline
+        if outline is None:
+            raise ValueError(
+                "La vue ne possède pas de contour papier mesurable."
+            )
+
+        from Autodesk.Revit.DB import XYZ
+
+        center_projection = XYZ(
+            (
+                float(outline.Min.U)
+                + float(outline.Max.U)
+            ) / 2.0,
+            (
+                float(outline.Min.V)
+                + float(outline.Max.V)
+            ) / 2.0,
+            0.0,
+        )
+
+        transform = viewport.GetProjectionToSheetTransform()
+        return transform.OfPoint(center_projection)
 
     @staticmethod
     def _view_crop_paper_size(view, scale=None):
