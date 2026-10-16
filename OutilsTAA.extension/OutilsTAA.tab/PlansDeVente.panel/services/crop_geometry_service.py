@@ -218,10 +218,66 @@ class CropGeometryService(object):
         view.CropBoxVisible = True
         manager.SetCropShape(selected_loop)
 
+        annotation_warning = self._configure_annotation_crop(
+            view,
+            offset_mm=120.0,
+        )
+        if annotation_warning:
+            warning = (
+                "{} {}".format(warning, annotation_warning).strip()
+                if warning
+                else annotation_warning
+            )
+
         crop_result.curve_loop = selected_loop
         crop_result.mode = mode
         crop_result.warning = warning
         return crop_result
+
+    def _configure_annotation_crop(self, view, offset_mm=120.0):
+        """Active l'annotation crop pour isoler les annotations du logement.
+
+        Les vues dépendantes partagent leurs annotations avec la vue principale.
+        Sans annotation crop, les cotes/étiquettes d'autres logements peuvent
+        agrandir artificiellement l'emprise du viewport.
+        """
+        try:
+            from Autodesk.Revit.DB import BuiltInParameter
+
+            active = view.get_Parameter(
+                BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE
+            )
+            if active is not None and not bool(active.IsReadOnly):
+                active.Set(1)
+
+            offset = view.get_Parameter(
+                BuiltInParameter.VIEWER_ANNOTATION_CROP_OFFSET
+            )
+            if offset is not None and not bool(offset.IsReadOnly):
+                offset.Set(
+                    self._millimeters_to_internal(offset_mm)
+                )
+
+            self.document.Regenerate()
+            return ""
+        except Exception as error:
+            return (
+                "Annotation crop non configuré automatiquement ({}) ; "
+                "des annotations extérieures peuvent élargir le viewport."
+            ).format(str(error) or repr(error))
+
+    @staticmethod
+    def _millimeters_to_internal(value):
+        try:
+            from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+            return float(
+                UnitUtils.ConvertToInternalUnits(
+                    float(value),
+                    UnitTypeId.Millimeters,
+                )
+            )
+        except Exception:
+            return float(value) / 304.8
 
     @staticmethod
     def _stage(stage_name, function, *args):
