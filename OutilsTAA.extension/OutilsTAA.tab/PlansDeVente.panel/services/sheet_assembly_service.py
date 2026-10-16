@@ -2156,6 +2156,316 @@ class SheetAssemblyService(object):
             float(box.Max.Y),
         )
 
+    def diagnose_titleblock_zones(
+        self,
+        sheet,
+        main_viewports,
+        subcategory_name="Cartouches",
+    ):
+        """Diagnostic uniquement : reconstruit les zones du cartouche.
+
+        Aucune modification du document n'est effectuée.
+        """
+        segments, style_counts = self._title_block_segments_by_subcategory(
+            sheet,
+            subcategory_name,
+        )
+
+        tolerance = self._millimeters_to_internal(1.0)
+        zones = self._rectangular_zones_from_segments(
+            segments,
+            tolerance,
+        )
+
+        views = []
+        for index, viewport in enumerate(list(main_viewports or []), 1):
+            center = viewport.GetBoxCenter()
+            x_value = float(center.X)
+            y_value = float(center.Y)
+            zone_ids = []
+            for zone_index, zone in enumerate(zones, 1):
+                if (
+                    x_value >= zone[0] - tolerance
+                    and x_value <= zone[2] + tolerance
+                    and y_value >= zone[1] - tolerance
+                    and y_value <= zone[3] + tolerance
+                ):
+                    zone_ids.append(zone_index)
+            views.append({
+                "index": index,
+                "center_x": x_value,
+                "center_y": y_value,
+                "zone_ids": zone_ids,
+            })
+
+        common_zone_ids = None
+        for item in views:
+            current = set(item["zone_ids"])
+            common_zone_ids = (
+                current
+                if common_zone_ids is None
+                else common_zone_ids.intersection(current)
+            )
+        common_zone_ids = sorted(common_zone_ids or [])
+
+        orientation = None
+        if len(views) >= 2:
+            x_span = max(v["center_x"] for v in views) - min(
+                v["center_x"] for v in views
+            )
+            y_span = max(v["center_y"] for v in views) - min(
+                v["center_y"] for v in views
+            )
+            orientation = (
+                "gauche / droite"
+                if x_span > y_span
+                else "haut / bas"
+            )
+
+        return {
+            "subcategory": subcategory_name,
+            "segment_count": len(segments),
+            "style_counts": style_counts,
+            "zones": zones,
+            "views": views,
+            "common_zone_ids": common_zone_ids,
+            "orientation": orientation,
+        }
+
+    def _title_block_segments_by_subcategory(
+        self,
+        sheet,
+        subcategory_name,
+    ):
+        from Autodesk.Revit.DB import (
+            BuiltInCategory,
+            FilteredElementCollector,
+            Options,
+        )
+
+        segments = []
+        style_counts = {}
+        options = Options()
+
+        for title_block in (
+            FilteredElementCollector(self.document, sheet.Id)
+            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+            .WhereElementIsNotElementType()
+            .ToElements()
+        ):
+            try:
+                geometry = title_block.get_Geometry(options)
+            except Exception:
+                geometry = None
+            self._collect_geometry_segments_by_subcategory(
+                geometry,
+                segments,
+                style_counts,
+                subcategory_name,
+            )
+
+        return segments, style_counts
+
+    def _collect_geometry_segments_by_subcategory(
+        self,
+        geometry,
+        output,
+        style_counts,
+        subcategory_name,
+    ):
+        if geometry is None:
+            return
+
+        try:
+            items = list(geometry)
+        except Exception:
+            items = []
+
+        for item in items:
+            if item is None:
+                continue
+
+            if hasattr(item, "GetInstanceGeometry"):
+                try:
+                    self._collect_geometry_segments_by_subcategory(
+                        item.GetInstanceGeometry(),
+                        output,
+                        style_counts,
+                        subcategory_name,
+                    )
+                    continue
+                except Exception:
+                    pass
+
+            style_name = ""
+            style_id = getattr(item, "GraphicsStyleId", None)
+            if style_id is not None:
+                try:
+                    style = self.document.GetElement(style_id)
+                    category = getattr(
+                        style,
+                        "GraphicsStyleCategory",
+                        None,
+                    )
+                    style_name = str(
+                        getattr(category, "Name", "") or ""
+                    )
+                except Exception:
+                    style_name = ""
+
+            if style_name:
+                style_counts[style_name] = (
+                    style_counts.get(style_name, 0) + 1
+                )
+
+            if str(style_name).strip().lower() != str(
+                subcategory_name
+            ).strip().lower():
+                continue
+
+            points = []
+            if hasattr(item, "Tessellate"):
+                try:
+                    points = list(item.Tessellate() or [])
+                except Exception:
+                    points = []
+            elif hasattr(item, "GetCoordinates"):
+                try:
+                    points = list(item.GetCoordinates() or [])
+                except Exception:
+                    points = []
+
+            if len(points) < 2:
+                continue
+
+            for first, second in zip(points, points[1:]):
+                output.append(
+                    (
+                        (float(first.X), float(first.Y)),
+                        (float(second.X), float(second.Y)),
+                    )
+                )
+
+    def _rectangular_zones_from_segments(self, segments, tolerance):
+        vertical = []
+        horizontal = []
+
+        for start, end in list(segments or []):
+            x1, y1 = start
+            x2, y2 = end
+            if abs(x1 - x2) <= tolerance:
+                vertical.append(
+                    (
+                        (x1 + x2) / 2.0,
+                        min(y1, y2),
+                        max(y1, y2),
+                    )
+                )
+            elif abs(y1 - y2) <= tolerance:
+                horizontal.append(
+                    (
+                        (y1 + y2) / 2.0,
+                        min(x1, x2),
+                        max(x1, x2),
+                    )
+                )
+
+        xs = self._cluster_axis_values(
+            [item[0] for item in vertical],
+            tolerance,
+        )
+        ys = self._cluster_axis_values(
+            [item[0] for item in horizontal],
+            tolerance,
+        )
+
+        zones = []
+        for left, right in zip(xs, xs[1:]):
+            if right - left <= tolerance:
+                continue
+            for bottom, top in zip(ys, ys[1:]):
+                if top - bottom <= tolerance:
+                    continue
+                if (
+                    self._axis_interval_covered(
+                        vertical,
+                        left,
+                        bottom,
+                        top,
+                        tolerance,
+                    )
+                    and self._axis_interval_covered(
+                        vertical,
+                        right,
+                        bottom,
+                        top,
+                        tolerance,
+                    )
+                    and self._axis_interval_covered(
+                        horizontal,
+                        bottom,
+                        left,
+                        right,
+                        tolerance,
+                    )
+                    and self._axis_interval_covered(
+                        horizontal,
+                        top,
+                        left,
+                        right,
+                        tolerance,
+                    )
+                ):
+                    zones.append((left, bottom, right, top))
+
+        return zones
+
+    @staticmethod
+    def _cluster_axis_values(values, tolerance):
+        ordered = sorted(float(value) for value in values)
+        if not ordered:
+            return []
+
+        groups = [[ordered[0]]]
+        for value in ordered[1:]:
+            if abs(value - groups[-1][-1]) <= tolerance:
+                groups[-1].append(value)
+            else:
+                groups.append([value])
+
+        return [
+            sum(group) / float(len(group))
+            for group in groups
+        ]
+
+    @staticmethod
+    def _axis_interval_covered(
+        segments,
+        axis_value,
+        interval_min,
+        interval_max,
+        tolerance,
+    ):
+        intervals = []
+        for axis, start, end in segments:
+            if abs(axis - axis_value) <= tolerance:
+                intervals.append((start, end))
+
+        if not intervals:
+            return False
+
+        intervals.sort(key=lambda item: item[0])
+        cursor = interval_min
+        for start, end in intervals:
+            if end < cursor - tolerance:
+                continue
+            if start > cursor + tolerance:
+                return False
+            cursor = max(cursor, end)
+            if cursor >= interval_max - tolerance:
+                return True
+        return cursor >= interval_max - tolerance
+
     def _title_block_segments(self, sheet):
         from Autodesk.Revit.DB import BuiltInCategory, FilteredElementCollector, Options
 
