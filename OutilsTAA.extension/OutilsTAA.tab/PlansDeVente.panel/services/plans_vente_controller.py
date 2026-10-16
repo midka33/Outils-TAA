@@ -328,6 +328,20 @@ class PlansVenteController(object):
             typology_parameter_name=typology_parameter_name,
         )
 
+    def diagnose_template_zones(
+        self,
+        template_sheet_unique_id,
+        subcategory_name="Cartouches",
+    ):
+        if self.full_generation_service is None:
+            raise RuntimeError(
+                "Service de génération complète 07D indisponible."
+            )
+        return self.full_generation_service.diagnose_template_zones(
+            template_sheet_unique_id,
+            subcategory_name=subcategory_name,
+        )
+
     def detect_multilevel_template_mode(self, template_sheet_unique_id):
         if self.full_generation_service is None:
             raise RuntimeError("Service de génération complète 07D indisponible.")
