@@ -268,6 +268,39 @@ class FullGenerationService(object):
             ),
         )
 
+        known_ids = set(
+            [
+                main_info.viewport.Id,
+                location_info.viewport.Id,
+            ]
+        )
+        extra_index = 2
+        for viewport_id in list(sheet.GetAllViewports() or []):
+            if viewport_id in known_ids:
+                continue
+            viewport = self.document.GetElement(viewport_id)
+            if viewport is None:
+                continue
+            view = self.document.GetElement(viewport.ViewId)
+            if view is None:
+                continue
+            try:
+                outline = viewport.GetBoxOutline()
+                items.append({
+                    "kind": "main_view_extra",
+                    "label": "Vue logement {} — {}".format(
+                        extra_index,
+                        str(getattr(view, "Name", "") or "sans nom"),
+                    ),
+                    "min_x": float(outline.MinimumPoint.X),
+                    "min_y": float(outline.MinimumPoint.Y),
+                    "max_x": float(outline.MaximumPoint.X),
+                    "max_y": float(outline.MaximumPoint.Y),
+                })
+                extra_index += 1
+            except Exception:
+                pass
+
         for index, instance in enumerate(schedule_instances or [], 1):
             try:
                 box = instance.get_BoundingBox(sheet)
@@ -382,10 +415,7 @@ class FullGenerationService(object):
                 "Impossible de déterminer le type de zone remplie du repérage modèle."
             )
 
-        main_templates = [
-            self._view_template(info.view)
-            for info in main_infos
-        ]
+        main_template = self._view_template(main_info.view)
         location_template = self._view_template(location_info.view)
         schedule_instances = self._schedule_instances(sheet)
         template_schedule_ids = []
