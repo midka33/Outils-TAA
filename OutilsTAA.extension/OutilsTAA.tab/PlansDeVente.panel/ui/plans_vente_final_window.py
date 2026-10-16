@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b2-one-sheet-multilevel-v2"
+    UI_BUILD = "stage09b2-template-multilevel-v1"
 
     def __init__(self, controller):
         self.controller = controller
@@ -398,10 +398,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         if self._template_inspection is not None:
             self._render_preview_overlays()
 
-    def ExpectedResultOverlay_SizeChanged(self, sender, args):
-        if self._template_inspection is not None:
-            self._render_preview_overlays()
-
     def _export_and_show_sheet_preview(self, choice, inspection):
         import tempfile
 
@@ -434,31 +430,18 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "TemplatePreviewPlaceholder",
             None,
         )
-        result_placeholder = getattr(
-            self,
-            "ExpectedResultPlaceholder",
-            None,
-        )
-
         bitmap = self._load_bitmap(image_path)
         if bitmap is None:
             if hasattr(self, "TemplatePreviewImage"):
                 self.TemplatePreviewImage.Source = None
-            if hasattr(self, "ExpectedResultImage"):
-                self.ExpectedResultImage.Source = None
             if preview_placeholder is not None:
                 preview_placeholder.Visibility = Visibility.Visible
-            if result_placeholder is not None:
-                result_placeholder.Visibility = Visibility.Visible
             self._clear_preview_overlays()
             return
 
         self.TemplatePreviewImage.Source = bitmap
-        self.ExpectedResultImage.Source = bitmap
         if preview_placeholder is not None:
             preview_placeholder.Visibility = Visibility.Collapsed
-        if result_placeholder is not None:
-            result_placeholder.Visibility = Visibility.Collapsed
         self._render_preview_overlays()
 
     @staticmethod
@@ -488,7 +471,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
     def _clear_preview_overlays(self):
         for name in (
             "TemplatePreviewOverlay",
-            "ExpectedResultOverlay",
         ):
             canvas = getattr(self, name, None)
             if canvas is None:
@@ -512,11 +494,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self.TemplatePreviewOverlay,
             inspection,
             compact=True,
-        )
-        self._render_overlay_canvas(
-            self.ExpectedResultOverlay,
-            inspection,
-            compact=False,
         )
 
     def _render_overlay_canvas(self, canvas, inspection, compact=False):
