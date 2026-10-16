@@ -2241,6 +2241,7 @@ class SheetAssemblyService(object):
             BuiltInCategory,
             FilteredElementCollector,
             Options,
+            Transform,
         )
 
         segments = []
@@ -2257,11 +2258,13 @@ class SheetAssemblyService(object):
                 geometry = title_block.get_Geometry(options)
             except Exception:
                 geometry = None
+
             self._collect_geometry_segments_by_subcategory(
                 geometry,
                 segments,
                 style_counts,
                 subcategory_name,
+                Transform.Identity,
             )
 
         return segments, style_counts
@@ -2272,7 +2275,14 @@ class SheetAssemblyService(object):
         output,
         style_counts,
         subcategory_name,
+        accumulated_transform,
     ):
+        """Lit la géométrie symbole pour conserver les GraphicsStyleId.
+
+        GetInstanceGeometry() peut perdre les informations de style des lignes
+        symboliques selon les familles. On parcourt donc GetSymbolGeometry()
+        puis on applique explicitement la transformation de l'instance.
+        """
         if geometry is None:
             return
 
@@ -2285,17 +2295,35 @@ class SheetAssemblyService(object):
             if item is None:
                 continue
 
-            if hasattr(item, "GetInstanceGeometry"):
+            if hasattr(item, "GetSymbolGeometry"):
                 try:
+                    symbol_geometry = item.GetSymbolGeometry()
+                except Exception:
+                    symbol_geometry = None
+
+                try:
+                    instance_transform = item.Transform
+                except Exception:
+                    instance_transform = None
+
+                combined = accumulated_transform
+                if instance_transform is not None:
+                    try:
+                        combined = accumulated_transform.Multiply(
+                            instance_transform
+                        )
+                    except Exception:
+                        combined = instance_transform
+
+                if symbol_geometry is not None:
                     self._collect_geometry_segments_by_subcategory(
-                        item.GetInstanceGeometry(),
+                        symbol_geometry,
                         output,
                         style_counts,
                         subcategory_name,
+                        combined,
                     )
                     continue
-                except Exception:
-                    pass
 
             style_name = ""
             style_id = getattr(item, "GraphicsStyleId", None)
@@ -2318,11 +2346,6 @@ class SheetAssemblyService(object):
                     style_counts.get(style_name, 0) + 1
                 )
 
-            if str(style_name).strip().lower() != str(
-                subcategory_name
-            ).strip().lower():
-                continue
-
             points = []
             if hasattr(item, "Tessellate"):
                 try:
@@ -2338,7 +2361,24 @@ class SheetAssemblyService(object):
             if len(points) < 2:
                 continue
 
-            for first, second in zip(points, points[1:]):
+            transformed_points = []
+            for point in points:
+                try:
+                    transformed_points.append(
+                        accumulated_transform.OfPoint(point)
+                    )
+                except Exception:
+                    transformed_points.append(point)
+
+            if str(style_name).strip().lower() != str(
+                subcategory_name
+            ).strip().lower():
+                continue
+
+            for first, second in zip(
+                transformed_points,
+                transformed_points[1:],
+            ):
                 output.append(
                     (
                         (float(first.X), float(first.Y)),
