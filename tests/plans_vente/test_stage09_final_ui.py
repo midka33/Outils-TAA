@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc3"' in main
+    assert 'UI_BUILD = "stage09-rc4"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -446,7 +446,7 @@ def test_stage09_rc3_annotation_crop_is_enabled():
 
     assert "VIEWER_ANNOTATION_CROP_ACTIVE" in crop
     assert "VIEWER_ANNOTATION_CROP_OFFSET" in crop
-    assert "offset_mm=0.0" in crop
+    assert "minimum_offset = 1.0 / 96.0" in crop
     assert "des annotations extérieures peuvent élargir le viewport" in crop
 
 
@@ -454,3 +454,15 @@ def test_stage09_rc3_obsolete_multiview_warning_is_removed():
     full = FULL.read_text(encoding="utf-8")
 
     assert "les autres viewports seront traités dans l'extension multi-vues" not in full
+
+
+def test_stage09_rc4_crop_boundary_is_hidden():
+    crop = (PANEL / "services" / "crop_geometry_service.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "view.CropBoxVisible = False" in crop
+    assert "LeftAnnotationCropOffset = minimum_offset" in crop
+    assert "RightAnnotationCropOffset = minimum_offset" in crop
+    assert "TopAnnotationCropOffset = minimum_offset" in crop
+    assert "BottomAnnotationCropOffset = minimum_offset" in crop
