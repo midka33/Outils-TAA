@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc13-sheet-line-diagnostic"' in main
+    assert 'UI_BUILD = "stage09-rc15-explicit-main-zones"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -621,38 +621,6 @@ def test_stage09_zone_diagnostic_uses_cartouches_subcategory():
     assert ".Create(" not in diagnostic
 
 
-def test_stage09_zone_diagnostic_reconstructs_rectangles_from_axes():
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    assert "def _rectangular_zones_from_segments(" in sheet
-    assert "def _cluster_axis_values(" in sheet
-    assert "def _axis_interval_covered(" in sheet
-    assert '"common_zone_ids"' in sheet
-    assert '"orientation"' in sheet
-
-
-def test_stage09_zone_style_selector_is_diagnostic_only():
-    main = MAIN_WINDOW.read_text(encoding="utf-8")
-    xaml = MAIN_XAML.read_text(encoding="utf-8")
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    assert 'x:Name="MainViewZoneLineStyleCombo"' in xaml
-    assert "Lignes des zones des vues principales" in xaml
-    assert "def _load_main_view_zone_line_styles(" in main
-    assert "def _selected_main_view_zone_line_style(" in main
-    assert 'candidate.strip().lower() == "<lignes>"' in main
-    assert 'candidate.strip().lower() == "cartouches"' in main
-    assert "subcategory_name=line_style" in main
-
-    # Le moteur de placement RC13 ne doit pas encore dépendre du sélecteur :
-    placement = sheet[
-        sheet.index("    def _place_multilevel_views_in_template_slots("):
-        sheet.index("    def list_title_block_types(")
-    ]
-    assert "MainViewZoneLineStyleCombo" not in placement
-    assert "subcategory_name" not in placement
-
-
 def test_stage09_sheet_line_zone_diagnostic_reads_only_sheet_curves():
     sheet = SHEET.read_text(encoding="utf-8")
 
@@ -670,39 +638,60 @@ def test_stage09_sheet_line_zone_diagnostic_reads_only_sheet_curves():
     assert "OST_TitleBlocks" not in diagnostic
 
 
-def test_stage09_rc14_generation_uses_explicit_sheet_line_zones():
+
+
+def test_stage09_rc15_explicit_zones_apply_to_single_and_multilevel():
     main = MAIN_WINDOW.read_text(encoding="utf-8")
     controller = CONTROLLER.read_text(encoding="utf-8")
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
 
-    assert 'UI_BUILD = "stage09-rc14-explicit-main-zones"' in main
-    assert "main_view_zone_line_style=(" in main
+    assert 'UI_BUILD = "stage09-rc15-explicit-main-zones"' in main
+
+    # L'interface transmet le même style aux deux chemins de génération.
+    multilevel_start = main.index("self.controller.generate_multilevel_one_sheet(")
+    multilevel_block = main[multilevel_start:multilevel_start + 3500]
+    assert "main_view_zone_line_style" in multilevel_block
+
+    standard_start = main.index("self.controller.generate_full_plan(")
+    standard_block = main[standard_start:standard_start + 3500]
+    assert "main_view_zone_line_style" in standard_block
+
+    # Contrôleur + service complet relaient le contrat.
+    assert "def generate_full_plan(" in controller
     assert "def generate_multilevel_one_sheet(" in controller
     assert "main_view_zone_line_style=" in controller
+    assert "def generate(" in full
+    assert "def generate_multilevel_one_sheet(" in full
     assert "main_view_zone_line_style=" in full
-    assert "main_view_zone_line_style=" in sheet
+
+    # Mono-vue et multi-vues utilisent le même moteur explicite.
+    create_single = sheet[
+        sheet.index("    def create_sheet_from_blueprint("):
+        sheet.index("    def create_multilevel_sheet_from_blueprint(")
+    ]
+    assert "_place_multilevel_views_in_template_slots(" in create_single
+    assert "main_view_zone_line_style=main_view_zone_line_style" in create_single
 
     placement = sheet[
         sheet.index("    def _place_multilevel_views_in_template_slots("):
-        sheet.index("    @staticmethod", sheet.index("    def _place_multilevel_views_in_template_slots("))
+        sheet.index("    def list_title_block_types(")
     ]
     assert "_sheet_curve_segments_by_line_style(" in placement
     assert "_zone_around_point_from_segments(" in placement
     assert "target_zones.append(zone)" in placement
-    assert "_multilevel_available_zone(" not in placement
-    assert "_split_available_zone(" not in placement
-    assert "zones explicites" in placement
+    assert "Le placement explicite nécessite au moins une vue principale." in placement
 
 
-def test_stage09_rc14_explicit_zone_style_only_affects_multilevel_main_views():
+def test_stage09_rc15_validates_zone_rectangles_before_batch_generation():
     main = MAIN_WINDOW.read_text(encoding="utf-8")
 
-    call_start = main.index("self.controller.generate_multilevel_one_sheet(")
-    call_end = main.index(")", call_start)
-    multilevel_block = main[call_start:call_start + 3500]
-    assert "main_view_zone_line_style" in multilevel_block
+    create = main[
+        main.index("    def CreateBatch_Click("):
+        main.index("    def _run_batch(")
+    ]
 
-    standard_start = main.index("self.controller.generate_full_plan(")
-    standard_block = main[standard_start:standard_start + 3000]
-    assert "main_view_zone_line_style" not in standard_block
+    assert "self.controller.diagnose_template_zones(" in create
+    assert "invalid_zone_views" in create
+    assert "Vue(s) sans rectangle fermé" in create
+    assert "Zones principales : {} — {} rectangle(s) validé(s)" in create
