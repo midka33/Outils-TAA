@@ -6,6 +6,24 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Préparation de la V1 — Plans de vente
+
+Release Candidate RC17 intégrée sur une branche propre dérivée de la `main`
+actuelle. Aucun code métier Export ou Calculs n'est remplacé ; seules leurs icônes
+sont harmonisées avec la palette Plans de vente.
+
+- Génération depuis une feuille modèle réelle.
+- Mono-niveau : une vue principale par feuille.
+- Multi-niveaux : une feuille par niveau ou deux vues sur une même feuille selon le modèle.
+- Zones explicites de placement des vues principales dessinées sur la feuille modèle.
+- Gabarits, échelles, étiquettes, cotations, repérage et nomenclatures dérivés du modèle.
+- Paramètres de cartouche logement / bâtiment / étage / typologie alimentés depuis les pièces.
+- Surfaces habitables et annexes consolidées sur les logements multi-niveaux.
+- Aperçu réel de la feuille modèle.
+- Rapport détaillé et fenêtre de progression par jalons réels.
+- Interface finale et palette du ruban harmonisées.
+
+
 ### Préparation de v1.1.0 — Export
 
 Version proposée, non publiée. Périmètre vérifié depuis v1.0.3 : évolutions Export
