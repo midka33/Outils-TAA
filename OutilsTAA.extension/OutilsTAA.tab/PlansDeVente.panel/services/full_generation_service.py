@@ -409,6 +409,14 @@ class FullGenerationService(object):
                 "Choisissez et analysez d'abord le paramètre logement."
             )
 
+        self._notify_progress(
+            progress_callback,
+            0.02,
+            "Préparation",
+            "Analyse du logement",
+            "Lecture du modèle et préparation de {}…".format(housing.key),
+        )
+
         inspection = self.inspect_template(
             template_sheet_unique_id,
             descriptor,
@@ -482,6 +490,14 @@ class FullGenerationService(object):
         warnings.extend(source_warnings)
         warnings.extend(location_source_warnings)
 
+        self._notify_progress(
+            progress_callback,
+            0.08,
+            "Préparation",
+            "Feuille modèle analysée",
+            "Le modèle de feuille et les vues sources sont prêts.",
+        )
+
         from Autodesk.Revit.DB import TransactionGroup
 
         group = TransactionGroup(
@@ -519,6 +535,14 @@ class FullGenerationService(object):
                 )
             )
 
+            self._notify_progress(
+                progress_callback,
+                0.22,
+                "Création",
+                "Vue logement créée",
+                "Vue principale créée et cadrée.",
+            )
+
             room_metadata, metadata_warnings = self._room_metadata(
                 housing,
                 building_parameter_name=building_parameter_name,
@@ -539,6 +563,14 @@ class FullGenerationService(object):
                     "07D : étiquettes non créées, aucun type n'a été déduit du modèle."
                 )
 
+            self._notify_progress(
+                progress_callback,
+                0.36,
+                "Création",
+                "Étiquettes traitées",
+                "Placement des étiquettes de pièces terminé.",
+            )
+
             if dimension_type is not None:
                 dimension_result = self.dimension_service.create_dimensions(
                     housing,
@@ -550,6 +582,14 @@ class FullGenerationService(object):
                 warnings.append(
                     "07D : cotations non créées, aucun type n'a été déduit du modèle."
                 )
+
+            self._notify_progress(
+                progress_callback,
+                0.56,
+                "Création",
+                "Cotations traitées",
+                "Création et contrôle des cotations terminés.",
+            )
 
             if (
                 location_info is not None
@@ -588,6 +628,14 @@ class FullGenerationService(object):
                     "sur la feuille modèle."
                 )
 
+            self._notify_progress(
+                progress_callback,
+                0.68,
+                "Création",
+                "Repérage traité",
+                "Création du plan de repérage terminée.",
+            )
+
             schedule_result = (
                 self.schedule_service.duplicate_templates_for_housing(
                     housing,
@@ -597,6 +645,14 @@ class FullGenerationService(object):
                 )
             )
             warnings.extend(schedule_result.warnings)
+
+            self._notify_progress(
+                progress_callback,
+                0.80,
+                "Création",
+                "Nomenclatures créées",
+                "Les nomenclatures du logement sont prêtes.",
+            )
 
             generated_by_template = dict(
                 (
@@ -620,6 +676,14 @@ class FullGenerationService(object):
                         "schedule_unique_id": generated_uid,
                     }
                 )
+
+            self._notify_progress(
+                progress_callback,
+                0.84,
+                "Assemblage",
+                "Création de la feuille",
+                "Assemblage de la mise en page en cours…",
+            )
 
             sheet_result = self.sheet_assembly_service.create_sheet_from_blueprint(
                 housing=housing,
@@ -650,7 +714,22 @@ class FullGenerationService(object):
             )
             warnings.extend(sheet_result.warnings)
 
+            self._notify_progress(
+                progress_callback,
+                0.96,
+                "Assemblage",
+                "Feuille assemblée",
+                "Vues, nomenclatures et cartouche sont en place.",
+            )
+
             group.Assimilate()
+            self._notify_progress(
+                progress_callback,
+                1.0,
+                "Finalisation",
+                "Plan terminé",
+                "Plan de vente {} créé.".format(housing.key),
+            )
         except Exception:
             try:
                 group.RollBack()
