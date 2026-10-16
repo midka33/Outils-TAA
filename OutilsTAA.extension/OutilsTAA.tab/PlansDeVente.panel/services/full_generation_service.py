@@ -1236,15 +1236,6 @@ class FullGenerationService(object):
         )
         main = main_candidates[0]
 
-        if len(infos) > 2:
-            warnings.append(
-                "07D V1 : {} vue(s) placée(s) détectée(s). "
-                "La vue logement et le repérage sont générés automatiquement ; "
-                "les autres viewports seront traités dans l'extension multi-vues.".format(
-                    len(infos)
-                )
-            )
-
         return main, location, warnings
 
     def detect_multilevel_template_mode(self, template_sheet_unique_id):
