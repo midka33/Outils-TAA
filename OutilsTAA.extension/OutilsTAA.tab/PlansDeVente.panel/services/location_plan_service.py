@@ -38,6 +38,7 @@ class LocationPlanResult(object):
         template_name,
         fill_type_name,
         placement=None,
+        warnings=None,
     ):
         self.housing_key = housing_key or ""
         self.view_name = view_name or ""
@@ -46,6 +47,7 @@ class LocationPlanResult(object):
         self.template_name = template_name or ""
         self.fill_type_name = fill_type_name or ""
         self.placement = placement
+        self.warnings = list(warnings or [])
 
 
 class LocationPlanService(object):
@@ -138,11 +140,18 @@ class LocationPlanService(object):
             source_view,
             0.0,
         )
-        if not highlight_result.mode.startswith("Contour optimisé"):
-            raise ValueError(
-                "Le contour global du logement n'a pas pu être construit de façon "
-                "fiable pour le repérage. Aucun rectangle de secours n'est utilisé "
-                "pour éviter de surligner une zone extérieure au logement."
+        highlight_available = bool(
+            highlight_result is not None
+            and str(getattr(highlight_result, "mode", "") or "").startswith(
+                "Contour optimisé"
+            )
+            and getattr(highlight_result, "curve_loop", None) is not None
+        )
+        warnings = []
+        if not highlight_available:
+            warnings.append(
+                "Repérage créé sans surbrillance : le contour global du logement "
+                "n'a pas pu être construit de façon suffisamment fiable."
             )
 
         if template is not None:
@@ -188,12 +197,13 @@ class LocationPlanService(object):
                     created_view,
                 )
 
-            self._create_global_filled_region(
-                created_view,
-                region_type,
-                highlight_result.curve_loop,
-            )
-            region_count = 1
+            if highlight_available:
+                self._create_global_filled_region(
+                    created_view,
+                    region_type,
+                    highlight_result.curve_loop,
+                )
+                region_count = 1
 
         return LocationPlanResult(
             housing_key=housing.key,
@@ -208,6 +218,7 @@ class LocationPlanService(object):
                 str(getattr(created_view, "UniqueId", "") or ""),
                 created_view.Name,
             ),
+            warnings=warnings,
         )
 
     def _copy_crop_from_reference(self, reference_view, target_view):
