@@ -4832,32 +4832,36 @@ stage07d-template-driven-full-generation-v4
 `feature/plans-de-vente-stage09-ui-stabilization`
 
 **Build interface :**
-`stage09a-final-ui-v1`
+`stage09-rc1`
 
-L'Étape 09 transforme les écrans de prototypes des étapes précédentes en une
-interface destinée à l'utilisation courante en agence.
+**Statut :**
+RC1 — stabilisation terminée côté code, validation finale à effectuer dans Revit 2025.4.
 
-Le module final est centré uniquement sur la **création** des plans de vente.
-La fonction expérimentale de mise à jour développée séparément en Étape 08
-n'est pas intégrée dans cette branche.
+### Interface finale
 
-### 09A — Interface principale
+L'Étape 09 transforme les prototypes précédents en une interface de création
+destinée à l'utilisation courante.
 
-La fenêtre principale suit quatre étapes :
+La fenêtre principale conserve quatre étapes :
 
 1. portée de génération ;
 2. choix de la feuille modèle ;
-3. comportement des logements multi-niveaux ;
+3. comportement multi-niveaux déduit automatiquement ;
 4. création des plans de vente.
 
-La portée de génération permet :
+La fonction expérimentale de mise à jour de l'Étape 08 reste hors de cette
+interface : l'Étape 09 est un outil de **création**.
 
-- de traiter tous les logements ;
-- ou de filtrer les logements par un paramètre texte des pièces ;
-- de choisir une condition ;
-- de saisir une valeur de filtre.
+### Portée de génération
 
-Conditions disponibles :
+L'utilisateur peut :
+
+- traiter tous les logements ;
+- filtrer les logements selon un paramètre texte de pièce ;
+- choisir un opérateur ;
+- saisir une valeur.
+
+Les opérateurs disponibles sont :
 
 ```text
 commence par
@@ -4869,274 +4873,155 @@ est vide
 n'est pas vide
 ```
 
-Exemple :
+### Feuille modèle
 
-```text
-Paramètre : N° Appartement
-Condition : commence par
-Valeur     : A5
-```
+La feuille modèle fournit notamment :
 
-Le tableau affiche le nombre de pièces et le nombre de niveaux pour chaque
-logement correspondant.
-
-### Création par lot
-
-Le bouton principal crée tous les logements correspondant à la portée choisie.
-
-Chaque logement réutilise le moteur 07D validé et conserve sa transaction
-globale propre. Ainsi, l'échec d'un logement n'empêche pas le traitement des
-suivants.
-
-Par défaut, les logements possédant déjà une feuille
-`PDV-<Appartement>` sont ignorés afin que cette version reste un outil de
-création et non de mise à jour.
-
-Un rapport final récapitule :
-
-- plans créés ;
-- logements ignorés ;
-- échecs ;
-- avertissements.
-
-### Options avancées
-
-Le bouton **Options avancées** ouvre une fenêtre séparée reprenant la même
-charte graphique Outils TAA.
-
-Réglages actifs en 09A :
-
-- créer uniquement les logements sans plan existant ;
-- paramètre identifiant le logement ;
-- marge de crop ;
-- réduction automatique de l'échelle en cas de collision ;
-- échelles de repli autorisées ;
-- rapport détaillé ;
-- journalisation des avertissements.
-
-Les réglages déduits automatiquement de la feuille modèle restent affichés en
-lecture seule lorsqu'un remplacement manuel n'est pas encore garanti par le
-moteur.
-
-### Charte graphique
-
-La nouvelle interface réutilise la charte commune du module :
-
-- typographie : Segoe UI ;
-- taille de base : 13 ;
-- couleur de mise en avant Tallandier :
-  `TAABrandOrangeBrush = #FA641F` ;
-- fonds, bordures, champs et boutons issus du ResourceDictionary TAA.
-
-La sélection des logements et les actions principales utilisent le orange
-Tallandier demandé.
-
-### Références visuelles
-
-Les deux maquettes approuvées sont conservées dans :
-
-```text
-docs/references/plans-vente/
-├── 09_interface_principale.webp
-├── 09_options_avancees.webp
-└── README.md
-```
-
-Elles constituent la référence d'intention pour la finition WPF.
-
-### Logements multi-niveaux — préparation 09B
-
-L'interface expose dès 09A les trois comportements prévus :
-
-- une feuille par logement avec une vue par niveau ;
-- une feuille par niveau ;
-- ignorer les logements multi-niveaux.
-
-Le moteur 07D actuel reste mono-niveau. Pour éviter de produire une feuille
-fausse ou incomplète, le build 09A signale les logements multi-niveaux et ne
-les génère pas lorsque le mode choisi nécessite plusieurs vues.
-
-La sous-étape **09B** devra implémenter la génération réelle multi-niveaux.
-
-**Statut 09A : implémentée ; validation finale d'interface dans Revit 2025.4 à poursuivre.**
-
-## Étape 09B — Logements multi-niveaux
-
-### 09B.1 — Une feuille par niveau
-
-**Build interface :** `stage09b1-sheet-per-level-v1`
-
-Le premier mode multi-niveaux réellement activé est :
-
-```text
-Une feuille par niveau
-```
-
-Le logement métier reste identifié par sa valeur d'origine, par exemple
-`A101`. Pour la génération, le contrôleur le découpe en logements temporaires
-mono-niveau :
-
-```text
-A101
-├── RDC   → sortie A101-RDC
-└── R+1   → sortie A101-R-1
-```
-
-La **clé de sortie** sert uniquement aux noms des vues, nomenclatures et
-feuilles afin d'éviter les collisions entre niveaux.
-
-La **clé de filtre** reste la valeur logement originale (`A101`). Les
-nomenclatures continuent donc à filtrer les pièces avec la donnée métier
-existante dans Revit et ne recherchent jamais une valeur artificielle telle que
-`A101-RDC`.
-
-Chaque sous-logement mono-niveau réutilise ensuite le moteur 07D validé :
-
-```text
-logement multi-niveaux
-        ↓
-découpage métier par niveau
-        ↓
-Housing mono-niveau temporaire
-        ↓
-moteur 07D existant
-        ↓
-1 feuille par niveau
-```
-
-Le contrôle « créer uniquement les logements sans plan existant » s'effectue
-sur la clé de sortie. Il est donc possible d'avoir un niveau déjà généré et un
-autre restant à créer.
-
-Le mode `Ignorer les logements multi-niveaux` reste disponible.
-
-**Statut 09B.1 : implémenté, À TESTER dans Revit 2025.4.**
-
-### 09B.2 — Une feuille par logement avec une vue par niveau
-
-Ce mode reste volontairement protégé.
-
-Il nécessite une extension du service d'assemblage de feuille pour accepter
-plusieurs viewports logement sur une seule feuille, tout en conservant :
-
-- une seule feuille `PDV-<Appartement>` ;
-- une vue logement par niveau ;
-- les cotations et étiquettes propres à chaque vue ;
-- une seule série de nomenclatures filtrées sur le logement ;
-- un repérage cohérent du logement multi-niveaux ;
-- une règle de placement et de collision dérivée de la feuille modèle.
-
-Tant que cet assemblage multi-viewports n'est pas validé, sélectionner ce mode
-ne crée jamais une feuille partielle.
-
-**Statut 09B.2 : implémenté, À TESTER dans Revit 2025.4.**
-
-### Comportement 09B.2 implémenté
-
-Le mode suivant est maintenant activé dans l'interface :
-
-```text
-1 feuille par logement, 1 vue par niveau
-```
-
-Pour un logement multi-niveaux, le moteur :
-
-1. découpe temporairement le logement par niveau ;
-2. génère une vue logement par niveau ;
-3. crée les étiquettes et cotations propres à chaque vue ;
-4. conserve une seule série de nomenclatures, filtrées sur le logement complet ;
-5. crée un repérage unique basé sur le niveau bas ;
-6. crée une seule feuille `PDV-<Appartement>` ;
-7. place les vues logement côte à côte dans la zone occupée par la vue logement de la feuille modèle ;
-8. réduit l'échelle uniquement si une collision est détectée, selon les règles 07C ;
-9. renseigne le champ Niveau du cartouche avec tous les étages représentés, par exemple `0 / 1`.
-
-Le mode 09B.1 « une feuille par niveau » reste disponible sans modification.
-
-### Aperçu image de la feuille modèle
-
-L'interface Étape 09 utilise désormais un export PNG temporaire de la vraie feuille Revit sélectionnée.
-
-Deux vues de cette image sont affichées :
-
-- **Aperçu du modèle de feuille** ;
-- **Résultat attendu**.
-
-Les éléments recréés par le moteur sont mis en évidence par surcouche :
-
-- vue logement ;
-- nomenclatures ;
-- repérage.
-
-En cas d'échec de l'export image, l'interface conserve un message de repli sans bloquer la génération.
-
-
-## Étape 09B.2 — Modèle multi-niveaux explicite
-
-La stratégie de placement automatique des deux niveaux dans une zone prévue pour
-une seule vue a été abandonnée après test dans Revit 2025.4.
-
-Le mode `1 feuille par logement, 1 vue par niveau` utilise désormais une
-**feuille modèle multi-niveaux dédiée**.
-
-Le modèle doit contenir :
-
-- exactement deux vues logement pour un logement sur deux niveaux ;
-- un plan de repérage ;
-- les nomenclatures souhaitées ;
 - le cartouche ;
-- les deux vues logement à la **même échelle**.
+- la ou les positions de vues logement ;
+- l'échelle de référence ;
+- les nomenclatures ;
+- le type d'étiquette de pièce ;
+- le type de cote ;
+- le repérage lorsqu'il est présent et exploitable.
 
-Le plugin associe le niveau bas à la première position du modèle et le niveau
-haut à la seconde :
+L'interface affiche une **image PNG réelle de la feuille Revit sélectionnée**
+avec surcouche sur les zones reconnues. Le précédent bloc « Résultat attendu »
+a été supprimé car il faisait doublon.
 
-- modèle horizontal : gauche puis droite ;
-- modèle vertical : haut puis bas.
+Le repérage est optionnel pour la sélection du modèle. Son absence ne bloque
+plus le bouton de création ; le rapport indique alors qu'aucun repérage n'a été
+créé.
 
-Les vues générées sont placées **aux positions exactes des viewports du
-modèle**. Le plugin n'invente donc plus leur position et ne change pas leur
-échelle individuellement.
+### Comportement multi-niveaux automatique
 
-Si les vues générées se chevauchent malgré le modèle, la création est annulée
-et le modèle doit être ajusté.
+Le choix manuel a été supprimé. Le comportement est déterminé par le nombre de
+vues logement détectées dans la feuille modèle.
 
-Le bloc d'interface **Résultat attendu** a été supprimé : il faisait doublon
-avec l'aperçu image de la vraie feuille modèle.
+#### Modèle avec 1 vue logement
 
-**Build :** `stage09b2-template-multilevel-v1`
-**Statut :** implémenté, à tester dans Revit 2025.4.
-
-
-## Étape 09B.2 — Comportement déterminé par la feuille modèle
-
-Le choix manuel entre « une feuille par niveau » et « une feuille multi-niveaux »
-a été supprimé.
-
-Le comportement est maintenant déduit automatiquement de la feuille modèle :
-
-### Modèle avec 1 vue logement + 1 repérage
-
-Pour un logement multi-niveaux :
+Pour un logement sur plusieurs niveaux :
 
 - le logement est découpé par niveau ;
 - une feuille est créée pour chaque niveau ;
-- chaque feuille reprend la position de l'unique vue logement du modèle ;
+- la même position de vue modèle est réutilisée ;
 - les nomenclatures restent globales au logement.
 
-### Modèle avec 2 vues logement + 1 repérage
+Exemple :
+
+```text
+Villa 5
+├── Niveau 0 → 1 feuille
+└── Niveau 1 → 1 feuille
+```
+
+#### Modèle avec 2 vues logement
 
 Pour un logement sur deux niveaux :
 
 - une seule feuille est créée ;
 - niveau bas → première position du modèle ;
 - niveau haut → seconde position du modèle ;
-- les deux vues modèle doivent avoir la même échelle ;
-- leurs positions sont reprises exactement ;
-- les nomenclatures restent globales au logement ;
-- le champ Niveau du cartouche affiche les deux étages.
+- les deux vues modèle doivent être à la même échelle ;
+- les positions sont reprises exactement ;
+- aucune tentative de placement automatique n'est effectuée ;
+- si les vues générées se chevauchent malgré le modèle, la création est
+  annulée et le modèle doit être ajusté.
 
-Le module refuse les feuilles contenant plus de deux vues logement dans cette
-étape afin d'éviter une interprétation ambiguë.
+L'ordre est déduit de la disposition du modèle :
 
-**Build :** `stage09b2-template-auto-v1`
-**Statut :** implémenté, à tester dans Revit 2025.4.
+- disposition horizontale : gauche → droite ;
+- disposition verticale : haut → bas.
+
+Les modèles contenant plus de deux vues logement sont refusés dans cette
+version afin d'éviter toute interprétation ambiguë.
+
+### Nomenclatures multi-niveaux
+
+Les nomenclatures sont toujours **globales au logement**.
+
+Ainsi, sur un duplex, les tableaux de surfaces habitables et de surfaces annexes
+contiennent les pièces de tous les niveaux, même lorsqu'une feuille distincte
+est créée pour chaque niveau.
+
+Les filtres de niveau hérités de la nomenclature modèle sont supprimés pour les
+sorties multi-niveaux, tandis que le filtre logement est conservé.
+
+### Cartouche
+
+Le cartouche est alimenté automatiquement :
+
+- **Logement N°** : valeur du paramètre logement choisi ;
+- **Bâtiment** : paramètre de pièce choisi dans Options avancées ;
+- **Étage / Niveau** : numéro du niveau Revit de la vue ; sur une feuille
+  contenant plusieurs niveaux, les numéros sont concaténés, par exemple
+  `0 / 1` ;
+- **Typologie** : paramètre de pièce choisi dans Options avancées, écrit dans
+  le paramètre `Zone` du cartouche.
+
+### Gabarits et vues
+
+Le gabarit de la vue logement modèle est appliqué à la vue principale technique
+PDV afin que les vues dépendantes reprennent correctement le graphisme du
+modèle.
+
+Le gabarit fait partie de l'identité du groupe technique PDV pour éviter la
+réutilisation d'une ancienne vue principale incompatible.
+
+### Échelle et placement
+
+Pour un modèle mono-vue, le moteur 07C reste la référence :
+
+- échelle du modèle en priorité ;
+- réduction uniquement si une collision impose une échelle de repli ;
+- la vue source de production n'est jamais modifiée.
+
+Pour un modèle à deux vues, les deux vues modèle doivent être à la même échelle
+et cette échelle commune est reprise.
+
+### Options avancées
+
+Les options actives sont :
+
+- ne créer que les logements sans plan existant ;
+- choisir le paramètre identifiant le logement ;
+- choisir le paramètre pièce utilisé pour Bâtiment ;
+- choisir le paramètre pièce utilisé pour Typologie ;
+- régler la marge de crop ;
+- autoriser la réduction automatique de l'échelle ;
+- définir les échelles de repli ;
+- rapport détaillé ;
+- journalisation des avertissements.
+
+### Stabilisation RC1
+
+Les garde-fous ajoutés avant RC1 couvrent notamment :
+
+- parsing statique des fichiers Python runtime de l'Étape 09 ;
+- validité des fichiers XAML ;
+- modèle 1 vue → une feuille par niveau ;
+- modèle 2 vues → une feuille multi-niveaux ;
+- absence de choix manuel multi-niveaux ;
+- absence du bloc « Résultat attendu » ;
+- repérage optionnel sans blocage de l'interface ;
+- maintien du moteur 07D validé pour les logements mono-niveau ;
+- conservation des nomenclatures globales au logement ;
+- cartouche Bâtiment / Niveau / Zone ;
+- aperçu réel de la feuille modèle.
+
+### Validation Revit à effectuer pour clôturer RC1
+
+Avant de considérer l'Étape 09 comme définitivement validée :
+
+1. logement mono-niveau avec modèle 1 vue ;
+2. logement duplex avec modèle 1 vue → deux feuilles ;
+3. logement duplex avec modèle 2 vues → une feuille ;
+4. contrôle des nomenclatures habitables et annexes sur les deux niveaux ;
+5. contrôle du cartouche : logement, bâtiment, niveau(x), typologie ;
+6. contrôle du gabarit graphique des vues ;
+7. contrôle d'un modèle sans repérage détecté ;
+8. génération par lot de plusieurs logements ;
+9. contrôle des avertissements de cotation sans erreur bloquante.
+
+Une fois cette série validée dans Revit 2025.4, l'Étape 09 pourra être marquée
+**VALIDÉE** et préparée pour intégration propre à la branche principale.
