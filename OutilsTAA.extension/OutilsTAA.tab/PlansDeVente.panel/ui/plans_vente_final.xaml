@@ -328,33 +328,20 @@
                                            VerticalAlignment="Center"/>
                             </Grid>
 
-                            <RadioButton x:Name="MultiLevelOneSheetRadio"
-                                         Margin="24,14,0,0"
-                                         Content="1 feuille par logement, 1 vue par niveau"
-                                         ToolTip="09B.2 : une feuille unique avec une vue logement par niveau."
-                                         Checked="MultiLevelModeChanged"/>
-                            <Border Margin="46,6,0,6"
-                                    Padding="10"
+                            <Border Margin="24,14,0,0"
+                                    Padding="12"
                                     Background="#F4F4F4"
                                     CornerRadius="4">
-                                <TextBlock Text="Ce mode nécessite une feuille modèle contenant déjà 2 vues logement + 1 repérage. Les 2 vues logement doivent être à la même échelle ; leurs positions seront reprises exactement."
-                                           TextWrapping="Wrap"
-                                           Style="{DynamicResource TAASecondaryText}"/>
+                                <StackPanel>
+                                    <TextBlock Text="Comportement automatique selon la feuille modèle"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="MultiLevelInfoText"
+                                               Margin="0,6,0,0"
+                                               Text="Choisissez une feuille modèle : le module détectera automatiquement s'il doit créer une feuille par niveau ou une feuille unique avec deux vues."
+                                               Foreground="{DynamicResource TAABrandOrangeBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
                             </Border>
-                            <RadioButton x:Name="MultiLevelOneSheetPerLevelRadio"
-                                         Margin="24,2,0,0"
-                                         Content="1 feuille par niveau"
-                                         IsChecked="True"
-                                         Checked="MultiLevelModeChanged"/>
-                            <RadioButton x:Name="MultiLevelIgnoreRadio"
-                                         Margin="24,2,0,0"
-                                         Content="Ignorer les logements multi-niveaux"
-                                         Checked="MultiLevelModeChanged"/>
-                            <TextBlock x:Name="MultiLevelInfoText"
-                                       Margin="46,6,0,0"
-                                       Text="09B.2 actif : pour une feuille unique, choisissez un modèle multi-niveaux préparé avec les 2 vues logement."
-                                       Foreground="{DynamicResource TAABrandOrangeBrush}"
-                                       TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
 
