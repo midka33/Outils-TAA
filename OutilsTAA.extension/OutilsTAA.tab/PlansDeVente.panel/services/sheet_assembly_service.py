@@ -312,7 +312,7 @@ class SheetAssemblyService(object):
         housing,
         template_sheet_unique_id,
         main_view_unique_id,
-        template_main_viewport_unique_ids,
+        template_main_viewport_unique_id,
         template_location_viewport_unique_id,
         template_interior_schedule_instance_unique_id,
         template_exterior_schedule_instance_unique_id,
@@ -505,30 +505,20 @@ class SheetAssemblyService(object):
             template_sheet_unique_id,
             "Sélectionnez une feuille modèle valide.",
         )
-        main_viewport_models = []
-        for unique_id in list(template_main_viewport_unique_ids or []):
-            viewport_model = self._get_element(
-                unique_id,
-                "Un viewport modèle de vue logement n'existe plus.",
-            )
-            self._ensure_owned_by_sheet(
-                viewport_model,
-                template_sheet,
-                "vue logement",
-            )
-            main_viewport_models.append(viewport_model)
-
-        if len(main_viewport_models) != len(main_ids):
-            raise ValueError(
-                "Le nombre de vues logement du modèle ne correspond pas au "
-                "nombre de niveaux du logement."
-            )
-
+        main_viewport_model = self._get_element(
+            template_main_viewport_unique_id,
+            "Le viewport modèle de la vue logement n'existe plus.",
+        )
         location_viewport_model = self._get_element(
             template_location_viewport_unique_id,
             "Le viewport modèle du repérage n'existe plus.",
         )
 
+        self._ensure_owned_by_sheet(
+            main_viewport_model,
+            template_sheet,
+            "vue logement",
+        )
         self._ensure_owned_by_sheet(
             location_viewport_model,
             template_sheet,
@@ -747,7 +737,7 @@ class SheetAssemblyService(object):
         template_sheet_unique_id,
         main_view_unique_ids,
         location_view_unique_id,
-        template_main_viewport_unique_id,
+        template_main_viewport_unique_ids,
         template_location_viewport_unique_id,
         schedule_bindings,
         auto_fit_main_view=True,
@@ -756,7 +746,7 @@ class SheetAssemblyService(object):
         housing_parameter_name=None,
         room_metadata=None,
     ):
-        """09B.2 : assemble une feuille unique avec une vue logement par niveau."""
+        """09B.2 : reproduit exactement un modèle contenant plusieurs vues logement."""
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
 
@@ -765,29 +755,42 @@ class SheetAssemblyService(object):
             for value in (main_view_unique_ids or [])
             if str(value or "")
         ]
+        model_ids = [
+            str(value or "")
+            for value in (template_main_viewport_unique_ids or [])
+            if str(value or "")
+        ]
         if len(main_ids) < 2:
             raise ValueError(
                 "09B.2 nécessite au moins deux vues logement générées."
             )
+        if len(model_ids) != len(main_ids):
+            raise ValueError(
+                "Le modèle multi-niveaux doit contenir exactement une vue "
+                "logement par niveau."
+            )
 
-        fit_scales = parse_allowed_scales(allowed_scales)
         template_sheet = self._get_element(
             template_sheet_unique_id,
             "Sélectionnez une feuille modèle valide.",
         )
-        main_viewport_model = self._get_element(
-            template_main_viewport_unique_id,
-            "Le viewport modèle de la vue logement n'existe plus.",
-        )
+
+        main_viewport_models = []
+        for unique_id in model_ids:
+            viewport_model = self._get_element(
+                unique_id,
+                "Un viewport modèle de vue logement n'existe plus.",
+            )
+            self._ensure_owned_by_sheet(
+                viewport_model,
+                template_sheet,
+                "vue logement",
+            )
+            main_viewport_models.append(viewport_model)
+
         location_viewport_model = self._get_element(
             template_location_viewport_unique_id,
             "Le viewport modèle du repérage n'existe plus.",
-        )
-
-        self._ensure_owned_by_sheet(
-            main_viewport_model,
-            template_sheet,
-            "vue logement",
         )
         self._ensure_owned_by_sheet(
             location_viewport_model,
@@ -809,6 +812,45 @@ class SheetAssemblyService(object):
             "Le plan de repérage généré n'existe plus.",
         )
         self._validate_placeable_view(location_view, "plan de repérage")
+
+        reference_scales = []
+        main_centers = []
+        main_viewport_type_ids = []
+        for viewport_model in main_viewport_models:
+            model_view = self.document.GetElement(viewport_model.ViewId)
+            reference_scales.append(
+                int(getattr(model_view, "Scale", 0) or 0)
+            )
+            center = viewport_model.GetBoxCenter()
+            main_centers.append(
+                (float(center.X), float(center.Y))
+            )
+            try:
+                main_viewport_type_ids.append(
+                    viewport_model.GetTypeId()
+                )
+            except Exception:
+                main_viewport_type_ids.append(None)
+
+        common_scales = sorted(set(reference_scales))
+        if len(common_scales) != 1 or not common_scales[0]:
+            raise ValueError(
+                "Les vues logement du modèle multi-niveaux doivent être "
+                "à la même échelle."
+            )
+        reference_scale = common_scales[0]
+
+        for index, main_view in enumerate(main_views):
+            actual_scale = int(getattr(main_view, "Scale", 0) or 0)
+            if actual_scale != reference_scale:
+                raise RuntimeError(
+                    "La vue logement du niveau {} est à l'échelle 1:{} au lieu "
+                    "de l'échelle modèle commune 1:{}.".format(
+                        index + 1,
+                        actual_scale,
+                        reference_scale,
+                    )
+                )
 
         bindings = list(schedule_bindings or [])
         resolved_schedules = []
@@ -848,37 +890,6 @@ class SheetAssemblyService(object):
 
         from Autodesk.Revit.DB import ScheduleSheetInstance, ViewSheet, Viewport, XYZ
 
-        reference_scales = []
-        main_viewport_type_ids = []
-        main_centers = []
-        for viewport_model in main_viewport_models:
-            template_main_view = self.document.GetElement(
-                viewport_model.ViewId
-            )
-            reference_scales.append(
-                int(getattr(template_main_view, "Scale", 0) or 0)
-            )
-            try:
-                main_viewport_type_ids.append(
-                    viewport_model.GetTypeId()
-                )
-            except Exception:
-                main_viewport_type_ids.append(None)
-            center = viewport_model.GetBoxCenter()
-            main_centers.append(
-                (
-                    float(center.X),
-                    float(center.Y),
-                )
-            )
-
-        common_scales = sorted(set(reference_scales))
-        if len(common_scales) != 1 or not common_scales[0]:
-            raise ValueError(
-                "Les vues logement du modèle multi-niveaux doivent être à la même échelle."
-            )
-        reference_scale = common_scales[0]
-
         try:
             location_viewport_type_id = location_viewport_model.GetTypeId()
         except Exception:
@@ -888,12 +899,12 @@ class SheetAssemblyService(object):
         fit_warnings = []
         placed_schedule_instances = []
         placed_main_viewports = []
-        placed_main_views = []
-        fit_scales_used = []
 
         with RevitTransaction(
             self.document,
-            "Plans de vente - Feuille multi-niveaux {}".format(housing.key),
+            "Plans de vente - Feuille modèle multi-niveaux {}".format(
+                housing.key
+            ),
         ):
             title_block_type = self._template_title_block_type(template_sheet)
             sheet = ViewSheet.Create(
@@ -952,12 +963,6 @@ class SheetAssemblyService(object):
                 placed_schedule_instances.append(created_instance)
 
             for index, main_view in enumerate(main_views):
-                if int(getattr(main_view, "Scale", 0) or 0) != int(reference_scale):
-                    raise RuntimeError(
-                        "La vue du niveau {} n'est pas à l'échelle commune 1:{}."
-                        .format(index + 1, reference_scale)
-                    )
-
                 center = main_centers[index]
                 viewport = Viewport.Create(
                     self.document,
@@ -970,8 +975,6 @@ class SheetAssemblyService(object):
                     main_viewport_type_ids[index],
                 )
                 placed_main_viewports.append(viewport)
-                placed_main_views.append(main_view)
-                fit_scales_used.append(reference_scale)
 
             self.document.Regenerate()
 
@@ -988,20 +991,23 @@ class SheetAssemblyService(object):
                         clearance=clearance,
                     ):
                         raise RuntimeError(
-                            "Le modèle multi-niveaux provoque un chevauchement "
-                            "entre les vues logement. Corrigez directement la "
-                            "feuille modèle."
+                            "Les vues générées se chevauchent malgré le modèle "
+                            "multi-niveaux. Agrandissez l'écart entre les vues "
+                            "sur la feuille modèle."
                         )
-
-            fit_warnings.append(
-                "09B.2 : vues multi-niveaux placées aux positions exactes du "
-                "modèle, à l'échelle commune 1:{}.".format(reference_scale)
-            )
 
         template_label = "{} — {}".format(
             getattr(template_sheet, "SheetNumber", "") or "Sans numéro",
             getattr(template_sheet, "Name", "") or "",
         ).rstrip(" —")
+
+        fit_warnings.append(
+            "09B.2 : {} vues logement reproduites aux positions exactes du "
+            "modèle, à l'échelle commune 1:{}.".format(
+                len(main_views),
+                reference_scale,
+            )
+        )
 
         return SheetAssemblyResult(
             housing_key=housing.key,
@@ -1017,7 +1023,7 @@ class SheetAssemblyService(object):
             ),
             main_view_name=" + ".join(
                 str(getattr(view, "Name", "") or "")
-                for view in placed_main_views
+                for view in main_views
             ),
             location_view_name_value=str(
                 getattr(location_view, "Name", "") or ""
@@ -1025,15 +1031,8 @@ class SheetAssemblyService(object):
             interior_schedule_name="",
             exterior_schedule_name="",
             template_sheet_label=template_label,
-            main_view_scale=(
-                max(fit_scales_used)
-                if fit_scales_used
-                else None
-            ),
-            main_view_auto_fitted=(
-                bool(fit_scales_used)
-                and int(fit_scales_used[0]) != int(reference_scale)
-            ),
+            main_view_scale=reference_scale,
+            main_view_auto_fitted=False,
             main_view_was_duplicated=False,
             warnings=fit_warnings,
             schedule_names=[
