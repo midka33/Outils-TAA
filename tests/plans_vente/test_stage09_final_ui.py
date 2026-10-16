@@ -668,3 +668,41 @@ def test_stage09_sheet_line_zone_diagnostic_reads_only_sheet_curves():
     assert "EditFamily(" not in diagnostic
     assert "GetSymbolGeometry(" not in diagnostic
     assert "OST_TitleBlocks" not in diagnostic
+
+
+def test_stage09_rc14_generation_uses_explicit_sheet_line_zones():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert 'UI_BUILD = "stage09-rc14-explicit-main-zones"' in main
+    assert "main_view_zone_line_style=(" in main
+    assert "def generate_multilevel_one_sheet(" in controller
+    assert "main_view_zone_line_style=" in controller
+    assert "main_view_zone_line_style=" in full
+    assert "main_view_zone_line_style=" in sheet
+
+    placement = sheet[
+        sheet.index("    def _place_multilevel_views_in_template_slots("):
+        sheet.index("    @staticmethod", sheet.index("    def _place_multilevel_views_in_template_slots("))
+    ]
+    assert "_sheet_curve_segments_by_line_style(" in placement
+    assert "_zone_around_point_from_segments(" in placement
+    assert "target_zones.append(zone)" in placement
+    assert "_multilevel_available_zone(" not in placement
+    assert "_split_available_zone(" not in placement
+    assert "zones explicites" in placement
+
+
+def test_stage09_rc14_explicit_zone_style_only_affects_multilevel_main_views():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    call_start = main.index("self.controller.generate_multilevel_one_sheet(")
+    call_end = main.index(")", call_start)
+    multilevel_block = main[call_start:call_start + 3500]
+    assert "main_view_zone_line_style" in multilevel_block
+
+    standard_start = main.index("self.controller.generate_full_plan(")
+    standard_block = main[standard_start:standard_start + 3000]
+    assert "main_view_zone_line_style" not in standard_block
