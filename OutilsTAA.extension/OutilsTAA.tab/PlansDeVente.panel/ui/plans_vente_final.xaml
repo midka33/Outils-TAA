@@ -415,9 +415,7 @@
             <!-- Colonne droite -->
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="52*"/>
-                    <RowDefinition Height="14"/>
-                    <RowDefinition Height="48*"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Style="{StaticResource PDVCard}">
@@ -466,44 +464,6 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="2" Style="{StaticResource PDVCard}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="10"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="Résultat attendu"
-                                       FontSize="17"
-                                       FontWeight="SemiBold"/>
-                            <TextBlock Text="La feuille modèle sert de base. Les éléments encadrés seront recréés pour le logement."
-                                       Margin="0,3,0,0"
-                                       Style="{DynamicResource TAASecondaryText}"/>
-                        </StackPanel>
-                        <Border Grid.Row="2"
-                                Background="White"
-                                BorderBrush="{DynamicResource TAABorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4">
-                            <Grid>
-                                <Image x:Name="ExpectedResultImage"
-                                       Stretch="Uniform"/>
-                                <Canvas x:Name="ExpectedResultOverlay"
-                                        IsHitTestVisible="False"
-                                        SizeChanged="ExpectedResultOverlay_SizeChanged"/>
-                                <TextBlock x:Name="ExpectedResultPlaceholder"
-                                           Text="L'aperçu du résultat apparaîtra après sélection d'une feuille modèle."
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap"
-                                           Margin="40"
-                                           Style="{DynamicResource TAASecondaryText}"/>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Border>
             </Grid>
         </Grid>
 
