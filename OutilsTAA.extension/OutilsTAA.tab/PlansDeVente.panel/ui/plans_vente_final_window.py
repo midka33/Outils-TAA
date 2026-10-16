@@ -12,6 +12,7 @@ from common.wpf_resources import load_resource_dictionary
 from plans_vente.defaults import preferred_housing_parameter_index
 from plans_vente.housing_filter import FILTER_OPERATORS
 from plans_vente_advanced_window import PlansVenteAdvancedWindow
+from plans_vente_progress_window import PlansVenteProgressSession
 
 
 class ParameterChoice(object):
@@ -49,7 +50,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc15-explicit-main-zones"
+    UI_BUILD = "stage09-rc16-progress"
 
     def __init__(self, controller):
         self.controller = controller
@@ -923,107 +924,156 @@ class PlansVenteFinalWindow(forms.WPFWindow):
 
         total = len(processable)
         try:
-            for index, housing in enumerate(processable, 1):
-                self.StatusText.Text = (
-                    "Création {}/{} — {}..."
-                ).format(index, total, housing.key)
+            with PlansVenteProgressSession(self, total) as progress:
+                for index, housing in enumerate(processable, 1):
+                    self.StatusText.Text = (
+                        "Création {}/{} — {}..."
+                    ).format(index, total, housing.key)
 
-                if self._settings.get("skip_existing", True):
-                    try:
-                        if self.controller.plan_exists(housing.key):
-                            skipped.append(
-                                "{} : plan déjà existant".format(
-                                    housing.key
+                    progress.update(
+                        index - 1,
+                        housing_key=housing.key,
+                        phase="Création",
+                        message="Création du plan de vente {}…".format(
+                            housing.key
+                        ),
+                        item_label="Revit travaille…",
+                    )
+
+                    if self._settings.get("skip_existing", True):
+                        try:
+                            if self.controller.plan_exists(housing.key):
+                                skipped.append(
+                                    "{} : plan déjà existant".format(
+                                        housing.key
+                                    )
+                                )
+                                progress.update(
+                                    index,
+                                    housing_key=housing.key,
+                                    phase="Création",
+                                    message=(
+                                        "{} ignoré : plan déjà existant."
+                                    ).format(housing.key),
+                                    item_label="Plan ignoré",
+                                )
+                                continue
+                        except Exception as error:
+                            warnings.append(
+                                "{} : contrôle doublon impossible ({})".format(
+                                    housing.key,
+                                    str(error) or repr(error),
                                 )
                             )
-                            continue
+
+                    try:
+                        is_multilevel = len(
+                            getattr(housing, "level_names", []) or []
+                        ) > 1
+                        if (
+                            is_multilevel
+                            and self._multilevel_mode == "one_sheet"
+                        ):
+                            result = (
+                                self.controller.generate_multilevel_one_sheet(
+                                    housing=housing,
+                                    descriptor=self._active_descriptor,
+                                    template_sheet_unique_id=template.unique_id,
+                                    allowed_scales=self._settings.get(
+                                        "allowed_scales"
+                                    ),
+                                    crop_margin_mm=self._settings.get(
+                                        "crop_margin_mm",
+                                        500.0,
+                                    ),
+                                    auto_fit_main_view=self._settings.get(
+                                        "auto_scale",
+                                        True,
+                                    ),
+                                    building_parameter_name=self._settings.get(
+                                        "building_parameter_name",
+                                        "",
+                                    ),
+                                    typology_parameter_name=self._settings.get(
+                                        "typology_parameter_name",
+                                        "",
+                                    ),
+                                    main_view_zone_line_style=(
+                                        self._selected_main_view_zone_line_style()
+                                    ),
+                                )
+                            )
+                        else:
+                            result = self.controller.generate_full_plan(
+                                housing=housing,
+                                descriptor=self._active_descriptor,
+                                template_sheet_unique_id=template.unique_id,
+                                allowed_scales=self._settings.get(
+                                    "allowed_scales"
+                                ),
+                                crop_margin_mm=self._settings.get(
+                                    "crop_margin_mm",
+                                    500.0,
+                                ),
+                                auto_fit_main_view=self._settings.get(
+                                    "auto_scale",
+                                    True,
+                                ),
+                                building_parameter_name=self._settings.get(
+                                    "building_parameter_name",
+                                    "",
+                                ),
+                                typology_parameter_name=self._settings.get(
+                                    "typology_parameter_name",
+                                    "",
+                                ),
+                                main_view_zone_line_style=(
+                                    self._selected_main_view_zone_line_style()
+                                ),
+                            )
+
+                        created.append(result)
+                        if self._settings.get("log_warnings", True):
+                            for warning in result.warnings or []:
+                                warnings.append(
+                                    "{} : {}".format(
+                                        housing.key,
+                                        warning,
+                                    )
+                                )
+
+                        progress.update(
+                            index,
+                            housing_key=housing.key,
+                            phase="Assemblage",
+                            message="Plan de vente {} terminé.".format(
+                                housing.key
+                            ),
+                            item_label="Mise en page terminée",
+                        )
+
                     except Exception as error:
-                        warnings.append(
-                            "{} : contrôle doublon impossible ({})".format(
+                        failures.append(
+                            "{} : {}".format(
                                 housing.key,
                                 str(error) or repr(error),
                             )
                         )
+                        progress.update(
+                            index,
+                            housing_key=housing.key,
+                            phase="Création",
+                            message="Échec sur {} — voir le rapport.".format(
+                                housing.key
+                            ),
+                            item_label="Échec du plan",
+                        )
 
-                try:
-                    is_multilevel = len(
-                        getattr(housing, "level_names", []) or []
-                    ) > 1
-                    if (
-                        is_multilevel
-                        and self._multilevel_mode == "one_sheet"
-                    ):
-                        result = self.controller.generate_multilevel_one_sheet(
-                            housing=housing,
-                            descriptor=self._active_descriptor,
-                            template_sheet_unique_id=template.unique_id,
-                            allowed_scales=self._settings.get(
-                                "allowed_scales"
-                            ),
-                            crop_margin_mm=self._settings.get(
-                                "crop_margin_mm",
-                                500.0,
-                            ),
-                            auto_fit_main_view=self._settings.get(
-                                "auto_scale",
-                                True,
-                            ),
-                            building_parameter_name=self._settings.get(
-                                "building_parameter_name",
-                                "",
-                            ),
-                            typology_parameter_name=self._settings.get(
-                                "typology_parameter_name",
-                                "",
-                            ),
-                            main_view_zone_line_style=(
-                                self._selected_main_view_zone_line_style()
-                            ),
-                        )
-                    else:
-                        result = self.controller.generate_full_plan(
-                            housing=housing,
-                            descriptor=self._active_descriptor,
-                            template_sheet_unique_id=template.unique_id,
-                            allowed_scales=self._settings.get(
-                                "allowed_scales"
-                            ),
-                            crop_margin_mm=self._settings.get(
-                                "crop_margin_mm",
-                                500.0,
-                            ),
-                            auto_fit_main_view=self._settings.get(
-                                "auto_scale",
-                                True,
-                            ),
-                            building_parameter_name=self._settings.get(
-                                "building_parameter_name",
-                                "",
-                            ),
-                            typology_parameter_name=self._settings.get(
-                                "typology_parameter_name",
-                                "",
-                            ),
-                            main_view_zone_line_style=(
-                                self._selected_main_view_zone_line_style()
-                            ),
-                        )
-                    created.append(result)
-                    if self._settings.get("log_warnings", True):
-                        for warning in result.warnings or []:
-                            warnings.append(
-                                "{} : {}".format(
-                                    housing.key,
-                                    warning,
-                                )
-                            )
-                except Exception as error:
-                    failures.append(
-                        "{} : {}".format(
-                            housing.key,
-                            str(error) or repr(error),
-                        )
-                    )
+                progress.finish(
+                    len(created),
+                    len(skipped),
+                    len(failures),
+                )
 
         finally:
             self._busy = False
