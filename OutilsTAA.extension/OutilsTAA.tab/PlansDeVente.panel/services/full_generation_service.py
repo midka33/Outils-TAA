@@ -401,13 +401,16 @@ class FullGenerationService(object):
             housing,
             main_info.view,
         )
-        (
-            location_source_candidate,
-            location_source_warnings,
-        ) = self._resolve_location_source_view(
-            housing,
-            location_info.view,
-        )
+        location_source_candidate = None
+        location_source_warnings = []
+        if location_info is not None:
+            (
+                location_source_candidate,
+                location_source_warnings,
+            ) = self._resolve_location_source_view(
+                housing,
+                location_info.view,
+            )
 
         tag_type = self._dominant_element_type(
             main_info.view,
@@ -424,7 +427,11 @@ class FullGenerationService(object):
             )
 
         main_template = self._view_template(main_info.view)
-        location_template = self._view_template(location_info.view)
+        location_template = (
+            self._view_template(location_info.view)
+            if location_info is not None
+            else None
+        )
         schedule_instances = self._schedule_instances(sheet)
         template_schedule_ids = []
         instance_to_template = []
@@ -520,29 +527,39 @@ class FullGenerationService(object):
                     "07D : cotations non créées, aucun type n'a été déduit du modèle."
                 )
 
-            location_result = (
-                self.location_plan_service.create_location_plan(
-                    housing=housing,
-                    source_view_unique_id=location_source_candidate.unique_id,
-                    filled_region_type_unique_id=str(
-                        getattr(fill_type, "UniqueId", "") or ""
-                    ),
-                    template_unique_id=(
-                        str(
-                            getattr(location_template, "UniqueId", "")
-                            or ""
-                        )
-                        if location_template is not None
-                        else None
-                    ),
-                    target_scale=int(
-                        getattr(location_info.view, "Scale", 0) or 0
-                    ),
-                    crop_reference_view_unique_id=str(
-                        getattr(location_info.view, "UniqueId", "") or ""
-                    ),
+            if (
+                location_info is not None
+                and location_source_candidate is not None
+                and fill_type is not None
+            ):
+                location_result = (
+                    self.location_plan_service.create_location_plan(
+                        housing=housing,
+                        source_view_unique_id=location_source_candidate.unique_id,
+                        filled_region_type_unique_id=str(
+                            getattr(fill_type, "UniqueId", "") or ""
+                        ),
+                        template_unique_id=(
+                            str(
+                                getattr(location_template, "UniqueId", "")
+                                or ""
+                            )
+                            if location_template is not None
+                            else None
+                        ),
+                        target_scale=int(
+                            getattr(location_info.view, "Scale", 0) or 0
+                        ),
+                        crop_reference_view_unique_id=str(
+                            getattr(location_info.view, "UniqueId", "") or ""
+                        ),
+                    )
                 )
-            )
+            else:
+                warnings.append(
+                    "Repérage non créé : aucun repérage exploitable n'est présent "
+                    "sur la feuille modèle."
+                )
 
             schedule_result = (
                 self.schedule_service.duplicate_templates_for_housing(
@@ -581,9 +598,16 @@ class FullGenerationService(object):
                 housing=housing,
                 template_sheet_unique_id=inspection.template_sheet_unique_id,
                 main_view_unique_id=main_result.view_unique_id,
-                location_view_unique_id=location_result.view_unique_id,
+                location_view_unique_id=(
+                    location_result.view_unique_id
+                    if location_result is not None
+                    else None
+                ),
                 template_main_viewport_unique_id=inspection.main_viewport_unique_id,
-                template_location_viewport_unique_id=inspection.location_viewport_unique_id,
+                template_location_viewport_unique_id=(
+                    inspection.location_viewport_unique_id
+                    or None
+                ),
                 schedule_bindings=bindings,
                 auto_fit_main_view=bool(auto_fit_main_view),
                 allowed_scales=allowed_scales,
