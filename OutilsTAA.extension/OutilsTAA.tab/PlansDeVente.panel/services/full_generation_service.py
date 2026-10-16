@@ -420,11 +420,11 @@ class FullGenerationService(object):
             main_info.view,
             "OST_Dimensions",
         )
-        fill_type = self._filled_region_type(location_info.view)
-        if fill_type is None:
-            raise ValueError(
-                "Impossible de déterminer le type de zone remplie du repérage modèle."
-            )
+        fill_type = (
+            self._filled_region_type(location_info.view)
+            if location_info is not None
+            else None
+        )
 
         main_template = self._view_template(main_info.view)
         location_template = (
