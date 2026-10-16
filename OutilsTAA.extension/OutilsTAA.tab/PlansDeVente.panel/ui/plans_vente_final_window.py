@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09b2-template-multilevel-v1"
+    UI_BUILD = "stage09b2-template-auto-v1"
 
     def __init__(self, controller):
         self.controller = controller
@@ -62,6 +62,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         self._template_inspection = None
         self._template_preview_path = None
         self._multilevel_mode = "sheet_per_level"
+        self._multilevel_template_info = None
         self._busy = False
         self._settings = {
             "skip_existing": True,
@@ -339,6 +340,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
 
     def SheetTemplateChanged(self, sender, args):
         self._template_inspection = None
+        self._multilevel_template_info = None
         choice = self._selected_sheet_template()
         if choice is None or self._active_descriptor is None:
             self.TemplateDetailsText.Text = (
@@ -358,6 +360,13 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 )
             )
             self._template_inspection = inspection
+            template_mode = self.controller.detect_multilevel_template_mode(
+                choice.unique_id
+            )
+            self._multilevel_template_info = template_mode
+            self._multilevel_mode = str(
+                template_mode.get("mode", "sheet_per_level")
+            )
         except Exception as error:
             self.TemplateDetailsText.Text = (
                 "Modèle non exploitable : {}"
@@ -384,6 +393,22 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             inspection.room_tag_type_name or "non détecté",
             inspection.dimension_type_name or "non détecté",
         )
+        if self._multilevel_template_info is not None:
+            self.TemplateDetailsText.Text += (
+                "\nMulti-niveaux : {}"
+            ).format(
+                self._multilevel_template_info.get(
+                    "summary",
+                    "comportement automatique",
+                )
+            )
+            if hasattr(self, "MultiLevelInfoText"):
+                self.MultiLevelInfoText.Text = (
+                    self._multilevel_template_info.get(
+                        "summary",
+                        "Comportement multi-niveaux détecté automatiquement.",
+                    )
+                )
 
         if inspection.warnings:
             self.StatusText.Text = (
@@ -592,24 +617,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             else None
         )
 
-    def MultiLevelModeChanged(self, sender, args):
-        required = (
-            "MultiLevelOneSheetRadio",
-            "MultiLevelOneSheetPerLevelRadio",
-            "MultiLevelIgnoreRadio",
-        )
-        if not all(hasattr(self, name) for name in required):
-            return
-
-        if bool(self.MultiLevelIgnoreRadio.IsChecked):
-            self._multilevel_mode = "ignore"
-        elif bool(self.MultiLevelOneSheetPerLevelRadio.IsChecked):
-            self._multilevel_mode = "sheet_per_level"
-        else:
-            self._multilevel_mode = "one_sheet"
-
-        self._refresh_creation_state()
-
     def _refresh_creation_state(self):
         if not hasattr(self, "CreateBatchButton"):
             return
@@ -643,14 +650,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         details = "{} logement(s) sélectionné(s).".format(count)
         if multilevel:
             details += " {} multi-niveau(x).".format(multilevel)
-            if self._multilevel_mode != "ignore":
-                details += (
-                    (
-                        " Mode « une feuille par niveau » actif."
-                        if self._multilevel_mode == "sheet_per_level"
-                        else " Mode « une feuille par logement, une vue par niveau » actif."
-                    )
-                )
+            details += (
+                " Modèle 1 vue : une feuille par niveau."
+                if self._multilevel_mode == "sheet_per_level"
+                else " Modèle 2 vues : une seule feuille multi-niveaux."
+            )
         self.CreationInfoText.Text = details
 
     def AdvancedOptions_Click(self, sender, args):
@@ -744,19 +748,15 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         ]
 
         deferred_multilevel = []
-        if self._multilevel_mode == "ignore":
-            processable = single_level
-            deferred_multilevel = multilevel
-        elif self._multilevel_mode == "sheet_per_level":
+        if self._multilevel_mode == "sheet_per_level":
             processable = list(single_level)
             for housing in multilevel:
                 processable.extend(
                     self.controller.split_housing_by_level(housing)
                 )
         else:
-            # 09B.2 : une seule feuille comportant une vue logement par niveau.
+            # Modèle avec 2 vues logement : une feuille unique multi-niveaux.
             processable = list(single_level) + list(multilevel)
-            deferred_multilevel = []
 
         existing_count = 0
         if self._settings.get("skip_existing", True):
@@ -911,17 +911,6 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         )
                     )
 
-            for housing in deferred_multilevel or []:
-                if self._multilevel_mode == "ignore":
-                    reason = "logement multi-niveaux ignoré par l'utilisateur"
-                else:
-                    reason = (
-                        "logement multi-niveaux — mode une feuille / plusieurs vues "
-                        "prévu en 09B.2"
-                    )
-                skipped.append(
-                    "{} : {}".format(housing.key, reason)
-                )
         finally:
             self._busy = False
             self._refresh_creation_state()
