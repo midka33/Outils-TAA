@@ -142,7 +142,7 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 4 — Plans de vente
 
-**Statut : Release Candidate — Étape 09 stabilisée, RC16 à valider dans Revit 2025.4.**  
+**Statut : Release Candidate — Étape 09 stabilisée, RC17 à valider dans Revit 2025.4.**  
 Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Conception
@@ -182,7 +182,7 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 - [x] Appliquer le Design System Outils TAA.
 - [x] Ajouter une fenêtre de progression de création par lot, cohérente avec Export.
 - [x] Harmoniser la palette des icônes du ruban sur l'orange Plans de vente `#FD8B5A`.
-- [ ] Valider RC16 dans Revit 2025.4 : progression visible, restauration UI et icônes du ruban.
+- [ ] Valider RC17 dans Revit 2025.4 : progression par jalons réels, restauration UI et icônes du ruban.
 - [ ] Créer la campagne de tests Revit 2025.4.
 
 ## Phase 5 — Industrialisation
