@@ -9,7 +9,7 @@ from pyrevit import forms
 from System import Action
 from System.Windows.Threading import DispatcherPriority
 
-from taa_ui_theme import apply_theme
+from common.wpf_resources import load_resource_dictionary
 
 
 class PlansVenteProgressWindow(forms.WPFWindow):
@@ -23,8 +23,23 @@ class PlansVenteProgressWindow(forms.WPFWindow):
                 "plans_vente_progress.xaml",
             ),
         )
-        apply_theme(self)
+        self._load_theme()
         self.Owner = owner
+
+    def _load_theme(self):
+        panel_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..")
+        )
+        extension_dir = os.path.abspath(
+            os.path.join(panel_dir, "..", "..")
+        )
+        resource_path = os.path.join(
+            extension_dir,
+            "resources",
+            "ui",
+            "taa_theme.xaml",
+        )
+        load_resource_dictionary(self, resource_path)
 
     def _flush_ui(self):
         self.UpdateLayout()
