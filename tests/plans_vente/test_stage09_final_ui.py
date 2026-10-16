@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc15-explicit-main-zones"' in main
+    assert 'UI_BUILD = "stage09-rc16-progress"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -596,3 +596,43 @@ def test_stage09_zone_validation_remains_internal_before_generation():
     assert ".OfClass(CurveElement)" in diagnostic
     assert "curve_element.LineStyle" in diagnostic
     assert "curve_element.GeometryCurve" in diagnostic
+
+
+def test_stage09_rc16_progress_window_contract():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    progress_py = (
+        ROOT
+        / "OutilsTAA.extension"
+        / "OutilsTAA.tab"
+        / "PlansDeVente.panel"
+        / "ui"
+        / "plans_vente_progress_window.py"
+    ).read_text(encoding="utf-8")
+    progress_xaml = (
+        ROOT
+        / "OutilsTAA.extension"
+        / "OutilsTAA.tab"
+        / "PlansDeVente.panel"
+        / "ui"
+        / "plans_vente_progress.xaml"
+    ).read_text(encoding="utf-8")
+
+    assert 'UI_BUILD = "stage09-rc16-progress"' in main
+    assert "from plans_vente_progress_window import PlansVenteProgressSession" in main
+    assert "with PlansVenteProgressSession(self, total) as progress:" in main
+    assert "progress.update(" in main
+    assert "progress.finish(" in main
+
+    assert "class PlansVenteProgressWindow" in progress_py
+    assert "class PlansVenteProgressSession" in progress_py
+    assert "owner.IsEnabled = False" in progress_py
+    assert "self.owner.IsEnabled = self.was_enabled" in progress_py
+    assert "DispatcherPriority.Loaded" in progress_py
+
+    assert 'x:Name="ProgressBar"' in progress_xaml
+    assert 'x:Name="PercentText"' in progress_xaml
+    assert 'x:Name="HousingText"' in progress_xaml
+    assert 'x:Name="UnitsText"' in progress_xaml
+    assert 'x:Name="PhaseText"' in progress_xaml
+    assert '#FD8B5A' in progress_xaml
+    assert '#FA641F' in progress_xaml
