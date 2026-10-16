@@ -628,6 +628,9 @@ def test_stage09_rc16_progress_window_contract():
     assert "owner.IsEnabled = False" in progress_py
     assert "self.owner.IsEnabled = self.was_enabled" in progress_py
     assert "DispatcherPriority.Loaded" in progress_py
+    assert "from common.wpf_resources import load_resource_dictionary" in progress_py
+    assert "taa_ui_theme" not in progress_py
+    assert "taa_theme.xaml" in progress_py
 
     assert 'x:Name="ProgressBar"' in progress_xaml
     assert 'x:Name="PercentText"' in progress_xaml
