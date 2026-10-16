@@ -766,6 +766,7 @@ class SheetAssemblyService(object):
         housing_display_value=None,
         housing_parameter_name=None,
         room_metadata=None,
+        main_view_zone_line_style="",
     ):
         """09B.2 : reproduit exactement un modèle contenant plusieurs vues logement."""
         if housing is None:
@@ -1014,6 +1015,7 @@ class SheetAssemblyService(object):
                     if location_viewport_model is not None
                     else []
                 ),
+                main_view_zone_line_style=main_view_zone_line_style,
             )
             fit_warnings.extend(scale_warnings)
 
