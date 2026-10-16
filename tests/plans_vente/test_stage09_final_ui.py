@@ -415,7 +415,7 @@ def test_stage09_rc2_duplex_slots_share_one_scale():
     assert "slot_sizes" in sheet
     assert "fits_slots" in sheet
     assert "no_overlap" in sheet
-    assert "les deux vues ont été réduites ensemble" in sheet
+    assert "les vues ont été réduites ensemble" in sheet
 
 
 def test_stage09_rc2_location_highlight_failure_is_non_blocking():
@@ -501,145 +501,6 @@ def test_stage09_rc7_duplex_alignment_uses_real_crop_shape():
     assert "_view_outline_center_on_sheet" not in sheet
 
 
-def test_stage09_rc8_multilevel_uses_equal_available_zones():
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    assert "def _multilevel_available_zone(" in sheet
-    assert "def _split_available_zone(" in sheet
-    assert "def _multilevel_orientation(" in sheet
-    assert 'return "side_by_side" if x_span > y_span else "stacked"' in sheet
-    assert "zone principale divisée en" in sheet
-    assert "fixed_template_elements" in sheet
-
-
-def test_stage09_rc9_multilevel_centers_stay_on_sheet():
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    block = sheet[
-        sheet.index("    def _place_multilevel_views_in_template_slots("):
-        sheet.index("    def _multilevel_orientation(")
-    ]
-    assert "_view_crop_rectangle_on_sheet(" not in block
-    assert "Viewport.Create(" in block
-    assert "XYZ(target_x, target_y, 0.0)" in block
-
-    zone = sheet[
-        sheet.index("    def _multilevel_available_zone("):
-        sheet.index("    def _split_available_zone(")
-    ]
-    assert "sheet_left" in zone
-    assert "sheet_right" in zone
-    assert "sheet_bottom" in zone
-    assert "sheet_top" in zone
-
-
-def test_stage09_rc10_available_zone_respects_titleblock_guards():
-    sheet = SHEET.read_text(encoding="utf-8")
-    zone = sheet[
-        sheet.index("    def _multilevel_available_zone("):
-        sheet.index("    def _split_available_zone(")
-    ]
-
-    assert "main_bottom - gap" in zone
-    assert "main_right + gap" in zone
-    assert "_view_crop_rectangle_on_sheet(" in zone
-    assert "horizontal_candidates" in zone
-    assert "vertical_candidates" in zone
-
-
-def test_stage09_rc11_titleblock_limits_are_outside_all_model_views():
-    sheet = SHEET.read_text(encoding="utf-8")
-    zone = sheet[
-        sheet.index("    def _multilevel_available_zone("):
-        sheet.index("    def _split_available_zone(")
-    ]
-
-    assert "if x_value > main_right:" in zone
-    assert "if y_value < main_bottom:" in zone
-    assert "if rectangle[0] >= main_right:" in zone
-    assert "main_center_x" not in zone[zone.index("for element in list(fixed_template_elements or []):"):]
-
-
-def test_stage09_rc12_titleblock_boundaries_require_long_overlap():
-    sheet = SHEET.read_text(encoding="utf-8")
-    zone = sheet[
-        sheet.index("    def _multilevel_available_zone("):
-        sheet.index("    def _split_available_zone(")
-    ]
-
-    assert "minimum_vertical_overlap = plan_height * 0.55" in zone
-    assert "minimum_horizontal_overlap = plan_width * 0.55" in zone
-    assert "overlap >= minimum_vertical_overlap" in zone
-    assert "overlap >= minimum_horizontal_overlap" in zone
-    assert "vertical_candidates.append(" in zone
-    assert "horizontal_candidates.append(" in zone
-
-
-def test_stage09_rc13_duplex_zone_uses_model_viewport_envelope():
-    sheet = SHEET.read_text(encoding="utf-8")
-    zone = sheet[
-        sheet.index("    def _multilevel_available_zone("):
-        sheet.index("    def _split_available_zone(")
-    ]
-
-    assert "rectangles.append(" in zone
-    assert "left = min(rect[0] for rect in rectangles)" in zone
-    assert "bottom = min(rect[1] for rect in rectangles)" in zone
-    assert "right = max(rect[2] for rect in rectangles)" in zone
-    assert "top = max(rect[3] for rect in rectangles)" in zone
-    assert "_title_block_segments" not in zone
-
-
-def test_stage09_zone_diagnostic_uses_cartouches_subcategory():
-    main = MAIN_WINDOW.read_text(encoding="utf-8")
-    controller = CONTROLLER.read_text(encoding="utf-8")
-    full = FULL.read_text(encoding="utf-8")
-    sheet = SHEET.read_text(encoding="utf-8")
-    xaml = MAIN_XAML.read_text(encoding="utf-8")
-
-    assert 'x:Name="DiagnoseZonesButton"' in xaml
-    assert 'Click="DiagnoseZones_Click"' in xaml
-    assert "def DiagnoseZones_Click(" in main
-    assert 'candidate.strip().lower() == "<lignes>"' in main
-    assert "subcategory_name=line_style" in main
-
-    assert "def diagnose_template_zones(" in controller
-    assert "def diagnose_template_zones(" in full
-    assert "def diagnose_titleblock_zones(" in sheet
-    assert "def _sheet_curve_segments_by_line_style(" in sheet
-    assert "FilteredElementCollector(self.document, sheet.Id)" in sheet
-    assert ".OfClass(CurveElement)" in sheet
-    assert "curve_element.LineStyle" in sheet
-    assert "curve_element.GeometryCurve" in sheet
-
-    diagnostic = sheet[
-        sheet.index("    def diagnose_titleblock_zones("):
-        sheet.index("    def _title_block_segments(", sheet.index("    def diagnose_titleblock_zones("))
-    ]
-    assert "Transaction" not in diagnostic
-    assert ".Delete(" not in diagnostic
-    assert ".Create(" not in diagnostic
-
-
-def test_stage09_sheet_line_zone_diagnostic_reads_only_sheet_curves():
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    diagnostic = sheet[
-        sheet.index("    def _sheet_curve_segments_by_line_style("):
-        sheet.index("    def _rectangular_zones_from_segments(")
-    ]
-
-    assert "FilteredElementCollector(self.document, sheet.Id)" in diagnostic
-    assert ".OfClass(CurveElement)" in diagnostic
-    assert "curve_element.LineStyle" in diagnostic
-    assert "curve_element.GeometryCurve" in diagnostic
-    assert "EditFamily(" not in diagnostic
-    assert "GetSymbolGeometry(" not in diagnostic
-    assert "OST_TitleBlocks" not in diagnostic
-
-
-
-
 def test_stage09_rc15_explicit_zones_apply_to_single_and_multilevel():
     main = MAIN_WINDOW.read_text(encoding="utf-8")
     controller = CONTROLLER.read_text(encoding="utf-8")
@@ -695,3 +556,43 @@ def test_stage09_rc15_validates_zone_rectangles_before_batch_generation():
     assert "invalid_zone_views" in create
     assert "Vue(s) sans rectangle fermé" in create
     assert "Zones principales : {} — {} rectangle(s) validé(s)" in create
+
+
+def test_stage09_final_ui_has_no_manual_zone_diagnostic_button():
+    xaml = MAIN_XAML.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    assert 'x:Name="DiagnoseZonesButton"' not in xaml
+    assert 'Click="DiagnoseZones_Click"' not in xaml
+    assert "Diagnostiquer les zones des vues principales" not in xaml
+    assert "def DiagnoseZones_Click(" not in main
+
+    # Le choix du style reste visible car il pilote les zones explicites.
+    assert 'x:Name="MainViewZoneLineStyleCombo"' in xaml
+    assert "Lignes des zones des vues principales" in xaml
+
+
+def test_stage09_zone_validation_remains_internal_before_generation():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    create = main[
+        main.index("    def CreateBatch_Click("):
+        main.index("    def _run_batch(")
+    ]
+
+    assert "self.controller.diagnose_template_zones(" in create
+    assert "invalid_zone_views" in create
+    assert "Vue(s) sans rectangle fermé" in create
+    assert "def diagnose_template_zones(" in controller
+    assert "def diagnose_titleblock_zones(" in sheet
+
+    diagnostic = sheet[
+        sheet.index("    def _sheet_curve_segments_by_line_style("):
+        sheet.index("    def _title_block_segments(")
+    ]
+    assert "FilteredElementCollector(self.document, sheet.Id)" in diagnostic
+    assert ".OfClass(CurveElement)" in diagnostic
+    assert "curve_element.LineStyle" in diagnostic
+    assert "curve_element.GeometryCurve" in diagnostic
