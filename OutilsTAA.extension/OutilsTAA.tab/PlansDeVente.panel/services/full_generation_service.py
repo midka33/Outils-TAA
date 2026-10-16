@@ -654,6 +654,7 @@ class FullGenerationService(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_zone_line_style="",
     ):
         """09B.2 : génère une feuille unique avec une vue logement par niveau."""
         if housing is None:
@@ -978,6 +979,7 @@ class FullGenerationService(object):
                         getattr(descriptor, "name", "") or ""
                     ),
                     room_metadata=room_metadata,
+                    main_view_zone_line_style=main_view_zone_line_style,
                 )
             )
             warnings.extend(sheet_result.warnings)
