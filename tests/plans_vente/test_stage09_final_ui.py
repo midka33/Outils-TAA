@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc4"' in main
+    assert 'UI_BUILD = "stage09-rc5"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -466,3 +466,15 @@ def test_stage09_rc4_crop_boundary_is_hidden():
     assert "RightAnnotationCropOffset = minimum_offset" in crop
     assert "TopAnnotationCropOffset = minimum_offset" in crop
     assert "BottomAnnotationCropOffset = minimum_offset" in crop
+
+
+def test_stage09_rc5_duplex_scale_ignores_annotation_extents():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "def _view_crop_paper_size(" in sheet
+    assert "self._view_crop_paper_size(" in sheet
+    assert "geometry_rectangles" in sheet
+    assert "GetBoxOutline()" not in sheet[
+        sheet.index("    def _place_multilevel_views_in_template_slots("):
+        sheet.index("    def list_title_block_types(")
+    ]
