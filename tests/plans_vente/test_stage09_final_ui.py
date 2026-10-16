@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc11"' in main
+    assert 'UI_BUILD = "stage09-rc12"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -558,3 +558,18 @@ def test_stage09_rc11_titleblock_limits_are_outside_all_model_views():
     assert "if y_value < main_bottom:" in zone
     assert "if rectangle[0] >= main_right:" in zone
     assert "main_center_x" not in zone[zone.index("for element in list(fixed_template_elements or []):"):]
+
+
+def test_stage09_rc12_titleblock_boundaries_require_long_overlap():
+    sheet = SHEET.read_text(encoding="utf-8")
+    zone = sheet[
+        sheet.index("    def _multilevel_available_zone("):
+        sheet.index("    def _split_available_zone(")
+    ]
+
+    assert "minimum_vertical_overlap = plan_height * 0.55" in zone
+    assert "minimum_horizontal_overlap = plan_width * 0.55" in zone
+    assert "overlap >= minimum_vertical_overlap" in zone
+    assert "overlap >= minimum_horizontal_overlap" in zone
+    assert "vertical_candidates.append(" in zone
+    assert "horizontal_candidates.append(" in zone
