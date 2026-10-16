@@ -102,7 +102,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b2-one-sheet-multilevel-v2"' in main
+    assert 'UI_BUILD = "stage09b2-template-multilevel-v1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -284,9 +284,8 @@ def test_stage09_template_preview_uses_real_revit_sheet_image():
     full = FULL.read_text(encoding="utf-8")
 
     assert 'x:Name="TemplatePreviewImage"' in xaml
-    assert 'x:Name="ExpectedResultImage"' in xaml
     assert 'x:Name="TemplatePreviewOverlay"' in xaml
-    assert 'x:Name="ExpectedResultOverlay"' in xaml
+    assert "Résultat attendu" not in xaml
     assert "def _export_and_show_sheet_preview(" in main
     assert "self.controller.export_sheet_preview(" in main
     assert "def _load_bitmap(" in main
@@ -317,17 +316,27 @@ def test_stage09b2_multilevel_engine_contract():
     assert "all_levels=False" in schedules
 
 
-def test_stage09b2_common_scale_and_non_overlap_layout():
+def test_stage09b2_uses_explicit_multilevel_template_positions():
+    full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
 
-    assert "def _create_common_scale_multilevel_viewports(" in sheet
-    assert "scale_candidates_from_reference(" in sheet
-    assert "horizontal_fits" in sheet
-    assert "vertical_fits" in sheet
-    assert 'layout_mode = "horizontal"' in sheet
-    assert 'layout_mode = "vertical"' in sheet
-    assert "viewport.SetBoxCenter(" in sheet
-    assert "def _rectangle_inside(" in sheet
-    assert "rectangles_overlap(" in sheet
-    assert "échelle commune" in sheet
-    assert "sans chevauchement" in sheet
+    assert "def _classify_multilevel_viewports(" in full
+    assert "expected_levels=len(level_housings)" in full
+    assert "template_main_viewport_unique_ids=[" in full
+    assert "Les vues logement du modèle multi-niveaux doivent utiliser" in full
+
+    assert "def create_multilevel_sheet_from_blueprint(" in sheet
+    assert "template_main_viewport_unique_ids" in sheet
+    assert "main_centers" in sheet
+    assert "Les vues logement du modèle multi-niveaux doivent être" in sheet
+    assert "positions exactes du" in sheet
+    assert "se chevauchent malgré le modèle" in sheet
+    assert "_create_common_scale_multilevel_viewports" not in sheet
+
+
+def test_stage09_duplex_preview_highlights_both_model_views():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+
+    assert '"main_view_extra"' in full
+    assert '"main_view_extra": "Vue logement 2"' in main
