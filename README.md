@@ -15,7 +15,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
-| **Plans de vente** | 🧪 Prototype contour logement optimisé |
+| **Plans de vente** | Release Candidate V1 — Revit 2025.4 / pyRevit 5.x |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
