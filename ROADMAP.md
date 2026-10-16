@@ -142,7 +142,7 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 4 — Plans de vente
 
-**Statut : spécification / conception.**  
+**Statut : Release Candidate — Étape 09 stabilisée, RC16 à valider dans Revit 2025.4.**  
 Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Conception
@@ -153,7 +153,7 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 - [x] Définir la règle des deux cotations principales par pièce sur dimensions intérieures finies.
 - [x] Définir la sélection du type d'étiquette et des gabarits de vues.
 - [x] Définir l'objectif de mise à jour durable des plans déjà générés.
-- [ ] Valider le périmètre final de la V1 avant création du bundle pyRevit.
+- [x] Valider le périmètre final de la V1 avant création du bundle pyRevit.
 
 ### Prototypes techniques prioritaires
 
@@ -166,20 +166,23 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 - [x] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
 - [x] Collecter et regrouper les pièces par paramètre logement.
 - [x] Étape 01 validée dans Revit 2025.4 par l'utilisateur le 2026-10-01 : bouton, fenêtre, paramètres texte, analyse des logements, comptages et niveaux.
-- [ ] Implémenter le modèle de configuration de plan de vente.
-- [ ] Générer une ou deux vues par logement selon la configuration.
-- [ ] Appliquer les gabarits sélectionnés.
-- [ ] Implémenter le crop automatique.
-- [ ] Générer les étiquettes avec placement contrôlé.
-- [ ] Générer les deux cotations principales par pièce.
-- [ ] Dupliquer, filtrer et placer les nomenclatures intérieure et extérieure.
-- [ ] Générer le plan de repérage.
-- [ ] Assembler la feuille à partir du modèle.
-- [ ] Implémenter le mapping des paramètres de feuille.
-- [ ] Implémenter nommage et contrôle des collisions.
-- [ ] Ajouter prévisualisation et rapport.
-- [ ] Implémenter l'identification durable et la mise à jour des plans existants.
-- [ ] Appliquer le Design System Outils TAA.
+- [x] Implémenter le modèle de configuration de plan de vente.
+- [x] Générer une ou deux vues par logement selon la configuration.
+- [x] Appliquer les gabarits sélectionnés.
+- [x] Implémenter le crop automatique.
+- [x] Générer les étiquettes avec placement contrôlé.
+- [x] Générer les deux cotations principales par pièce.
+- [x] Dupliquer, filtrer et placer les nomenclatures intérieure et extérieure.
+- [x] Générer le plan de repérage.
+- [x] Assembler la feuille à partir du modèle.
+- [x] Implémenter le mapping des paramètres de feuille.
+- [x] Implémenter nommage et contrôle des collisions.
+- [x] Ajouter prévisualisation et rapport.
+- [ ] Implémenter l'identification durable et la mise à jour des plans existants. **Reporté après la V1 ; la V1 est centrée sur la création et peut ignorer les plans existants.**
+- [x] Appliquer le Design System Outils TAA.
+- [x] Ajouter une fenêtre de progression de création par lot, cohérente avec Export.
+- [x] Harmoniser la palette des icônes du ruban sur l'orange Plans de vente `#FD8B5A`.
+- [ ] Valider RC16 dans Revit 2025.4 : progression visible, restauration UI et icônes du ruban.
 - [ ] Créer la campagne de tests Revit 2025.4.
 
 ## Phase 5 — Industrialisation
