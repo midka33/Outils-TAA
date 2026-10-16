@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b2-template-auto-v1"' in main
+    assert 'UI_BUILD = "stage09b2-template-auto-v2"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -346,3 +346,15 @@ def test_stage09b_has_no_manual_multilevel_radio_choice():
     assert "MultiLevelOneSheetPerLevelRadio" not in xaml
     assert "MultiLevelIgnoreRadio" not in xaml
     assert "def MultiLevelModeChanged(" not in main
+
+
+def test_stage09_accepts_single_view_template_without_detected_location_view():
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert 'if len(infos) == 1:' in full
+    assert 'return infos[0], None, warnings' in full
+    assert '"mode": "sheet_per_level"' in full
+    assert 'Repérage non créé' in full
+    assert 'location_viewport_model = None' in sheet
+    assert 'if template_location_viewport_unique_id:' in sheet
