@@ -5068,3 +5068,27 @@ cotations, des contrôles de collision, des nomenclatures et des régénération
 Revit.
 
 **Build :** `stage09-rc2`
+
+
+### Diagnostic des zones de cartouche
+
+Un diagnostic non destructif a été ajouté avant toute nouvelle modification du
+placement multi-vues.
+
+Dans l'étape « Choix de la feuille modèle », le bouton
+**Diagnostiquer les zones du cartouche** :
+
+- analyse uniquement la géométrie de la sous-catégorie `Cartouches` ;
+- compte les segments graphiques trouvés ;
+- reconstruit les zones rectangulaires fermées à partir des lignes
+  horizontales et verticales ;
+- relève le centre des vues logement modèle ;
+- indique dans quelle(s) zone(s) tombe chaque centre ;
+- cherche une zone commune aux centres ;
+- déduit l'orientation haut/bas ou gauche/droite.
+
+Ce diagnostic ne modifie ni la feuille modèle ni le moteur de génération.
+Il sert à valider ce que l'API Revit expose réellement avant de brancher cette
+détection sur le placement automatique.
+
+**Build diagnostic :** `stage09-rc13-diagnostic`.
