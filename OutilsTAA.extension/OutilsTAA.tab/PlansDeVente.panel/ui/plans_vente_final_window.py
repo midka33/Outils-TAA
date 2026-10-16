@@ -49,7 +49,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc14-explicit-main-zones"
+    UI_BUILD = "stage09-rc15-explicit-main-zones"
 
     def __init__(self, controller):
         self.controller = controller
@@ -1081,6 +1081,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                             typology_parameter_name=self._settings.get(
                                 "typology_parameter_name",
                                 "",
+                            ),
+                            main_view_zone_line_style=(
+                                self._selected_main_view_zone_line_style()
                             ),
                         )
                     created.append(result)
