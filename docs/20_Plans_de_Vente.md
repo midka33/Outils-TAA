@@ -2,8 +2,8 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.27
-**Statut :** Release Candidate — Étape 09 stabilisée, RC16 à valider  
+**Version :** 1.28
+**Statut :** Release Candidate — Étape 09 stabilisée, RC17 à valider  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
@@ -5117,7 +5117,7 @@ Avant de lancer un lot, l'interface vérifie :
 Si ce contrat n'est pas respecté, la création est bloquée avant toute
 génération.
 
-**Build de stabilisation :** `stage09-rc16-progress`.
+**Build de stabilisation :** `stage09-rc17-progress-stages`.
 
 ### Progression de création — RC16
 
@@ -5148,3 +5148,21 @@ est harmonisée sur l'orange visuel Plans de vente : `#FD8B5A`.
 
 Les dessins et fonctions des boutons restent inchangés ; seule la palette
 graphique est harmonisée.
+
+#### Jalons réels de progression
+
+Depuis RC17, la barre ne progresse plus seulement à la fin de chaque logement.
+Le moteur publie des jalons après les opérations Revit effectivement terminées :
+
+- analyse et préparation ;
+- création de la vue principale ;
+- étiquettes ;
+- cotations ;
+- repérage ;
+- nomenclatures ;
+- assemblage de la feuille ;
+- finalisation.
+
+Pour un logement multi-niveaux, les jalons vue / étiquettes / cotations sont
+émis pour chaque niveau. Le pourcentage global combine l'avancement interne
+du logement courant avec sa position dans le lot.
