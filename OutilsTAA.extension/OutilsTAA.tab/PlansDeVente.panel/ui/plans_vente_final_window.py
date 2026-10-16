@@ -49,7 +49,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc13-diagnostic"
+    UI_BUILD = "stage09-rc13-zone-style-diagnostic"
 
     def __init__(self, controller):
         self.controller = controller
@@ -339,6 +339,72 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             )
         self._refresh_creation_state()
 
+    def _clear_main_view_zone_line_styles(self):
+        combo = getattr(self, "MainViewZoneLineStyleCombo", None)
+        if combo is None:
+            return
+        try:
+            combo.ItemsSource = []
+            combo.SelectedIndex = -1
+            combo.IsEnabled = False
+        except Exception:
+            pass
+
+    def _load_main_view_zone_line_styles(self, choice):
+        combo = getattr(self, "MainViewZoneLineStyleCombo", None)
+        if combo is None:
+            return
+
+        self._clear_main_view_zone_line_styles()
+        if choice is None:
+            return
+
+        try:
+            diagnostic = self.controller.diagnose_template_zones(
+                choice.unique_id,
+                subcategory_name="Cartouches",
+            )
+            style_counts = diagnostic.get("style_counts", {}) or {}
+            styles = sorted(
+                [str(name) for name in style_counts.keys() if str(name).strip()],
+                key=lambda value: value.lower(),
+            )
+        except Exception:
+            styles = []
+
+        combo.ItemsSource = styles
+        combo.IsEnabled = bool(styles)
+        if not styles:
+            return
+
+        preferred = None
+        for candidate in styles:
+            if candidate.strip().lower() == "<lignes>":
+                preferred = candidate
+                break
+        if preferred is None:
+            for candidate in styles:
+                if candidate.strip().lower() == "cartouches":
+                    preferred = candidate
+                    break
+        if preferred is None:
+            preferred = styles[0]
+
+        try:
+            combo.SelectedItem = preferred
+        except Exception:
+            combo.SelectedIndex = 0
+
+    def _selected_main_view_zone_line_style(self):
+        combo = getattr(self, "MainViewZoneLineStyleCombo", None)
+        if combo is None:
+            return ""
+        try:
+            selected = combo.SelectedItem
+        except Exception:
+            selected = None
+        return str(selected or "").strip()
+
     def DiagnoseZones_Click(self, sender, args):
         choice = self._selected_sheet_template()
         if choice is None:
@@ -349,10 +415,20 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             )
             return
 
+        line_style = self._selected_main_view_zone_line_style()
+        if not line_style:
+            forms.alert(
+                "Choisissez le style de ligne utilisé pour dessiner les zones "
+                "des vues principales.",
+                title="Plans de vente — Diagnostic des zones",
+                warn_icon=True,
+            )
+            return
+
         try:
             result = self.controller.diagnose_template_zones(
                 choice.unique_id,
-                subcategory_name="Cartouches",
+                subcategory_name=line_style,
             )
         except Exception as error:
             forms.alert(
@@ -472,6 +548,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self.TemplatePreviewTitle.Text = (
                 "Aucun modèle sélectionné"
             )
+            self._clear_main_view_zone_line_styles()
             self._refresh_creation_state()
             return
 
@@ -502,6 +579,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         self.TemplatePreviewTitle.Text = (
             inspection.template_sheet_label
         )
+        self._load_main_view_zone_line_styles(choice)
         self._export_and_show_sheet_preview(choice, inspection)
         self.TemplateDetailsText.Text = (
             "Échelle logement : 1:{}\n"
