@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc13-zone-style-diagnostic"' in main
+    assert 'UI_BUILD = "stage09-rc13-sheet-line-diagnostic"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -606,10 +606,11 @@ def test_stage09_zone_diagnostic_uses_cartouches_subcategory():
     assert "def diagnose_template_zones(" in controller
     assert "def diagnose_template_zones(" in full
     assert "def diagnose_titleblock_zones(" in sheet
-    assert "def _title_block_segments_by_subcategory(" in sheet
-    assert "GraphicsStyleCategory" in sheet
-    assert "style_name" in sheet
-    assert "subcategory_name" in sheet
+    assert "def _sheet_curve_segments_by_line_style(" in sheet
+    assert "FilteredElementCollector(self.document, sheet.Id)" in sheet
+    assert ".OfClass(CurveElement)" in sheet
+    assert "curve_element.LineStyle" in sheet
+    assert "curve_element.GeometryCurve" in sheet
 
     diagnostic = sheet[
         sheet.index("    def diagnose_titleblock_zones("):
@@ -628,27 +629,6 @@ def test_stage09_zone_diagnostic_reconstructs_rectangles_from_axes():
     assert "def _axis_interval_covered(" in sheet
     assert '"common_zone_ids"' in sheet
     assert '"orientation"' in sheet
-
-
-def test_stage09_zone_diagnostic_uses_symbol_geometry_for_styles():
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    assert "GetSymbolGeometry()" in sheet
-    assert "GraphicsStyleCategory" in sheet
-    assert "Transform.Identity" in sheet
-    assert "accumulated_transform.Multiply(" in sheet
-    assert "accumulated_transform.OfPoint(point)" in sheet
-
-
-def test_stage09_zone_diagnostic_reads_family_curve_elements():
-    sheet = SHEET.read_text(encoding="utf-8")
-
-    assert "self.document.EditFamily(family)" in sheet
-    assert "FilteredElementCollector(family_doc)" in sheet
-    assert ".OfClass(CurveElement)" in sheet
-    assert "curve_element.LineStyle" in sheet
-    assert "curve_element.GeometryCurve" in sheet
-    assert "family_doc.Close(False)" in sheet
 
 
 def test_stage09_zone_style_selector_is_diagnostic_only():
@@ -671,3 +651,20 @@ def test_stage09_zone_style_selector_is_diagnostic_only():
     ]
     assert "MainViewZoneLineStyleCombo" not in placement
     assert "subcategory_name" not in placement
+
+
+def test_stage09_sheet_line_zone_diagnostic_reads_only_sheet_curves():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    diagnostic = sheet[
+        sheet.index("    def _sheet_curve_segments_by_line_style("):
+        sheet.index("    def _rectangular_zones_from_segments(")
+    ]
+
+    assert "FilteredElementCollector(self.document, sheet.Id)" in diagnostic
+    assert ".OfClass(CurveElement)" in diagnostic
+    assert "curve_element.LineStyle" in diagnostic
+    assert "curve_element.GeometryCurve" in diagnostic
+    assert "EditFamily(" not in diagnostic
+    assert "GetSymbolGeometry(" not in diagnostic
+    assert "OST_TitleBlocks" not in diagnostic
