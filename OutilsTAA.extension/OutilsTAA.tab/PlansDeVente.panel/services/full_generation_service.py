@@ -1176,6 +1176,115 @@ class FullGenerationService(object):
 
         return main, location, warnings
 
+    def detect_multilevel_template_mode(self, template_sheet_unique_id):
+        """Déduit le comportement multi-niveaux depuis la feuille modèle.
+
+        1 vue logement + 1 repérage  -> une feuille par niveau
+        2 vues logement + 1 repérage -> une feuille unique avec deux niveaux
+        """
+        sheet = self._get_element(
+            template_sheet_unique_id,
+            "La feuille modèle n'existe plus.",
+        )
+
+        infos = []
+        for viewport_id in list(sheet.GetAllViewports() or []):
+            viewport = self.document.GetElement(viewport_id)
+            if viewport is None:
+                continue
+            view = self.document.GetElement(viewport.ViewId)
+            if view is None:
+                continue
+
+            outline = viewport.GetBoxOutline()
+            width = abs(
+                float(outline.MaximumPoint.X)
+                - float(outline.MinimumPoint.X)
+            )
+            height = abs(
+                float(outline.MaximumPoint.Y)
+                - float(outline.MinimumPoint.Y)
+            )
+            infos.append(
+                _TemplateViewportInfo(
+                    viewport=viewport,
+                    view=view,
+                    area=width * height,
+                    filled_regions=self._filled_region_count(view),
+                    room_tags=self._view_category_count(
+                        view,
+                        "OST_RoomTags",
+                    ),
+                    dimensions=self._view_category_count(
+                        view,
+                        "OST_Dimensions",
+                    ),
+                )
+            )
+
+        if len(infos) < 2:
+            raise ValueError(
+                "La feuille modèle doit contenir au moins une vue logement "
+                "et un plan de repérage."
+            )
+
+        location_candidates = [
+            info for info in infos
+            if info.filled_regions > 0
+        ]
+        if location_candidates:
+            location_candidates.sort(
+                key=lambda item: (
+                    -item.filled_regions,
+                    item.area,
+                )
+            )
+            location = location_candidates[0]
+        else:
+            location = min(infos, key=lambda item: item.area)
+
+        main_infos = [
+            info for info in infos
+            if info.viewport.Id != location.viewport.Id
+        ]
+
+        count = len(main_infos)
+        if count == 1:
+            return {
+                "mode": "sheet_per_level",
+                "main_view_count": 1,
+                "summary": (
+                    "Modèle 1 vue détecté : pour un logement sur plusieurs "
+                    "niveaux, une feuille sera créée par niveau."
+                ),
+            }
+
+        if count == 2:
+            scales = sorted(
+                set(
+                    int(getattr(info.view, "Scale", 0) or 0)
+                    for info in main_infos
+                )
+            )
+            if len(scales) != 1 or not scales[0]:
+                raise ValueError(
+                    "Les deux vues logement du modèle doivent être à la même échelle."
+                )
+            return {
+                "mode": "one_sheet",
+                "main_view_count": 2,
+                "summary": (
+                    "Modèle 2 vues détecté : les deux niveaux seront placés "
+                    "sur une seule feuille, aux positions du modèle."
+                ),
+            }
+
+        raise ValueError(
+            "Le modèle contient {} vues logement. L'Étape 09 prend en charge "
+            "1 vue logement (une feuille par niveau) ou 2 vues logement "
+            "(une seule feuille multi-niveaux).".format(count)
+        )
+
     def _classify_multilevel_viewports(self, sheet, expected_levels=2):
         """09B.2 : détecte les viewports logement d'un modèle multi-niveaux.
 
