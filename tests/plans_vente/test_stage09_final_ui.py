@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b2-template-auto-v2"' in main
+    assert 'UI_BUILD = "stage09-rc1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -358,3 +358,50 @@ def test_stage09_accepts_single_view_template_without_detected_location_view():
     assert 'Repérage non créé' in full
     assert 'location_viewport_model = None' in sheet
     assert 'if template_location_viewport_unique_id:' in sheet
+
+
+def test_stage09_all_runtime_python_files_parse():
+    runtime_files = (
+        MAIN_WINDOW,
+        ADVANCED_WINDOW,
+        CONTROLLER,
+        ANALYSIS,
+        SHEET,
+        FULL,
+        PANEL / "services" / "schedule_service.py",
+        PANEL / "services" / "prototype_view_service.py",
+        PANEL / "services" / "location_plan_service.py",
+        PANEL / "services" / "room_tag_service.py",
+        PANEL / "services" / "dimension_service.py",
+        PANEL / "PlansDeVente.pushbutton" / "script.py",
+    )
+
+    for path in runtime_files:
+        ast.parse(path.read_text(encoding="utf-8"))
+
+
+def test_stage09_template_contract_is_unambiguous():
+    full = FULL.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    xaml = MAIN_XAML.read_text(encoding="utf-8")
+
+    assert '"mode": "sheet_per_level"' in full
+    assert '"main_view_count": 1' in full
+    assert '"mode": "one_sheet"' in full
+    assert '"main_view_count": 2' in full
+    assert "Le modèle contient {} vues logement" in full
+
+    assert "detect_multilevel_template_mode(" in main
+    assert "MultiLevelOneSheetRadio" not in xaml
+    assert "MultiLevelOneSheetPerLevelRadio" not in xaml
+    assert "MultiLevelIgnoreRadio" not in xaml
+
+
+def test_stage09_optional_location_plan_never_blocks_template_selection():
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "return infos[0], None, warnings" in full
+    assert "Repérage non créé" in full
+    assert "location_viewport_model = None" in sheet
+    assert "if template_location_viewport_unique_id:" in sheet
