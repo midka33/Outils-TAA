@@ -78,9 +78,7 @@ def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
         "FilterValueTextBox",
         "HousingGrid",
         "SheetTemplateCombo",
-        "MultiLevelOneSheetRadio",
-        "MultiLevelOneSheetPerLevelRadio",
-        "MultiLevelIgnoreRadio",
+        "MultiLevelInfoText",
         "CreateBatchButton",
     ):
         assert 'x:Name="{}"'.format(name) in xaml
@@ -89,10 +87,7 @@ def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
     assert 'Click="AdvancedOptions_Click"' in xaml
     assert 'DisplayMemberPath="label"' in xaml
     assert 'DisplayMemberPath="Label"' in xaml
-    assert 'Content="1 feuille par logement, 1 vue par niveau"' in xaml
-    assert 'x:Name="MultiLevelOneSheetRadio"' in xaml
-    assert 'x:Name="MultiLevelOneSheetPerLevelRadio"' in xaml
-    assert 'IsChecked="True"' in xaml
+    assert "Comportement automatique selon la feuille modèle" in xaml
 
 
 def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
@@ -102,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09b2-template-multilevel-v1"' in main
+    assert 'UI_BUILD = "stage09b2-template-auto-v1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -114,22 +109,23 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     assert 'FULL_GENERATION_BUILD = "stage07d-template-driven-full-generation-v4"' in full
 
 
-def test_stage09b_supports_both_sheet_per_level_and_one_sheet_modes():
+def test_stage09b_template_automatically_selects_multilevel_behavior():
     text = MAIN_WINDOW.read_text(encoding="utf-8")
-    block = text[
-        text.index("    def CreateBatch_Click("):
-        text.index("    def _run_batch(", text.index("    def CreateBatch_Click("))
-    ]
-    run_block = text[
-        text.index("    def _run_batch("):
-        text.index("    def _show_batch_report(", text.index("    def _run_batch("))
-    ]
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
 
-    assert 'self._multilevel_mode == "sheet_per_level"' in block
-    assert "self.controller.split_housing_by_level(housing)" in block
-    assert "processable = list(single_level) + list(multilevel)" in block
-    assert 'self._multilevel_mode == "one_sheet"' in run_block
-    assert "self.controller.generate_multilevel_one_sheet(" in run_block
+    assert "self.controller.detect_multilevel_template_mode(" in text
+    assert 'self._multilevel_mode = str(' in text
+    assert 'self._multilevel_mode == "sheet_per_level"' in text
+    assert "self.controller.split_housing_by_level(housing)" in text
+    assert "self.controller.generate_multilevel_one_sheet(" in text
+
+    assert "def detect_multilevel_template_mode(" in controller
+    assert "def detect_multilevel_template_mode(" in full
+    assert '"mode": "sheet_per_level"' in full
+    assert '"mode": "one_sheet"' in full
+    assert '"main_view_count": 1' in full
+    assert '"main_view_count": 2' in full
 
 
 def test_stage09_advanced_options_expose_only_safe_overrides():
@@ -340,3 +336,13 @@ def test_stage09_duplex_preview_highlights_both_model_views():
 
     assert '"main_view_extra"' in full
     assert '"main_view_extra": "Vue logement 2"' in main
+
+
+def test_stage09b_has_no_manual_multilevel_radio_choice():
+    xaml = MAIN_XAML.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    assert "MultiLevelOneSheetRadio" not in xaml
+    assert "MultiLevelOneSheetPerLevelRadio" not in xaml
+    assert "MultiLevelIgnoreRadio" not in xaml
+    assert "def MultiLevelModeChanged(" not in main
