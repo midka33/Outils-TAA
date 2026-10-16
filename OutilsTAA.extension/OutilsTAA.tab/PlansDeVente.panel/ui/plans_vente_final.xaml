@@ -297,6 +297,11 @@
                                               DropDownOpened="SheetTemplateDropDownOpened"
                                               SelectionChanged="SheetTemplateChanged"
                                               Style="{DynamicResource TAAComboBox}"/>
+                                    <Button x:Name="DiagnoseZonesButton"
+                                            Margin="0,8,0,0"
+                                            Content="Diagnostiquer les zones du cartouche"
+                                            Click="DiagnoseZones_Click"
+                                            Style="{DynamicResource TAASecondaryButton}"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="2"
                                            x:Name="TemplateDetailsText"
