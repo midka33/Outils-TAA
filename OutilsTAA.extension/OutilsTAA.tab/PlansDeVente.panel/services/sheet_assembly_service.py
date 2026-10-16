@@ -1377,6 +1377,16 @@ class SheetAssemblyService(object):
             if candidate < top:
                 bottom = max(bottom, candidate + gap)
 
+        sheet_left = float(outline.Min.U) + margin
+        sheet_bottom = float(outline.Min.V) + margin
+        sheet_right = float(outline.Max.U) - margin
+        sheet_top = float(outline.Max.V) - margin
+
+        left = max(sheet_left, min(left, sheet_right))
+        right = min(sheet_right, max(right, sheet_left))
+        bottom = max(sheet_bottom, min(bottom, sheet_top))
+        top = min(sheet_top, max(top, sheet_bottom))
+
         if right <= left or top <= bottom:
             raise RuntimeError(
                 "La zone principale disponible de la feuille modèle est invalide."
