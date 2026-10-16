@@ -1106,18 +1106,21 @@ class SheetAssemblyService(object):
                 raise RuntimeError(
                     "Une vue logement du modèle n'existe plus."
                 )
-            slot_sizes.append(
-                self._view_crop_paper_size(
-                    model_view,
-                    reference_scale,
-                )
-            )
-            crop_center = self._view_outline_center_on_sheet(
+            crop_rectangle = self._view_crop_rectangle_on_sheet(
                 model_view,
                 viewport_model,
             )
+            slot_sizes.append(
+                (
+                    crop_rectangle[2] - crop_rectangle[0],
+                    crop_rectangle[3] - crop_rectangle[1],
+                )
+            )
             slot_centers.append(
-                (float(crop_center.X), float(crop_center.Y))
+                (
+                    (crop_rectangle[0] + crop_rectangle[2]) / 2.0,
+                    (crop_rectangle[1] + crop_rectangle[3]) / 2.0,
+                )
             )
 
         tolerance = self._millimeters_to_internal(1.0)
@@ -1192,20 +1195,24 @@ class SheetAssemblyService(object):
 
                 self.document.Regenerate()
 
-                # Viewport.Create / SetBoxCenter travaillent sur le centre du
-                # viewport complet. Les annotations peuvent décaler ce centre.
-                # Recaler donc chaque viewport sur le centre géométrique de la
-                # vue (View.Outline projeté sur la feuille), qui est la vraie
-                # référence de la feuille modèle.
+                # Recaler chaque viewport sur le centre exact de sa vraie
+                # forme de crop projetée sur la feuille. Les annotations ne
+                # participent donc pas au positionnement.
                 for index, viewport in enumerate(created_viewports):
                     working_view = working_views[index]
                     target_x, target_y = slot_centers[index]
-                    actual_center = self._view_outline_center_on_sheet(
+                    actual_rectangle = self._view_crop_rectangle_on_sheet(
                         working_view,
                         viewport,
                     )
-                    delta_x = target_x - float(actual_center.X)
-                    delta_y = target_y - float(actual_center.Y)
+                    actual_x = (
+                        actual_rectangle[0] + actual_rectangle[2]
+                    ) / 2.0
+                    actual_y = (
+                        actual_rectangle[1] + actual_rectangle[3]
+                    ) / 2.0
+                    delta_x = target_x - actual_x
+                    delta_y = target_y - actual_y
 
                     box_center = viewport.GetBoxCenter()
                     viewport.SetBoxCenter(
@@ -1220,11 +1227,13 @@ class SheetAssemblyService(object):
 
                 fits_slots = True
                 geometry_rectangles = []
-                for index, working_view in enumerate(working_views):
-                    width, height = self._view_crop_paper_size(
-                        working_view,
-                        candidate,
+                for index, viewport in enumerate(created_viewports):
+                    crop_rectangle = self._view_crop_rectangle_on_sheet(
+                        working_views[index],
+                        viewport,
                     )
+                    width = crop_rectangle[2] - crop_rectangle[0]
+                    height = crop_rectangle[3] - crop_rectangle[1]
                     slot_width, slot_height = slot_sizes[index]
                     if (
                         width > slot_width + tolerance
@@ -1233,15 +1242,7 @@ class SheetAssemblyService(object):
                         fits_slots = False
                         break
 
-                    center_x, center_y = slot_centers[index]
-                    geometry_rectangles.append(
-                        (
-                            center_x - (width / 2.0),
-                            center_y - (height / 2.0),
-                            center_x + (width / 2.0),
-                            center_y + (height / 2.0),
-                        )
-                    )
+                    geometry_rectangles.append(crop_rectangle)
 
                 no_overlap = True
                 for index, rectangle in enumerate(geometry_rectangles):
@@ -2190,41 +2191,69 @@ class SheetAssemblyService(object):
             index += 1
 
     @staticmethod
-    def _view_outline_center_on_sheet(view, viewport):
-        """Centre géométrique du cadrage de vue dans les coordonnées feuille.
-
-        View.Outline est exprimé en espace papier et n'est pas influencé par
-        les annotations. GetProjectionToSheetTransform() convertit ce point
-        vers les coordonnées de la feuille en tenant compte de la position et
-        de la rotation du viewport.
-        """
+    def _view_crop_rectangle_on_sheet(view, viewport):
+        """Rectangle du vrai crop de vue dans les coordonnées de la feuille."""
         if view is None or viewport is None:
             raise ValueError(
-                "Vue ou viewport manquant pour calculer le centre de cadrage."
+                "Vue ou viewport manquant pour mesurer le cadrage."
             )
-
-        outline = view.Outline
-        if outline is None:
-            raise ValueError(
-                "La vue ne possède pas de contour papier mesurable."
-            )
-
-        from Autodesk.Revit.DB import XYZ
-
-        center_projection = XYZ(
-            (
-                float(outline.Min.U)
-                + float(outline.Max.U)
-            ) / 2.0,
-            (
-                float(outline.Min.V)
-                + float(outline.Max.V)
-            ) / 2.0,
-            0.0,
-        )
 
         transform = viewport.GetProjectionToSheetTransform()
-        return transform.OfPoint(center_projection)
+        points = []
+
+        try:
+            manager = view.GetCropRegionShapeManager()
+            loops = list(manager.GetCropShape() or [])
+            for curve_loop in loops:
+                for curve in curve_loop:
+                    try:
+                        tessellated = list(curve.Tessellate() or [])
+                    except Exception:
+                        tessellated = []
+                    if not tessellated:
+                        try:
+                            tessellated = [
+                                curve.GetEndPoint(0),
+                                curve.GetEndPoint(1),
+                            ]
+                        except Exception:
+                            tessellated = []
+                    for point in tessellated:
+                        try:
+                            points.append(transform.OfPoint(point))
+                        except Exception:
+                            pass
+        except Exception:
+            points = []
+
+        if not points:
+            # Repli pour les vues dont la forme de crop n'est pas accessible.
+            crop = getattr(view, "CropBox", None)
+            if crop is None:
+                raise ValueError(
+                    "La vue ne possède pas de cadrage mesurable."
+                )
+            from Autodesk.Revit.DB import XYZ
+            z_value = float(crop.Min.Z)
+            raw_points = (
+                XYZ(float(crop.Min.X), float(crop.Min.Y), z_value),
+                XYZ(float(crop.Max.X), float(crop.Min.Y), z_value),
+                XYZ(float(crop.Max.X), float(crop.Max.Y), z_value),
+                XYZ(float(crop.Min.X), float(crop.Max.Y), z_value),
+            )
+            points = [
+                transform.OfPoint(point)
+                for point in raw_points
+            ]
+
+        xs = [float(point.X) for point in points]
+        ys = [float(point.Y) for point in points]
+        return (
+            min(xs),
+            min(ys),
+            max(xs),
+            max(ys),
+        )
 
     @staticmethod
     def _view_crop_paper_size(view, scale=None):
