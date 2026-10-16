@@ -509,32 +509,38 @@ class SheetAssemblyService(object):
             template_main_viewport_unique_id,
             "Le viewport modèle de la vue logement n'existe plus.",
         )
-        location_viewport_model = self._get_element(
-            template_location_viewport_unique_id,
-            "Le viewport modèle du repérage n'existe plus.",
-        )
+        location_viewport_model = None
+        if template_location_viewport_unique_id:
+            location_viewport_model = self._get_element(
+                template_location_viewport_unique_id,
+                "Le viewport modèle du repérage n'existe plus.",
+            )
 
         self._ensure_owned_by_sheet(
             main_viewport_model,
             template_sheet,
             "vue logement",
         )
-        self._ensure_owned_by_sheet(
-            location_viewport_model,
-            template_sheet,
-            "repérage",
-        )
+        if location_viewport_model is not None:
+            self._ensure_owned_by_sheet(
+                location_viewport_model,
+                template_sheet,
+                "repérage",
+            )
 
         main_view = self._get_element(
             main_view_unique_id,
             "La vue logement générée n'existe plus.",
         )
-        location_view = self._get_element(
-            location_view_unique_id,
-            "Le plan de repérage généré n'existe plus.",
-        )
+        location_view = None
+        if location_view_unique_id:
+            location_view = self._get_element(
+                location_view_unique_id,
+                "Le plan de repérage généré n'existe plus.",
+            )
         self._validate_placeable_view(main_view, "vue logement")
-        self._validate_placeable_view(location_view, "plan de repérage")
+        if location_view is not None:
+            self._validate_placeable_view(location_view, "plan de repérage")
 
         bindings = list(schedule_bindings or [])
         resolved_schedules = []
@@ -575,7 +581,11 @@ class SheetAssemblyService(object):
         from Autodesk.Revit.DB import ScheduleSheetInstance, ViewSheet, Viewport, XYZ
 
         main_center = main_viewport_model.GetBoxCenter()
-        location_center = location_viewport_model.GetBoxCenter()
+        location_center = (
+            location_viewport_model.GetBoxCenter()
+            if location_viewport_model is not None
+            else None
+        )
 
         template_main_view = self.document.GetElement(
             main_viewport_model.ViewId
@@ -588,10 +598,12 @@ class SheetAssemblyService(object):
             main_viewport_type_id = main_viewport_model.GetTypeId()
         except Exception:
             main_viewport_type_id = None
-        try:
-            location_viewport_type_id = location_viewport_model.GetTypeId()
-        except Exception:
-            location_viewport_type_id = None
+        location_viewport_type_id = None
+        if location_viewport_model is not None:
+            try:
+                location_viewport_type_id = location_viewport_model.GetTypeId()
+            except Exception:
+                location_viewport_type_id = None
 
         sheet = None
         main_view_for_sheet = main_view
@@ -634,20 +646,22 @@ class SheetAssemblyService(object):
             )
             fit_warnings.extend(metadata_warnings)
 
-            location_viewport = Viewport.Create(
-                self.document,
-                sheet.Id,
-                location_view.Id,
-                XYZ(
-                    float(location_center.X),
-                    float(location_center.Y),
-                    0.0,
-                ),
-            )
-            self._apply_viewport_type(
-                location_viewport,
-                location_viewport_type_id,
-            )
+            location_viewport = None
+            if location_view is not None and location_center is not None:
+                location_viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    location_view.Id,
+                    XYZ(
+                        float(location_center.X),
+                        float(location_center.Y),
+                        0.0,
+                    ),
+                )
+                self._apply_viewport_type(
+                    location_viewport,
+                    location_viewport_type_id,
+                )
 
             for template_instance, schedule in resolved_schedules:
                 point = template_instance.Point
@@ -680,7 +694,12 @@ class SheetAssemblyService(object):
                     reference_scale=reference_scale,
                     allowed_scales=fit_scales,
                     obstacle_elements=tuple(
-                        [location_viewport] + placed_schedule_instances
+                        (
+                            [location_viewport]
+                            if location_viewport is not None
+                            else []
+                        )
+                        + placed_schedule_instances
                     ),
                 )
             else:
@@ -715,8 +734,10 @@ class SheetAssemblyService(object):
             main_view_name=str(
                 getattr(main_view_for_sheet, "Name", "") or ""
             ),
-            location_view_name_value=str(
-                getattr(location_view, "Name", "") or ""
+            location_view_name_value=(
+                str(getattr(location_view, "Name", "") or "")
+                if location_view is not None
+                else ""
             ),
             interior_schedule_name="",
             exterior_schedule_name="",
