@@ -220,7 +220,7 @@ class CropGeometryService(object):
 
         annotation_warning = self._configure_annotation_crop(
             view,
-            offset_mm=120.0,
+            offset_mm=0.0,
         )
         if annotation_warning:
             warning = (
@@ -234,7 +234,7 @@ class CropGeometryService(object):
         crop_result.warning = warning
         return crop_result
 
-    def _configure_annotation_crop(self, view, offset_mm=120.0):
+    def _configure_annotation_crop(self, view, offset_mm=0.0):
         """Active l'annotation crop pour isoler les annotations du logement.
 
         Les vues dépendantes partagent leurs annotations avec la vue principale.
