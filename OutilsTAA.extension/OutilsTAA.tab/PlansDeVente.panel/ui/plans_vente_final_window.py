@@ -48,7 +48,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc1"
+    UI_BUILD = "stage09-rc2"
 
     def __init__(self, controller):
         self.controller = controller
@@ -640,25 +640,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 "Créer les {} plans de vente".format(count)
             )
 
-        multilevel = len(
-            [
-                housing
-                for housing in self._filtered_housings
-                if len(housing.level_names or []) > 1
-            ]
+        self.CreationInfoText.Text = (
+            "{} logement(s) sélectionné(s).".format(count)
         )
-        details = "{} logement(s) sélectionné(s).".format(count)
-        if multilevel:
-            details += " {} multi-niveau(x).".format(multilevel)
-            if self._multilevel_template_info is None:
-                details += " Comportement à déterminer depuis la feuille modèle."
-            else:
-                details += (
-                    " Modèle 1 vue : une feuille par niveau."
-                    if self._multilevel_mode == "sheet_per_level"
-                    else " Modèle 2 vues : une seule feuille multi-niveaux."
-                )
-        self.CreationInfoText.Text = details
 
     def AdvancedOptions_Click(self, sender, args):
         dialog = PlansVenteAdvancedWindow(
