@@ -422,7 +422,7 @@ def test_stage09_rc2_duplex_explicit_zones_share_one_scale():
     assert "_view_crop_paper_size(" in placement
     assert "target_zones" in placement
     assert "les vues ont été réduites ensemble" in placement
-    assert "à une échelle commune" in placement
+    assert "working_view.Scale = candidate" in placement
 
 
 def test_stage09_rc2_location_highlight_failure_is_non_blocking():
