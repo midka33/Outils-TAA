@@ -991,39 +991,23 @@ class SheetAssemblyService(object):
                 )
                 placed_schedule_instances.append(created_instance)
 
-            for index, main_view in enumerate(main_views):
-                center = main_centers[index]
-                viewport = Viewport.Create(
-                    self.document,
-                    sheet.Id,
-                    main_view.Id,
-                    XYZ(center[0], center[1], 0.0),
-                )
-                self._apply_viewport_type(
-                    viewport,
-                    main_viewport_type_ids[index],
-                )
-                placed_main_viewports.append(viewport)
-
-            self.document.Regenerate()
-
-            rectangles = [
-                self._viewport_rectangle(viewport)
-                for viewport in placed_main_viewports
-            ]
-            clearance = self._millimeters_to_internal(2.0)
-            for index, rectangle in enumerate(rectangles):
-                for other in rectangles[index + 1:]:
-                    if rectangles_overlap(
-                        rectangle,
-                        other,
-                        clearance=clearance,
-                    ):
-                        raise RuntimeError(
-                            "Les vues générées se chevauchent malgré le modèle "
-                            "multi-niveaux. Agrandissez l'écart entre les vues "
-                            "sur la feuille modèle."
-                        )
+            (
+                placed_main_views,
+                placed_main_viewports,
+                selected_scale,
+                duplicated_for_fit,
+                scale_warnings,
+            ) = self._place_multilevel_views_in_template_slots(
+                sheet=sheet,
+                housing_key=housing.key,
+                source_views=main_views,
+                template_viewports=main_viewport_models,
+                viewport_type_ids=main_viewport_type_ids,
+                reference_scale=reference_scale,
+                allowed_scales=allowed_scales,
+                auto_fit=bool(auto_fit_main_view),
+            )
+            fit_warnings.extend(scale_warnings)
 
         template_label = "{} — {}".format(
             getattr(template_sheet, "SheetNumber", "") or "Sans numéro",
@@ -1031,10 +1015,10 @@ class SheetAssemblyService(object):
         ).rstrip(" —")
 
         fit_warnings.append(
-            "09B.2 : {} vues logement reproduites aux positions exactes du "
-            "modèle, à l'échelle commune 1:{}.".format(
-                len(main_views),
-                reference_scale,
+            "09B.2 : {} vues logement placées dans les emplacements du modèle "
+            "à l'échelle commune 1:{}.".format(
+                len(placed_main_views),
+                selected_scale,
             )
         )
 
@@ -1052,7 +1036,7 @@ class SheetAssemblyService(object):
             ),
             main_view_name=" + ".join(
                 str(getattr(view, "Name", "") or "")
-                for view in main_views
+                for view in placed_main_views
             ),
             location_view_name_value=(
                 str(getattr(location_view, "Name", "") or "")
@@ -1062,14 +1046,218 @@ class SheetAssemblyService(object):
             interior_schedule_name="",
             exterior_schedule_name="",
             template_sheet_label=template_label,
-            main_view_scale=reference_scale,
-            main_view_auto_fitted=False,
-            main_view_was_duplicated=False,
+            main_view_scale=selected_scale,
+            main_view_auto_fitted=(
+                int(selected_scale) != int(reference_scale)
+            ),
+            main_view_was_duplicated=bool(duplicated_for_fit),
             warnings=fit_warnings,
             schedule_names=[
                 str(getattr(schedule, "Name", "") or "")
                 for _, schedule in resolved_schedules
             ],
+        )
+
+    def _place_multilevel_views_in_template_slots(
+        self,
+        sheet,
+        housing_key,
+        source_views,
+        template_viewports,
+        viewport_type_ids,
+        reference_scale,
+        allowed_scales,
+        auto_fit=True,
+    ):
+        """Place plusieurs vues dans les emplacements du modèle.
+
+        Les positions des centres sont conservées. Si les vues générées sont
+        plus grandes que leurs viewports modèles, toutes les vues sont réduites
+        ensemble à la même échelle.
+        """
+        from Autodesk.Revit.DB import ViewDuplicateOption, Viewport, XYZ
+
+        views = list(source_views or [])
+        models = list(template_viewports or [])
+        types = list(viewport_type_ids or [])
+
+        if len(views) != len(models):
+            raise ValueError(
+                "Le nombre de vues générées ne correspond pas au modèle."
+            )
+
+        reference_scale = int(reference_scale or 0)
+        candidates = (
+            scale_candidates_from_reference(
+                reference_scale,
+                allowed_scales,
+            )
+            if auto_fit
+            else [reference_scale]
+        )
+
+        slot_sizes = []
+        slot_centers = []
+        for viewport_model in models:
+            outline = viewport_model.GetBoxOutline()
+            slot_sizes.append(
+                (
+                    abs(
+                        float(outline.MaximumPoint.X)
+                        - float(outline.MinimumPoint.X)
+                    ),
+                    abs(
+                        float(outline.MaximumPoint.Y)
+                        - float(outline.MinimumPoint.Y)
+                    ),
+                )
+            )
+            center = viewport_model.GetBoxCenter()
+            slot_centers.append(
+                (float(center.X), float(center.Y))
+            )
+
+        tolerance = self._millimeters_to_internal(1.0)
+        clearance = self._millimeters_to_internal(2.0)
+        warnings = []
+
+        for candidate in candidates:
+            candidate = int(candidate)
+            working_views = []
+            duplicated_ids = []
+            created_viewports = []
+            success = False
+
+            try:
+                for index, source_view in enumerate(views):
+                    source_scale = int(
+                        getattr(source_view, "Scale", 0) or 0
+                    )
+                    working_view = source_view
+
+                    if source_scale != candidate:
+                        if not source_view.CanViewBeDuplicated(
+                            ViewDuplicateOption.WithDetailing
+                        ):
+                            raise RuntimeError(
+                                "Impossible de dupliquer la vue du niveau {} "
+                                "pour appliquer l'échelle commune 1:{}."
+                                .format(index + 1, candidate)
+                            )
+
+                        copied_id = source_view.Duplicate(
+                            ViewDuplicateOption.WithDetailing
+                        )
+                        duplicated_ids.append(copied_id)
+                        working_view = self.document.GetElement(copied_id)
+                        if working_view is None:
+                            raise RuntimeError(
+                                "Revit n'a pas retourné la copie de la vue "
+                                "multi-niveaux."
+                            )
+                        working_view.Name = self._unique_view_name(
+                            "PDV SHEET - {} - N{} - AUTO".format(
+                                housing_key,
+                                index + 1,
+                            )
+                        )
+                        working_view.Scale = candidate
+
+                    if int(
+                        getattr(working_view, "Scale", 0) or 0
+                    ) != candidate:
+                        raise RuntimeError(
+                            "Revit n'a pas appliqué l'échelle commune 1:{} "
+                            "au niveau {}.".format(candidate, index + 1)
+                        )
+
+                    working_views.append(working_view)
+
+                for index, working_view in enumerate(working_views):
+                    center = slot_centers[index]
+                    viewport = Viewport.Create(
+                        self.document,
+                        sheet.Id,
+                        working_view.Id,
+                        XYZ(center[0], center[1], 0.0),
+                    )
+                    self._apply_viewport_type(
+                        viewport,
+                        types[index] if index < len(types) else None,
+                    )
+                    created_viewports.append(viewport)
+
+                self.document.Regenerate()
+
+                fits_slots = True
+                for index, viewport in enumerate(created_viewports):
+                    width, height = self._viewport_box_size(viewport)
+                    slot_width, slot_height = slot_sizes[index]
+                    if (
+                        width > slot_width + tolerance
+                        or height > slot_height + tolerance
+                    ):
+                        fits_slots = False
+                        break
+
+                rectangles = [
+                    self._viewport_rectangle(viewport)
+                    for viewport in created_viewports
+                ]
+                no_overlap = True
+                for index, rectangle in enumerate(rectangles):
+                    for other in rectangles[index + 1:]:
+                        if rectangles_overlap(
+                            rectangle,
+                            other,
+                            clearance=clearance,
+                        ):
+                            no_overlap = False
+                            break
+                    if not no_overlap:
+                        break
+
+                if fits_slots and no_overlap:
+                    success = True
+                    if candidate != reference_scale:
+                        warnings.append(
+                            "09B.2 : les deux vues ont été réduites ensemble "
+                            "de 1:{} à 1:{} pour respecter les emplacements "
+                            "de la feuille modèle.".format(
+                                reference_scale,
+                                candidate,
+                            )
+                        )
+                    return (
+                        working_views,
+                        created_viewports,
+                        candidate,
+                        bool(duplicated_ids),
+                        warnings,
+                    )
+
+            finally:
+                if not success:
+                    for viewport in reversed(created_viewports):
+                        try:
+                            self.document.Delete(viewport.Id)
+                        except Exception:
+                            pass
+                    for copied_id in reversed(duplicated_ids):
+                        try:
+                            self.document.Delete(copied_id)
+                        except Exception:
+                            pass
+                    try:
+                        self.document.Regenerate()
+                    except Exception:
+                        pass
+
+        raise RuntimeError(
+            "Impossible de faire rentrer les vues multi-niveaux dans les "
+            "emplacements de la feuille modèle à une échelle commune. "
+            "Agrandissez les emplacements du modèle ou autorisez une échelle "
+            "de repli plus petite."
         )
 
     def list_title_block_types(self):
