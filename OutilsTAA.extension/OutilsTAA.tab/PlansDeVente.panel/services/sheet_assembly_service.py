@@ -809,15 +809,17 @@ class SheetAssemblyService(object):
             )
             main_viewport_models.append(viewport_model)
 
-        location_viewport_model = self._get_element(
-            template_location_viewport_unique_id,
-            "Le viewport modèle du repérage n'existe plus.",
-        )
-        self._ensure_owned_by_sheet(
-            location_viewport_model,
-            template_sheet,
-            "repérage",
-        )
+        location_viewport_model = None
+        if template_location_viewport_unique_id:
+            location_viewport_model = self._get_element(
+                template_location_viewport_unique_id,
+                "Le viewport modèle du repérage n'existe plus.",
+            )
+            self._ensure_owned_by_sheet(
+                location_viewport_model,
+                template_sheet,
+                "repérage",
+            )
 
         main_views = []
         for unique_id in main_ids:
@@ -828,11 +830,13 @@ class SheetAssemblyService(object):
             self._validate_placeable_view(view, "vue logement")
             main_views.append(view)
 
-        location_view = self._get_element(
-            location_view_unique_id,
-            "Le plan de repérage généré n'existe plus.",
-        )
-        self._validate_placeable_view(location_view, "plan de repérage")
+        location_view = None
+        if location_view_unique_id:
+            location_view = self._get_element(
+                location_view_unique_id,
+                "Le plan de repérage généré n'existe plus.",
+            )
+            self._validate_placeable_view(location_view, "plan de repérage")
 
         reference_scales = []
         main_centers = []
@@ -911,10 +915,12 @@ class SheetAssemblyService(object):
 
         from Autodesk.Revit.DB import ScheduleSheetInstance, ViewSheet, Viewport, XYZ
 
-        try:
-            location_viewport_type_id = location_viewport_model.GetTypeId()
-        except Exception:
-            location_viewport_type_id = None
+        location_viewport_type_id = None
+        if location_viewport_model is not None:
+            try:
+                location_viewport_type_id = location_viewport_model.GetTypeId()
+            except Exception:
+                location_viewport_type_id = None
 
         sheet = None
         fit_warnings = []
@@ -957,21 +963,23 @@ class SheetAssemblyService(object):
                 )
             )
 
-            location_center = location_viewport_model.GetBoxCenter()
-            location_viewport = Viewport.Create(
-                self.document,
-                sheet.Id,
-                location_view.Id,
-                XYZ(
-                    float(location_center.X),
-                    float(location_center.Y),
-                    0.0,
-                ),
-            )
-            self._apply_viewport_type(
-                location_viewport,
-                location_viewport_type_id,
-            )
+            location_viewport = None
+            if location_viewport_model is not None and location_view is not None:
+                location_center = location_viewport_model.GetBoxCenter()
+                location_viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    location_view.Id,
+                    XYZ(
+                        float(location_center.X),
+                        float(location_center.Y),
+                        0.0,
+                    ),
+                )
+                self._apply_viewport_type(
+                    location_viewport,
+                    location_viewport_type_id,
+                )
 
             for template_instance, schedule in resolved_schedules:
                 point = template_instance.Point
@@ -1046,8 +1054,10 @@ class SheetAssemblyService(object):
                 str(getattr(view, "Name", "") or "")
                 for view in main_views
             ),
-            location_view_name_value=str(
-                getattr(location_view, "Name", "") or ""
+            location_view_name_value=(
+                str(getattr(location_view, "Name", "") or "")
+                if location_view is not None
+                else ""
             ),
             interior_schedule_name="",
             exterior_schedule_name="",
