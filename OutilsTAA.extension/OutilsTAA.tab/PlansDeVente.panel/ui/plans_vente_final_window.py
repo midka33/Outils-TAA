@@ -912,6 +912,54 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             )
             return
 
+        line_style = self._selected_main_view_zone_line_style()
+        if not line_style:
+            forms.alert(
+                "Choisissez le style de ligne utilisé pour dessiner les zones "
+                "des vues principales sur la feuille modèle.",
+                title="Plans de vente — Zones principales",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            zone_diagnostic = self.controller.diagnose_template_zones(
+                template.unique_id,
+                subcategory_name=line_style,
+            )
+        except Exception as error:
+            forms.alert(
+                "Impossible de valider les zones des vues principales :\n\n{}"
+                .format(str(error) or repr(error)),
+                title="Plans de vente — Zones principales",
+                warn_icon=True,
+            )
+            return
+
+        zone_views = list(zone_diagnostic.get("views", []) or [])
+        invalid_zone_views = [
+            item for item in zone_views
+            if item.get("zone") is None
+        ]
+        if not zone_views or invalid_zone_views:
+            missing = ", ".join(
+                str(item.get("index", "?"))
+                for item in invalid_zone_views
+            )
+            forms.alert(
+                (
+                    "La feuille modèle ne définit pas correctement les zones "
+                    "des vues principales avec le style « {} ».\n\n"
+                    "Vue(s) sans rectangle fermé : {}"
+                ).format(
+                    line_style,
+                    missing or "toutes",
+                ),
+                title="Plans de vente — Zones principales",
+                warn_icon=True,
+            )
+            return
+
         selected = list(self._filtered_housings or [])
         if not selected:
             forms.alert(
@@ -955,6 +1003,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         message = (
             "Créer les plans de vente maintenant ?\n\n"
             "Feuille modèle : {}\n"
+            "Zones principales : {} — {} rectangle(s) validé(s)\n"
             "Logements correspondant au filtre : {}\n"
             "Sorties à générer : {}\n"
             "Plans existants à ignorer : {}\n"
@@ -963,6 +1012,8 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "Un échec sur un logement n'interrompt pas les suivants."
         ).format(
             template.label,
+            line_style,
+            len(zone_views),
             len(selected),
             len(processable),
             existing_count,
