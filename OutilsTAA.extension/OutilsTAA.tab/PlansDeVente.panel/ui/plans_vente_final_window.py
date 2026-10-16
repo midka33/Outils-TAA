@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 """Interface finale Étape 09 — création batch des plans de vente."""
 
 import os
+import time
 
 from pyrevit import forms
 
@@ -794,6 +795,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
     ):
         self._busy = True
         self._refresh_creation_state()
+        batch_started_at = time.time()
 
         created = []
         skipped = []
@@ -902,12 +904,15 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self._busy = False
             self._refresh_creation_state()
 
+        elapsed_seconds = max(0.0, time.time() - batch_started_at)
+
         self.StatusText.Text = (
-            "{} plan(s) créé(s), {} ignoré(s), {} échec(s)."
+            "{} plan(s) créé(s), {} ignoré(s), {} échec(s) — {}."
         ).format(
             len(created),
             len(skipped),
             len(failures),
+            self._format_duration(elapsed_seconds),
         )
 
         if self._settings.get("detailed_report", True):
@@ -916,6 +921,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 skipped,
                 failures,
                 warnings,
+                elapsed_seconds,
             )
         elif failures:
             forms.alert(
@@ -930,12 +936,28 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 warn_icon=True,
             )
 
+    @staticmethod
+    def _format_duration(seconds):
+        total = int(round(float(seconds or 0.0)))
+        minutes, secs = divmod(total, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return "{} h {:02d} min {:02d} s".format(
+                hours,
+                minutes,
+                secs,
+            )
+        if minutes:
+            return "{} min {:02d} s".format(minutes, secs)
+        return "{} s".format(secs)
+
     def _show_batch_report(
         self,
         created,
         skipped,
         failures,
         warnings,
+        elapsed_seconds,
     ):
         lines = [
             "Création terminée.",
@@ -943,7 +965,19 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "Plans créés : {}".format(len(created)),
             "Logements ignorés : {}".format(len(skipped)),
             "Échecs : {}".format(len(failures)),
+            "Durée totale : {}".format(
+                self._format_duration(elapsed_seconds)
+            ),
         ]
+
+        if created:
+            lines.append(
+                "Temps moyen / plan créé : {}".format(
+                    self._format_duration(
+                        float(elapsed_seconds) / float(len(created))
+                    )
+                )
+            )
 
         if created:
             lines.append("")
