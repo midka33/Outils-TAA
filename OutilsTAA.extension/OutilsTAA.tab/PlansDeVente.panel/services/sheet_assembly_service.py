@@ -1199,9 +1199,11 @@ class SheetAssemblyService(object):
                 if not fits:
                     continue
 
-                # Créer chaque viewport au centre de sa zone, puis recaler le
-                # centre réel du crop sur ce centre. Les annotations ne
-                # participent pas au placement.
+                # Créer chaque viewport directement au centre de sa zone.
+                # Ne pas appliquer de correction supplémentaire basée sur le
+                # crop : Viewport.Create attend déjà des coordonnées feuille et
+                # le recalage précédent mélangeait deux espaces de coordonnées,
+                # ce qui pouvait expédier les vues hors de la feuille.
                 for index, working_view in enumerate(working_views):
                     zone = target_zones[index]
                     target_x = (zone[0] + zone[2]) / 2.0
@@ -1218,32 +1220,6 @@ class SheetAssemblyService(object):
                         types[index] if index < len(types) else None,
                     )
                     created_viewports.append(viewport)
-
-                self.document.Regenerate()
-
-                for index, viewport in enumerate(created_viewports):
-                    zone = target_zones[index]
-                    target_x = (zone[0] + zone[2]) / 2.0
-                    target_y = (zone[1] + zone[3]) / 2.0
-                    crop_rectangle = self._view_crop_rectangle_on_sheet(
-                        working_views[index],
-                        viewport,
-                    )
-                    actual_x = (
-                        crop_rectangle[0] + crop_rectangle[2]
-                    ) / 2.0
-                    actual_y = (
-                        crop_rectangle[1] + crop_rectangle[3]
-                    ) / 2.0
-
-                    box_center = viewport.GetBoxCenter()
-                    viewport.SetBoxCenter(
-                        XYZ(
-                            float(box_center.X) + (target_x - actual_x),
-                            float(box_center.Y) + (target_y - actual_y),
-                            0.0,
-                        )
-                    )
 
                 self.document.Regenerate()
                 success = True
