@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc8"' in main
+    assert 'UI_BUILD = "stage09-rc9"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -510,3 +510,24 @@ def test_stage09_rc8_multilevel_uses_equal_available_zones():
     assert 'return "side_by_side" if x_span > y_span else "stacked"' in sheet
     assert "zone principale divisée en" in sheet
     assert "fixed_template_elements" in sheet
+
+
+def test_stage09_rc9_multilevel_centers_stay_on_sheet():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    block = sheet[
+        sheet.index("    def _place_multilevel_views_in_template_slots("):
+        sheet.index("    def _multilevel_orientation(")
+    ]
+    assert "_view_crop_rectangle_on_sheet(" not in block
+    assert "Viewport.Create(" in block
+    assert "XYZ(target_x, target_y, 0.0)" in block
+
+    zone = sheet[
+        sheet.index("    def _multilevel_available_zone("):
+        sheet.index("    def _split_available_zone(")
+    ]
+    assert "sheet_left" in zone
+    assert "sheet_right" in zone
+    assert "sheet_bottom" in zone
+    assert "sheet_top" in zone
