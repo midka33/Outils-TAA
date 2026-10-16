@@ -637,3 +637,14 @@ def test_stage09_zone_diagnostic_uses_symbol_geometry_for_styles():
     assert "Transform.Identity" in sheet
     assert "accumulated_transform.Multiply(" in sheet
     assert "accumulated_transform.OfPoint(point)" in sheet
+
+
+def test_stage09_zone_diagnostic_reads_family_curve_elements():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "self.document.EditFamily(family)" in sheet
+    assert "FilteredElementCollector(family_doc)" in sheet
+    assert ".OfClass(CurveElement)" in sheet
+    assert "curve_element.LineStyle" in sheet
+    assert "curve_element.GeometryCurve" in sheet
+    assert "family_doc.Close(False)" in sheet
