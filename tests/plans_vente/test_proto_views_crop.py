@@ -19,6 +19,7 @@ def test_new_python_files_parse_and_keep_encoding_header():
         PANEL / "services" / "plans_vente_controller.py",
         PANEL / "services" / "schedule_service.py",
         PANEL / "services" / "location_plan_service.py",
+        PANEL / "services" / "room_tag_service.py",
         PANEL / "ui" / "plans_vente_window.py",
         PANEL / "PlansDeVente.pushbutton" / "script.py",
     ]
@@ -43,6 +44,8 @@ def test_xaml_handlers_for_prototype_exist():
         "CreateSchedules_Click",
         "LocationChoiceChanged",
         "CreateLocationPlan_Click",
+        "RoomTagChoiceChanged",
+        "CreateRoomTags_Click",
     ):
         assert "def {}(".format(handler) in python_text
 
@@ -114,3 +117,20 @@ def test_stage03_groups_dependents_under_scale_specific_master_views():
     assert "primary_id != master_view.Id" in service_text
     assert 'view_name.startswith("PDV MASTER - ")' in plan_text
     assert "target_scale" in controller_text
+
+
+
+def test_invalid_optimized_crop_falls_back_to_rectangle_on_target_view():
+    geometry_text = (PANEL / "services" / "crop_geometry_service.py").read_text(
+        encoding="utf-8"
+    )
+
+    block = geometry_text[
+        geometry_text.index("    def apply_to_view("):
+        geometry_text.index("    @staticmethod\n    def _stage(", geometry_text.index("    def apply_to_view("))
+    ]
+
+    assert "manager.IsCropRegionShapeValid(selected_loop)" in block
+    assert "fallback = crop_result.fallback_curve_loop" in block
+    assert "manager.IsCropRegionShapeValid(fallback)" in block
+    assert 'mode = "Rectangle de secours"' in block

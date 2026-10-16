@@ -1,0 +1,311 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Plans de vente — Options avancées"
+    Width="900"
+    Height="710"
+    MinWidth="820"
+    MinHeight="640"
+    WindowStartupLocation="CenterOwner"
+    ResizeMode="CanResize"
+    Background="{DynamicResource TAABackgroundBrush}"
+    FontFamily="Segoe UI"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="PDVCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource TAAPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TAABorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style x:Key="PDVBrandButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="PDVNumber" TargetType="Border">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="CornerRadius" Value="17"/>
+            <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="⚙" FontSize="28"
+                       Foreground="{DynamicResource TAATextBrush}"
+                       VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Options avancées"
+                           FontSize="22"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TAATextBrush}"/>
+                <TextBlock Text="Paramètres experts pour la création des plans de vente"
+                           Style="{DynamicResource TAASecondaryText}"/>
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="2"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="14"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="14"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource PDVCard}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="42"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource PDVNumber}">
+                                <TextBlock Text="1" Foreground="White" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="Création"
+                                       Margin="6,6,0,0"
+                                       FontSize="15" FontWeight="SemiBold"/>
+                        </Grid>
+                        <CheckBox x:Name="SkipExistingCheckBox"
+                                  Margin="0,14,0,0"
+                                  Content="Créer uniquement les logements sans plan existant"
+                                  IsChecked="True"/>
+                        <TextBlock Text="Paramètre identifiant le logement"
+                                   Margin="0,14,0,4"/>
+                        <ComboBox x:Name="HousingParameterCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
+
+                        <TextBlock Text="Paramètre pièce → Bâtiment"
+                                   Margin="0,14,0,4"/>
+                        <ComboBox x:Name="BuildingParameterCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
+                        <TextBlock Text="Paramètre pièce → Typologie"
+                                   Margin="0,10,0,4"/>
+                        <ComboBox x:Name="TypologyParameterCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
+                        <TextBlock Margin="0,6,0,0"
+                                   Text="La typologie est écrite dans le paramètre « Zone » du cartouche. L'étage est déduit automatiquement du niveau Revit."
+                                   TextWrapping="Wrap"
+                                   Style="{DynamicResource TAASecondaryText}"/>
+
+                        <TextBlock Text="Mode de traitement"
+                                   Margin="0,14,0,4"/>
+                        <ComboBox x:Name="BatchModeCombo"
+                                  Style="{DynamicResource TAAComboBox}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource PDVCard}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="42"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource PDVNumber}">
+                                <TextBlock Text="2" Foreground="White" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="Vues et gabarits"
+                                       Margin="6,6,0,0"
+                                       FontSize="15" FontWeight="SemiBold"/>
+                        </Grid>
+
+                        <TextBlock Text="Gabarit vue logement" Margin="0,14,0,4"/>
+                        <TextBox Text="Automatique — feuille modèle"
+                                 IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Text="Gabarit repérage" Margin="0,10,0,4"/>
+                        <TextBox Text="Automatique — feuille modèle"
+                                 IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Text="Type d'étiquette de pièces" Margin="0,10,0,4"/>
+                        <TextBox Text="Automatique — feuille modèle"
+                                 IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Text="Type de cote" Margin="0,10,0,4"/>
+                        <TextBox Text="Automatique — feuille modèle"
+                                 IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Text="Marge de crop (mm)" Margin="0,10,0,4"/>
+                        <TextBox x:Name="CropMarginTextBox"
+                                 Text="500"
+                                 Style="{DynamicResource TAATextBox}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource PDVCard}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="42"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource PDVNumber}">
+                                <TextBlock Text="3" Foreground="White" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="Échelles automatiques"
+                                       Margin="6,6,0,0"
+                                       FontSize="15" FontWeight="SemiBold"/>
+                        </Grid>
+                        <CheckBox x:Name="AutoScaleCheckBox"
+                                  Margin="0,14,0,0"
+                                  Content="Réduire l'échelle uniquement en cas de collision"
+                                  IsChecked="True"/>
+                        <TextBlock Text="Échelles de repli autorisées" Margin="0,14,0,4"/>
+                        <TextBox x:Name="AllowedScalesTextBox"
+                                 Text="50, 75, 100, 125, 150"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="L'échelle de la feuille modèle reste prioritaire. Le moteur n'utilise les valeurs ci-dessus qu'en cas de collision."
+                                   Style="{DynamicResource TAASecondaryText}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource PDVCard}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="42"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource PDVNumber}">
+                                <TextBlock Text="4" Foreground="White" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="Nomenclatures et nommage"
+                                       Margin="6,6,0,0"
+                                       FontSize="15" FontWeight="SemiBold"/>
+                        </Grid>
+                        <CheckBox Content="Dupliquer toutes les nomenclatures du modèle"
+                                  Margin="0,14,0,0"
+                                  IsChecked="True"
+                                  IsEnabled="False"/>
+                        <TextBlock Text="Préfixe feuille" Margin="0,14,0,4"/>
+                        <TextBox Text="PDV-" IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Text="Nom de feuille" Margin="0,10,0,4"/>
+                        <TextBox Text="Plan de vente - {Appartement}"
+                                 IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Text="Nom vue repérage" Margin="0,10,0,4"/>
+                        <TextBox Text="PDV_{Appartement}_REP"
+                                 IsReadOnly="True"
+                                 Style="{DynamicResource TAATextBox}"/>
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="Le nommage reste verrouillé dans cette première version de stabilisation."
+                                   Style="{DynamicResource TAASecondaryText}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource PDVCard}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="42"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource PDVNumber}">
+                                <TextBlock Text="5" Foreground="White" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="Journal et contrôle"
+                                       Margin="6,6,0,0"
+                                       FontSize="15" FontWeight="SemiBold"/>
+                        </Grid>
+                        <CheckBox x:Name="DetailedReportCheckBox"
+                                  Margin="0,14,0,0"
+                                  Content="Afficher le rapport détaillé en fin de traitement"
+                                  IsChecked="True"/>
+                        <CheckBox x:Name="LogWarningsCheckBox"
+                                  Content="Inclure les avertissements dans le rapport"
+                                  IsChecked="True"/>
+                        <CheckBox Content="Ouvrir les feuilles créées à la fin"
+                                  IsChecked="False"
+                                  IsEnabled="False"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="4" Grid.Column="2"
+                        Background="#FFF2EB"
+                        BorderBrush="{DynamicResource TAABrandOrangeBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="16">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="ⓘ"
+                                   FontSize="24"
+                                   Foreground="{DynamicResource TAABrandOrangeBrush}"
+                                   Margin="0,0,12,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Paramètres avancés"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TAABrandOrangeBrush}"/>
+                            <TextBlock Margin="0,4,0,0"
+                                       Text="Les valeurs automatiques issues de la feuille modèle sont recommandées. Les champs verrouillés seront ouverts seulement lorsque le moteur supportera un remplacement sûr."
+                                       Style="{DynamicResource TAASecondaryText}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </ScrollViewer>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="1"
+                    Content="Réinitialiser"
+                    Style="{DynamicResource TAASecondaryButton}"
+                    Click="Reset_Click"/>
+            <Button Grid.Column="3"
+                    Content="Annuler"
+                    Style="{DynamicResource TAASecondaryButton}"
+                    Click="Cancel_Click"/>
+            <Button Grid.Column="5"
+                    Content="Enregistrer"
+                    Style="{StaticResource PDVBrandButton}"
+                    Click="Save_Click"/>
+        </Grid>
+    </Grid>
+</Window>

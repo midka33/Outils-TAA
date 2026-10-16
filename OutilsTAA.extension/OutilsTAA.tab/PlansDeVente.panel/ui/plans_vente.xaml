@@ -3,9 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Plans de vente — Outils TAA"
     Width="1080"
-    Height="840"
+    Height="920"
     MinWidth="900"
-    MinHeight="700"
+    MinHeight="760"
     WindowStartupLocation="CenterScreen"
     Background="{DynamicResource TAABackgroundBrush}"
     FontFamily="Segoe UI"
@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Plans de vente" FontSize="22" FontWeight="SemiBold"
                            Foreground="{DynamicResource TAATextBrush}"/>
-                <TextBlock Text="Étape 04 · Nomenclatures et repérage"
+                <TextBlock Text="Étape 07 · Assemblage de la feuille"
                            Style="{DynamicResource TAASecondaryText}"/>
             </StackPanel>
         </Grid>
@@ -52,7 +52,9 @@
             <Border Grid.Column="0" Background="{DynamicResource TAAPanelBrush}"
                     BorderBrush="{DynamicResource TAABorderBrush}"
                     BorderThickness="1" CornerRadius="6" Padding="16">
-                <StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
                     <TextBlock Text="Source" Style="{DynamicResource TAASectionTitle}"/>
                     <TextBlock Text="Paramètre identifiant le logement" Margin="0,4,0,6"
                                Foreground="{DynamicResource TAATextBrush}"/>
@@ -89,12 +91,107 @@
                             Margin="0,14,0,0" HorizontalAlignment="Stretch"
                             Style="{DynamicResource TAAPrimaryButton}"
                             Click="CreateLocationPlan_Click"/>
-                </StackPanel>
+                    <Separator Margin="0,22,0,18"/>
+                    <TextBlock Text="Étape 06F — Cotations"
+                               Style="{DynamicResource TAASectionTitle}"/>
+                    <TextBlock x:Name="DimensionInfoText" Margin="0,0,0,10"
+                               Style="{DynamicResource TAASecondaryText}"/>
+                    <TextBlock Text="Vue logement" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="DimensionViewCombo" DisplayMemberPath="Label"
+                              SelectionChanged="DimensionChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <TextBlock Text="Type de cote" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="DimensionTypeCombo"
+                              SelectionChanged="DimensionChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+                    <Button x:Name="CreateDimensionsButton" Content="Créer les cotations"
+                            Margin="0,14,0,0" HorizontalAlignment="Stretch"
+                            Style="{DynamicResource TAAPrimaryButton}"
+                            Click="CreateDimensions_Click"/>
+                    <Separator Margin="0,22,0,18"/>
+                    <TextBlock Text="Étape 07C — Composition automatique"
+                               Style="{DynamicResource TAASectionTitle}"/>
+                    <TextBlock x:Name="SheetInfoText" Margin="0,0,0,10"
+                               Style="{DynamicResource TAASecondaryText}"/>
+                    <TextBlock Text="Feuille modèle — choix utilisateur" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="SheetTemplateCombo"
+                              SelectionChanged="SheetTemplateChanged"
+                              DropDownOpened="SheetTemplateDropDownOpened"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <Border Margin="0,14,0,14"
+                            Padding="10"
+                            BorderBrush="{DynamicResource TAABorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                        <StackPanel>
+                            <TextBlock Text="Étape 07D — Génération complète"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <TextBlock Text="Le modèle détermine automatiquement la vue logement, le repérage, les types d’annotations, toutes les nomenclatures placées, le cartouche, les positions et l’échelle de référence."
+                                       Margin="0,4,0,8"
+                                       TextWrapping="Wrap"
+                                       Style="{DynamicResource TAASecondaryText}"/>
+                            <Button x:Name="CreateFullPlanButton"
+                                    Content="Créer le plan de vente complet"
+                                    HorizontalAlignment="Stretch"
+                                    IsEnabled="False"
+                                    Style="{DynamicResource TAAPrimaryButton}"
+                                    Click="CreateFullPlan_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Réglages manuels 07C — diagnostic / secours"
+                               Margin="0,2,0,0"
+                               Style="{DynamicResource TAASecondaryText}"/>
+
+                    <TextBlock Text="Vue modèle — logement" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetMainViewCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Vue modèle — repérage" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetLocationViewCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Nomenclature modèle — intérieure" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetInteriorScheduleCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <TextBlock Text="Nomenclature modèle — extérieure" Margin="0,10,0,4"/>
+                    <ComboBox x:Name="SheetExteriorScheduleCombo"
+                              SelectionChanged="SheetRoleChoiceChanged"
+                              Style="{DynamicResource TAAComboBox}"/>
+
+                    <Separator Margin="0,14,0,12"/>
+                    <CheckBox x:Name="SheetAutoFitCheckBox"
+                              Content="Réduire l’échelle uniquement en cas de collision"
+                              IsChecked="True"
+                              Click="SheetFitChoiceChanged"/>
+                    <TextBlock Text="Échelles de repli autorisées" Margin="0,10,0,4"/>
+                    <TextBox x:Name="SheetAllowedScalesTextBox"
+                             Text="50, 75, 100, 125, 150"
+                             TextChanged="SheetFitChoiceChanged"
+                             Style="{DynamicResource TAATextBox}"/>
+                    <TextBlock Text="Le 07C part toujours de l’échelle de la vue modèle. Il ne réduit le plan que s’il touche une autre vue, une nomenclature ou la géométrie du cartouche."
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap"
+                               Style="{DynamicResource TAASecondaryText}"/>
+
+                    <Button x:Name="CreateSheetButton" Content="Créer la feuille"
+                            Margin="0,14,0,0" HorizontalAlignment="Stretch"
+                            Style="{DynamicResource TAAPrimaryButton}"
+                            Click="CreateSheet_Click"/>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="10"/>
@@ -239,6 +336,54 @@
                                 Content="Créer les nomenclatures" VerticalAlignment="Bottom"
                                 Style="{DynamicResource TAAPrimaryButton}"
                                 Click="CreateSchedules_Click"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="6" Background="{DynamicResource TAAPanelBrush}"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Étape 05 — Étiquettes de pièces"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <TextBlock x:Name="RoomTagInfoText"
+                                       Style="{DynamicResource TAASecondaryText}"
+                                       Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="Vue logement"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="RoomTagViewCombo" Grid.Column="1"
+                                          DisplayMemberPath="Label"
+                                          SelectionChanged="RoomTagChoiceChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
+
+                                <TextBlock Grid.Column="3" Text="Type étiquette"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="RoomTagTypeCombo" Grid.Column="4"
+                                          SelectionChanged="RoomTagChoiceChanged"
+                                          Style="{DynamicResource TAAComboBox}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <Button x:Name="CreateRoomTagsButton" Grid.Column="2"
+                                Content="Créer les étiquettes"
+                                VerticalAlignment="Bottom"
+                                Style="{DynamicResource TAAPrimaryButton}"
+                                Click="CreateRoomTags_Click"/>
                     </Grid>
                 </Border>
             </Grid>

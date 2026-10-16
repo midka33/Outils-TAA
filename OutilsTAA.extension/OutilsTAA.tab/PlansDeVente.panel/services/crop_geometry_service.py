@@ -193,18 +193,97 @@ class CropGeometryService(object):
                 ).format(detail or "").strip()
 
         if not manager.IsCropRegionShapeValid(selected_loop):
-            raise ValueError(
-                "Le contour calculé n'est pas accepté par Revit comme crop."
-            )
+            fallback = crop_result.fallback_curve_loop
+            if (
+                fallback is not None
+                and manager.IsCropRegionShapeValid(fallback)
+            ):
+                selected_loop = fallback
+                mode = "Rectangle de secours"
+                detail = (
+                    "Le contour optimisé calculé n'a pas été accepté par Revit "
+                    "sur la vue cible. Un rectangle de secours a été appliqué."
+                )
+                warning = (
+                    "{} {}".format(warning, detail).strip()
+                    if warning
+                    else detail
+                )
+            else:
+                raise ValueError(
+                    "Le contour calculé n'est pas accepté par Revit comme crop."
+                )
 
         view.CropBoxActive = True
-        view.CropBoxVisible = True
+        view.CropBoxVisible = False
         manager.SetCropShape(selected_loop)
+
+        annotation_warning = self._configure_annotation_crop(
+            view,
+            offset_mm=0.0,
+        )
+        if annotation_warning:
+            warning = (
+                "{} {}".format(warning, annotation_warning).strip()
+                if warning
+                else annotation_warning
+            )
 
         crop_result.curve_loop = selected_loop
         crop_result.mode = mode
         crop_result.warning = warning
         return crop_result
+
+    def _configure_annotation_crop(self, view, offset_mm=0.0):
+        """Active l'annotation crop au minimum autorisé par Revit.
+
+        Revit n'accepte pas un décalage nul : le minimum API est 1/8 pouce
+        (3,175 mm en unités papier). Les quatre côtés sont donc réglés à cette
+        valeur minimale pour éviter que des annotations d'autres logements
+        agrandissent artificiellement le viewport.
+        """
+        try:
+            from Autodesk.Revit.DB import BuiltInParameter
+
+            manager = view.GetCropRegionShapeManager()
+            if not bool(getattr(manager, "CanHaveAnnotationCrop", False)):
+                return (
+                    "Cette vue ne permet pas d'activer un cadrage d'annotation."
+                )
+
+            active = view.get_Parameter(
+                BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE
+            )
+            if active is not None and not bool(active.IsReadOnly):
+                active.Set(1)
+
+            # Minimum Revit : 1/8" = 1/96 ft = 3,175 mm.
+            minimum_offset = 1.0 / 96.0
+            manager.LeftAnnotationCropOffset = minimum_offset
+            manager.RightAnnotationCropOffset = minimum_offset
+            manager.TopAnnotationCropOffset = minimum_offset
+            manager.BottomAnnotationCropOffset = minimum_offset
+
+            self.document.Regenerate()
+            return ""
+        except Exception as error:
+            return (
+                "Annotation crop non configuré automatiquement ({}) ; "
+                "des annotations extérieures peuvent élargir le viewport."
+            ).format(str(error) or repr(error))
+
+    @staticmethod
+    def _millimeters_to_internal(value):
+        try:
+            from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+            return float(
+                UnitUtils.ConvertToInternalUnits(
+                    float(value),
+                    UnitTypeId.Millimeters,
+                )
+            )
+        except Exception:
+            return float(value) / 304.8
 
     @staticmethod
     def _stage(stage_name, function, *args):

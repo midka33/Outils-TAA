@@ -29,7 +29,17 @@ class FilledRegionTypeCandidate(object):
 
 
 class LocationPlanResult(object):
-    def __init__(self, housing_key, view_name, view_unique_id, region_count, template_name, fill_type_name):
+    def __init__(
+        self,
+        housing_key,
+        view_name,
+        view_unique_id,
+        region_count,
+        template_name,
+        fill_type_name,
+        placement=None,
+        warnings=None,
+    ):
         self.housing_key = housing_key or ""
         self.view_name = view_name or ""
         self.view_unique_id = view_unique_id or ""
@@ -37,6 +47,7 @@ class LocationPlanResult(object):
         self.template_name = template_name or ""
         self.fill_type_name = fill_type_name or ""
         self.placement = placement
+        self.warnings = list(warnings or [])
 
 
 class LocationPlanService(object):
@@ -92,13 +103,26 @@ class LocationPlanService(object):
             ))
         return sorted(result, key=lambda item: item.name.lower())
 
-    def create_location_plan(self, housing, source_view_unique_id, filled_region_type_unique_id, template_unique_id=None):
+    def create_location_plan(
+        self,
+        housing,
+        source_view_unique_id,
+        filled_region_type_unique_id,
+        template_unique_id=None,
+        target_scale=None,
+        crop_reference_view_unique_id=None,
+    ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
         level_name = self._single_level_name(housing)
         source_view = self._get_element(source_view_unique_id, "Sélectionnez une vue source de repérage.")
         region_type = self._get_element(filled_region_type_unique_id, "Sélectionnez un type de zone remplie.")
         template = self.document.GetElement(template_unique_id) if template_unique_id else None
+        crop_reference_view = (
+            self.document.GetElement(crop_reference_view_unique_id)
+            if crop_reference_view_unique_id
+            else None
+        )
 
         source_level = getattr(getattr(source_view, "GenLevel", None), "Name", None)
         if source_level != level_name:
@@ -116,11 +140,18 @@ class LocationPlanService(object):
             source_view,
             0.0,
         )
-        if not highlight_result.mode.startswith("Contour optimisé"):
-            raise ValueError(
-                "Le contour global du logement n'a pas pu être construit de façon "
-                "fiable pour le repérage. Aucun rectangle de secours n'est utilisé "
-                "pour éviter de surligner une zone extérieure au logement."
+        highlight_available = bool(
+            highlight_result is not None
+            and str(getattr(highlight_result, "mode", "") or "").startswith(
+                "Contour optimisé"
+            )
+            and getattr(highlight_result, "curve_loop", None) is not None
+        )
+        warnings = []
+        if not highlight_available:
+            warnings.append(
+                "Repérage créé sans surbrillance : le contour global du logement "
+                "n'a pas pu être construit de façon suffisamment fiable."
             )
 
         if template is not None:
@@ -142,12 +173,37 @@ class LocationPlanService(object):
                 except Exception as error:
                     raise ValueError("Impossible d'appliquer le gabarit de repérage : {}".format(error))
 
-            self._create_global_filled_region(
-                created_view,
-                region_type,
-                highlight_result.curve_loop,
-            )
-            region_count = 1
+            if target_scale:
+                try:
+                    created_view.Scale = int(target_scale)
+                except Exception as error:
+                    raise ValueError(
+                        "Impossible d'appliquer l'échelle 1:{} au repérage : {}.".format(
+                            int(target_scale),
+                            error,
+                        )
+                    )
+
+                if int(getattr(created_view, "Scale", 0) or 0) != int(target_scale):
+                    raise ValueError(
+                        "Revit n'a pas conservé l'échelle 1:{} sur le repérage.".format(
+                            int(target_scale)
+                        )
+                    )
+
+            if crop_reference_view is not None:
+                self._copy_crop_from_reference(
+                    crop_reference_view,
+                    created_view,
+                )
+
+            if highlight_available:
+                self._create_global_filled_region(
+                    created_view,
+                    region_type,
+                    highlight_result.curve_loop,
+                )
+                region_count = 1
 
         return LocationPlanResult(
             housing_key=housing.key,
@@ -162,6 +218,399 @@ class LocationPlanService(object):
                 str(getattr(created_view, "UniqueId", "") or ""),
                 created_view.Name,
             ),
+            warnings=warnings,
+        )
+
+    def _copy_crop_from_reference(self, reference_view, target_view):
+        """Reproduit réellement la fenêtre de repérage du modèle.
+
+        Cas gérés :
+        - modèle piloté par Scope Box -> même Scope Box sur la cible ;
+        - crop libre -> même géométrie XY translatée au niveau cible ;
+        - forme de crop refusée -> CropBox reconstruit en coordonnées monde.
+
+        Une validation finale interdit de conserver silencieusement un crop
+        sensiblement différent du modèle.
+        """
+        from Autodesk.Revit.DB import CurveLoop, Transform, XYZ
+
+        scope_box_applied = self._sync_scope_box_from_reference(
+            reference_view,
+            target_view,
+        )
+
+        try:
+            reference_manager = reference_view.GetCropRegionShapeManager()
+            target_manager = target_view.GetCropRegionShapeManager()
+        except Exception as error:
+            raise ValueError(
+                "Impossible d'accéder au crop du repérage modèle : {}.".format(
+                    error
+                )
+            )
+
+        delta_z = (
+            self._view_level_elevation(target_view)
+            - self._view_level_elevation(reference_view)
+        )
+
+        if not scope_box_applied:
+            try:
+                reference_loops = list(
+                    reference_manager.GetCropShape() or []
+                )
+            except Exception as error:
+                raise ValueError(
+                    "Impossible de lire le crop du repérage modèle : {}.".format(
+                        error
+                    )
+                )
+
+            if not reference_loops:
+                raise ValueError(
+                    "Le repérage modèle ne fournit aucun contour de crop exploitable."
+                )
+
+            translation = Transform.CreateTranslation(
+                XYZ(0.0, 0.0, float(delta_z))
+            )
+
+            transformed = []
+            for source_loop in reference_loops:
+                target_loop = CurveLoop()
+                for curve in source_loop:
+                    target_loop.Append(
+                        curve.CreateTransformed(translation)
+                    )
+                transformed.append(target_loop)
+
+            applied_shape = False
+            if len(transformed) == 1:
+                try:
+                    if target_manager.IsCropRegionShapeValid(
+                        transformed[0]
+                    ):
+                        target_manager.SetCropShape(transformed[0])
+                        applied_shape = True
+                except Exception:
+                    applied_shape = False
+
+            if not applied_shape:
+                self._copy_rectangular_crop_box(
+                    reference_view,
+                    target_view,
+                )
+
+        try:
+            target_view.CropBoxActive = bool(
+                getattr(reference_view, "CropBoxActive", True)
+            )
+        except Exception:
+            try:
+                target_view.CropBoxActive = True
+            except Exception:
+                pass
+
+        try:
+            target_view.CropBoxVisible = bool(
+                getattr(reference_view, "CropBoxVisible", False)
+            )
+        except Exception:
+            pass
+
+        self._copy_annotation_crop(
+            reference_manager,
+            target_manager,
+        )
+
+        try:
+            self.document.Regenerate()
+        except Exception:
+            pass
+
+        if not self._crop_matches_reference(
+            reference_view,
+            target_view,
+        ):
+            # Une vue source peut conserver un crop contrôlé malgré SetCropShape.
+            # On force alors la reconstruction du rectangle en coordonnées monde.
+            if scope_box_applied:
+                raise ValueError(
+                    "Le Scope Box du repérage modèle n'a pas produit le même "
+                    "cadrage sur le niveau cible."
+                )
+
+            self._copy_rectangular_crop_box(
+                reference_view,
+                target_view,
+            )
+            try:
+                self.document.Regenerate()
+            except Exception:
+                pass
+
+            if not self._crop_matches_reference(
+                reference_view,
+                target_view,
+            ):
+                raise ValueError(
+                    "Le crop du repérage généré reste différent de celui du "
+                    "modèle après reconstruction."
+                )
+
+    def _sync_scope_box_from_reference(
+        self,
+        reference_view,
+        target_view,
+    ):
+        """Synchronise le paramètre Scope Box avant toute copie de crop."""
+        from Autodesk.Revit.DB import BuiltInParameter, ElementId
+
+        try:
+            reference_parameter = reference_view.get_Parameter(
+                BuiltInParameter.VIEWER_VOLUME_OF_INTEREST_CROP
+            )
+            target_parameter = target_view.get_Parameter(
+                BuiltInParameter.VIEWER_VOLUME_OF_INTEREST_CROP
+            )
+        except Exception:
+            return False
+
+        if reference_parameter is None or target_parameter is None:
+            return False
+
+        try:
+            reference_id = reference_parameter.AsElementId()
+        except Exception:
+            reference_id = ElementId.InvalidElementId
+
+        if reference_id is None:
+            reference_id = ElementId.InvalidElementId
+
+        try:
+            target_id = target_parameter.AsElementId()
+        except Exception:
+            target_id = ElementId.InvalidElementId
+
+        same_value = self._same_element_id(reference_id, target_id)
+        if same_value:
+            return reference_id != ElementId.InvalidElementId
+
+        if bool(getattr(target_parameter, "IsReadOnly", False)):
+            raise ValueError(
+                "Le Scope Box du repérage cible est verrouillé et diffère "
+                "de celui du repérage modèle."
+            )
+
+        try:
+            target_parameter.Set(reference_id)
+        except Exception as error:
+            raise ValueError(
+                "Impossible de reprendre le Scope Box du repérage modèle : {}.".format(
+                    error
+                )
+            )
+
+        return reference_id != ElementId.InvalidElementId
+
+    def _copy_rectangular_crop_box(self, reference_view, target_view):
+        """Reconstruit le CropBox cible depuis les coordonnées monde du modèle."""
+        from Autodesk.Revit.DB import BoundingBoxXYZ, XYZ
+
+        reference_box = getattr(reference_view, "CropBox", None)
+        target_box = getattr(target_view, "CropBox", None)
+        if reference_box is None or target_box is None:
+            raise ValueError(
+                "Impossible de recopier le rectangle de crop du repérage modèle."
+            )
+
+        delta_z = (
+            self._view_level_elevation(target_view)
+            - self._view_level_elevation(reference_view)
+        )
+
+        target_inverse = target_box.Transform.Inverse
+        local_points = []
+
+        for x_value in (reference_box.Min.X, reference_box.Max.X):
+            for y_value in (reference_box.Min.Y, reference_box.Max.Y):
+                for z_value in (reference_box.Min.Z, reference_box.Max.Z):
+                    reference_local = XYZ(
+                        float(x_value),
+                        float(y_value),
+                        float(z_value),
+                    )
+                    world = reference_box.Transform.OfPoint(
+                        reference_local
+                    )
+                    shifted = XYZ(
+                        float(world.X),
+                        float(world.Y),
+                        float(world.Z) + float(delta_z),
+                    )
+                    local_points.append(
+                        target_inverse.OfPoint(shifted)
+                    )
+
+        copied = BoundingBoxXYZ()
+        copied.Transform = target_box.Transform
+        copied.Min = XYZ(
+            min(point.X for point in local_points),
+            min(point.Y for point in local_points),
+            float(target_box.Min.Z),
+        )
+        copied.Max = XYZ(
+            max(point.X for point in local_points),
+            max(point.Y for point in local_points),
+            float(target_box.Max.Z),
+        )
+
+        try:
+            copied.Enabled = True
+        except Exception:
+            pass
+
+        target_view.CropBox = copied
+
+    def _crop_matches_reference(
+        self,
+        reference_view,
+        target_view,
+    ):
+        reference_bounds = self._crop_world_bounds(reference_view)
+        target_bounds = self._crop_world_bounds(target_view)
+        if reference_bounds is None or target_bounds is None:
+            return False
+
+        tolerance = self._millimeters_to_internal(1.0)
+        for left, right in zip(reference_bounds, target_bounds):
+            if abs(float(left) - float(right)) > tolerance:
+                return False
+        return True
+
+    def _crop_world_bounds(self, view):
+        """Retourne minX, minY, maxX, maxY du crop dans le repère projet."""
+        try:
+            manager = view.GetCropRegionShapeManager()
+            loops = list(manager.GetCropShape() or [])
+        except Exception:
+            loops = []
+
+        points = []
+        for curve_loop in loops:
+            for curve in curve_loop:
+                try:
+                    tessellated = list(curve.Tessellate() or [])
+                except Exception:
+                    tessellated = []
+                points.extend(tessellated)
+
+        if not points:
+            box = getattr(view, "CropBox", None)
+            if box is None:
+                return None
+            try:
+                from Autodesk.Revit.DB import XYZ
+                for x_value in (box.Min.X, box.Max.X):
+                    for y_value in (box.Min.Y, box.Max.Y):
+                        for z_value in (box.Min.Z, box.Max.Z):
+                            points.append(
+                                box.Transform.OfPoint(
+                                    XYZ(
+                                        float(x_value),
+                                        float(y_value),
+                                        float(z_value),
+                                    )
+                                )
+                            )
+            except Exception:
+                return None
+
+        if not points:
+            return None
+
+        return (
+            min(float(point.X) for point in points),
+            min(float(point.Y) for point in points),
+            max(float(point.X) for point in points),
+            max(float(point.Y) for point in points),
+        )
+
+    @staticmethod
+    def _same_element_id(left, right):
+        try:
+            left_value = getattr(left, "Value", None)
+            right_value = getattr(right, "Value", None)
+            if left_value is not None and right_value is not None:
+                return int(left_value) == int(right_value)
+        except Exception:
+            pass
+
+        try:
+            return int(left.IntegerValue) == int(right.IntegerValue)
+        except Exception:
+            return left == right
+
+    @staticmethod
+    def _copy_annotation_crop(reference_manager, target_manager):
+        try:
+            if not bool(reference_manager.CanHaveAnnotationCrop):
+                return
+            if not bool(target_manager.CanHaveAnnotationCrop):
+                return
+        except Exception:
+            return
+
+        try:
+            target_manager.AnnotationCropActive = bool(
+                reference_manager.AnnotationCropActive
+            )
+        except Exception:
+            pass
+
+        for property_name in (
+            "LeftAnnotationCropOffset",
+            "RightAnnotationCropOffset",
+            "TopAnnotationCropOffset",
+            "BottomAnnotationCropOffset",
+        ):
+            try:
+                setattr(
+                    target_manager,
+                    property_name,
+                    getattr(reference_manager, property_name),
+                )
+            except Exception:
+                pass
+
+    @staticmethod
+    def _view_level_elevation(view):
+        level = getattr(view, "GenLevel", None)
+        try:
+            return float(getattr(level, "Elevation", 0.0) or 0.0)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _millimeters_to_internal(value):
+        try:
+            from Autodesk.Revit.DB import UnitTypeId, UnitUtils
+            return float(
+                UnitUtils.ConvertToInternalUnits(
+                    float(value),
+                    UnitTypeId.Millimeters,
+                )
+            )
+        except Exception:
+            return float(value) / 304.8
+
+    @staticmethod
+    def _xyz(x_value, y_value, z_value):
+        from Autodesk.Revit.DB import XYZ
+        return XYZ(
+            float(x_value),
+            float(y_value),
+            float(z_value),
         )
 
     def _create_global_filled_region(self, view, region_type, curve_loop):
