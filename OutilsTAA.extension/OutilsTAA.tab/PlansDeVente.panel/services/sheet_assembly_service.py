@@ -495,6 +495,7 @@ class SheetAssemblyService(object):
         housing_display_value=None,
         housing_parameter_name=None,
         room_metadata=None,
+        main_view_zone_line_style="",
     ):
         """07D : assemble la feuille avec N nomenclatures issues du modèle."""
         if housing is None:
@@ -673,46 +674,37 @@ class SheetAssemblyService(object):
                 )
                 placed_schedule_instances.append(created_instance)
 
-            main_point = (
-                float(main_center.X),
-                float(main_center.Y),
+            (
+                placed_views,
+                placed_viewports,
+                fit_scale,
+                fit_duplicated,
+                explicit_zone_warnings,
+            ) = self._place_multilevel_views_in_template_slots(
+                sheet=sheet,
+                template_sheet=template_sheet,
+                housing_key=housing.key,
+                source_views=[main_view],
+                template_viewports=[main_viewport_model],
+                viewport_type_ids=[main_viewport_type_id],
+                reference_scale=reference_scale,
+                allowed_scales=fit_scales,
+                auto_fit=bool(auto_fit_main_view),
+                fixed_template_elements=tuple(
+                    (
+                        [location_viewport]
+                        if location_viewport is not None
+                        else []
+                    )
+                    + placed_schedule_instances
+                ),
+                main_view_zone_line_style=main_view_zone_line_style,
             )
-            if auto_fit_main_view:
-                (
-                    main_view_for_sheet,
-                    main_viewport,
-                    fit_scale,
-                    fit_adjusted,
-                    fit_duplicated,
-                    fit_warnings,
-                ) = self._create_reference_scale_main_viewport(
-                    sheet=sheet,
-                    housing_key=housing.key,
-                    source_view=main_view,
-                    point=main_point,
-                    viewport_type_id=main_viewport_type_id,
-                    reference_scale=reference_scale,
-                    allowed_scales=fit_scales,
-                    obstacle_elements=tuple(
-                        (
-                            [location_viewport]
-                            if location_viewport is not None
-                            else []
-                        )
-                        + placed_schedule_instances
-                    ),
-                )
-            else:
-                main_viewport = Viewport.Create(
-                    self.document,
-                    sheet.Id,
-                    main_view.Id,
-                    XYZ(main_point[0], main_point[1], 0.0),
-                )
-                self._apply_viewport_type(
-                    main_viewport,
-                    main_viewport_type_id,
-                )
+
+            main_view_for_sheet = placed_views[0]
+            main_viewport = placed_viewports[0]
+            fit_adjusted = int(fit_scale) != int(reference_scale)
+            fit_warnings.extend(explicit_zone_warnings)
 
         template_label = "{} — {}".format(
             getattr(template_sheet, "SheetNumber", "") or "Sans numéro",
@@ -1101,9 +1093,9 @@ class SheetAssemblyService(object):
             raise ValueError(
                 "Le nombre de vues générées ne correspond pas au modèle."
             )
-        if len(views) < 2:
+        if len(views) < 1:
             raise ValueError(
-                "Le placement multi-niveaux nécessite au moins deux vues."
+                "Le placement explicite nécessite au moins une vue principale."
             )
 
         reference_scale = int(reference_scale or 0)
@@ -1265,13 +1257,13 @@ class SheetAssemblyService(object):
 
                 if candidate != reference_scale:
                     warnings.append(
-                        "09B.2 : les vues ont été réduites ensemble de "
+                        "Zones principales : les vues ont été réduites ensemble de "
                         "1:{} à 1:{} pour rentrer dans les zones disponibles."
                         .format(reference_scale, candidate)
                     )
 
                 warnings.append(
-                    "09B.2 : {} zone(s) explicite(s) « {} » utilisée(s) "
+                    "{} zone(s) explicite(s) « {} » utilisée(s) "
                     "pour les vues principales ({})".format(
                         len(target_zones),
                         line_style_name,
@@ -1309,7 +1301,7 @@ class SheetAssemblyService(object):
                         pass
 
         raise RuntimeError(
-            "Impossible de faire rentrer les vues multi-niveaux dans les "
+            "Impossible de faire rentrer les vues principales dans les "
             "zones explicites dessinées sur la feuille modèle à une échelle "
             "commune. Autorisez une échelle de repli plus petite ou "
             "agrandissez les rectangles de zone."
