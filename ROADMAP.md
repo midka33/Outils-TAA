@@ -142,7 +142,7 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 4 — Plans de vente
 
-**Statut : Release Candidate — RC17 validée fonctionnellement, intégration finale sur `release/plans-de-vente-v1`.**  
+**Statut : V1 validée le 16 octobre 2026 — intégration par la PR #26 et livraison dans Outils TAA v1.2.0.**
 Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Conception
@@ -178,8 +178,12 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 - [x] Harmoniser la palette des icônes Calculs / Export / Plans de vente.
 - [x] Appliquer le Design System Outils TAA.
 - [x] Valider les workflows principaux dans Revit 2025.4 : mono-vue, duplex une feuille par niveau, duplex deux vues sur une feuille, génération par lot.
-- [ ] Exécuter la recette finale sur la branche propre `release/plans-de-vente-v1`.
-- [ ] Fusionner la branche de release dans `main`.
+- [x] Recette finale réussie sur `release/plans-de-vente-v1` le 16 octobre 2026, confirmée par l’utilisateur (ouverture, mono-niveau, multi-niveaux, lot, progression, Export, Calculs et icônes).
+- [x] Intégration finale de `release/plans-de-vente-v1` dans `main` par la PR #26.
+- [x] Livraison de Plans de vente V1 avec [Outils TAA v1.2.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.2.0).
+
+Ces deux derniers jalons correspondent à la fusion et à la publication de cette
+préparation de release ; l’état GitHub de la PR et de la release fait foi.
 
 ### Hors périmètre V1 / suite
 

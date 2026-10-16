@@ -2,13 +2,20 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.28
-**Statut :** Release Candidate — Étape 09 stabilisée, RC17 à valider  
+**Version :** 1.29
+**Statut :** V1 validée dans Revit 2025.4 le 16 octobre 2026 — livraison Outils TAA v1.2.0
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
 **Date :** 2026-10-16
 
+
+**Validation finale :** l’utilisateur confirme la réussite de l’ouverture, de la
+génération mono-niveau, multi-niveaux à deux vues, par lot, de la progression,
+de la non-régression Export / Calculs et des icônes harmonisées.
+Les sections historiques ci-dessous conservent la trace des étapes de développement.
+Le bilan actuel et les limites V1 figurent dans
+`docs/release/Preparation_Plans_de_Vente_V1.md`.
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
 

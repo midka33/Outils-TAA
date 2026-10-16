@@ -4,6 +4,8 @@
 **Cible :** Autodesk Revit 2025.4 + pyRevit 5.x  
 **Build UI :** `stage09-rc17-progress-stages`  
 **Date :** 2026-10-16
+**Version produit :** v1.2.0 — ajout compatible après v1.1.0 (MINOR SemVer).
+**Statut :** CI PR validée, recette finale Revit validée, V1 prête à livrer.
 
 ## Objet
 
@@ -31,6 +33,13 @@ Validation automatique sur la PR #26 :
 - contrat ruban Export : **succès**.
 
 Aucune modification de code métier Export / Calculs n'est présente dans le diff.
+
+## Validation finale confirmée
+
+Le 16 octobre 2026, l’utilisateur a confirmé la réussite des cinq scénarios
+TEST-REL-PDV-01 à 05 sur la branche propre, ainsi que la fenêtre de progression
+et les nouvelles icônes. Cette validation réelle vient de ses essais dans Revit
+2025.4 ; l’agent ne dispose pas de Revit et ne revendique pas leur exécution.
 
 ## Recette finale Revit
 
@@ -113,3 +122,27 @@ La branche peut être fusionnée dans `main` lorsque :
 - mise à jour automatique d'un plan de vente déjà généré ;
 - optimisation supplémentaire des performances sur très grands lots ;
 - plus de deux vues principales sur une même feuille.
+
+## Intégration et livraison
+
+La PR #26 est la seule branche à fusionner. L’ancienne branche Stage09 n’est pas
+fusionnée. La base contrôlée est `09dd1fd07a44ef387f33e72f65ddb69b493f11f8`.
+La tête initiale de PR `adff633e30e8a7a436e55d4d164c3f0efa76eba2` contient cette
+base sans retard et ses quatre contrôles sont réussis.
+
+Les workflows Plans de vente, Calculs et ruban Export sont également déclenchés
+sur `main`, afin de vérifier le commit réellement livré. Le nouveau workflow
+`publish-v1.2.0.yml` reprend le ZIP + CMD utilisateur de v1.0.3 et conserve le
+script d’installation, avec uniquement la substitution de version/URL.
+Il inclut désormais les trois modules et retire tests, caches et temporaires
+du ZIP distribué. Le package est construit et contrôlé sur la PR avant fusion.
+
+Après fusion, la publication est automatique uniquement si les quatre workflows
+sur le SHA exact de `main` sont réussis, que `main` n’a pas avancé et que le tag
+`v1.2.0` est absent. Une ancienne release n’est jamais écrasée. Un échec stoppe
+la livraison. La publication effective est attestée par la release GitHub et
+le résultat du workflow, et non par la seule présence de ces notes préparées.
+
+Livrables : ZIP contenant `OutilsTAA.extension`, trois tutoriels, `LICENSE` et
+`LISEZ_MOI.txt` ; installateur CMD ; tutoriels séparés et sommes SHA-256.
+Les archives source automatiques GitHub restent distinctes du ZIP utilisateur.

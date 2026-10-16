@@ -1365,6 +1365,12 @@ exact couvert par les résultats CI ; ne pas confondre tête de PR et merge comm
 **Anti-régression :** contrôle des événements YAML, suite Export sur la PR,
 puis vérification des Actions du commit de `main` avant toute publication.
 
+**Complément livraison Plans de vente — 16 octobre 2026 :** la règle
+BUG-TEST-006 est étendue aux workflows Plans de vente, Calculs et contrat ruban
+Export : exécution sur `main` et contrôle du SHA exact avant création du tag.
+BUG-COMMON-002 s’applique aussi au ZIP utilisateur : retrait des répertoires de
+tests/caches et contrôle du contenu décompressé avant publication.
+
 ## 5. Identifiants des bugs
 
 ```text

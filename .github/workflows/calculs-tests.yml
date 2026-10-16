@@ -1,6 +1,8 @@
 name: Calculs des pièces — tests hors Revit
 
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - "OutilsTAA.extension/OutilsTAA.tab/Calculs.panel/**"
