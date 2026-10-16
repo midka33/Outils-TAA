@@ -4832,10 +4832,10 @@ stage07d-template-driven-full-generation-v4
 `feature/plans-de-vente-stage09-ui-stabilization`
 
 **Build interface :**
-`stage09-rc1`
+`stage09-rc2`
 
 **Statut :**
-RC1 — stabilisation terminée côté code, validation finale à effectuer dans Revit 2025.4.
+RC2 — correctifs issus des essais Revit grandeur réelle, validation finale à effectuer dans Revit 2025.4.
 
 ### Interface finale
 
@@ -5025,3 +5025,46 @@ Avant de considérer l'Étape 09 comme définitivement validée :
 
 Une fois cette série validée dans Revit 2025.4, l'Étape 09 pourra être marquée
 **VALIDÉE** et préparée pour intégration propre à la branche principale.
+
+
+### RC2 — Retours de validation Revit
+
+Les essais RC1 ont validé les cas mono-niveau et le mode « une feuille par niveau ».
+
+Trois ajustements sont intégrés en RC2 :
+
+1. **Interface simplifiée**
+   - la section « Logements sur 2 niveaux » a été supprimée ;
+   - le comportement multi-niveaux reste indiqué directement dans les détails de la feuille modèle ;
+   - la création devient la troisième étape visible.
+
+2. **Modèle 2 vues**
+   - les centres des viewports du modèle restent la référence ;
+   - les deux vues générées utilisent toujours la même échelle ;
+   - si leurs emprises réelles dépassent les emplacements du modèle, les deux
+     vues sont réduites ensemble vers les échelles de repli autorisées ;
+   - la première échelle commune qui rentre dans les deux emplacements sans
+     chevauchement est retenue.
+
+3. **Repérage robuste**
+   - un contour de surbrillance non fiable ne bloque plus toute la création ;
+   - le plan de repérage est alors créé sans zone remplie ;
+   - le rapport signale « Repérage créé sans surbrillance ».
+
+### Performance batch
+
+Le rapport final affiche désormais :
+
+- durée totale ;
+- temps moyen par plan créé.
+
+Premier essai grandeur réelle : environ 20 minutes pour un bâtiment d'environ
+21 logements, avec création des vues, étiquettes, cotations, nomenclatures,
+repérages et feuilles.
+
+Ce temps est considéré comme **acceptable pour la RC**, mais reste un axe
+d'optimisation. Les prochains profils permettront de distinguer le coût des
+cotations, des contrôles de collision, des nomenclatures et des régénérations
+Revit.
+
+**Build :** `stage09-rc2`
