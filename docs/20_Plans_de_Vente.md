@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.24
+**Version :** 1.25
 **Statut :** Développement — Étape 09 Stabilisation interface V1  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -5069,3 +5069,39 @@ Les éléments recréés par le moteur sont mis en évidence par surcouche :
 - repérage.
 
 En cas d'échec de l'export image, l'interface conserve un message de repli sans bloquer la génération.
+
+
+## Étape 09B.2 — Modèle multi-niveaux explicite
+
+La stratégie de placement automatique des deux niveaux dans une zone prévue pour
+une seule vue a été abandonnée après test dans Revit 2025.4.
+
+Le mode `1 feuille par logement, 1 vue par niveau` utilise désormais une
+**feuille modèle multi-niveaux dédiée**.
+
+Le modèle doit contenir :
+
+- exactement deux vues logement pour un logement sur deux niveaux ;
+- un plan de repérage ;
+- les nomenclatures souhaitées ;
+- le cartouche ;
+- les deux vues logement à la **même échelle**.
+
+Le plugin associe le niveau bas à la première position du modèle et le niveau
+haut à la seconde :
+
+- modèle horizontal : gauche puis droite ;
+- modèle vertical : haut puis bas.
+
+Les vues générées sont placées **aux positions exactes des viewports du
+modèle**. Le plugin n'invente donc plus leur position et ne change pas leur
+échelle individuellement.
+
+Si les vues générées se chevauchent malgré le modèle, la création est annulée
+et le modèle doit être ajusté.
+
+Le bloc d'interface **Résultat attendu** a été supprimé : il faisait doublon
+avec l'aperçu image de la vraie feuille modèle.
+
+**Build :** `stage09b2-template-multilevel-v1`
+**Statut :** implémenté, à tester dans Revit 2025.4.
