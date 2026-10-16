@@ -126,6 +126,28 @@ class FullGenerationService(object):
         self.sheet_assembly_service = sheet_assembly_service
         self.build_id = FULL_GENERATION_BUILD
 
+    @staticmethod
+    def _notify_progress(
+        progress_callback,
+        fraction,
+        phase,
+        item_label,
+        message,
+    ):
+        if progress_callback is None:
+            return
+        try:
+            value = max(0.0, min(float(fraction), 1.0))
+            progress_callback(
+                value,
+                phase,
+                item_label,
+                message,
+            )
+        except Exception:
+            # Une erreur d'affichage ne doit jamais interrompre la génération.
+            pass
+
     def inspect_template(self, template_sheet_unique_id, descriptor):
         if descriptor is None:
             raise ValueError(
@@ -378,6 +400,7 @@ class FullGenerationService(object):
         typology_parameter_name="",
         main_view_unique_id=None,
         main_view_zone_line_style="",
+        progress_callback=None,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -657,6 +680,7 @@ class FullGenerationService(object):
         building_parameter_name="",
         typology_parameter_name="",
         main_view_zone_line_style="",
+        progress_callback=None,
     ):
         """09B.2 : génère une feuille unique avec une vue logement par niveau."""
         if housing is None:
