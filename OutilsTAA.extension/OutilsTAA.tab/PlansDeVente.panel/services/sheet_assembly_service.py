@@ -1262,16 +1262,20 @@ class SheetAssemblyService(object):
                         .format(reference_scale, candidate)
                     )
 
+                layout_label = "vue unique"
+                if len(target_zones) > 1:
+                    layout_label = (
+                        "haut / bas"
+                        if orientation == "stacked"
+                        else "gauche / droite"
+                    )
+
                 warnings.append(
                     "{} zone(s) explicite(s) « {} » utilisée(s) "
                     "pour les vues principales ({})".format(
                         len(target_zones),
                         line_style_name,
-                        (
-                            "haut / bas"
-                            if orientation == "stacked"
-                            else "gauche / droite"
-                        ),
+                        layout_label,
                     )
                 )
 
