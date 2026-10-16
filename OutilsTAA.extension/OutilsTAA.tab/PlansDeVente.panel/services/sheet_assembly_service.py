@@ -2168,7 +2168,7 @@ class SheetAssemblyService(object):
         centre de chaque vue logement et on cherche les limites Cartouches les
         plus proches à gauche, à droite, en haut et en bas.
         """
-        segments, style_counts = self._title_block_segments_by_subcategory(
+        segments, style_counts = self._sheet_curve_segments_by_line_style(
             sheet,
             subcategory_name,
         )
@@ -2306,288 +2306,82 @@ class SheetAssemblyService(object):
             for a, b in zip(first, second)
         )
 
-    def _title_block_segments_by_subcategory(
+    def _sheet_curve_segments_by_line_style(
         self,
         sheet,
-        subcategory_name,
+        line_style_name,
     ):
-        from Autodesk.Revit.DB import (
-            BuiltInCategory,
-            FilteredElementCollector,
-            Options,
-            Transform,
-        )
+        """Lit les lignes de détail dessinées directement sur la feuille.
+
+        Le style de ligne choisi par l'utilisateur sert uniquement de filtre.
+        Les coordonnées des CurveElement d'une feuille sont déjà dans l'espace
+        de la feuille, donc aucune transformation de famille n'est nécessaire.
+        """
+        from Autodesk.Revit.DB import CurveElement, FilteredElementCollector
 
         segments = []
         style_counts = {}
-        options = Options()
 
-        title_blocks = list(
+        for curve_element in (
             FilteredElementCollector(self.document, sheet.Id)
-            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+            .OfClass(CurveElement)
             .WhereElementIsNotElementType()
             .ToElements()
-        )
-
-        for title_block in title_blocks:
-            try:
-                geometry = title_block.get_Geometry(options)
-            except Exception:
-                geometry = None
-
-            self._collect_geometry_segments_by_subcategory(
-                geometry,
-                segments,
-                style_counts,
-                subcategory_name,
-                Transform.Identity,
-            )
-
-        # Les familles de cartouche sont des familles d'annotation 2D :
-        # leurs lignes symboliques ne sont souvent pas exposées dans la
-        # géométrie d'instance du projet. Si aucune ligne stylée n'a été
-        # trouvée, lire directement les CurveElement du document famille.
-        if not segments and title_blocks:
-            for title_block in title_blocks:
-                family_segments, family_styles = (
-                    self._title_block_family_curve_segments(
-                        title_block,
-                        subcategory_name,
-                    )
-                )
-                segments.extend(family_segments)
-                for name, count in family_styles.items():
-                    style_counts[name] = (
-                        style_counts.get(name, 0) + count
-                    )
-
-        return segments, style_counts
-
-    def _title_block_family_curve_segments(
-        self,
-        title_block,
-        subcategory_name,
-    ):
-        """Lit directement les lignes 2D du document famille du cartouche."""
-        from Autodesk.Revit.DB import CurveElement, FilteredElementCollector
-
-        output = []
-        style_counts = {}
-        family_doc = None
-
-        try:
-            symbol = getattr(title_block, "Symbol", None)
-            family = getattr(symbol, "Family", None)
-            if family is None:
-                return output, style_counts
-
-            family_doc = self.document.EditFamily(family)
-            if family_doc is None:
-                return output, style_counts
-
-            try:
-                instance_transform = title_block.GetTransform()
-            except Exception:
-                instance_transform = None
-
-            for curve_element in (
-                FilteredElementCollector(family_doc)
-                .OfClass(CurveElement)
-                .WhereElementIsNotElementType()
-                .ToElements()
-            ):
-                style_name = ""
-                try:
-                    line_style = curve_element.LineStyle
-                    category = getattr(
-                        line_style,
-                        "GraphicsStyleCategory",
-                        None,
-                    )
-                    style_name = str(
-                        getattr(category, "Name", "") or ""
-                    )
-                except Exception:
-                    style_name = ""
-
-                if style_name:
-                    style_counts[style_name] = (
-                        style_counts.get(style_name, 0) + 1
-                    )
-
-                if str(style_name).strip().lower() != str(
-                    subcategory_name
-                ).strip().lower():
-                    continue
-
-                try:
-                    curve = curve_element.GeometryCurve
-                except Exception:
-                    curve = None
-                if curve is None:
-                    continue
-
-                try:
-                    points = list(curve.Tessellate() or [])
-                except Exception:
-                    points = []
-
-                if len(points) < 2:
-                    try:
-                        points = [
-                            curve.GetEndPoint(0),
-                            curve.GetEndPoint(1),
-                        ]
-                    except Exception:
-                        points = []
-
-                transformed = []
-                for point in points:
-                    if instance_transform is not None:
-                        try:
-                            point = instance_transform.OfPoint(point)
-                        except Exception:
-                            pass
-                    transformed.append(point)
-
-                for first, second in zip(
-                    transformed,
-                    transformed[1:],
-                ):
-                    output.append(
-                        (
-                            (float(first.X), float(first.Y)),
-                            (float(second.X), float(second.Y)),
-                        )
-                    )
-
-        except Exception:
-            return output, style_counts
-        finally:
-            if family_doc is not None:
-                try:
-                    family_doc.Close(False)
-                except Exception:
-                    pass
-
-        return output, style_counts
-
-    def _collect_geometry_segments_by_subcategory(
-        self,
-        geometry,
-        output,
-        style_counts,
-        subcategory_name,
-        accumulated_transform,
-    ):
-        """Lit la géométrie symbole pour conserver les GraphicsStyleId.
-
-        GetInstanceGeometry() peut perdre les informations de style des lignes
-        symboliques selon les familles. On parcourt donc GetSymbolGeometry()
-        puis on applique explicitement la transformation de l'instance.
-        """
-        if geometry is None:
-            return
-
-        try:
-            items = list(geometry)
-        except Exception:
-            items = []
-
-        for item in items:
-            if item is None:
-                continue
-
-            if hasattr(item, "GetSymbolGeometry"):
-                try:
-                    symbol_geometry = item.GetSymbolGeometry()
-                except Exception:
-                    symbol_geometry = None
-
-                try:
-                    instance_transform = item.Transform
-                except Exception:
-                    instance_transform = None
-
-                combined = accumulated_transform
-                if instance_transform is not None:
-                    try:
-                        combined = accumulated_transform.Multiply(
-                            instance_transform
-                        )
-                    except Exception:
-                        combined = instance_transform
-
-                if symbol_geometry is not None:
-                    self._collect_geometry_segments_by_subcategory(
-                        symbol_geometry,
-                        output,
-                        style_counts,
-                        subcategory_name,
-                        combined,
-                    )
-                    continue
-
+        ):
             style_name = ""
-            style_id = getattr(item, "GraphicsStyleId", None)
-            if style_id is not None:
-                try:
-                    style = self.document.GetElement(style_id)
-                    category = getattr(
-                        style,
-                        "GraphicsStyleCategory",
-                        None,
-                    )
-                    style_name = str(
-                        getattr(category, "Name", "") or ""
-                    )
-                except Exception:
-                    style_name = ""
+            try:
+                line_style = curve_element.LineStyle
+                category = getattr(
+                    line_style,
+                    "GraphicsStyleCategory",
+                    None,
+                )
+                style_name = str(
+                    getattr(category, "Name", "") or ""
+                )
+            except Exception:
+                style_name = ""
 
             if style_name:
                 style_counts[style_name] = (
                     style_counts.get(style_name, 0) + 1
                 )
 
-            points = []
-            if hasattr(item, "Tessellate"):
-                try:
-                    points = list(item.Tessellate() or [])
-                except Exception:
-                    points = []
-            elif hasattr(item, "GetCoordinates"):
-                try:
-                    points = list(item.GetCoordinates() or [])
-                except Exception:
-                    points = []
-
-            if len(points) < 2:
-                continue
-
-            transformed_points = []
-            for point in points:
-                try:
-                    transformed_points.append(
-                        accumulated_transform.OfPoint(point)
-                    )
-                except Exception:
-                    transformed_points.append(point)
-
             if str(style_name).strip().lower() != str(
-                subcategory_name
+                line_style_name
             ).strip().lower():
                 continue
 
-            for first, second in zip(
-                transformed_points,
-                transformed_points[1:],
-            ):
-                output.append(
+            try:
+                curve = curve_element.GeometryCurve
+            except Exception:
+                curve = None
+            if curve is None:
+                continue
+
+            try:
+                points = list(curve.Tessellate() or [])
+            except Exception:
+                points = []
+
+            if len(points) < 2:
+                try:
+                    points = [
+                        curve.GetEndPoint(0),
+                        curve.GetEndPoint(1),
+                    ]
+                except Exception:
+                    points = []
+
+            for first, second in zip(points, points[1:]):
+                segments.append(
                     (
                         (float(first.X), float(first.Y)),
                         (float(second.X), float(second.Y)),
                     )
                 )
+
+        return segments, style_counts
 
     def _rectangular_zones_from_segments(self, segments, tolerance):
         vertical = []
