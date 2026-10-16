@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc13-diagnostic"' in main
+    assert 'UI_BUILD = "stage09-rc13-zone-style-diagnostic"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -600,7 +600,8 @@ def test_stage09_zone_diagnostic_uses_cartouches_subcategory():
     assert 'x:Name="DiagnoseZonesButton"' in xaml
     assert 'Click="DiagnoseZones_Click"' in xaml
     assert "def DiagnoseZones_Click(" in main
-    assert 'subcategory_name="Cartouches"' in main
+    assert 'candidate.strip().lower() == "<lignes>"' in main
+    assert "subcategory_name=line_style" in main
 
     assert "def diagnose_template_zones(" in controller
     assert "def diagnose_template_zones(" in full
@@ -648,3 +649,25 @@ def test_stage09_zone_diagnostic_reads_family_curve_elements():
     assert "curve_element.LineStyle" in sheet
     assert "curve_element.GeometryCurve" in sheet
     assert "family_doc.Close(False)" in sheet
+
+
+def test_stage09_zone_style_selector_is_diagnostic_only():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    xaml = MAIN_XAML.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert 'x:Name="MainViewZoneLineStyleCombo"' in xaml
+    assert "Lignes des zones des vues principales" in xaml
+    assert "def _load_main_view_zone_line_styles(" in main
+    assert "def _selected_main_view_zone_line_style(" in main
+    assert 'candidate.strip().lower() == "<lignes>"' in main
+    assert 'candidate.strip().lower() == "cartouches"' in main
+    assert "subcategory_name=line_style" in main
+
+    # Le moteur de placement RC13 ne doit pas encore dépendre du sélecteur :
+    placement = sheet[
+        sheet.index("    def _place_multilevel_views_in_template_slots("):
+        sheet.index("    def list_title_block_types(")
+    ]
+    assert "MainViewZoneLineStyleCombo" not in placement
+    assert "subcategory_name" not in placement
