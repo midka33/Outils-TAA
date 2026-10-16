@@ -6,9 +6,33 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
-### Préparation de v1.1.0 — Export
+## [1.2.0] — 2026-10-16
 
-Version proposée, non publiée. Périmètre vérifié depuis v1.0.3 : évolutions Export
+### Ajouté — Plans de vente V1 (PR #26)
+
+- Génération automatique depuis une feuille modèle Revit et filtrage des logements par paramètre.
+- Logements mono-niveau et multi-niveaux : une feuille par niveau avec un modèle à une vue ; deux vues sur une feuille avec un modèle à deux vues.
+- Zones explicites de placement dessinées sur le modèle, choix du style de ligne, échelle commune et placement sans superposition.
+- Vues logement, crop, étiquettes, cotations, repérage, nomenclatures du modèle et duplication de la mise en page.
+- Paramètres logement / bâtiment / étage / typologie et surfaces habitables / annexes consolidées.
+- Aperçu réel de la feuille modèle, rapport détaillé et progression par jalons réels.
+
+### Conservé et harmonisé
+
+- Export et Calculs des pièces : code métier identique à v1.1.0 ; seules les quatre icônes PNG changent.
+- Livraison ZIP + installateur CMD utilisateur, incluant désormais Plans de vente et trois tutoriels ; aucun MSI.
+- Compatibilité Autodesk Revit 2025.4 / pyRevit 5.x / Windows maintenue.
+
+### Validation
+
+- CI de la PR : Plans de vente **259 tests**, Export **323 tests**, Calculs **79 tests**, contrat ruban Export réussi.
+- Recette finale Revit 2025.4 confirmée par l’utilisateur le 16 octobre 2026 : ouverture, mono-niveau, multi-niveaux, lot, progression et non-régression Export / Calculs / icônes.
+- Publication conditionnée au succès des contrôles du commit fusionné sur `main` et du contrôle du ZIP.
+- Hors périmètre : mise à jour automatique de plans existants, plus de deux vues principales sur une feuille et optimisation des très grands lots.
+
+## [1.1.0] — 2026-10-13 — Export
+
+Version publiée. Périmètre vérifié depuis v1.0.3 : évolutions Export
 issues des PR #22 et #23, sans modification des modules Calculs ou Plans de vente.
 Voir le [bilan de préparation](docs/release/Preparation_v1.1.0.md).
 
@@ -33,6 +57,11 @@ Les entrées thématiques ci-dessous conservent l'historique de développement ;
 leurs mentions de validation attendue sont historiques et ne constituent pas
 les notes de version de v1.1.0. Le bilan ci-dessus concerne uniquement les
 modifications vérifiées depuis v1.0.3 et la préparation documentaire associée.
+
+## Historique de développement antérieur
+
+Les entrées suivantes sont conservées pour traçabilité et ne constituent pas
+la liste des nouveautés de v1.2.0.
 
 ### Added
 - Export DWG : case « Fusionner les vues et les liens dans le DWG », indépendante

@@ -19,13 +19,44 @@ class ScheduleTemplateCandidate(object):
 
 
 class SchedulePairResult(object):
-    def __init__(self, housing_key, interior_name, interior_unique_id, exterior_name, exterior_unique_id):
+    def __init__(
+        self,
+        housing_key,
+        interior_name,
+        interior_unique_id,
+        exterior_name,
+        exterior_unique_id,
+        placements=None,
+    ):
         self.housing_key = housing_key or ""
         self.interior_name = interior_name or ""
         self.interior_unique_id = interior_unique_id or ""
         self.exterior_name = exterior_name or ""
         self.exterior_unique_id = exterior_unique_id or ""
         self.placements = list(placements or [])
+
+
+class GeneratedScheduleItem(object):
+    def __init__(
+        self,
+        template_unique_id,
+        template_name,
+        schedule_unique_id,
+        schedule_name,
+        source_housing_value="",
+    ):
+        self.template_unique_id = template_unique_id or ""
+        self.template_name = template_name or ""
+        self.schedule_unique_id = schedule_unique_id or ""
+        self.schedule_name = schedule_name or ""
+        self.source_housing_value = source_housing_value or ""
+
+
+class ScheduleBatchResult(object):
+    def __init__(self, housing_key, items=None, warnings=None):
+        self.housing_key = housing_key or ""
+        self.items = list(items or [])
+        self.warnings = list(warnings or [])
 
 
 class ScheduleService(object):
@@ -82,6 +113,10 @@ class ScheduleService(object):
         exterior_template = self._get_schedule(exterior_template_unique_id)
         interior_name = schedule_name(housing.key, "INT")
         exterior_name = schedule_name(housing.key, "EXT")
+        filter_key = (
+            getattr(housing, "filter_key", None)
+            or housing.key
+        )
 
         self._ensure_name_available(interior_name)
         self._ensure_name_available(exterior_name)
@@ -98,14 +133,14 @@ class ScheduleService(object):
             if interior is None:
                 raise RuntimeError("Revit n'a pas retourné la nomenclature intérieure dupliquée.")
             interior.Name = interior_name
-            self._apply_housing_filter(interior, descriptor, housing.key)
+            self._apply_housing_filter(interior, descriptor, filter_key)
 
             exterior_id = exterior_template.Duplicate(ViewDuplicateOption.Duplicate)
             exterior = self.document.GetElement(exterior_id)
             if exterior is None:
                 raise RuntimeError("Revit n'a pas retourné la nomenclature extérieure dupliquée.")
             exterior.Name = exterior_name
-            self._apply_housing_filter(exterior, descriptor, housing.key)
+            self._apply_housing_filter(exterior, descriptor, filter_key)
 
         return SchedulePairResult(
             housing_key=housing.key,
@@ -129,6 +164,210 @@ class ScheduleService(object):
             ],
         )
 
+    def duplicate_templates_for_housing(
+        self,
+        housing,
+        descriptor,
+        template_schedule_unique_ids,
+        allow_unfiltered=False,
+        all_levels=False,
+    ):
+        """Duplique N nomenclatures modèles et remplace leur filtre logement."""
+        if housing is None:
+            raise ValueError("Sélectionnez un logement.")
+        if descriptor is None:
+            raise ValueError("Paramètre logement manquant.")
+
+        template_ids = []
+        for unique_id in template_schedule_unique_ids or []:
+            value = str(unique_id or "")
+            if value and value not in template_ids:
+                template_ids.append(value)
+
+        if not template_ids:
+            return ScheduleBatchResult(housing.key, [])
+
+        templates = [self._get_schedule(unique_id) for unique_id in template_ids]
+        filterable = {}
+        warnings = []
+
+        for schedule in templates:
+            try:
+                self._validate_template(schedule, descriptor)
+                filterable[str(getattr(schedule, "UniqueId", "") or "")] = True
+            except Exception as error:
+                if not allow_unfiltered:
+                    raise
+                filterable[str(getattr(schedule, "UniqueId", "") or "")] = False
+                warnings.append(
+                    "Nomenclature « {} » reproduite sans filtre logement : {}.".format(
+                        getattr(schedule, "Name", ""),
+                        str(error) or repr(error),
+                    )
+                )
+
+        from Autodesk.Revit.DB import ViewDuplicateOption
+
+        items = []
+        reserved_names = set()
+        filter_key = (
+            getattr(housing, "filter_key", None)
+            or housing.key
+        )
+        all_levels_for_housing = bool(all_levels) or (
+            str(filter_key or "") != str(housing.key or "")
+        )
+
+        with RevitTransaction(
+            self.document,
+            "Plans de vente - Nomenclatures {}".format(housing.key),
+        ):
+            for index, template in enumerate(templates, 1):
+                source_value = self._housing_filter_value(
+                    template,
+                    descriptor,
+                )
+                target_name = self._automatic_schedule_name(
+                    template,
+                    housing.key,
+                    source_value,
+                    index,
+                    reserved_names,
+                )
+
+                new_id = template.Duplicate(ViewDuplicateOption.Duplicate)
+                created = self.document.GetElement(new_id)
+                if created is None:
+                    raise RuntimeError(
+                        "Revit n'a pas retourné la nomenclature dupliquée « {} ».".format(
+                            getattr(template, "Name", "")
+                        )
+                    )
+
+                created.Name = target_name
+                template_uid = str(
+                    getattr(template, "UniqueId", "") or ""
+                )
+                if filterable.get(template_uid, False):
+                    if all_levels_for_housing:
+                        self._remove_level_filters(created)
+                    self._apply_housing_filter(
+                        created,
+                        descriptor,
+                        filter_key,
+                    )
+                reserved_names.add(target_name)
+
+                items.append(
+                    GeneratedScheduleItem(
+                        template_unique_id=str(
+                            getattr(template, "UniqueId", "") or ""
+                        ),
+                        template_name=str(
+                            getattr(template, "Name", "") or ""
+                        ),
+                        schedule_unique_id=str(
+                            getattr(created, "UniqueId", "") or ""
+                        ),
+                        schedule_name=str(
+                            getattr(created, "Name", "") or ""
+                        ),
+                        source_housing_value=source_value,
+                    )
+                )
+
+        return ScheduleBatchResult(
+            housing_key=housing.key,
+            items=items,
+            warnings=warnings,
+        )
+
+    def _housing_filter_value(self, schedule, descriptor):
+        """Lit la valeur logement du modèle quand elle est accessible."""
+        definition = schedule.Definition
+        field_id = self._find_housing_field_id(definition, descriptor)
+        if field_id is None:
+            return ""
+
+        for index in range(definition.GetFilterCount()):
+            current = definition.GetFilter(index)
+            if not self._same_schedule_field_id(current.FieldId, field_id):
+                continue
+
+            for getter_name in (
+                "GetStringValue",
+                "GetIntegerValue",
+                "GetDoubleValue",
+            ):
+                getter = getattr(current, getter_name, None)
+                if getter is None:
+                    continue
+                try:
+                    value = getter()
+                except Exception:
+                    continue
+                if value is None:
+                    continue
+                text = str(value).strip()
+                if text:
+                    return text
+        return ""
+
+    def _automatic_schedule_name(
+        self,
+        template,
+        housing_key,
+        source_housing_value,
+        index,
+        reserved_names,
+    ):
+        template_name = str(getattr(template, "Name", "") or "").strip()
+        target_key = str(housing_key or "").strip()
+
+        if source_housing_value and source_housing_value in template_name:
+            base_name = template_name.replace(
+                source_housing_value,
+                target_key,
+            )
+        elif template_name.startswith("PDV_"):
+            base_name = "PDV_{}_{}".format(
+                target_key,
+                self._schedule_suffix(template_name, index),
+            )
+        else:
+            base_name = "{} - {}".format(
+                template_name or "Nomenclature",
+                target_key,
+            )
+
+        existing = self._existing_schedule_names()
+        candidate = base_name
+        suffix = 2
+        while candidate in existing or candidate in reserved_names:
+            candidate = "{} ({})".format(base_name, suffix)
+            suffix += 1
+        return candidate
+
+    @staticmethod
+    def _schedule_suffix(template_name, index):
+        parts = [part for part in str(template_name or "").split("_") if part]
+        if len(parts) >= 3:
+            return "_".join(parts[2:])
+        return "NOM{:02d}".format(int(index))
+
+    def _existing_schedule_names(self):
+        from Autodesk.Revit.DB import FilteredElementCollector, ViewSchedule
+
+        return set(
+            str(getattr(schedule, "Name", "") or "")
+            for schedule in (
+                FilteredElementCollector(self.document)
+                .OfClass(ViewSchedule)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            )
+        )
+
     def _get_schedule(self, unique_id):
         if not unique_id:
             raise ValueError("Sélectionnez une nomenclature modèle.")
@@ -150,6 +389,48 @@ class ScheduleService(object):
                 "Le champ « {} » de la nomenclature « {} » ne peut pas être utilisé comme filtre de valeur.".format(
                     descriptor.name, getattr(schedule, "Name", "")))
         return field_id
+
+    def _remove_level_filters(self, schedule):
+        """09B.1 : rend la nomenclature globale au logement.
+
+        Une feuille par niveau ne doit pas limiter les tableaux au niveau de la
+        vue. Les filtres de niveau hérités de la nomenclature modèle sont donc
+        retirés pour les sous-logements 09B.1. Les autres filtres métier sont
+        conservés.
+        """
+        definition = schedule.Definition
+        indexes = []
+
+        for index in range(definition.GetFilterCount()):
+            current = definition.GetFilter(index)
+            field = None
+            try:
+                field = definition.GetField(current.FieldId)
+            except Exception:
+                field = None
+            if field is None:
+                continue
+
+            try:
+                name = str(field.GetName() or "").strip().lower()
+            except Exception:
+                name = ""
+
+            normalized = (
+                name.replace("é", "e")
+                .replace("è", "e")
+                .replace("ê", "e")
+                .replace("à", "a")
+            )
+            if (
+                normalized in ("niveau", "level")
+                or normalized.startswith("niveau ")
+                or normalized.startswith("level ")
+            ):
+                indexes.append(index)
+
+        for index in reversed(indexes):
+            definition.RemoveFilter(index)
 
     def _apply_housing_filter(self, schedule, descriptor, housing_key):
         from Autodesk.Revit.DB import ScheduleFilter, ScheduleFilterType

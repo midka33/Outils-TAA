@@ -1,0 +1,455 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Plans de vente — Outils TAA"
+    Width="1420"
+    Height="920"
+    MinWidth="1180"
+    MinHeight="780"
+    WindowStartupLocation="CenterScreen"
+    Background="{DynamicResource TAABackgroundBrush}"
+    FontFamily="Segoe UI"
+    FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="PDVCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource TAAPanelBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TAABorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+
+        <Style x:Key="PDVStepCircle" TargetType="Border">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="CornerRadius" Value="19"/>
+            <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+        </Style>
+
+        <Style x:Key="PDVPrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TAABrandOrangeBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="MinHeight" Value="46"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource TAADisabledBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource TAADisabledBrush}"/>
+                    <Setter Property="Foreground" Value="#8A8A8A"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PDVHousingGrid" TargetType="DataGrid">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TAABorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource TAABorderBrush}"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeaderWidth" Value="0"/>
+            <Setter Property="AlternatingRowBackground" Value="#FAFAFA"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+        </Style>
+
+        <Style x:Key="PDVHousingRow" TargetType="DataGridRow">
+            <Setter Property="MinHeight" Value="27"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PDVHousingCell" TargetType="DataGridCell">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource TAABrandOrangeBrush}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Entête -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Width="46" Height="46" CornerRadius="7"
+                    Background="{DynamicResource TAABrandOrangeBrush}">
+                <TextBlock Text="▥"
+                           Foreground="White"
+                           FontSize="25"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Plans de vente"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TAATextBrush}"/>
+                <TextBlock Text="Création automatique depuis un modèle"
+                           Style="{DynamicResource TAASecondaryText}"/>
+            </StackPanel>
+
+            <Button Grid.Column="3"
+                    Content="?"
+                    Width="34"
+                    Height="34"
+                    FontWeight="SemiBold"
+                    Style="{DynamicResource TAASecondaryButton}"/>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="56*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="44*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Colonne gauche -->
+            <ScrollViewer Grid.Column="0"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+
+                    <!-- Etape 1 -->
+                    <Border Style="{StaticResource PDVCard}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="46"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource PDVStepCircle}">
+                                    <TextBlock Text="1" Foreground="White"
+                                               FontWeight="SemiBold" FontSize="15"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1"
+                                           Text="Portée de génération"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="46*"/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="54*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <RadioButton x:Name="AllHousingRadio"
+                                                 Content="Tous les logements du modèle"
+                                                 IsChecked="True"
+                                                 Checked="ScopeModeChanged"/>
+                                    <RadioButton x:Name="FilteredHousingRadio"
+                                                 Content="Filtrer les logements"
+                                                 Margin="0,8,0,0"
+                                                 Checked="ScopeModeChanged"/>
+
+                                    <Grid x:Name="FilterPanel"
+                                          Margin="24,12,0,0"
+                                          IsEnabled="False">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="6"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.25*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="1.1*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                                   Text="Paramètre"
+                                                   Style="{DynamicResource TAASecondaryText}"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="2"
+                                                   Text="Condition"
+                                                   Style="{DynamicResource TAASecondaryText}"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="4"
+                                                   Text="Valeur"
+                                                   Style="{DynamicResource TAASecondaryText}"/>
+
+                                        <ComboBox x:Name="FilterParameterCombo"
+                                                  Grid.Row="2" Grid.Column="0"
+                                                  DisplayMemberPath="label"
+                                                  SelectionChanged="FilterChoiceChanged"
+                                                  Style="{DynamicResource TAAComboBox}"/>
+                                        <ComboBox x:Name="FilterOperatorCombo"
+                                                  Grid.Row="2" Grid.Column="2"
+                                                  DisplayMemberPath="label"
+                                                  SelectionChanged="FilterChoiceChanged"
+                                                  Style="{DynamicResource TAAComboBox}"/>
+                                        <TextBox x:Name="FilterValueTextBox"
+                                                 Grid.Row="2" Grid.Column="4"
+                                                 TextChanged="FilterValueChanged"
+                                                 Style="{DynamicResource TAATextBox}"/>
+                                    </Grid>
+
+                                    <Border Margin="0,14,0,0"
+                                            Padding="10"
+                                            Background="#FFF2EB"
+                                            CornerRadius="5">
+                                        <TextBlock x:Name="ScopeSummaryText"
+                                                   Text="Analyse des logements..."
+                                                   Foreground="{DynamicResource TAATextBrush}"/>
+                                    </Border>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <DataGrid x:Name="HousingGrid"
+                                              Height="190"
+                                              AutoGenerateColumns="False"
+                                              Style="{StaticResource PDVHousingGrid}"
+                                              RowStyle="{StaticResource PDVHousingRow}"
+                                              CellStyle="{StaticResource PDVHousingCell}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Logement"
+                                                                Binding="{Binding Key}"
+                                                                Width="*"/>
+                                            <DataGridTextColumn Header="Pièces"
+                                                                Binding="{Binding RoomCount}"
+                                                                Width="72"/>
+                                            <DataGridTextColumn Header="Niveaux"
+                                                                Binding="{Binding LevelCount}"
+                                                                Width="72"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock x:Name="HousingGridCaption"
+                                               Margin="0,5,0,0"
+                                               HorizontalAlignment="Right"
+                                               Style="{DynamicResource TAASecondaryText}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Etape 2 -->
+                    <Border Margin="0,14,0,0" Style="{StaticResource PDVCard}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="46"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource PDVStepCircle}">
+                                    <TextBlock Text="2" Foreground="White"
+                                               FontWeight="SemiBold" FontSize="15"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1"
+                                           Text="Choix de la feuille modèle"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="48*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="52*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Modèle de feuille"
+                                               Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SheetTemplateCombo"
+                                              DisplayMemberPath="Label"
+                                              DropDownOpened="SheetTemplateDropDownOpened"
+                                              SelectionChanged="SheetTemplateChanged"
+                                              Style="{DynamicResource TAAComboBox}"/>
+                                    <TextBlock Text="Lignes des zones des vues principales"
+                                               Margin="0,8,0,4"
+                                               Style="{DynamicResource TAASecondaryText}"/>
+                                    <ComboBox x:Name="MainViewZoneLineStyleCombo"
+                                              IsEnabled="False"
+                                              Style="{DynamicResource TAAComboBox}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2"
+                                           x:Name="TemplateDetailsText"
+                                           Text="Choisissez une feuille modèle."
+                                           VerticalAlignment="Center"
+                                           Style="{DynamicResource TAASecondaryText}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Etape 3 -->
+                    <Border Margin="0,14,0,0" Style="{StaticResource PDVCard}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="46"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource PDVStepCircle}">
+                                    <TextBlock Text="3" Foreground="White"
+                                               FontWeight="SemiBold" FontSize="15"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1"
+                                           Text="Création des plans de vente"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="47*"/>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="53*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <Button x:Name="CreateBatchButton"
+                                            Content="Créer les plans de vente"
+                                            Style="{StaticResource PDVPrimaryButton}"
+                                            Click="CreateBatch_Click"/>
+                                    <TextBlock x:Name="CreationInfoText"
+                                               Margin="0,8,0,0"
+                                               Style="{DynamicResource TAASecondaryText}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Le module va créer automatiquement :"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="✓  les vues logement"
+                                               Margin="0,6,0,0"/>
+                                    <TextBlock Text="✓  les étiquettes de pièces"/>
+                                    <TextBlock Text="✓  les cotations"/>
+                                    <TextBlock Text="✓  le repérage du niveau"/>
+                                    <TextBlock Text="✓  toutes les nomenclatures"/>
+                                    <TextBlock Text="✓  la feuille complète avec cartouche"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Colonne droite -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource PDVCard}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Aperçu du modèle de feuille"
+                                       FontSize="17"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="TemplatePreviewTitle"
+                                       Text="Aucun modèle sélectionné"
+                                       Style="{DynamicResource TAASecondaryText}"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="2"
+                                Background="#FBFBFB"
+                                BorderBrush="{DynamicResource TAABorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <Grid Margin="18">
+                                <Border Background="White"
+                                        BorderBrush="{DynamicResource TAABorderBrush}"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Image x:Name="TemplatePreviewImage"
+                                               Stretch="Uniform"/>
+                                        <Canvas x:Name="TemplatePreviewOverlay"
+                                                IsHitTestVisible="False"
+                                                SizeChanged="TemplatePreviewOverlay_SizeChanged"/>
+                                        <TextBlock x:Name="TemplatePreviewPlaceholder"
+                                                   Text="Sélectionnez une feuille modèle pour afficher son image."
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Margin="40"
+                                                   Style="{DynamicResource TAASecondaryText}"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+            </Grid>
+        </Grid>
+
+        <!-- Pied -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Content="⚙  Options avancées"
+                    Style="{DynamicResource TAASecondaryButton}"
+                    Click="AdvancedOptions_Click"/>
+
+            <TextBlock Grid.Column="2"
+                       x:Name="StatusText"
+                       Text="Initialisation..."
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Right"
+                       Style="{DynamicResource TAASecondaryText}"/>
+
+            <Button Grid.Column="4"
+                    Content="Fermer"
+                    MinWidth="110"
+                    Style="{DynamicResource TAASecondaryButton}"
+                    Click="Close_Click"/>
+        </Grid>
+    </Grid>
+</Window>

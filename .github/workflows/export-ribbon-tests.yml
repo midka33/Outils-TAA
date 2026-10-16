@@ -3,6 +3,7 @@ name: Export ribbon contract
 on:
   push:
     branches:
+      - "main"
       - "fix/export-ribbon-icon-only"
   pull_request:
     paths:

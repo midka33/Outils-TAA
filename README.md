@@ -15,14 +15,16 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
-| **Plans de vente** | 🧪 Prototype contour logement optimisé |
+| **Plans de vente** | V1 validée dans Revit 2025.4 — livrée avec Outils TAA v1.2.0 |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
 
 ## Guide utilisateur
 
-- [Export — tutoriel pas à pas](docs/20_Export_Tutoriel.md)
+- [Export — tutoriel à jour](docs/release/Tutoriel_Export_v1.2.0.md)
+- [Calculs des pièces — tutoriel](docs/release/Tutoriel_Calculs_Pieces_v1.2.0.md)
+- [Plans de vente — tutoriel](docs/release/Tutoriel_Plans_de_Vente_v1.2.0.md)
 - [Export — recette de la sélection multiple avant release](docs/21_Export_Recette_Selection_Multiple.md)
 
 ## Historique des noms

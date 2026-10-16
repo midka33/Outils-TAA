@@ -3,6 +3,7 @@ name: Plans de vente — tests hors Revit
 on:
   push:
     branches:
+      - "main"
       - "feature/plans-de-vente-*"
     paths:
       - "OutilsTAA.extension/OutilsTAA.tab/PlansDeVente.panel/**"

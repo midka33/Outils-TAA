@@ -52,6 +52,7 @@ class PrototypeViewService(object):
         source_view_unique_id,
         margin_mm=500.0,
         target_scale=50,
+        view_template_unique_id=None,
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -94,6 +95,7 @@ class PrototypeViewService(object):
                 source_view,
                 level_name,
                 target_scale,
+                view_template_unique_id=view_template_unique_id,
             )
 
             if not master_view.CanViewBeDuplicated(ViewDuplicateOption.AsDependent):
@@ -113,6 +115,7 @@ class PrototypeViewService(object):
                     target_scale,
                 )
             )
+
             self.crop_geometry_service.apply_to_view(
                 created_view,
                 crop_result,
@@ -143,8 +146,14 @@ class PrototypeViewService(object):
         )
 
 
-    def _ensure_master_view(self, source_view, level_name, target_scale):
-        """Réutilise ou crée la vue principale technique du groupe d'échelle."""
+    def _ensure_master_view(
+        self,
+        source_view,
+        level_name,
+        target_scale,
+        view_template_unique_id=None,
+    ):
+        """Réutilise ou crée la vue principale technique du groupe compatible."""
         from Autodesk.Revit.DB import (
             ElementId,
             FilteredElementCollector,
@@ -157,7 +166,17 @@ class PrototypeViewService(object):
             level_name,
             target_scale,
             getattr(source_view, "UniqueId", ""),
+            view_template_unique_id=view_template_unique_id,
         )
+        view_template = None
+        if view_template_unique_id:
+            view_template = self.document.GetElement(
+                view_template_unique_id
+            )
+            if view_template is None:
+                raise ValueError(
+                    "Le gabarit de la vue logement modèle n'existe plus."
+                )
 
         for view in (
             FilteredElementCollector(self.document)
@@ -194,6 +213,16 @@ class PrototypeViewService(object):
                         target_scale
                     )
                 )
+            if view_template is not None:
+                try:
+                    current_template_id = view.ViewTemplateId
+                except Exception:
+                    current_template_id = None
+                if current_template_id != view_template.Id:
+                    raise RuntimeError(
+                        "La vue principale PDV existante n'utilise pas le "
+                        "gabarit de la vue modèle attendu."
+                    )
             return view, False
 
         new_master_id = source_view.Duplicate(ViewDuplicateOption.Duplicate)
@@ -220,6 +249,26 @@ class PrototypeViewService(object):
                     target_scale
                 )
             )
+
+        if view_template is not None:
+            try:
+                master_view.ViewTemplateId = view_template.Id
+            except Exception as error:
+                raise RuntimeError(
+                    "Impossible d'appliquer le gabarit de la vue modèle à "
+                    "la vue principale PDV : {}".format(error)
+                )
+            if master_view.ViewTemplateId != view_template.Id:
+                raise RuntimeError(
+                    "Revit n'a pas conservé le gabarit de la vue modèle sur "
+                    "la vue principale PDV."
+                )
+            if int(getattr(master_view, "Scale", 0) or 0) != target_scale:
+                raise RuntimeError(
+                    "Le gabarit de la vue modèle impose une échelle différente "
+                    "de 1:{}.".format(target_scale)
+                )
+
         return master_view, True
 
     @staticmethod

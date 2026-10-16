@@ -1,0 +1,269 @@
+name: Publish Outils TAA v1.2.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-v1.2.0.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/publish-v1.2.0.yml"
+      - "docs/release/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-v1.2.0-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --disable-pip-version-check pytest
+      - name: Tests Plans de vente
+        env:
+          PYTHONPATH: ${{ github.workspace }}/OutilsTAA.extension/lib
+        run: python -m pytest tests/plans_vente -q
+      - name: Tests Export
+        run: >-
+          python -m pytest tests OutilsTAA.extension/OutilsTAA.tab/Export.panel/tests
+          --ignore=tests/calculation --ignore=tests/plans_vente --import-mode=importlib -q
+      - name: Tests Calculs
+        run: python -m pytest tests/calculation -q
+      - name: Contrat ruban Export
+        run: python -m pytest tests/test_export_ribbon_contract.py -q
+
+  package-and-release:
+    needs: tests
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Prepare release package
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "Outils-TAA_v1.2.0"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "OutilsTAA.extension" (Join-Path $stage "OutilsTAA.extension") -Recurse
+
+          # Les trois modules sont livres. Exclure uniquement les artefacts de developpement.
+          Get-ChildItem $stage -Directory -Recurse |
+            Where-Object { $_.Name -in @('tests', '__pycache__', '.pytest_cache', '.git') } |
+            Sort-Object FullName -Descending | Remove-Item -Recurse -Force
+          Get-ChildItem $stage -File -Recurse |
+            Where-Object { $_.Extension -in @('.pyc', '.pyo', '.tmp', '.bak') } |
+            Remove-Item -Force
+
+          Copy-Item "docs/release/Tutoriel_Export_v1.2.0.md" $stage
+          Copy-Item "docs/release/Tutoriel_Calculs_Pieces_v1.2.0.md" $stage
+          Copy-Item "docs/release/Tutoriel_Plans_de_Vente_v1.2.0.md" $stage
+          Copy-Item "LICENSE" $stage
+          @'
+          OUTILS TAA - RELEASE 1.2.0
+
+          Modules : Export, Calculs des pieces, Plans de vente.
+          Compatibilite : Autodesk Revit 2025.4 / pyRevit 5.x / Windows.
+          Fermer Revit puis lancer INSTALLER_Outils_TAA_v1.2.0.cmd.
+          Installation sans droit administrateur dans :
+          %APPDATA%\pyRevit\Extensions\OutilsTAA.extension
+          Les tutoriels de chaque module sont joints a ce ZIP.
+          Plans de vente : generation depuis une feuille modele ;
+          mono-niveau ou multi-niveaux, jusqu'a deux vues principales par feuille.
+          La mise a jour automatique des plans existants reste hors V1.
+          '@ | Set-Content (Join-Path $stage "LISEZ_MOI.txt") -Encoding UTF8
+
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath "Outils-TAA_v1.2.0.zip" -Force
+
+          $installer = @'
+          @echo off
+          setlocal
+          title Installation Outils TAA v1.2.0
+
+          set "ROOT=%APPDATA%\pyRevit\Extensions"
+          set "DEST=%ROOT%\OutilsTAA.extension"
+          set "LEGACY_ROOT=%ROOT%\Outils-TAA"
+          set "LEGACY_DEST=%LEGACY_ROOT%\OutilsTAA.extension"
+          set "BACKUP_ROOT=%APPDATA%\OutilsTAA\Backups\v1.2.0"
+          set "TMP=%TEMP%\OutilsTAA_v120"
+
+          echo Outils TAA v1.2.0 - installation utilisateur
+          echo.
+
+          if exist "%TMP%" rmdir /S /Q "%TMP%"
+          mkdir "%TMP%"
+
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/midka33/Outils-TAA/releases/download/v1.2.0/Outils-TAA_v1.2.0.zip' -OutFile '%TMP%\release.zip'; Expand-Archive -Path '%TMP%\release.zip' -DestinationPath '%TMP%\release' -Force"
+          if errorlevel 1 goto :error
+
+          if not exist "%ROOT%" mkdir "%ROOT%"
+
+          if exist "%BACKUP_ROOT%" rmdir /S /Q "%BACKUP_ROOT%"
+          mkdir "%BACKUP_ROOT%" >nul 2>&1
+
+          if exist "%DEST%" (
+            move "%DEST%" "%BACKUP_ROOT%\OutilsTAA.extension_standard_previous" >nul
+          )
+
+          rem Migration de l'ancien emplacement utilise par les releases precedentes.
+          if exist "%LEGACY_DEST%" (
+            move "%LEGACY_DEST%" "%BACKUP_ROOT%\OutilsTAA.extension_legacy_previous" >nul
+          )
+
+          xcopy "%TMP%\release\OutilsTAA.extension" "%DEST%\" /E /I /Y >nul
+          if errorlevel 1 goto :restore
+
+          if exist "%LEGACY_ROOT%" rmdir "%LEGACY_ROOT%" >nul 2>&1
+
+          echo.
+          echo Installation terminee.
+          echo Outils TAA est installe dans le dossier standard pyRevit :
+          echo %DEST%
+          echo.
+          echo Les anciennes installations eventuelles ont ete sauvegardees dans :
+          echo %BACKUP_ROOT%
+          echo.
+          echo Fermez puis relancez Revit, ou utilisez Reload dans pyRevit.
+          goto :end
+
+          :restore
+          echo.
+          echo Echec de la copie. Tentative de restauration de l'installation precedente.
+          if exist "%DEST%" rmdir /S /Q "%DEST%"
+          if exist "%BACKUP_ROOT%\OutilsTAA.extension_standard_previous" (
+            move "%BACKUP_ROOT%\OutilsTAA.extension_standard_previous" "%DEST%" >nul
+          )
+          goto :error
+
+          :error
+          echo.
+          echo Echec de l'installation. Verifiez la connexion Internet et les droits d'ecriture du dossier pyRevit.
+
+          :end
+          if exist "%TMP%" rmdir /S /Q "%TMP%"
+          pause
+          '@
+          Set-Content -Path "INSTALLER_Outils_TAA_v1.2.0.cmd" -Value $installer -Encoding ASCII
+
+      - name: Verifier le ZIP et les fichiers runtime
+        shell: python
+        run: |
+          from pathlib import Path, PurePosixPath
+          import hashlib
+          import zipfile
+
+          archive = Path("Outils-TAA_v1.2.0.zip")
+          forbidden_parts = {".git", ".github", "tests", "__pycache__", ".pytest_cache", "project_sources"}
+          forbidden_suffixes = (".pyc", ".pyo", ".tmp", ".bak", ".msi", ".rvt", ".dwg")
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None, "ZIP corrompu"
+              files = {name.replace(chr(92), "/"): name for name in z.namelist() if not name.endswith("/")}
+              for name in files:
+                  assert not set(PurePosixPath(name).parts) & forbidden_parts, name
+                  assert not name.lower().endswith(forbidden_suffixes), name
+              for source in Path("OutilsTAA.extension").rglob("*"):
+                  if not source.is_file() or set(source.parts) & forbidden_parts or source.name.lower().endswith(forbidden_suffixes):
+                      continue
+                  name = source.as_posix()
+                  assert name in files, "Fichier runtime absent : " + name
+                  assert z.read(files[name]) == source.read_bytes(), "Fichier runtime altere : " + name
+              for name in (
+                  "OutilsTAA.extension/OutilsTAA.tab/PlansDeVente.panel/PlansDeVente.pushbutton/script.py",
+                  "OutilsTAA.extension/OutilsTAA.tab/Export.panel/Export.smartbutton/script.py",
+                  "OutilsTAA.extension/OutilsTAA.tab/Calculs.panel/CalculsPieces.pushbutton/script.py",
+                  "Tutoriel_Export_v1.2.0.md", "Tutoriel_Calculs_Pieces_v1.2.0.md",
+                  "Tutoriel_Plans_de_Vente_v1.2.0.md", "LICENSE", "LISEZ_MOI.txt",
+              ):
+                  assert name in files, name
+              print("ZIP valide : {} fichiers ; trois modules et ressources identiques au commit.".format(len(files)))
+          assets = [archive, Path("INSTALLER_Outils_TAA_v1.2.0.cmd")]
+          assets.extend(sorted(Path("docs/release").glob("Tutoriel_*_v1.2.0.md")))
+          Path("SHA256SUMS.txt").write_text("".join(
+              hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n" for p in assets
+          ), encoding="utf-8")
+
+      - name: Conserver le package controle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Outils-TAA-v1.2.0-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            Outils-TAA_v1.2.0.zip
+            INSTALLER_Outils_TAA_v1.2.0.cmd
+            docs/release/Tutoriel_*_v1.2.0.md
+            SHA256SUMS.txt
+
+      - name: Verifier main et toutes ses CI avant publication
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: python
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          import json
+          import os
+          import subprocess
+          import time
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["GITHUB_SHA"]
+          def api(path):
+              return json.loads(subprocess.check_output(["gh", "api", "repos/" + repo + "/" + path], text=True, encoding="utf-8"))
+          expected = {"plans-vente-tests.yml", "calculs-tests.yml", "export-progress-tests.yml", "export-ribbon-tests.yml"}
+          for attempt in range(40):
+              assert api("branches/main")["commit"]["sha"] == sha, "main a avance : publication arretee"
+              runs = api("actions/runs?head_sha=" + sha + "&per_page=100")["workflow_runs"]
+              latest = {}
+              for run in sorted(runs, key=lambda r: r["id"], reverse=True):
+                  name = run["path"].rsplit("/", 1)[-1]
+                  if name in expected and run["event"] == "push" and name not in latest:
+                      latest[name] = run
+              failed = [name for name, r in latest.items() if r["status"] == "completed" and r["conclusion"] != "success"]
+              assert not failed, "CI en echec : " + str(failed)
+              if set(latest) == expected and all(r["conclusion"] == "success" for r in latest.values()):
+                  print("Les quatre CI de main sont reussies pour " + sha)
+                  break
+              print("Attente des controles de main", attempt + 1, flush=True)
+              time.sleep(15)
+          else:
+              raise RuntimeError("Controles main incomplets : aucune publication")
+          checks = api("commits/" + sha + "/check-runs?per_page=100")["check_runs"]
+          assert not [c["name"] for c in checks if c["status"] == "completed" and c["conclusion"] not in ("success", "skipped", "neutral")], "Un autre controle a echoue"
+          assert not api("git/matching-refs/tags/v1.2.0"), "Tag deja existant : aucun ecrasement"
+          assert not any(r["tag_name"] == "v1.2.0" for r in api("releases?per_page=100")), "Release deja existante"
+
+      - name: Publier une nouvelle release stable et verifier son tag
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = Get-Content "docs/release/Notes_v1.2.0.md" -Raw
+          $notes += "`n`nCommit publie : $env:GITHUB_SHA`n"
+          Set-Content "release-notes.md" $notes -Encoding UTF8
+          $assets = @(
+            "Outils-TAA_v1.2.0.zip",
+            "INSTALLER_Outils_TAA_v1.2.0.cmd",
+            "docs/release/Tutoriel_Export_v1.2.0.md",
+            "docs/release/Tutoriel_Calculs_Pieces_v1.2.0.md",
+            "docs/release/Tutoriel_Plans_de_Vente_v1.2.0.md",
+            "SHA256SUMS.txt"
+          )
+          gh release create v1.2.0 @assets --title "Outils TAA v1.2.0 - Plans de vente V1" --notes-file release-notes.md --target $env:GITHUB_SHA --latest
+          if ($LASTEXITCODE -ne 0) { throw "Publication echouee" }
+          $tag = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/v1.2.0" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $tag.object.sha -ne $env:GITHUB_SHA) { throw "Tag incorrect" }
+          $release = gh release view v1.2.0 --json url,isDraft,isPrerelease,assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.isDraft -or $release.isPrerelease -or $release.assets.Count -ne 6) { throw "Release incomplete" }
+          Write-Host $release.url

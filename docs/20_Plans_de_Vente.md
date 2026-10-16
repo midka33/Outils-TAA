@@ -2,13 +2,20 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.16
-**Statut :** Développement — prototypes géométriques  
+**Version :** 1.29
+**Statut :** V1 validée dans Revit 2025.4 le 16 octobre 2026 — livraison Outils TAA v1.2.0
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-05
+**Date :** 2026-10-16
 
+
+**Validation finale :** l’utilisateur confirme la réussite de l’ouverture, de la
+génération mono-niveau, multi-niveaux à deux vues, par lot, de la progression,
+de la non-régression Export / Calculs et des icônes harmonisées.
+Les sections historiques ci-dessous conservent la trace des étapes de développement.
+Le bilan actuel et les limites V1 figurent dans
+`docs/release/Preparation_Plans_de_Vente_V1.md`.
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
 
@@ -352,12 +359,21 @@ La cotation automatique est un point critique du module.
 
 ## 9.1 Règle métier
 
-Pour chaque pièce, l'objectif est de créer **deux cotes principales** :
+Pour la V1, l'objectif est volontairement simple et constant :
+**deux cotes principales maximum par pièce** :
 
 - longueur intérieure finie ;
 - largeur intérieure finie.
 
-Ces deux cotes doivent représenter les dimensions générales de la pièce.
+Cette règle s'applique aussi aux pièces en L, en T ou aux géométries atypiques.
+Le moteur privilégie les dimensions générales et ne cherche plus à décrire
+automatiquement toutes les branches de la pièce.
+
+Les petits décrochements, niches et retours mineurs restent filtrés.
+
+Lorsque la géométrie nécessite des cotes complémentaires, l'utilisateur les
+ajoute manuellement après génération. La cotation automatique est donc une
+base de production rapide à relire, et non une cotation exhaustive.
 
 ## 9.2 Priorité aux dimensions générales
 
@@ -2996,3 +3012,2164 @@ clôture.
 **Étape 04 — Nomenclatures et repérage : VALIDÉE V1.**
 
 Le placement réel sur feuille reste volontairement réservé à l'Étape 07.
+
+
+## Ouverture Étape 05 — Étiquettes de pièces
+
+Branche : `feature/plans-de-vente-stage05-room-tags`.
+
+### Prototype 05A — placement automatique
+
+La V1 propose un type de `RoomTagType` et une vue logement dépendante générée
+par l'Étape 03.
+
+L'API Revit 2025 vérifiée pour ce prototype est :
+
+- `Document.Create.NewRoomTag(LinkElementId, UV, ElementId)` ;
+- `Room.IsPointInRoom(XYZ)` ;
+- `RoomTag.RoomTagType` ;
+- `SpatialElementTag.TagHeadPosition`.
+
+Le prototype ne place jamais les étiquettes dans la vue source ou dans un
+`PDV MASTER`. Il cible uniquement une vue dépendante
+`PDV PROTO - <logement> - ...`.
+
+### Recherche du point intérieur
+
+Pour chaque pièce :
+
+1. lire le contour fini de la pièce ;
+2. prendre la boucle extérieure la plus grande ;
+3. calculer son centroïde géométrique ;
+4. tester le centre de bounding box ;
+5. conserver le point de localisation Revit comme autre candidat ;
+6. générer une grille de candidats centrée sur la pièce ;
+7. accepter uniquement les candidats pour lesquels
+   `Room.IsPointInRoom(...)` est vrai.
+
+Une fois l'étiquette créée, son emprise graphique réelle est vérifiée via son
+bounding box dans la vue.
+
+Le moteur privilégie :
+
+```text
+pas de collision
+      +
+bounding box entièrement dans la pièce
+      +
+position la plus centrale possible
+```
+
+Si aucune position ne permet de garder toute l'étiquette dans la pièce, le
+centre reste obligatoirement intérieur à la pièce et un avertissement est
+retourné.
+
+### Anti-collision V1
+
+Le prototype évite :
+
+- les étiquettes de pièces déjà présentes dans la vue ;
+- les étiquettes créées plus tôt dans le même logement.
+
+Une marge graphique de sécurité de 10 mm est appliquée entre bounding boxes.
+
+Le service accepte déjà une liste `exclusion_boxes`. L'Étape 06 pourra y
+injecter les futures zones réservées aux cotations sans modifier le moteur de
+placement des étiquettes.
+
+La V1 bloque une nouvelle génération si une pièce du logement possède déjà une
+étiquette dans la vue. La mise à jour / repositionnement d'étiquettes existantes
+reste réservée à l'Étape 08.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. créer ou sélectionner une vue logement dépendante ;
+2. choisir un type d'étiquette ;
+3. cliquer **Créer les étiquettes** ;
+4. vérifier qu'une étiquette est créée pour chaque pièce du logement ;
+5. vérifier le type d'étiquette ;
+6. contrôler une pièce rectangulaire ;
+7. contrôler une pièce en L ou concave ;
+8. vérifier qu'une étiquette trop proche d'un bord est déplacée vers une autre
+   position intérieure lorsque possible ;
+9. vérifier que deux étiquettes ne se superposent pas lorsque des positions
+   alternatives existent ;
+10. relancer sur la même vue et vérifier que les doublons sont bloqués.
+
+**Statut : VALIDÉ dans Revit 2025.4 le 7 octobre 2026.**
+
+
+### Correctif Étape 05 — libellés des types d'étiquettes
+
+Le premier essai Revit 2025.4 de l'Étape 05 a montré que les
+`RoomTagType` étaient bien présents dans la ComboBox mais avec des lignes
+vides.
+
+Le service utilise désormais une lecture renforcée du nom de type et de famille
+avec les paramètres système Revit `SYMBOL_NAME_PARAM` et
+`SYMBOL_FAMILY_NAME_PARAM`, en complément de `Element.Name.GetValue`.
+
+Voir **BUG-PDV-025**.
+
+**À retester dans Revit 2025.4.**
+
+
+#### Correctif renforcé BUG-PDV-025
+
+Le premier correctif n'a pas suffi dans le projet réel : les éléments de la
+ComboBox restaient présents mais sans texte.
+
+La deuxième passe utilise explicitement `ALL_MODEL_TYPE_NAME` et
+`ALL_MODEL_FAMILY_NAME`, normalise tous les textes et garantit en dernier
+recours un libellé `Type d'étiquette #<ElementId>`.
+
+L'interface indique également le nombre de types chargés.
+
+**À retester dans Revit 2025.4.**
+
+
+#### Correctif UI définitif — liste de chaînes simples
+
+Après un deuxième essai réel, les types étaient bien chargés et disposaient
+d'un libellé de secours, mais `DisplayMemberPath="Label"` continuait à produire
+des lignes blanches dans WPF.
+
+La ComboBox **Type étiquette** ne passe donc plus par un objet Python exposé au
+binding WPF. Son `ItemsSource` est maintenant une liste de chaînes simples.
+Le candidat Revit correspondant est retrouvé par l'index sélectionné.
+
+Ce changement isole définitivement l'affichage du comportement de réflexion
+IronPython/WPF.
+
+**À retester dans Revit 2025.4.**
+
+
+#### Correction racine du collector RoomTagType
+
+Le compteur `0 type(s) d'étiquette disponible(s)` a permis d'isoler le
+problème réel : le service utilisait `OfClass(RoomTagType)`.
+
+Le collector est remplacé par :
+
+```text
+FamilySymbol
++ OST_RoomTags
++ WhereElementIsElementType
+```
+
+La validation du type sélectionné utilise également la classe parente
+`FamilySymbol` et la catégorie `OST_RoomTags`.
+
+L'interface distingue maintenant :
+
+- une **erreur de collecte API**, dont le message est conservé et affiché ;
+- un **vrai zéro**, signifiant qu'aucune famille d'étiquette de pièce n'est
+  chargée dans le document hôte ;
+- un nombre positif de types utilisables.
+
+**À valider dans Revit 2025.4.**
+
+
+#### Correctif création — collector des RoomTag existants
+
+Après correction de la collecte des types, le premier clic sur
+**Créer les étiquettes** a révélé le même piège API sur les instances :
+`OfClass(RoomTag)` est refusé par Revit.
+
+Le contrôle anti-doublon collecte désormais les instances via :
+
+```text
+SpatialElementTag
++ OST_RoomTags
++ WhereElementIsNotElementType
+```
+
+Voir **BUG-PDV-026**.
+
+**À retester dans Revit 2025.4.**
+
+
+#### Correctif runtime — service d'étiquettes rechargé
+
+Un nouvel essai a montré le message de l'ancien `OfClass(RoomTag)` alors que
+ce collector n'existait plus dans la branche active.
+
+Pour supprimer toute ambiguïté entre code Git et code exécuté :
+
+- `_existing_room_tags()` filtre désormais uniquement par
+  `OST_RoomTags`, sans aucun `OfClass` ;
+- `room_tag_service` est rechargé explicitement au lancement du bouton ;
+- les erreurs affichent le build
+  `stage05-room-tags-category-only-v3`.
+
+Voir **BUG-PDV-027**.
+
+**À retester dans Revit 2025.4.**
+
+
+## Clôture Étape 05 — 2026-10-07
+
+Validation utilisateur confirmée dans **Revit 2025.4 / pyRevit 5.x**.
+
+Points validés :
+
+- collecte des types d'étiquettes de pièces via `FamilySymbol + OST_RoomTags` ;
+- affichage fiable des types dans la ComboBox ;
+- création d'une étiquette par pièce dans la vue logement dépendante ;
+- type d'étiquette choisi par l'utilisateur ;
+- recherche de points intérieurs par `Room.IsPointInRoom(...)` ;
+- repositionnement possible lorsque l'emprise déborde ou entre en collision ;
+- anti-doublon sur les étiquettes déjà présentes ;
+- tête d'étiquette maintenue dans le volume de la pièce avec le `probe_z` validé ;
+- moteur validé : `stage05-room-tags-probe-z-v4`.
+
+Le correctif final remplace la réutilisation de `TagHeadPosition.Z` par le
+`probe_z` déjà contrôlé dans la pièce, puis revalide le point avant d'affecter
+`TagHeadPosition`.
+
+**Étape 05 — Étiquettes de pièces : VALIDÉE V1.**
+
+La suite se poursuit avec **Étape 06 — Cotations**.
+
+## Ouverture Étape 06 — Cotations
+
+Branche de travail prévue : `feature/plans-de-vente-stage06-dimensions`.
+
+Objectif V1 :
+
+1. proposer un type de cote configurable ;
+2. cibler une vue logement dépendante générée par Plans de vente ;
+3. rechercher deux dimensions principales par pièce ;
+4. privilégier les faces finies opposées ;
+5. ignorer les petits décrochements qui ne décrivent pas la dimension générale ;
+6. créer des cotes Revit associatives ;
+7. préparer des zones d'exclusion réutilisables par le moteur d'étiquettes.
+
+Le premier prototype 06A doit être volontairement testable sur des pièces
+simples avant d'élargir la robustesse aux pièces en L, murs composés,
+cloisons et murs non orthogonaux.
+
+
+## Prototype 06A — Deux cotations principales
+
+Implémentation préparée sur
+`feature/plans-de-vente-stage06-dimensions`.
+
+### Périmètre du premier prototype
+
+Pour un logement sélectionné, l'interface propose :
+
+- une vue logement dépendante `PDV PROTO - <logement> - ...` ;
+- un type de cote linéaire du document ;
+- l'action **Créer les cotations**.
+
+Le prototype travaille sur les limites de pièce en
+`SpatialElementBoundaryLocation.Finish`.
+
+Pour chaque pièce, il :
+
+1. conserve la boucle extérieure principale ;
+2. conserve les segments droits portés par des murs ;
+3. recherche sur ces murs la face latérale finie la plus proche via
+   `HostObjectUtils.GetSideFaces(...)` ;
+4. regroupe les limites par direction ;
+5. écarte les micro-segments relativement à leur propre famille de direction ;
+6. retient les deux paires de faces opposées les plus représentatives ;
+7. crée deux cotes linéaires associatives avec des `Reference` Revit réelles.
+
+La géométrie de sélection des deux axes est isolée dans
+`lib/plans_vente/dimension_geometry.py` afin d'être testable hors Revit.
+
+### Filtrage des petits décrochements
+
+Le seuil est calculé par famille de directions et non par rapport au plus long
+mur de la pièce.
+
+Ce choix est important pour qu'un couloir très long conserve malgré tout sa
+dimension transversale, tout en permettant d'écarter un petit segment de niche
+ou de décrochement.
+
+### Sécurité du prototype
+
+Le prototype 06A est volontairement strict :
+
+- uniquement des limites droites portées par des murs ;
+- uniquement des faces latérales Revit exploitables comme références ;
+- deux paires fiables obligatoires par pièce ;
+- si une pièce du logement ne fournit pas deux axes fiables, la création est
+  bloquée avant transaction ;
+- les cotes sont créées dans une transaction courte commune.
+
+Les arcs, séparateurs de pièces, poteaux et géométries atypiques seront élargis
+après validation du contrat de base.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. sélectionner un logement possédant une vue logement dépendante ;
+2. choisir un type de cote linéaire ;
+3. cliquer **Créer les cotations** ;
+4. vérifier la création de **deux cotes par pièce** ;
+5. vérifier que les cotes utilisent le type choisi ;
+6. déplacer légèrement un mur et vérifier que la cote reste associative ;
+7. vérifier que les références correspondent aux faces intérieures finies ;
+8. tester une pièce rectangulaire ;
+9. tester un couloir long et étroit ;
+10. tester une pièce avec petit décrochement et vérifier que le décrochement ne
+    devient pas la dimension principale.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Prototype 06B — Pièces non orthogonales et résultat partiel
+
+Premier retour Revit 2025.4 du prototype 06A :
+
+- les pièces rectangulaires produisent correctement leurs deux cotations ;
+- les pièces qui ne fournissent pas deux familles de murs parallèles étaient refusées.
+
+Le moteur 06B étend donc le comportement sans abandonner la priorité aux dimensions intérieures finies.
+
+### Stratégie de cotation
+
+Ordre de priorité par pièce :
+
+```text
+2 familles de faces parallèles fiables
+        ↓
+2 cotes entre faces finies
+
+1 seule famille parallèle fiable
+        ↓
+1 cote entre faces finies
++
+1 longueur dominante de mur en secours
+
+aucune famille parallèle fiable
+        ↓
+jusqu'à 2 longueurs de murs dominantes,
+sur des directions différentes
+```
+
+La cote de longueur de secours recherche d'abord des références d'extrémité Revit sur la courbe. Si elles ne sont pas disponibles, elle recherche les arêtes verticales de la face finie correspondant aux extrémités de la limite de pièce.
+
+La ligne de cote est décalée vers l'intérieur de la pièce lorsque `Room.IsPointInRoom(...)` permet d'identifier le bon côté.
+
+### Tolérance aux pièces atypiques
+
+Une pièce atypique ne bloque plus la cotation du logement entier.
+
+Chaque pièce est traitée dans une transaction courte indépendante. Le résultat distingue :
+
+- pièce complète : 2 cotes ;
+- pièce partielle : 1 cote ;
+- pièce ignorée : 0 cote.
+
+Les avertissements indiquent les pièces pour lesquelles une cote de secours n'a pas pu être créée.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre le logement du premier test 06A ;
+2. vérifier que les pièces rectangulaires conservent leurs deux cotes ;
+3. vérifier qu'une pièce avec une seule paire de murs parallèles reçoit une cote entre faces et une cote de longueur ;
+4. vérifier qu'une pièce sans paire parallèle tente deux longueurs dominantes ;
+5. vérifier qu'une pièce non résolue ne bloque pas les autres pièces ;
+6. contrôler visuellement que les longueurs correspondent bien aux limites finies attendues ;
+7. déplacer un mur et vérifier l'associativité des cotes créées.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 06C — références d'extrémité et limite courbe
+
+Retour Revit sur le logement B213 : 4 pièces analysées, 4 cotes créées,
+2 pièces correctement cotées et 2 pièces sans cote.
+
+Le plan de test met en évidence deux cas qui restaient mal traités :
+
+- une pièce dont une limite extérieure est courbe ;
+- une pièce non orthogonale avec mur biais.
+
+Deux causes ont été corrigées.
+
+### 1. Une paire parallèle ne nécessite pas quatre segments droits
+
+Le moteur géométrique exigeait au minimum quatre segments droits avant de
+chercher une paire parallèle. Cette contrainte était trop forte : une pièce
+avec trois limites droites et une limite courbe peut parfaitement fournir
+une paire de faces finies parallèles exploitable.
+
+Le seuil est désormais ramené à deux segments exploitables.
+
+### 2. Références d'extrémité réelles du mur
+
+Les courbes issues de `Room.GetBoundarySegments(...)` ne fournissent pas
+toujours des références d'extrémité utilisables pour une cote associative.
+
+Le moteur recharge maintenant la géométrie native du mur avec
+`Options.ComputeReferences = True`, retrouve la face latérale finie la plus
+proche de la limite de pièce, puis extrait les références des arêtes
+verticales de cette face.
+
+Cette méthode fournit des références Revit réelles pour les cotes de
+longueur de secours sur les pièces non orthogonales.
+
+Build de test : `stage06c-dimensions-compute-references-v3`.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre le logement B213 ;
+2. vérifier que les deux pièces déjà correctes conservent leurs deux cotes ;
+3. vérifier que la pièce avec limite courbe reçoit au moins la cote entre
+   les deux faces parallèles restantes ;
+4. vérifier que la pièce avec mur biais reçoit une cote de longueur de
+   secours ;
+5. vérifier que les cotes restent associatives après déplacement d'un mur.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+## Correctif 06D — lignes de séparation de pièces
+
+Un essai sur un logement réel avec pièce extérieure a montré un défaut de
+positionnement des cotations au droit des lignes de séparation de pièces.
+
+Cause : le moteur 06C ne conservait comme limites cotables que les segments
+portés par des murs. Les `BoundarySegment` produits par les lignes de
+séparation étaient donc ignorés, ce qui faussait la géométrie disponible
+pour rechercher la largeur / longueur principale de la pièce.
+
+Le moteur 06D traite désormais les éléments de catégorie
+`OST_RoomSeparationLines` comme de vraies limites de pièce pour la recherche
+des dimensions principales.
+
+Pour ces séparations :
+
+- la géométrie du segment de pièce est conservée ;
+- `GeometryCurve.Reference` est utilisée comme référence de cote ;
+- la séparation peut former une paire parallèle avec un mur ou une autre
+  séparation ;
+- elle n'est pas utilisée comme longueur de secours, car la courbe Revit
+  peut dépasser la portion réellement utilisée par la pièce.
+
+Build de test : `stage06d-dimensions-room-separators-v4`.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre le logement réel comportant une pièce extérieure ;
+2. vérifier que les cotes se placent désormais sur les vraies limites de la
+   pièce, y compris du côté des lignes de séparation ;
+3. vérifier qu'une séparation parallèle à un mur opposé produit la largeur
+   attendue ;
+4. vérifier que les pièces intérieures déjà validées ne régressent pas ;
+5. déplacer une ligne de séparation et contrôler l'associativité de la cote.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+## Correctif 06E — substitution séparateur par bord de sol
+
+Retour Revit sur un logement réel : les cotes de terrasse deviennent
+invisibles lorsque la catégorie des lignes de séparation de pièces est
+masquée dans la vue.
+
+Le moteur 06E conserve la ligne de séparation comme géométrie de repérage,
+mais cherche d'abord une arête de sol réellement superposée à cette limite.
+
+### Hiérarchie de référence
+
+```text
+Mur
+→ face finie du mur
+
+Séparation de pièce
+→ rechercher une arête de sol parallèle, proche et suffisamment superposée
+→ si trouvée : utiliser Edge.Reference du sol
+→ sinon : conserver GeometryCurve.Reference de la séparation en dernier recours
+```
+
+### Contrôles de fiabilité
+
+Le bord de sol candidat doit respecter :
+
+- tolérance angulaire : 3° ;
+- distance XY maximale : 20 mm ;
+- recouvrement minimal avec la limite de pièce : 60 % ;
+- sol porté par le même niveau en priorité ;
+- recherche de secours seulement sur un niveau voisin à moins de 500 mm ;
+- arête projetée minimale : 100 mm.
+
+La géométrie des sols est rechargée avec `Options.ComputeReferences = True`
+afin d'obtenir de vraies références Revit associatives.
+
+Un cache par niveau évite de recalculer toutes les arêtes de sol pour chaque
+pièce d'un logement.
+
+Si aucune arête fiable n'est trouvée, le moteur conserve la référence de la
+séparation et ajoute un avertissement indiquant que la cote peut disparaître
+si cette catégorie est masquée dans la vue.
+
+Build de test : `stage06e-dimensions-floor-edge-substitution-v5`.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. reprendre un logement avec terrasse / balcon délimité par séparateurs ;
+2. laisser les lignes de séparation invisibles dans la vue ;
+3. vérifier que les cotes restent visibles quand une arête de sol coïncide ;
+4. vérifier que la cote référence bien le bord du sol et non le séparateur ;
+5. déplacer le bord du sol et contrôler l'associativité ;
+6. vérifier qu'une séparation sans sol correspondant produit un avertissement ;
+7. vérifier qu'aucune arête de sol proche mais non superposée n'est choisie.
+
+**Statut : À retester dans Revit 2025.4.**
+
+**Confirmation utilisateur du 8 octobre 2026 :** le moteur 06E
+`stage06e-dimensions-floor-edge-substitution-v5` est validé dans Revit 2025.4,
+y compris les pièces atypiques et les terrasses avec substitution par bord de
+sol. Cette confirmation clôt la recette 06E ci-dessus ; elle ne valide pas 06F.
+
+## Prototype 06F — Placement graphique des cotations
+
+**Build :** `stage06f-dimensions-graphic-placement-v6`
+
+**Branche :** `feature/plans-de-vente-stage06-dimensions`
+
+**Statut :** tests hors Revit exécutés ; rendu Revit 2025.4 à valider.
+
+### Périmètre et conservation du moteur 06E
+
+06F ajoute le placement après sélection des références. Les paires de faces
+finies, les longueurs dominantes de secours, les limites courbes partielles et
+les références de séparateurs/bords de sols restent gérées par le code 06E.
+Ses seuils 3° / 20 mm / 60 % / niveau voisin 500 mm, `ComputeReferences=True`
+et le cache par niveau restent inchangés. Aucun séparateur n'est réaffiché.
+
+Le service continue à viser deux cotes associatives par pièce. Il ne déplace
+pas les RoomTag, ne change pas le texte natif du type sélectionné et n'écrit
+ni `TextPosition` ni `ValueOverride`. La création vise exclusivement la vue
+logement dépendante `PDV PROTO - <logement> - ...` validée par le service ;
+aucun réglage de la vue source n'est modifié. Les annotations des vues
+principales/dépendantes partagent toutefois le comportement natif Revit :
+leur visibilité dans les autres vues doit être contrôlée pendant la recette.
+
+### Placement et priorités
+
+`plans_vente/dimension_positioning.py` contient la géométrie pure ;
+`DimensionService` collecte les données Revit et crée les cotes après le choix.
+Le contour de recherche inclut les limites tessellées, y compris courbes et
+trous. La contenance est testée par `Room.IsPointInRoom` au `_probe_z(room)`
+intérieur, jamais à l'altitude d'un texte ou d'une ligne d'annotation.
+
+Pour chaque cote, dix translations parallèles au maximum sont proposées :
+les deux côtés à marge nominale, à demi-marge, à quart de marge, trois
+positions intermédiaires et la position 06E. La portée et les références
+restent identiques. Les deux cotes sont comparées conjointement, dans cet ordre :
+
+1. emprise intérieure aux points sondés ;
+2. absence de collision avec les étiquettes ;
+3. absence de collision avec les cotes existantes et les textes de la paire ;
+4. absence de croisement graphique résiduel dans la paire ;
+5. absence de collision avec les équipements ;
+6. dégagement transversal au mur, puis ordre stable des candidats.
+
+Les collisions utilisent des rectangles orientés et un test d'axes séparateurs,
+pas seulement la grande boîte englobante XY d'une cote oblique. La comparaison
+des boîtes et le contrat d'exclusion réutilisent `tag_positioning.boxes_overlap`.
+
+**Limite géométrique explicite :** deux mesures complètes entre les murs opposés
+d'un rectangle, perpendiculaires et toutes deux intérieures, se croisent
+nécessairement. 06F éloigne ce croisement des textes et étiquettes puis signale
+`croisement résiduel des cotes ou témoins`. Il ne supprime aucune mesure utile
+pour masquer ce compromis. L'absence de croisement est recherchée lorsqu'elle
+est possible, notamment pour des portées partielles dans des bras distincts.
+
+### Distances papier et emprises
+
+Les constantes sont dans `DimensionService` et se convertissent en unités
+internes via `UnitUtils`, après multiplication par `View.Scale` :
+
+| Constante | Distance papier | À 1:50 dans le modèle |
+|---|---:|---:|
+| `PAPER_CLEARANCE_MM` | 6 mm | 300 mm |
+| `PAPER_TEXT_WIDTH_MM` | 12 mm | 600 mm |
+| `PAPER_TEXT_HEIGHT_MM` | 3 mm | 150 mm |
+| `PAPER_PADDING_MM` | 0,3 mm | 15 mm |
+| `PAPER_WITNESS_MM` | 1,5 mm | 75 mm |
+
+La largeur du texte est une **réservation estimée**. La réserve transversale
+s'étend de la hauteur indiquée de chaque côté de la ligne, pour protéger le
+texte natif et son espacement. Les deux orientations possibles (alignement
+sur la cote / horizontal dans la vue) sont réservées. Les témoins de longueur
+de secours relient les extrémités de référence à la ligne décalée ; les cotes
+entre faces réservent des témoins courts aux extrémités.
+
+Les familles/types avec grands préfixes, suffixes, texte déporté ou témoins
+particuliers peuvent dépasser cette estimation. Après commit, la vraie
+`get_BoundingBox(view)` enrichit les réservations ; son chevauchement avec une
+étiquette déclenche un avertissement de contrôle, pas une correction du texte.
+Cette boîte englobante peut être conservatrice, particulièrement en vue tournée.
+
+Dans une petite pièce, les marges diminuent avant d'accepter un conflit.
+Si aucun candidat propre n'existe, la meilleure position conserve la cote utile
+et un avertissement identifie l'emprise extérieure ou la collision résiduelle.
+Si l'API de placement échoue, la position 06E est conservée avec sa cause dans
+le rapport. Une pièce non résolue ne bloque pas les suivantes.
+
+### Obstacles et coordination avec l'Étape 05
+
+Une collecte par catégorie dans la vue cible récupère les boîtes visibles des
+RoomTag (`OST_RoomTags`, sans `OfClass(RoomTag)`), des cotes existantes et des
+équipements du document hôte : appareils sanitaires, mobilier, agencements,
+équipements mécaniques, spécialisés et électriques. Les éléments explicitement
+masqués et catégories masquées sont exclus ; les erreurs de collecte et boîtes
+indisponibles sont signalées. Les équipements des liens ne sont pas collectés
+par ce prototype. Les boîtes sont transformées en XY modèle avec leurs huit
+coins ; elles ne sont pas supposées alignées sur les axes écran.
+
+`DimensionCreationResult.exclusion_boxes` est une liste de tuples
+`(min_x, min_y, max_x, max_y)` en **XY modèle, unités internes Revit**. Elle
+contient uniquement les cotes des transactions réussies : emprises estimées
+(ligne découpée, texte, témoins) plus boîte native lorsqu'elle est disponible.
+Elle est compatible avec l'argument `exclusion_boxes` de l'Étape 05. La liste
+est renvoyée au contrôleur, sans persistance ni déplacement automatique des
+étiquettes ; l'orchestration de mise à jour complète reste à l'Étape 08.
+
+### Performance et limites du prototype
+
+Par cote : au plus dix candidats, 23 sondes de ligne/texte et six sondes de
+marge par candidat ; les coordonnées répétées sont mises en cache par pièce.
+Pour la paire : au plus 100 comparaisons géométriques pures, sans appel Revit
+supplémentaire. Aucun objet temporaire Revit n'est créé. Les réservations des
+cotes effectivement créées sont réutilisées pour les pièces suivantes et pour
+les tentatives de secours après un échec de création.
+
+Cet échantillonnage borné n'est pas une preuve de contenance de chaque point
+d'une ligne ou de son texte : un très petit trou entre deux sondes peut être
+manqué. Les contacts nécessaires des extrémités/témoins avec la référence ne
+sont pas assimilés à une cote extérieure. Le rendu natif et le temps total,
+y compris collecte de géométrie Revit, doivent être validés sur le modèle.
+
+L'étape reste une **création**, sans mécanisme de remplacement des anciennes
+cotes : ne pas relancer sur une vue déjà cotée pour comparer 06E et 06F.
+Utiliser une copie de test du modèle et annuler la création précédente avant
+chaque nouvel essai, en contrôlant les vues dépendantes partageant les annotations.
+
+### Tests hors Revit exécutés le 8 octobre 2026
+
+- Référence avant modification : 133 tests Plans de vente réussis.
+- 17 nouveaux tests de géométrie : rectangle, croisement inévitable / évitable,
+  étiquette centrale, petite pièce, pièce impossible, couloir, L, biais,
+  terrasse, décrochement, côté libre, trou, limite courbe, témoins,
+  budget et hiérarchie des priorités.
+- 12 nouveaux tests du vrai service avec frontières Revit simulées : identité
+  des références de sol, avertissement séparateur, probe Z à l'étage, retour
+  06E sur erreur, longueur de secours, rollback, pièce suivante, échelle,
+  emprise native, transformation de boîte, seuils 06E et collecte par catégorie.
+  Le contrat de rechargement du module et l'absence de mutations du texte sont
+  également vérifiés dans cette suite.
+- Suite complète hors Revit : **445 tests réussis** avec :
+
+```bash
+PYTHONPATH=OutilsTAA.extension/lib python -m pytest tests -q --import-mode=importlib
+```
+
+Ces tests ne constituent pas une validation Revit, WPF ou IronPython réels.
+
+### Premier test Revit 2025.4 — checklist exacte
+
+1. Ouvrir une copie de test du modèle contenant un logement déjà validé en 06E.
+   Recharger pyRevit après récupération Git. Vérifier le libellé **Étape 06F**.
+2. Choisir la vue logement `PDV PROTO - <logement> - ...`, échelle **1:50**,
+   portant les étiquettes 05 validées, sans anciennes cotes 06 dans cette zone.
+   Conserver le même type de cote que pour le test 06E.
+3. Laisser les séparateurs de pièces **masqués**, lancer **Créer les cotations**
+   une seule fois et chronométrer. Vérifier dans le rapport le build
+   `stage06f-dimensions-graphic-placement-v6`, les comptes et les avertissements.
+4. Contrôler une pièce rectangulaire, une chambre et le séjour : deux mesures
+   utiles, lignes intérieures, textes lisibles, aucune superposition avec les
+   étiquettes ; un croisement nu inévitable doit être signalé et éloigné des textes.
+5. Contrôler WC/SDB et couloir : marges réduites si nécessaire, équipements
+   évités quand une autre place existe, aucune cote utile supprimée sans diagnostic.
+6. Contrôler une pièce en L, un mur biais et une limite courbe partielle :
+   les mesures restent sur les bonnes références, hors décrochements parasites ;
+   inspecter aussi les témoins et les petits trous entre sondes.
+7. Contrôler la terrasse : cotes visibles avec séparateurs masqués, références
+   sur les bords de sol superposés ; conserver l'avertissement si seul le
+   séparateur est disponible. Ne pas réafficher les séparateurs pour contourner le test.
+8. Déplacer légèrement un mur coté puis un bord de sol coté dans la copie :
+   vérifier la mise à jour associative des mesures, puis annuler ces déplacements.
+9. Vérifier que les étiquettes n'ont pas bougé et que les réglages de la vue
+   source sont inchangés. Contrôler la visibilité native des annotations dans
+   la vue principale et les autres vues dépendantes.
+10. Noter le temps sur un logement de **10 à 15 pièces**, le nombre de cotes
+    comparé à 06E et les avertissements ; transmettre une capture du plan et
+    du rapport. La réactivité réelle est un critère de validation, pas déduite des pytest.
+
+**Validation suivante :** rejouer à 1:100 après annulation des cotes de test,
+puis sur une vue tournée et un logement à l'étage. Contrôler particulièrement
+les types de cote à texte large et les équipements provenant de liens.
+
+## Correctif 06F.1 — Largeurs des entrées et couloirs
+
+**Build :** `stage06f-circulation-widths-v7`
+
+**Retour utilisateur du 8 octobre 2026 :** version 06F v6 acceptée sur A003,
+à l'exception de l'entrée/dégagement en L. La capture du rapport indique
+12 pièces analysées, 24 cotes créées et aucune pièce sans cote. Le retour
+« sinon tout est bon » valide le rendu général ; les avertissements du rapport
+restent des diagnostics, sans prétendre que chaque collision a été vérifiée.
+
+### Règle ciblée
+
+- Pour les pièces nommées **entrée, couloir, dégagement ou circulation**, y
+  compris `Entrée/Dgt`, coter la largeur locale du passage. Reconnaissance par
+  mots entiers, sans tenir compte des accents, de la casse ou des séparateurs ;
+  abréviations acceptées : `Dgt`, `Dgtmt`, `Degt`.
+- Dans une circulation en L : rechercher une largeur dans chaque direction,
+  entre les faces finies qui bordent effectivement chaque branche.
+- Dans un couloir droit : une largeur utile suffit. Le compteur « pièces avec
+  1 cote » est normal pour ce cas ; aucune longueur n'est ajoutée pour atteindre
+  artificiellement deux cotes et aucun avertissement de cote manquante n'est émis.
+- Les chambres, séjours, sanitaires, cuisines, celliers et extérieurs gardent
+  la sélection 06E et le placement 06F déjà validés. La forme allongée seule
+  ne transforme pas une pièce en circulation.
+
+### Sélection et placement
+
+Le moteur pur `circulation_width_pairs` utilise les mêmes limites et les mêmes
+références Revit collectées par 06E. Deux supports doivent être parallèles à 5°
+près et se recouvrir longitudinalement sur une distance au moins égale à la
+largeur mesurée. Les seuils de filtrage sont **600 mm de largeur** et **300 mm
+minimum de recouvrement** ; ce sont des paramètres géométriques du prototype,
+pas des seuils réglementaires. Ils écartent notamment les petits renfoncements.
+Le classement favorise les passages dont le support longitudinal est long
+relativement à leur largeur ; une seule paire est retenue par direction.
+
+La contenance est sondée sur cinq sections, avec sept points transversaux,
+au Z intérieur de la pièce. Il faut au moins deux sections voisines valides.
+La recherche contrôle au maximum 40 paires (1 400 sondes, points répétés en
+cache) et renvoie au plus deux largeurs. L'échantillonnage conserve les limites
+connues de 06F pour de très petits trous ou décrochements entre deux sondes.
+
+Chaque paire expose une plage locale `placement_points` issue des sections
+valides. L'optimiseur 06F choisit sa position dans cette plage, tout en vérifiant
+la contenance réelle et les obstacles. Il ne translate pas la cote vers l'autre
+bras du L. Le choix final utilise toujours les vraies références associatives,
+sans remplacer les mesures par du texte.
+
+Si aucune largeur fiable n'est identifiée, ou si sa création échoue, le rapport
+signale le problème et invite à une cotation manuelle ; le moteur ne réintroduit
+pas la longueur générale comme secours. Un autre nom de pièce non reconnu
+continue à utiliser la règle générale. Une entrée très courte/irrégulière dont
+les supports sont fragmentés peut donc nécessiter un contrôle manuel.
+
+### Vérification
+
+Suite complète hors Revit : **475 tests réussis** (30 cas supplémentaires),
+commande inchangée :
+
+```bash
+PYTHONPATH=OutilsTAA.extension/lib PYTHONDONTWRITEBYTECODE=1 python -m pytest tests -q --import-mode=importlib
+```
+
+Recette Revit 2025.4 à effectuer pour v7 :
+
+1. Dans la copie de test A003, annuler la précédente création de cotes avant
+   de relancer, afin de ne pas superposer deux générations. Conserver les tags,
+   le type de cote et l'échelle 1:50 ; recharger pyRevit.
+2. Lancer une seule création et vérifier le build `stage06f-circulation-widths-v7`.
+3. Dans `Entrée/Dgt`, vérifier deux cotes transversales mesurant chacune la
+   largeur réelle d'un bras du L, à la place des grandes longueurs ; contrôler
+   le positionnement entre les bonnes faces finies et la lisibilité.
+4. Vérifier un couloir droit : une cote de largeur, sans longueur générale.
+5. Vérifier que chambres, séjour et loggia conservent leurs mesures et leur
+   placement ; laisser les séparateurs masqués.
+6. Déplacer légèrement un mur bordant l'entrée : vérifier la mise à jour de
+   sa largeur, puis annuler. Transmettre une capture de l'entrée et du rapport.
+
+**Statut :** correctif testé hors Revit ; validation réelle v7 encore attendue.
+
+
+## Correctif 06F.2 — Priorité à la largeur locale
+
+**Build :** `stage06f-circulation-widths-v8`
+
+Retour Revit du 8 octobre 2026 : le correctif v7 reconnaît bien
+`Entrée/Dgt` comme circulation, mais sélectionne encore les grandes portées
+générales (ex. environ 2,67 m et 3,23 m) au lieu des largeurs locales des deux
+bras.
+
+### Cause
+
+Le moteur classait les paires parallèles principalement avec le ratio
+`recouvrement / largeur`. Dans une entrée/dégagement ouverte, une grande portée
+peut rester entièrement dans la pièce et obtenir un meilleur ratio qu'une
+largeur locale de passage. Elle était donc retenue avant la vraie largeur.
+
+### Correction
+
+Pour les pièces reconnues comme circulation, les candidats fiables sont
+désormais testés par **largeur croissante**. Les seuils existants restent
+inchangés :
+
+- largeur minimale : 600 mm ;
+- recouvrement minimal : 300 mm ;
+- recouvrement au moins égal à la largeur ;
+- faces parallèles à 5° près ;
+- validation par `Room.IsPointInRoom` sur plusieurs sections ;
+- une seule largeur par direction.
+
+Le ratio `recouvrement / largeur` sert uniquement à départager des candidats
+de largeur proche ; il ne peut plus faire gagner une grande portée générale.
+
+Un test de régression reproduit explicitement le cas où une portée de 2,70 m
+était préférée à une largeur locale de 1,20 m.
+
+### Recette Revit 2025.4
+
+1. Reprendre exactement la même vue de test A003.
+2. Supprimer les cotes créées par v7.
+3. Recharger pyRevit et vérifier le build
+   `stage06f-circulation-widths-v8`.
+4. Relancer les cotations.
+5. Vérifier que `Entrée/Dgt` reçoit les largeurs locales des bras et non les
+   portées générales de 2,67 m / 3,23 m.
+6. Vérifier qu'un couloir droit conserve une seule largeur.
+7. Contrôler que les autres pièces ne régressent pas.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 06F.3 — Détection géométrique des formes L/T
+
+**Build :** `stage06f-branched-geometry-v9`
+
+Retour Revit du 8 octobre 2026 : la stratégie spéciale basée sur les noms
+`Entrée`, `Dgt`, `Couloir`, etc. ne décrit pas correctement le besoin
+métier. Le nombre de dimensions doit dépendre de la **forme réelle de la pièce**
+et non de son libellé.
+
+### Nouvelle règle
+
+- pièce simple / quasi rectangulaire : **2 cotes principales** ;
+- pièce en L prononcé : typiquement **4 cotes utiles** ;
+- pièce en T prononcé : typiquement **4 à 5 cotes utiles** ;
+- autre forme concave prononcée : jusqu'à **5 cotes locales** ;
+- petit décrochement ou niche : rester sur le moteur simple à 2 cotes.
+
+Le nom de la pièce n'intervient plus dans le choix du moteur. Une chambre en L
+et une entrée en L sont donc traitées de la même manière ; un couloir
+rectangulaire reste une pièce simple.
+
+### Détection de la forme
+
+Le moteur pur reconstruit le contour fermé à partir des segments de limite puis
+mesure :
+
+1. le nombre d'**angles rentrants** ;
+2. l'aire réelle du contour ;
+3. l'aire de la boîte orientée selon la plus longue limite ;
+4. le ratio d'aire manquante.
+
+Une forme n'est classée L/T que si elle possède au moins un angle rentrant et
+si le ratio d'aire manquante est supérieur ou égal à **12 %**. Ce seuil est un
+paramètre géométrique du prototype, pas une règle réglementaire.
+
+Cette combinaison évite qu'un petit décrochement transforme artificiellement
+une pièce presque rectangulaire en pièce complexe.
+
+### Génération des dimensions locales
+
+Pour une forme L/T prononcée, le moteur recherche toutes les paires de limites
+parallèles crédibles :
+
+- parallélisme à 5° près ;
+- dimension minimale : 600 mm ;
+- recouvrement minimal : 300 mm ;
+- validation de plusieurs sections par `Room.IsPointInRoom` ;
+- références Revit existantes conservées ;
+- maximum : 5 dimensions.
+
+Plusieurs paires dans une même direction peuvent être conservées. Sur un L
+orthogonal typique, cela permet d'obtenir :
+
+- largeur du premier bras ;
+- largeur du second bras ;
+- portée générale du premier axe ;
+- portée générale du second axe.
+
+Les séparateurs de pièces, substitutions par bords de sols et faces finies du
+moteur 06E restent inchangés.
+
+### Placement graphique
+
+Le moteur de placement 06F accepte désormais jusqu'à cinq cotes dans une même
+pièce. Pour une ou deux cotes, l'optimisation exhaustive historique est
+conservée. Au-delà, un choix glouton borné minimise successivement :
+
+1. sortie de la pièce ;
+2. collisions avec étiquettes ;
+3. collisions avec les cotes existantes ;
+4. collisions texte / autres cotes ;
+5. croisements graphiques ;
+6. équipements ;
+7. proximité aux limites.
+
+Cela évite une explosion de type `10^5` combinaisons pour cinq dimensions.
+
+### Comptage du résultat
+
+Une pièce est maintenant considérée **complètement cotée** lorsque le nombre de
+cotes réellement créées atteint le nombre attendu par son moteur géométrique :
+
+- 2/2 pour une pièce simple ;
+- 4/4 ou 5/5 pour une pièce L/T selon le cas.
+
+Le rapport ne parle donc plus systématiquement de « pièce avec 2 cotes ».
+
+### Tests hors Revit
+
+Les tests ajoutés couvrent notamment :
+
+- rectangle simple ;
+- petit décrochement ;
+- L prononcé ;
+- T prononcé ;
+- L tourné ;
+- indépendance vis-à-vis du nom de pièce ;
+- création réelle simulée de 4 cotes sur un L ;
+- placement de 4 cotes ;
+- limite maximale à 5 dimensions ;
+- retour partiel `3/4` si une référence échoue.
+
+Le workflow Plans de vente est vert avec **201 tests** sur la suite
+`tests/plans_vente`.
+
+### Recette Revit 2025.4
+
+1. supprimer les anciennes cotes de la vue de test ;
+2. recharger pyRevit ;
+3. vérifier le build `stage06f-branched-geometry-v9` ;
+4. relancer sur le même logement ayant une entrée/dégagement en L ;
+5. vérifier que la pièce reçoit environ 4 cotes décrivant réellement ses deux
+   branches ;
+6. vérifier qu'une chambre ou autre pièce en L reçoit le même traitement ;
+7. vérifier qu'un simple couloir rectangulaire reçoit 2 cotes ;
+8. vérifier qu'un petit décrochement reste ignoré ;
+9. vérifier une pièce en T si disponible ;
+10. déplacer un mur de branche et contrôler l'associativité.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 06F.4 — contour complet indépendant des références
+
+**Build :** `stage06f-branched-full-contour-v10`
+
+Retour Revit du 8 octobre 2026 : le build v9 produisait encore seulement les
+deux grandes cotes sur l'entrée/dégagement réelle, malgré sa géométrie
+visiblement concave.
+
+### Cause
+
+Le v9 tentait de reconnaître la forme L/T à partir de
+`_room_boundary_candidates`. Or cette liste ne contient que les limites qui
+ont déjà passé le filtre de **référence Revit cotable** :
+
+- face finie de mur disponible ;
+- séparateur exploitable ;
+- bord de sol substituable ;
+- courbe compatible.
+
+Sur un logement réel, cette liste peut être incomplète ou ne plus former un
+contour fermé, même si `Room.GetBoundarySegments(...)` décrit parfaitement
+la géométrie de la pièce. La détection L/T retombait alors sur le moteur simple
+à deux cotes.
+
+### Correction v10
+
+Deux géométries sont désormais séparées :
+
+1. **Contour complet de forme**
+   - extrait directement de `Room.GetBoundarySegments` en finition ;
+   - conserve toutes les limites ;
+   - tesselle également les courbes ;
+   - sert uniquement à reconnaître L/T et la concavité.
+
+2. **Limites cotables**
+   - conservent les références Revit validées par 06E ;
+   - servent uniquement à créer les dimensions associatives.
+
+Une fois la forme complexe confirmée par le contour complet, le moteur recherche
+les 3 à 5 paires utiles parmi les limites réellement cotables sans exiger que
+celles-ci reforment à elles seules un contour fermé.
+
+### Tests
+
+Un test de régression reproduit explicitement :
+
+- un contour complet en L ;
+- un sous-ensemble de références Revit incomplet / non fermé ;
+- la détection L/T sur le premier ;
+- la génération de plusieurs dimensions sur le second.
+
+Le workflow Plans de vente est vert avec **203 tests**.
+
+### Recette Revit 2025.4
+
+1. récupérer le build `stage06f-branched-full-contour-v10` ;
+2. supprimer les cotes créées par v9 ;
+3. relancer exactement sur le même logement ;
+4. vérifier que l'entrée/dégagement ne retombe plus à 2 grandes cotes ;
+5. vérifier la présence de l'avertissement
+   `forme L/T prononcée détectée (... cote(s) locale(s))` ;
+6. contrôler visuellement les 3 à 5 cotes obtenues avant d'affiner leur sélection.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Décision V1 — Deux cotations principales maximum
+
+**Build :** `stage06f-two-principal-dimensions-v11`
+
+Retour de production du 8 octobre 2026 : les essais de cotation automatique
+spécifique aux circulations puis aux formes L/T ont montré qu'une recherche de
+3 à 5 dimensions locales augmente fortement la complexité du moteur et peut
+produire trop de cotes sur les logements atypiques.
+
+Pour la V1, la règle est donc simplifiée :
+
+- **2 cotes principales maximum par pièce** ;
+- dimensions générales prioritaires ;
+- faces finies et références associatives conservées ;
+- substitution séparateur / bord de sol conservée ;
+- placement intérieur 06F conservé ;
+- aucune logique spéciale selon le nom de la pièce ;
+- aucune détection L/T utilisée dans le flux Revit ;
+- les cotes complémentaires sont ajoutées manuellement par l'utilisateur.
+
+Cette décision privilégie la rapidité, la lisibilité et la stabilité de
+production. L'utilisateur garde la responsabilité de la relecture finale et
+peut supprimer ou compléter les cotes proposées.
+
+Les moteurs expérimentaux de circulation et de formes L/T ont été retirés du
+code actif et de la suite de tests V1.
+
+### Recette Revit 2025.4
+
+1. récupérer le build `stage06f-two-principal-dimensions-v11` ;
+2. supprimer les anciennes cotes d'essai ;
+3. relancer la cotation sur un logement simple puis sur un logement atypique ;
+4. vérifier qu'aucune pièce ne reçoit plus de 2 cotes ;
+5. vérifier que les terrasses conservent les références aux bords de sols ;
+6. vérifier l'associativité après déplacement d'un mur ;
+7. confirmer que le temps de calcul est meilleur ou au minimum stable.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Clôture Étape 06 — Cotations V1
+
+**Étape 06 — Cotations V1 : VALIDÉE.**
+
+Décision finale V1 :
+
+- deux cotations principales maximum par pièce ;
+- dimensions générales et faces finies prioritaires ;
+- références Revit associatives ;
+- gestion des murs biais par longueur de secours ;
+- lignes de séparation remplacées par les bords de sols superposés lorsque
+  cela est fiable ;
+- lignes de séparation pouvant rester masquées ;
+- placement intérieur avec évitement des étiquettes et obstacles ;
+- les cotations complémentaires des pièces atypiques restent sous le contrôle
+  de l'utilisateur.
+
+Build de référence : `stage06f-two-principal-dimensions-v11`.
+
+Cette règle est volontairement plus simple que les prototypes L/T expérimentés.
+Elle privilégie la rapidité et la stabilité de production.
+
+## Ouverture Étape 07 — Assemblage de la feuille
+
+Branche :
+
+`feature/plans-de-vente-stage07-sheet-assembly`
+
+Objectif V1 : créer une feuille réelle de plan de vente et y placer les
+artefacts déjà générés pour un logement.
+
+### Prototype 07A — Feuille simple
+
+Le prototype 07A doit placer automatiquement :
+
+1. la vue principale du logement ;
+2. le plan de repérage ;
+3. la nomenclature intérieure ;
+4. la nomenclature extérieure.
+
+L'utilisateur choisit explicitement le **type de cartouche**.
+
+Le prototype retrouve les éléments générés avec les conventions V1 existantes :
+
+- vue logement : `PDV PROTO - <logement> - ...` ;
+- plan de repérage : `PDV_<logement>_REP` ;
+- nomenclature intérieure : `PDV_<logement>_INT` ;
+- nomenclature extérieure : `PDV_<logement>_EXT`.
+
+La feuille créée reçoit provisoirement :
+
+- numéro : `PDV-<logement>` ;
+- nom : `Plan de vente - <logement>`.
+
+La mise à jour d'une feuille existante reste réservée à l'Étape 08.
+
+### Placement V1 du prototype 07A
+
+Le placement 07A utilise quatre ancrages relatifs à l'emprise réelle de la
+feuille retournée par `ViewSheet.Outline`.
+
+Disposition initiale :
+
+```text
+┌─────────────────────────────────┐
+│                    REPÉRAGE     │
+│                                 │
+│        VUE PRINCIPALE           │
+│                                 │
+│                  NOMENCL. INT   │
+│                  NOMENCL. EXT   │
+└─────────────────────────────────┘
+```
+
+Les coordonnées sont calculées en pourcentage de l'emprise de feuille afin de
+rester indépendantes du format exact du cartouche.
+
+Ce placement n'est pas encore la composition définitive : l'Étape 07B devra
+permettre de reprendre les positions d'une **feuille modèle**.
+
+### Sécurité
+
+Avant création, le service vérifie :
+
+- présence de la vue logement ;
+- présence du plan de repérage ;
+- présence des deux nomenclatures ;
+- type de cartouche valide ;
+- absence d'une feuille portant déjà le même numéro ou le même nom ;
+- absence de placement existant des vues et nomenclatures concernées.
+
+Une opération 07A ne supprime ni ne modifie une feuille existante.
+
+### Validation Revit 2025.4 — à effectuer
+
+1. préparer un logement avec les étapes précédentes ;
+2. vérifier la présence de sa vue logement, de son repérage et de ses deux
+   nomenclatures ;
+3. sélectionner un type de cartouche ;
+4. lancer « Créer la feuille prototype » ;
+5. vérifier que la feuille `PDV-<logement>` est créée ;
+6. vérifier la présence des deux vues et des deux nomenclatures ;
+7. contrôler leur position générale sur plusieurs formats de cartouche ;
+8. vérifier qu'une seconde création du même logement est refusée proprement.
+
+**Prototype 07A : VALIDÉ TECHNIQUEMENT dans Revit 2025.4.**
+
+Retour utilisateur du 8 octobre 2026 :
+
+- la feuille est créée ;
+- les deux vues sont placées ;
+- les deux nomenclatures sont placées ;
+- le cartouche sélectionné est correct ;
+- les quatre éléments arrivent bien sur la feuille ;
+- en revanche, les positions relatives du prototype 07A sont trop génériques
+  et donnent une composition peu exploitable en production.
+
+Le 07A valide donc l'API de création/placement, mais pas la composition finale.
+
+### Prototype 07B — Feuille modèle
+
+Le 07B remplace le positionnement générique du 07A par une **feuille modèle
+préparée manuellement dans Revit**.
+
+La feuille modèle doit contenir exactement les quatre éléments de référence
+suivants, placés aux positions souhaitées :
+
+- vue nommée `PDV_MODELE_VUE` ;
+- vue nommée `PDV_MODELE_REPERAGE` ;
+- nomenclature nommée `PDV_MODELE_NOM_INT` ;
+- nomenclature nommée `PDV_MODELE_NOM_EXT`.
+
+Le plugin ne copie pas le contenu de ces éléments modèles. Il lit uniquement
+leur rôle et leur position sur la feuille.
+
+Pour les vues, le point de placement est lu avec `Viewport.GetBoxCenter()`.
+Pour les nomenclatures, il est lu avec `ScheduleSheetInstance.Point`.
+
+Le type de cartouche est automatiquement repris depuis la feuille modèle :
+l'utilisateur n'a donc plus à sélectionner séparément un cartouche en 07B.
+
+Les types de viewport utilisés par les deux vues modèles sont également repris
+lorsque Revit l'autorise.
+
+Flux :
+
+```text
+Feuille modèle Revit
+├── PDV_MODELE_VUE
+├── PDV_MODELE_REPERAGE
+├── PDV_MODELE_NOM_INT
+└── PDV_MODELE_NOM_EXT
+        ↓
+lecture des positions + cartouche
+        ↓
+création PDV-<logement>
+        ↓
+placement des vrais éléments du logement
+aux mêmes coordonnées
+```
+
+Une feuille n'est proposée dans l'interface comme « feuille modèle » que si :
+
+- elle contient les quatre placeholders attendus ;
+- chaque rôle est présent une seule fois ;
+- elle contient exactement un cartouche.
+
+Build : `stage07b-sheet-template-layout-v2`.
+
+### Préparation d'une feuille modèle de test
+
+Dans Revit 2025.4 :
+
+1. créer une feuille dédiée, par exemple `PDV-MODELE-A3` ;
+2. utiliser le cartouche réellement souhaité ;
+3. créer ou réutiliser deux vues de test nommées exactement :
+   - `PDV_MODELE_VUE` ;
+   - `PDV_MODELE_REPERAGE` ;
+4. créer ou réutiliser deux nomenclatures de test nommées exactement :
+   - `PDV_MODELE_NOM_INT` ;
+   - `PDV_MODELE_NOM_EXT` ;
+5. placer ces quatre éléments sur la feuille à leur position finale souhaitée ;
+6. recharger pyRevit ;
+7. sélectionner cette feuille dans « Étape 07B — Feuille modèle » ;
+8. créer une feuille pour un logement déjà préparé ;
+9. vérifier que les quatre vrais éléments reprennent les positions du modèle.
+
+Le 07B ne copie pas encore les annotations fixes, légendes, images ou paramètres
+personnalisés de la feuille modèle. Ces éléments restent dans le périmètre de
+stabilisation de l'Étape 07.
+
+**Statut du prototype 07B : À valider dans Revit 2025.4.**
+
+
+## Optimisation ouverture module — 07B
+
+Retour de production du 8 octobre 2026 : sur un projet d'environ 80 logements,
+l'ouverture du module Plans de vente était devenue trop lente.
+
+### Causes identifiées
+
+La fenêtre chargeait plusieurs listes Revit avant même que l'utilisateur ait
+sélectionné un logement :
+
+- gabarits de vue de repérage ;
+- types de zones remplies ;
+- types d'étiquettes ;
+- types de cotes ;
+- feuilles modèles 07B.
+
+La recherche des feuilles modèles était particulièrement coûteuse car le
+prototype initial validait chaque feuille séparément et déclenchait plusieurs
+`FilteredElementCollector` pour chaque `ViewSheet`.
+
+La découverte des paramètres texte parcourait également les paramètres de
+toutes les pièces du projet alors que le schéma de paramètres de la catégorie
+Pièces est commun au projet.
+
+### Correctif
+
+Le démarrage est désormais paresseux :
+
+1. à l'ouverture, seuls les pièces et les paramètres nécessaires au choix du
+   paramètre logement sont préparés ;
+2. gabarits, types d'étiquette et types de cote ne sont chargés qu'au premier
+   logement sélectionné ;
+3. les feuilles modèles 07B ne sont chargées que lorsque l'utilisateur ouvre
+   la liste « Feuille modèle » ;
+4. la découverte du schéma de paramètres est limitée à un échantillon de
+   8 pièces ;
+5. la recherche des feuilles modèles utilise trois collectes globales
+   (viewports, nomenclatures placées, cartouches) puis un index en mémoire,
+   au lieu de rescanner le document feuille par feuille.
+
+Cette optimisation ne change pas le contenu généré par les étapes précédentes.
+
+**Statut : À valider sur le projet de production ~80 logements.**
+
+
+## Correctif 07B.1 — feuille modèle choisie explicitement
+
+**Build :** `stage07b-user-selected-sheet-v3`
+
+Décision de production du 8 octobre 2026 : le plugin ne doit plus rechercher
+automatiquement dans tout le projet les feuilles qui pourraient être des
+modèles.
+
+### Nouvelle logique
+
+L'utilisateur désigne lui-même la feuille à utiliser comme modèle :
+
+```text
+Étape 07B — Feuille modèle
+
+Feuille modèle — choix utilisateur
+[ A900 — MODELE PLAN DE VENTE ▼ ]
+
+[ Créer la feuille ]
+```
+
+La liste contient simplement les feuilles du projet, identifiées par leur
+numéro et leur nom. Aucun viewport, aucune nomenclature et aucun cartouche
+n'est analysé lors de cette collecte.
+
+Ce n'est qu'après la sélection d'une feuille que le plugin inspecte **cette
+feuille uniquement**.
+
+La validation vérifie alors :
+
+- un viewport dont la vue est nommée `PDV_MODELE_VUE` ;
+- un viewport dont la vue est nommée `PDV_MODELE_REPERAGE` ;
+- une nomenclature `PDV_MODELE_NOM_INT` ;
+- une nomenclature `PDV_MODELE_NOM_EXT` ;
+- exactement un cartouche.
+
+Si la feuille sélectionnée n'est pas conforme, le bouton de création reste
+désactivé et le message indique précisément ce qui manque.
+
+### Performance
+
+La liste des feuilles est chargée seulement lorsque l'utilisateur ouvre la
+liste « Feuille modèle ». Elle utilise une seule collecte légère de
+`ViewSheet`.
+
+Aucune recherche automatique de placeholders n'est réalisée sur les autres
+feuilles du projet.
+
+### Conséquence métier
+
+Le choix du modèle devient totalement explicite et prévisible. Le projet peut
+contenir un grand nombre de feuilles sans que le module tente de déterminer
+lesquelles sont des modèles de plan de vente.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Correctif 07B.2 — mapping explicite des éléments placés
+
+**Build :** `stage07b-user-mapped-sheet-v4`
+
+Retour Revit du 9 octobre 2026 : la feuille modèle réelle contient déjà les
+quatre éléments utiles, mais ils portent leurs noms métier normaux. Exiger des
+noms artificiels de type `PDV_MODELE_...` ajoute une contrainte inutile.
+
+### Nouvelle règle
+
+L'utilisateur choisit d'abord une feuille existante du projet. Le plugin lit
+ensuite uniquement les éléments **déjà placés sur cette feuille** :
+
+- tous les viewports ;
+- toutes les nomenclatures placées ;
+- le cartouche.
+
+Aucun nom particulier n'est demandé.
+
+L'interface propose ensuite quatre affectations explicites :
+
+```text
+Feuille modèle — choix utilisateur
+[ PDV-A003 — Plan de vente - A003 ]
+
+Vue modèle — logement
+[ ... ]
+
+Vue modèle — repérage
+[ ... ]
+
+Nomenclature modèle — intérieure
+[ ... ]
+
+Nomenclature modèle — extérieure
+[ ... ]
+```
+
+L'utilisateur désigne donc directement quel élément de la feuille sert de
+repère pour chaque rôle.
+
+### Règles de validation
+
+La feuille choisie doit contenir :
+
+- au moins 2 vues placées ;
+- au moins 2 nomenclatures placées ;
+- exactement 1 cartouche.
+
+Les deux vues choisies doivent être différentes, ainsi que les deux
+nomenclatures.
+
+### Création
+
+Lors de la génération, le plugin reprend :
+
+- le type de cartouche de la feuille modèle ;
+- le centre exact du viewport choisi pour la vue logement ;
+- le centre exact du viewport choisi pour le repérage ;
+- le point d'insertion exact de la nomenclature intérieure choisie ;
+- le point d'insertion exact de la nomenclature extérieure choisie ;
+- le type de viewport des deux vues lorsque Revit l'autorise.
+
+Les éléments réels du logement remplacent ainsi les quatre éléments de référence
+sans dépendre de leur nom.
+
+### Performance
+
+La logique reste paresseuse :
+
+1. à l'ouverture du module : aucune analyse des feuilles ;
+2. à l'ouverture de la liste : collecte légère des `ViewSheet` uniquement ;
+3. après choix utilisateur : analyse de cette feuille seulement ;
+4. après affectation des quatre rôles : création.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Prototype 07C — Ajustement automatique de la vue logement
+
+**Build :** `stage07c-auto-fit-main-view-v5`
+
+Le 07B reproduit correctement la composition de la feuille modèle, mais la
+taille apparente de la vue logement varie naturellement avec la taille du
+logement et son cadrage.
+
+Le 07C ajoute un ajustement automatique de l'échelle de la **vue logement
+uniquement**, afin qu'elle remplisse au mieux la zone occupée par la vue
+logement de la feuille modèle sans la dépasser.
+
+### Principe
+
+Le plugin utilise comme zone cible l'emprise réelle du viewport choisi comme
+« Vue modèle — logement ».
+
+Il place d'abord la vue logement à son échelle actuelle et mesure son
+`Viewport.GetBoxOutline()`.
+
+À partir de cette mesure, il choisit la plus grande représentation possible
+parmi les échelles autorisées.
+
+Valeurs proposées par défaut :
+
+```text
+1:25
+1:50
+1:75
+1:100
+```
+
+L'utilisateur peut modifier cette liste dans l'interface.
+
+### Sécurité sur les vues dépendantes
+
+La vue logement générée par les étapes précédentes n'est **jamais modifiée en
+place**.
+
+Si le 07C doit changer son échelle, le plugin crée une copie avec détails de la
+vue logement, puis applique l'échelle retenue à cette copie avant de la placer
+sur la feuille.
+
+Cela évite de modifier la vue dépendante de production ou sa vue principale
+technique et protège les autres logements partageant le même groupe de vues.
+
+Si la vue ne peut pas être dupliquée avec détails ou si aucune échelle
+autorisée ne peut être appliquée, le 07C conserve la vue d'origine et signale
+un avertissement.
+
+### Contrôle réel dans Revit
+
+Après application d'une échelle candidate, le viewport est régénéré puis
+mesuré réellement. Si la vue dépasse encore la zone modèle, le moteur essaie
+l'échelle autorisée suivante.
+
+L'ajustement concerne uniquement la vue logement. Le repérage et les deux
+nomenclatures conservent les positions définies par la feuille modèle.
+
+### Interface
+
+```text
+[✓] Ajuster automatiquement la vue logement
+
+Échelles autorisées
+[ 25, 50, 75, 100 ]
+```
+
+L'utilisateur peut désactiver l'ajustement pour conserver strictement
+l'échelle de la vue existante.
+
+### Validation Revit 2025.4
+
+1. reprendre une feuille modèle déjà validée en 07B ;
+2. sélectionner les 4 rôles ;
+3. laisser l'ajustement automatique activé ;
+4. créer un logement nettement plus petit que celui de la feuille modèle ;
+5. vérifier que le moteur choisit une échelle plus grande graphiquement
+   (dénominateur plus petit) si elle tient dans la zone ;
+6. tester un logement plus grand et vérifier qu'il réduit la vue si nécessaire ;
+7. vérifier que la vue de production d'origine conserve son échelle ;
+8. vérifier que la feuille utilise, si nécessaire, une copie
+   `PDV SHEET - <logement> - AUTO`.
+
+**Statut du prototype 07C : À valider dans Revit 2025.4.**
+
+
+## Correctif 07C.1 — échelle du modèle et réduction sur collision
+
+**Build :** `stage07c-reference-scale-collision-v6`
+
+Retour Revit du 9 octobre 2026 : le premier prototype 07C cherchait à remplir
+au maximum la zone occupée par la vue modèle. Ce comportement n'est pas celui
+souhaité pour les plans de vente.
+
+La règle métier retenue devient :
+
+> **l'échelle de référence est toujours celle de la vue logement de la feuille modèle.**
+
+Le moteur ne change cette échelle que si le nouveau plan entre en collision avec
+un autre élément de la composition ou avec la géométrie du cartouche.
+
+### Algorithme
+
+1. lire l'échelle de la vue logement sélectionnée sur la feuille modèle ;
+2. utiliser cette échelle comme première candidate, quelle que soit l'échelle
+   actuelle de la vue du nouveau logement ;
+3. placer la vue au même centre que la vue modèle ;
+4. régénérer la feuille ;
+5. contrôler les collisions avec :
+   - la vue de repérage réellement placée ;
+   - la nomenclature intérieure réellement placée ;
+   - la nomenclature extérieure réellement placée ;
+   - les lignes / courbes de la géométrie du cartouche ;
+6. s'il n'y a aucune collision, conserver l'échelle de référence ;
+7. uniquement en cas de collision, essayer les dénominateurs supérieurs
+   autorisés, par exemple `1:75 → 1:100 → 1:125 → 1:150` ;
+8. retenir la première échelle sans collision.
+
+Le moteur **n'agrandit jamais** un petit logement au-delà de l'échelle de la
+feuille modèle. Deux logements de tailles différentes peuvent donc occuper des
+surfaces différentes sur la feuille tout en conservant la même échelle de
+référence.
+
+### Protection de la vue source
+
+La vue de production existante n'est jamais changée d'échelle.
+
+Si son échelle diffère de la référence, ou si une collision impose une réduction,
+le moteur crée une copie avec détails :
+
+`PDV SHEET - <logement> - AUTO`
+
+puis applique l'échelle retenue à cette copie.
+
+### Marge de collision
+
+Une marge de sécurité de 2 mm est appliquée autour du viewport principal afin
+d'éviter qu'il touche visuellement une autre vue, une nomenclature ou une ligne
+du cartouche.
+
+### Interface
+
+Le réglage devient :
+
+```text
+[✓] Réduire l’échelle uniquement en cas de collision
+
+Échelles de repli autorisées
+[ 50, 75, 100, 125, 150 ]
+```
+
+Les valeurs plus grandes graphiquement que la référence sont ignorées.
+Par exemple, avec une feuille modèle au `1:75`, les candidats utiles sont
+`1:75`, puis `1:100`, `1:125`, `1:150`.
+
+**Statut : À valider dans Revit 2025.4.**
+
+
+## Validation 07C
+
+Le test Revit 2025.4 du 9 octobre 2026 est concluant.
+
+La règle validée est la suivante :
+
+- la vue logement utilise d'abord l'échelle de la vue logement de la feuille modèle ;
+- l'échelle n'est réduite que si le viewport entre en collision avec une autre
+  vue, une nomenclature ou la géométrie du cartouche ;
+- la vue de production d'origine n'est jamais modifiée.
+
+**Étape 07C : VALIDÉE.**
+
+## Étape 07D — Génération complète depuis la feuille modèle
+
+**Build :** `stage07d-template-driven-full-generation-v4`
+
+L'objectif du 07D est de supprimer les opérations intermédiaires de la V1.
+
+L'utilisateur doit seulement :
+
+```text
+1. analyser le paramètre logement ;
+2. sélectionner un logement ;
+3. sélectionner une feuille modèle ;
+4. cliquer sur « Créer le plan de vente complet ».
+```
+
+La feuille modèle devient la source de configuration du plan de vente.
+
+### Détection automatique
+
+Le 07D analyse uniquement la feuille modèle choisie et détermine :
+
+- la vue logement ;
+- le plan de repérage ;
+- l'échelle de référence de la vue logement ;
+- le type d'étiquette de pièce dominant ;
+- le type de cote dominant ;
+- le type de zone remplie du repérage ;
+- le gabarit appliqué au repérage ;
+- le cartouche ;
+- les positions des viewports ;
+- les types de viewport ;
+- toutes les nomenclatures placées sur la feuille.
+
+La vue de repérage est identifiée en priorité par la présence de zones
+remplies. La vue logement est ensuite choisie à partir des annotations et de
+l'emprise du viewport.
+
+### Nomenclatures
+
+Le 07D n'impose plus « intérieure + extérieure ».
+
+Il accepte un **nombre libre de nomenclatures** placées sur la feuille modèle.
+
+Pour chaque définition de nomenclature :
+
+- si le champ logement est présent et filtrable, la nomenclature est dupliquée
+  et son filtre est remplacé par le logement cible ;
+- si elle ne contient pas de filtre logement, elle est dupliquée à l'identique
+  et un avertissement est produit ;
+- chaque instance est replacée au point exact de l'instance correspondante sur
+  la feuille modèle.
+
+Cela permet d'ajouter ultérieurement, sans modifier le moteur d'assemblage,
+des nomenclatures de surfaces, annexes, menuiseries, équipements, finitions,
+etc.
+
+### Chaîne de génération
+
+```text
+Logement + feuille modèle
+        ↓
+analyse automatique du modèle
+        ↓
+création de la vue logement
+        ↓
+crop optimisé
+        ↓
+étiquettes de pièces
+        ↓
+cotations
+        ↓
+plan de repérage + surbrillance
+        ↓
+duplication de toutes les nomenclatures
+        ↓
+création de la feuille
+        ↓
+placement aux positions du modèle
+        ↓
+règle 07C de collision / échelle
+```
+
+### Transaction globale
+
+Le 07D utilise un `TransactionGroup` Revit autour de toute la chaîne.
+
+Chaque service conserve ses transactions courtes existantes, mais si une
+étape échoue, le groupe global est annulé. Le but est d'éviter qu'un logement
+se retrouve avec seulement une vue, ou seulement des nomenclatures, après un
+échec en milieu de génération.
+
+### Vue source
+
+Quand la vue logement modèle provient d'un groupe PDV déjà généré, le 07D
+essaie de retrouver la vue source d'origine à partir du jeton présent dans le
+nom de la vue principale technique.
+
+Si ce lien direct n'est pas disponible, il classe les vues sources du niveau
+cible selon leur gabarit, leur type et leur échelle, puis choisit la meilleure
+candidate.
+
+### Limite 07D V1
+
+La V1 génère automatiquement les deux rôles de vues actuellement validés :
+
+- vue logement ;
+- plan de repérage.
+
+Le nombre de nomenclatures est libre.
+
+Si la feuille contient plus de deux viewports, le moteur choisit les deux rôles
+principaux et signale que les viewports supplémentaires seront couverts par
+l'extension multi-vues.
+
+**Statut 07D : À valider dans Revit 2025.4.**
+
+
+### Correctif 07D.1 — repérage multi-niveau et crop de secours
+
+**Build :** `stage07d-template-driven-full-generation-v2`
+
+Premier retour Revit du 9 octobre 2026 :
+
+- une première génération a échoué car le contour optimisé n'était pas accepté
+  par Revit comme crop ;
+- les générations suivantes ont créé la feuille ;
+- le plan de repérage avait une mauvaise échelle ;
+- sur un logement d'un autre étage, le repérage pouvait reprendre une vue
+  recadrée correspondant à un autre logement.
+
+Corrections apportées :
+
+1. le repérage est maintenant détecté par la présence réelle d'éléments
+   `FilledRegion`, et non via une catégorie inexistante ;
+2. la vue source du repérage est résolue indépendamment de la vue source du
+   plan logement ;
+3. la recherche se limite au niveau du logement cible et privilégie une vue
+   de niveau large, compatible avec le type/gabarit du repérage modèle ;
+4. l'échelle du repérage généré reprend explicitement celle du repérage de la
+   feuille modèle ;
+5. les types d'étiquettes et de cotations sont aussi recherchés sur la vue
+   principale lorsqu'une vue modèle est dépendante ;
+6. si un contour optimisé calculé est refusé par Revit sur la vue cible, le
+   moteur essaie désormais le rectangle de secours avant d'abandonner toute la
+   génération.
+
+Le but est qu'un changement de niveau ne puisse plus conduire le repérage à
+afficher le crop d'un autre appartement.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+### Correctif 07D.2 — crop du repérage repris depuis le modèle
+
+**Build :** `stage07d-template-driven-full-generation-v3`
+
+Retour Revit : la vue de repérage utilisait maintenant le bon niveau et la
+bonne échelle, mais conservait encore le cadrage propre à la vue source choisie.
+
+La règle devient :
+
+> le repérage généré reprend le même crop 2D que le repérage de la feuille modèle.
+
+Le moteur lit le `GetCropShape()` de la vue de repérage modèle, translate le
+contour suivant la différence d'altitude entre les niveaux, puis applique ce
+contour sur la vue de repérage générée.
+
+Pour les crops rectangulaires ou les cas où Revit refuse la forme copiée, un
+repli copie les limites XY du `CropBox` du modèle en conservant le plan Z de
+la vue cible.
+
+Les paramètres d'annotation crop sont également recopiés lorsque Revit les
+autorise.
+
+Ainsi, le contenu de repérage doit garder la même fenêtre graphique et la même
+dimension apparente sur la feuille, quel que soit l'étage du logement.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+### Correctif 07D.3 — Scope Box et validation réelle du crop
+
+**Build :** `stage07d-template-driven-full-generation-v4`
+
+Le correctif 07D.2 copiait la forme du crop, mais certaines vues de repérage
+pouvaient rester pilotées par un Scope Box hérité de la vue source. Dans ce
+cas Revit acceptait les opérations API sans pour autant produire le même
+cadrage visuel que la feuille modèle.
+
+Le 07D v4 traite maintenant explicitement les deux cas :
+
+- si le repérage modèle utilise un Scope Box, le même Scope Box est appliqué à
+  la vue cible ;
+- si le repérage modèle n'utilise pas de Scope Box, celui de la vue cible est
+  retiré avant de copier le crop.
+
+Le rectangle de secours n'est plus copié en supposant que les coordonnées
+locales des deux vues sont identiques. Les coins du CropBox modèle sont
+convertis en coordonnées monde puis reprojetés dans le repère de la vue cible.
+
+Enfin, après régénération Revit, le moteur compare les limites XY réelles des
+deux crops avec une tolérance de 1 mm. Si le cadrage reste différent, le 07D
+arrête la génération au lieu de conserver silencieusement un repérage faux.
+
+**Statut : À retester dans Revit 2025.4.**
+
+
+## Validation 07D
+
+Les essais Revit 2025.4 ont validé la génération complète depuis une feuille
+modèle, y compris sur d'autres niveaux que le logement modèle.
+
+Le build moteur conservé comme base stable est :
+
+```text
+stage07d-template-driven-full-generation-v4
+```
+
+**Étape 07D : VALIDÉE.**
+
+## Étape 09 — Stabilisation de l’interface V1
+
+**Branche :**
+`feature/plans-de-vente-stage09-ui-stabilization`
+
+**Build interface :**
+`stage09-rc2`
+
+**Statut :**
+RC2 — correctifs issus des essais Revit grandeur réelle, validation finale à effectuer dans Revit 2025.4.
+
+### Interface finale
+
+L'Étape 09 transforme les prototypes précédents en une interface de création
+destinée à l'utilisation courante.
+
+La fenêtre principale conserve quatre étapes :
+
+1. portée de génération ;
+2. choix de la feuille modèle ;
+3. comportement multi-niveaux déduit automatiquement ;
+4. création des plans de vente.
+
+La fonction expérimentale de mise à jour de l'Étape 08 reste hors de cette
+interface : l'Étape 09 est un outil de **création**.
+
+### Portée de génération
+
+L'utilisateur peut :
+
+- traiter tous les logements ;
+- filtrer les logements selon un paramètre texte de pièce ;
+- choisir un opérateur ;
+- saisir une valeur.
+
+Les opérateurs disponibles sont :
+
+```text
+commence par
+est égal à
+contient
+se termine par
+est différent de
+est vide
+n'est pas vide
+```
+
+### Feuille modèle
+
+La feuille modèle fournit notamment :
+
+- le cartouche ;
+- la ou les positions de vues logement ;
+- l'échelle de référence ;
+- les nomenclatures ;
+- le type d'étiquette de pièce ;
+- le type de cote ;
+- le repérage lorsqu'il est présent et exploitable.
+
+L'interface affiche une **image PNG réelle de la feuille Revit sélectionnée**
+avec surcouche sur les zones reconnues. Le précédent bloc « Résultat attendu »
+a été supprimé car il faisait doublon.
+
+Le repérage est optionnel pour la sélection du modèle. Son absence ne bloque
+plus le bouton de création ; le rapport indique alors qu'aucun repérage n'a été
+créé.
+
+### Comportement multi-niveaux automatique
+
+Le choix manuel a été supprimé. Le comportement est déterminé par le nombre de
+vues logement détectées dans la feuille modèle.
+
+#### Modèle avec 1 vue logement
+
+Pour un logement sur plusieurs niveaux :
+
+- le logement est découpé par niveau ;
+- une feuille est créée pour chaque niveau ;
+- la même position de vue modèle est réutilisée ;
+- les nomenclatures restent globales au logement.
+
+Exemple :
+
+```text
+Villa 5
+├── Niveau 0 → 1 feuille
+└── Niveau 1 → 1 feuille
+```
+
+#### Modèle avec 2 vues logement
+
+Pour un logement sur deux niveaux :
+
+- une seule feuille est créée ;
+- niveau bas → première position du modèle ;
+- niveau haut → seconde position du modèle ;
+- les deux vues modèle doivent être à la même échelle ;
+- les positions sont reprises exactement ;
+- aucune tentative de placement automatique n'est effectuée ;
+- si les vues générées se chevauchent malgré le modèle, la création est
+  annulée et le modèle doit être ajusté.
+
+L'ordre est déduit de la disposition du modèle :
+
+- disposition horizontale : gauche → droite ;
+- disposition verticale : haut → bas.
+
+Les modèles contenant plus de deux vues logement sont refusés dans cette
+version afin d'éviter toute interprétation ambiguë.
+
+### Nomenclatures multi-niveaux
+
+Les nomenclatures sont toujours **globales au logement**.
+
+Ainsi, sur un duplex, les tableaux de surfaces habitables et de surfaces annexes
+contiennent les pièces de tous les niveaux, même lorsqu'une feuille distincte
+est créée pour chaque niveau.
+
+Les filtres de niveau hérités de la nomenclature modèle sont supprimés pour les
+sorties multi-niveaux, tandis que le filtre logement est conservé.
+
+### Cartouche
+
+Le cartouche est alimenté automatiquement :
+
+- **Logement N°** : valeur du paramètre logement choisi ;
+- **Bâtiment** : paramètre de pièce choisi dans Options avancées ;
+- **Étage / Niveau** : numéro du niveau Revit de la vue ; sur une feuille
+  contenant plusieurs niveaux, les numéros sont concaténés, par exemple
+  `0 / 1` ;
+- **Typologie** : paramètre de pièce choisi dans Options avancées, écrit dans
+  le paramètre `Zone` du cartouche.
+
+### Gabarits et vues
+
+Le gabarit de la vue logement modèle est appliqué à la vue principale technique
+PDV afin que les vues dépendantes reprennent correctement le graphisme du
+modèle.
+
+Le gabarit fait partie de l'identité du groupe technique PDV pour éviter la
+réutilisation d'une ancienne vue principale incompatible.
+
+### Échelle et placement
+
+Pour un modèle mono-vue, le moteur 07C reste la référence :
+
+- échelle du modèle en priorité ;
+- réduction uniquement si une collision impose une échelle de repli ;
+- la vue source de production n'est jamais modifiée.
+
+Pour un modèle à deux vues, les deux vues modèle doivent être à la même échelle
+et cette échelle commune est reprise.
+
+### Options avancées
+
+Les options actives sont :
+
+- ne créer que les logements sans plan existant ;
+- choisir le paramètre identifiant le logement ;
+- choisir le paramètre pièce utilisé pour Bâtiment ;
+- choisir le paramètre pièce utilisé pour Typologie ;
+- régler la marge de crop ;
+- autoriser la réduction automatique de l'échelle ;
+- définir les échelles de repli ;
+- rapport détaillé ;
+- journalisation des avertissements.
+
+### Stabilisation RC1
+
+Les garde-fous ajoutés avant RC1 couvrent notamment :
+
+- parsing statique des fichiers Python runtime de l'Étape 09 ;
+- validité des fichiers XAML ;
+- modèle 1 vue → une feuille par niveau ;
+- modèle 2 vues → une feuille multi-niveaux ;
+- absence de choix manuel multi-niveaux ;
+- absence du bloc « Résultat attendu » ;
+- repérage optionnel sans blocage de l'interface ;
+- maintien du moteur 07D validé pour les logements mono-niveau ;
+- conservation des nomenclatures globales au logement ;
+- cartouche Bâtiment / Niveau / Zone ;
+- aperçu réel de la feuille modèle.
+
+### Validation Revit à effectuer pour clôturer RC1
+
+Avant de considérer l'Étape 09 comme définitivement validée :
+
+1. logement mono-niveau avec modèle 1 vue ;
+2. logement duplex avec modèle 1 vue → deux feuilles ;
+3. logement duplex avec modèle 2 vues → une feuille ;
+4. contrôle des nomenclatures habitables et annexes sur les deux niveaux ;
+5. contrôle du cartouche : logement, bâtiment, niveau(x), typologie ;
+6. contrôle du gabarit graphique des vues ;
+7. contrôle d'un modèle sans repérage détecté ;
+8. génération par lot de plusieurs logements ;
+9. contrôle des avertissements de cotation sans erreur bloquante.
+
+Une fois cette série validée dans Revit 2025.4, l'Étape 09 pourra être marquée
+**VALIDÉE** et préparée pour intégration propre à la branche principale.
+
+
+### RC2 — Retours de validation Revit
+
+Les essais RC1 ont validé les cas mono-niveau et le mode « une feuille par niveau ».
+
+Trois ajustements sont intégrés en RC2 :
+
+1. **Interface simplifiée**
+   - la section « Logements sur 2 niveaux » a été supprimée ;
+   - le comportement multi-niveaux reste indiqué directement dans les détails de la feuille modèle ;
+   - la création devient la troisième étape visible.
+
+2. **Modèle 2 vues**
+   - les centres des viewports du modèle restent la référence ;
+   - les deux vues générées utilisent toujours la même échelle ;
+   - si leurs emprises réelles dépassent les emplacements du modèle, les deux
+     vues sont réduites ensemble vers les échelles de repli autorisées ;
+   - la première échelle commune qui rentre dans les deux emplacements sans
+     chevauchement est retenue.
+
+3. **Repérage robuste**
+   - un contour de surbrillance non fiable ne bloque plus toute la création ;
+   - le plan de repérage est alors créé sans zone remplie ;
+   - le rapport signale « Repérage créé sans surbrillance ».
+
+### Performance batch
+
+Le rapport final affiche désormais :
+
+- durée totale ;
+- temps moyen par plan créé.
+
+Premier essai grandeur réelle : environ 20 minutes pour un bâtiment d'environ
+21 logements, avec création des vues, étiquettes, cotations, nomenclatures,
+repérages et feuilles.
+
+Ce temps est considéré comme **acceptable pour la RC**, mais reste un axe
+d'optimisation. Les prochains profils permettront de distinguer le coût des
+cotations, des contrôles de collision, des nomenclatures et des régénérations
+Revit.
+
+**Build :** `stage09-rc2`
+
+
+### Zones explicites des vues principales — contrat final Étape 09
+
+Le placement des **vues principales logement** ne dépend plus d'une estimation
+automatique de l'espace libre du cartouche.
+
+La feuille modèle définit explicitement les zones cibles au moyen de
+**lignes de détail dessinées directement sur la feuille**.
+
+#### Principe
+
+- l'utilisateur choisit le style de ligne utilisé pour dessiner les zones ;
+- le style `<Lignes>` est proposé par défaut lorsqu'il existe ;
+- le plugin lit uniquement les `CurveElement` appartenant à la feuille modèle ;
+- pour chaque viewport logement modèle, son centre doit être contenu dans un
+  rectangle fermé dessiné avec le style choisi ;
+- le rectangle qui contient le centre devient la zone cible de la vue générée ;
+- la vue est centrée dans cette zone ;
+- l'échelle du modèle est conservée si la vue rentre ;
+- sinon, les échelles de repli autorisées sont essayées ;
+- pour plusieurs vues principales sur une même feuille, toutes utilisent la
+  même échelle.
+
+#### Contrat selon le modèle
+
+- **1 vue logement modèle + 1 rectangle** : une vue principale est créée et
+  centrée dans ce rectangle ;
+- **2 vues logement modèle + 2 rectangles** : chaque niveau est placé dans le
+  rectangle entourant le centre de la vue modèle correspondante ;
+- la même logique pourra fonctionner avec davantage de vues principales si le
+  modèle et le moteur multi-niveaux sont étendus ultérieurement.
+
+Les rectangles servent uniquement aux vues principales. Les nomenclatures,
+le repérage, le cartouche et les autres éléments de feuille conservent leur
+logique de placement issue de la feuille modèle.
+
+#### Validation avant génération
+
+Avant de lancer un lot, l'interface vérifie :
+
+1. qu'un style de ligne de zones est sélectionné ;
+2. que des lignes de ce style existent sur la feuille modèle ;
+3. que chaque vue principale modèle possède un rectangle fermé autour de son
+   centre.
+
+Si ce contrat n'est pas respecté, la création est bloquée avant toute
+génération.
+
+**Build de stabilisation :** `stage09-rc17-progress-stages`.
+
+### Progression de création — RC16
+
+La création par lot affiche désormais une fenêtre de progression dédiée,
+cohérente avec celle du module **Export**.
+
+La fenêtre affiche :
+
+- le logement en cours ;
+- le nombre de plans traités sur le nombre total ;
+- un pourcentage global monotone basé sur les logements réellement terminés ;
+- la phase courante ;
+- l'état de l'opération (`Revit travaille…`, plan terminé, plan ignoré ou échec).
+
+La fenêtre principale Plans de vente est temporairement désactivée pendant la
+création puis restaurée automatiquement, y compris si une exception survient.
+
+Aucun pourcentage artificiel n'est inventé à l'intérieur d'une génération
+Revit longue : la progression peut rester fixe pendant la création d'un
+logement, puis avancer lorsque ce logement est réellement terminé.
+
+**Build :** `stage09-rc16-progress`.
+
+### Harmonisation du ruban avant release
+
+La palette des icônes **Calculs des pièces**, **Export** et **Plans de vente**
+est harmonisée sur l'orange visuel Plans de vente : `#FD8B5A`.
+
+Les dessins et fonctions des boutons restent inchangés ; seule la palette
+graphique est harmonisée.
+
+#### Jalons réels de progression
+
+Depuis RC17, la barre ne progresse plus seulement à la fin de chaque logement.
+Le moteur publie des jalons après les opérations Revit effectivement terminées :
+
+- analyse et préparation ;
+- création de la vue principale ;
+- étiquettes ;
+- cotations ;
+- repérage ;
+- nomenclatures ;
+- assemblage de la feuille ;
+- finalisation.
+
+Pour un logement multi-niveaux, les jalons vue / étiquettes / cotations sont
+émis pour chaque niveau. Le pourcentage global combine l'avancement interne
+du logement courant avec sa position dans le lot.

@@ -142,7 +142,7 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 4 — Plans de vente
 
-**Statut : spécification / conception.**  
+**Statut : V1 validée le 16 octobre 2026 — intégration par la PR #26 et livraison dans Outils TAA v1.2.0.**
 Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Conception
@@ -152,35 +152,45 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 - [x] Définir le principe du **Modèle de plan de vente** configurable.
 - [x] Définir la règle des deux cotations principales par pièce sur dimensions intérieures finies.
 - [x] Définir la sélection du type d'étiquette et des gabarits de vues.
-- [x] Définir l'objectif de mise à jour durable des plans déjà générés.
-- [ ] Valider le périmètre final de la V1 avant création du bundle pyRevit.
-
-### Prototypes techniques prioritaires
-
-- [ ] PROTO-PDV-01 — Vues dépendantes : crop, annotations, cotations, gabarit et mise à jour dans Revit 2025.4. **Sous-prototype vue dépendante + crop rectangulaire validé dans Revit 2025.4 le 2026-10-01. Correctif suivant implémenté : crop calculé dans le repère écran de la vue (RightDirection / UpDirection) afin d'éliminer l'inclinaison due aux axes globaux ; validation Revit requise.**
-- [ ] PROTO-PDV-02 — Cotations : deux dimensions principales, faces finies, suppression des petits décrochements.
-- [ ] PROTO-PDV-03 — Crop logement : union/simplification des contours sur cas simples et complexes. **Moteur local sans murs en place et calcul rapide. Normalisation locale A/B ajoutée pour absorber jusqu'à deux petits segments résiduels de chaque côté d'une poche avant raccord ; diagnostic des segments absorbés ajouté. Revalidation visuelle A003 requise.**
+- [x] Valider le périmètre final de la V1.
 
 ### Développement V1
 
-- [x] Créer le bundle `PlansDeVente` et son architecture UI / modèles / services.
+- [x] Créer le bundle `PlansDeVente` et son architecture UI / services / métier.
 - [x] Collecter et regrouper les pièces par paramètre logement.
-- [x] Étape 01 validée dans Revit 2025.4 par l'utilisateur le 2026-10-01 : bouton, fenêtre, paramètres texte, analyse des logements, comptages et niveaux.
-- [ ] Implémenter le modèle de configuration de plan de vente.
-- [ ] Générer une ou deux vues par logement selon la configuration.
-- [ ] Appliquer les gabarits sélectionnés.
-- [ ] Implémenter le crop automatique.
-- [ ] Générer les étiquettes avec placement contrôlé.
-- [ ] Générer les deux cotations principales par pièce.
-- [ ] Dupliquer, filtrer et placer les nomenclatures intérieure et extérieure.
-- [ ] Générer le plan de repérage.
-- [ ] Assembler la feuille à partir du modèle.
-- [ ] Implémenter le mapping des paramètres de feuille.
-- [ ] Implémenter nommage et contrôle des collisions.
-- [ ] Ajouter prévisualisation et rapport.
-- [ ] Implémenter l'identification durable et la mise à jour des plans existants.
-- [ ] Appliquer le Design System Outils TAA.
-- [ ] Créer la campagne de tests Revit 2025.4.
+- [x] Filtrer les logements par paramètre texte.
+- [x] Générer une vue logement mono-niveau depuis une feuille modèle.
+- [x] Générer un logement multi-niveaux soit sur une feuille par niveau, soit sur une feuille unique à deux vues selon le modèle.
+- [x] Appliquer les gabarits et l'échelle issus des vues modèles.
+- [x] Implémenter le crop automatique.
+- [x] Générer les étiquettes de pièces avec placement contrôlé.
+- [x] Générer les cotations principales par pièce.
+- [x] Dupliquer, filtrer et placer toutes les nomenclatures présentes sur la feuille modèle.
+- [x] Générer le plan de repérage.
+- [x] Assembler la feuille à partir du modèle.
+- [x] Renseigner les paramètres de cartouche : logement, bâtiment, étage et typologie.
+- [x] Renseigner les surfaces habitables et annexes sur l'ensemble du logement multi-niveaux.
+- [x] Implémenter le nommage et le contrôle des collisions.
+- [x] Ajouter l'aperçu réel de la feuille modèle.
+- [x] Ajouter le rapport de création détaillé.
+- [x] Ajouter les zones explicites de placement des vues principales dessinées directement sur la feuille modèle.
+- [x] Ajouter une fenêtre de progression par jalons réels pendant la création.
+- [x] Harmoniser la palette des icônes Calculs / Export / Plans de vente.
+- [x] Appliquer le Design System Outils TAA.
+- [x] Valider les workflows principaux dans Revit 2025.4 : mono-vue, duplex une feuille par niveau, duplex deux vues sur une feuille, génération par lot.
+- [x] Recette finale réussie sur `release/plans-de-vente-v1` le 16 octobre 2026, confirmée par l’utilisateur (ouverture, mono-niveau, multi-niveaux, lot, progression, Export, Calculs et icônes).
+- [x] Intégration finale de `release/plans-de-vente-v1` dans `main` par la PR #26.
+- [x] Livraison de Plans de vente V1 avec [Outils TAA v1.2.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.2.0).
+
+Ces deux derniers jalons correspondent à la fusion et à la publication de cette
+préparation de release ; l’état GitHub de la PR et de la release fait foi.
+
+### Hors périmètre V1 / suite
+
+- [ ] Mise à jour durable des plans déjà générés : reportée après la V1.
+- [ ] Optimisations supplémentaires de performance sur les grands lots.
+- [ ] Extension éventuelle à plus de deux vues principales sur une même feuille.
+
 
 ## Phase 5 — Industrialisation
 

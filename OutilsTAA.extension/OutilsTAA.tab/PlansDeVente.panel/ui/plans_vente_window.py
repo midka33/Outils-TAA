@@ -10,6 +10,7 @@ from pyrevit import forms
 from common.wpf_resources import load_resource_dictionary
 from plans_vente.defaults import preferred_housing_parameter_index
 from plans_vente.view_grouping import normalize_scale
+from plans_vente.sheet_fit import parse_allowed_scales
 
 
 class ParameterChoice(object):
@@ -44,6 +45,24 @@ class LocationChoice(object):
         self.Label = label if label is not None else candidate.label
 
 
+class RoomTagChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
+class DimensionChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
+class SheetTemplateChoice(object):
+    def __init__(self, candidate):
+        self.Candidate = candidate
+        self.Label = candidate.label
+
+
 class PlansVenteWindow(forms.WPFWindow):
 
     def __init__(self, controller):
@@ -55,6 +74,20 @@ class PlansVenteWindow(forms.WPFWindow):
         self._location_source_choices = []
         self._location_template_choices = []
         self._location_fill_choices = []
+        self._room_tag_type_choices = []
+        self._room_tag_type_labels = []
+        self._room_tag_type_error = ""
+        self._room_tag_view_choices = []
+        self._dimension_type_choices = []
+        self._dimension_type_labels = []
+        self._dimension_type_error = ""
+        self._dimension_view_choices = []
+        self._sheet_template_choices = []
+        self._sheet_template_labels = []
+        self._sheet_readiness = None
+        self._sheet_template_inspection = None
+        self._deferred_static_choices_loaded = False
+        self._sheet_templates_loaded = False
         self._active_descriptor = None
 
         current_dir = os.path.dirname(__file__)
@@ -65,8 +98,13 @@ class PlansVenteWindow(forms.WPFWindow):
         self._load_context()
         self._clear_prototype_selection()
         self._clear_schedule_selection()
-        self._load_location_static_choices()
         self._clear_location_source_selection()
+        self._clear_room_tag_views()
+        self._clear_dimension_views()
+        self._clear_sheet_assembly()
+        self.SheetTemplateCombo.ItemsSource = []
+        self.SheetTemplateCombo.SelectedIndex = -1
+        self._clear_sheet_role_choices()
 
     def _load_theme(self):
         panel_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -170,6 +208,7 @@ class PlansVenteWindow(forms.WPFWindow):
             self._active_descriptor = descriptor
             self._clear_prototype_selection()
             self._load_schedule_templates(descriptor)
+            self._update_full_generation_button_state()
         except Exception as error:
             self.StatusText.Text = "Erreur pendant l'analyse."
             forms.alert(
@@ -185,7 +224,11 @@ class PlansVenteWindow(forms.WPFWindow):
         housing = getattr(row, "Housing", None) if row is not None else None
         if housing is None:
             self._clear_prototype_selection()
+            self._clear_room_tag_views()
+            self._clear_dimension_views()
+            self._clear_sheet_assembly()
             self._update_schedule_button_state()
+            self._update_full_generation_button_state()
             return
 
         try:
@@ -213,8 +256,13 @@ class PlansVenteWindow(forms.WPFWindow):
                 "Aucune vue plan principale duplicable n'a été trouvée pour ce niveau."
             )
 
+        self._ensure_deferred_static_choices_loaded()
         self._load_location_sources(housing)
+        self._load_room_tag_views(housing)
+        self._load_dimension_views(housing)
+        self._load_sheet_readiness(housing)
         self._update_schedule_button_state()
+        self._update_full_generation_button_state()
 
     def SourceViewChanged(self, sender, args):
         item = self.SourceViewCombo.SelectedItem
@@ -314,6 +362,10 @@ class PlansVenteWindow(forms.WPFWindow):
             if result.warning:
                 message += "\n\nAvertissement :\n{}".format(result.warning)
 
+            self._load_room_tag_views(housing)
+            self._load_dimension_views(housing)
+            self._load_sheet_readiness(housing)
+
             forms.alert(
                 message,
                 title="Plans de vente — Prototype",
@@ -379,6 +431,7 @@ class PlansVenteWindow(forms.WPFWindow):
             )
             self.StatusText.Text = "Nomenclatures créées pour {} : {} / {}.".format(
                 result.housing_key, result.interior_name, result.exterior_name)
+            self._load_sheet_readiness(housing)
             forms.alert(
                 (
                     "Nomenclatures créées avec succès.\n\n"
@@ -480,6 +533,7 @@ class PlansVenteWindow(forms.WPFWindow):
                 template_unique_id=template.unique_id if template is not None else None,
             )
             self.StatusText.Text = "Plan de repérage créé : {}.".format(result.view_name)
+            self._load_sheet_readiness(housing)
             forms.alert(
                 (
                     "Plan de repérage créé avec succès.\n\n"
@@ -548,6 +602,1102 @@ class PlansVenteWindow(forms.WPFWindow):
             self.HousingGrid.SelectedItem is not None
             and self.LocationSourceCombo.SelectedItem is not None
             and self.LocationFillTypeCombo.SelectedItem is not None
+        )
+
+
+    def RoomTagChoiceChanged(self, sender, args):
+        self._update_room_tag_button_state()
+
+    def CreateRoomTags_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        view_item = self.RoomTagViewCombo.SelectedItem
+        type_index = int(self.RoomTagTypeCombo.SelectedIndex)
+        view = getattr(view_item, "Candidate", None) if view_item is not None else None
+        type_item = (
+            self._room_tag_type_choices[type_index]
+            if 0 <= type_index < len(self._room_tag_type_choices)
+            else None
+        )
+        tag_type = getattr(type_item, "Candidate", None) if type_item is not None else None
+
+        if housing is None or view is None or tag_type is None:
+            forms.alert(
+                "Sélectionnez un logement, une vue logement et un type d'étiquette.",
+                title="Plans de vente — Étiquettes",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer les étiquettes des pièces du logement « {} » ?\n\n"
+                "Vue logement : {}\n"
+                "Type d'étiquette : {}\n"
+                "Pièces : {}\n\n"
+                "Le moteur cherche d'abord une position entièrement dans la "
+                "pièce et sans collision avec les autres étiquettes."
+            ).format(
+                housing.key,
+                view.name,
+                tag_type.label,
+                housing.room_count,
+            ),
+            title="Plans de vente — Étiquettes",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateRoomTagsButton.IsEnabled = False
+        try:
+            result = self.controller.create_room_tags(
+                housing=housing,
+                target_view_unique_id=view.unique_id,
+                room_tag_type_unique_id=tag_type.unique_id,
+            )
+
+            status = "{} étiquette(s) créée(s) dans {}.".format(
+                result.created_count,
+                result.view_name,
+            )
+            if result.adjusted_count:
+                status += " {} repositionnée(s).".format(result.adjusted_count)
+            if result.warning_count:
+                status += " {} avertissement(s).".format(result.warning_count)
+            self.StatusText.Text = status
+
+            message = (
+                "Étiquettes créées avec succès.\n\n"
+                "Logement : {}\n"
+                "Vue : {}\n"
+                "Type : {}\n"
+                "Créées : {}\n"
+                "Repositionnées : {}"
+            ).format(
+                result.housing_key,
+                result.view_name,
+                result.tag_type_name,
+                result.created_count,
+                result.adjusted_count,
+            )
+            if result.warnings:
+                message += "\n\nAvertissements :\n- " + "\n- ".join(result.warnings)
+
+            forms.alert(
+                message,
+                title="Plans de vente — Étiquettes",
+                warn_icon=bool(result.warnings),
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création des étiquettes."
+            build_id = self.controller.room_tag_build_id()
+            forms.alert(
+                "{}\n\nMoteur étiquettes : {}".format(error, build_id),
+                title="Plans de vente — Étiquettes",
+                warn_icon=True,
+            )
+        finally:
+            self._update_room_tag_button_state()
+
+    def _load_room_tag_types(self):
+        self._room_tag_type_error = ""
+        try:
+            candidates = self.controller.room_tag_types()
+        except Exception as error:
+            self._room_tag_type_error = str(error) or repr(error)
+            candidates = []
+
+        self._room_tag_type_choices = [
+            RoomTagChoice(candidate)
+            for candidate in candidates
+        ]
+        self._room_tag_type_labels = []
+        for index, choice in enumerate(self._room_tag_type_choices):
+            label = str(getattr(choice, "Label", "") or "").strip()
+            if not label:
+                label = "Type d'étiquette #{}".format(index + 1)
+            self._room_tag_type_labels.append(label)
+
+        # Ne pas utiliser DisplayMemberPath ici : sous IronPython/WPF, le
+        # binding sur les wrappers Python peut rendre des lignes présentes mais
+        # visuellement vides. Des chaînes simples sont affichées directement.
+        self.RoomTagTypeCombo.ItemsSource = self._room_tag_type_labels
+        self.RoomTagTypeCombo.SelectedIndex = (
+            0 if self._room_tag_type_labels else -1
+        )
+
+        if self._room_tag_type_error:
+            self.RoomTagInfoText.Text = (
+                "Erreur de collecte des types d'étiquettes : {}"
+            ).format(self._room_tag_type_error)
+        elif self._room_tag_type_labels:
+            self.RoomTagInfoText.Text = "{} type(s) d'étiquette chargé(s).".format(
+                len(self._room_tag_type_labels)
+            )
+        else:
+            self.RoomTagInfoText.Text = (
+                "0 type d'étiquette de pièce trouvé dans le document hôte. "
+                "Chargez au moins une famille de catégorie Étiquette de pièce."
+            )
+
+    def _load_room_tag_views(self, housing):
+        self._clear_room_tag_views()
+        if housing is None:
+            return
+
+        try:
+            candidates = self.controller.room_tag_target_views(housing)
+        except Exception as error:
+            self.RoomTagInfoText.Text = str(error)
+            return
+
+        self._room_tag_view_choices = [
+            RoomTagChoice(candidate)
+            for candidate in candidates
+        ]
+        self.RoomTagViewCombo.ItemsSource = self._room_tag_view_choices
+        self.RoomTagViewCombo.SelectedIndex = (
+            0 if self._room_tag_view_choices else -1
+        )
+
+        if self._room_tag_type_error:
+            self.RoomTagInfoText.Text = (
+                "Erreur de collecte des types d'étiquettes : {}"
+            ).format(self._room_tag_type_error)
+        elif self._room_tag_view_choices:
+            self.RoomTagInfoText.Text = (
+                "Le centre est testé dans la pièce ; le moteur recherche une "
+                "position alternative en cas de débordement ou collision. "
+                "{} type(s) d'étiquette disponible(s)."
+            ).format(len(self._room_tag_type_labels))
+        else:
+            self.RoomTagInfoText.Text = (
+                "Créez d'abord une vue logement avec le contour optimisé. "
+                "{} type(s) d'étiquette disponible(s)."
+            ).format(len(self._room_tag_type_labels))
+        self._update_room_tag_button_state()
+
+    def _clear_room_tag_views(self):
+        self._room_tag_view_choices = []
+        self.RoomTagViewCombo.ItemsSource = []
+        self.RoomTagViewCombo.SelectedIndex = -1
+        self.CreateRoomTagsButton.IsEnabled = False
+        self.RoomTagInfoText.Text = (
+            "Sélectionnez un logement puis une vue logement générée."
+        )
+
+    def _update_room_tag_button_state(self):
+        self.CreateRoomTagsButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.RoomTagViewCombo.SelectedItem is not None
+            and self.RoomTagTypeCombo.SelectedItem is not None
+        )
+
+    def DimensionChoiceChanged(self, sender, args):
+        self._update_dimension_button_state()
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        self._load_sheet_readiness(housing)
+
+    def CreateDimensions_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        view_item = self.DimensionViewCombo.SelectedItem
+        type_index = int(self.DimensionTypeCombo.SelectedIndex)
+        view = getattr(view_item, "Candidate", None) if view_item is not None else None
+        type_item = (
+            self._dimension_type_choices[type_index]
+            if 0 <= type_index < len(self._dimension_type_choices)
+            else None
+        )
+        dimension_type = (
+            getattr(type_item, "Candidate", None)
+            if type_item is not None
+            else None
+        )
+
+        if housing is None or view is None or dimension_type is None:
+            forms.alert(
+                "Sélectionnez un logement, une vue logement et un type de cote.",
+                title="Plans de vente — Cotations",
+                warn_icon=True,
+            )
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer les cotations principales du logement « {} » ?\n\n"
+                "Vue logement : {}\n"
+                "Type de cote : {}\n"
+                "Pièces : {}\n\n"
+                "Prototype 06F V1 : deux cotations principales maximum par pièce, "
+                "avec placement intérieur et évitement des étiquettes, équipements "
+                "et autres cotes. Les références aux faces de murs et aux bords de "
+                "sols sont conservées. Les cotes complémentaires restent à la charge "
+                "de l'utilisateur."
+            ).format(
+                housing.key,
+                view.name,
+                dimension_type.label,
+                housing.room_count,
+            ),
+            title="Plans de vente — Cotations",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateDimensionsButton.IsEnabled = False
+        try:
+            result = self.controller.create_dimensions(
+                housing=housing,
+                target_view_unique_id=view.unique_id,
+                dimension_type_unique_id=dimension_type.unique_id,
+            )
+
+            status = (
+                "{} cote(s) créée(s) dans {} — {} pièce(s) avec 2 cotes, "
+                "{} avec 1 cote, {} sans cote."
+            ).format(
+                result.created_count,
+                result.view_name,
+                result.full_room_count,
+                result.partial_room_count,
+                result.skipped_room_count,
+            )
+            if result.warning_count:
+                status += " {} avertissement(s).".format(result.warning_count)
+            self.StatusText.Text = status
+
+            message = (
+                "Cotations créées avec succès.\n\n"
+                "Logement : {}\n"
+                "Vue : {}\n"
+                "Type : {}\n"
+                "Pièces analysées : {}\n"
+                "Cotes créées : {}\n"
+                "Pièces avec 2 cotes : {}\n"
+                "Pièces avec 1 cote : {}\n"
+                "Pièces sans cote : {}"
+            ).format(
+                result.housing_key,
+                result.view_name,
+                result.dimension_type_name,
+                result.room_count,
+                result.created_count,
+                result.full_room_count,
+                result.partial_room_count,
+                result.skipped_room_count,
+            )
+            message += "\nMoteur cotations : {}".format(self.controller.dimension_build_id())
+            if result.warnings:
+                message += "\n\nAvertissements :\n- " + "\n- ".join(result.warnings)
+
+            forms.alert(
+                message,
+                title="Plans de vente — Cotations",
+                warn_icon=bool(result.warnings),
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de la création des cotations."
+            message = "{}\n\nMoteur cotations : {}".format(
+                str(error),
+                self.controller.dimension_build_id(),
+            )
+            forms.alert(
+                message,
+                title="Plans de vente — Cotations",
+                warn_icon=True,
+            )
+        finally:
+            self._update_dimension_button_state()
+
+    def _load_dimension_types(self):
+        self._dimension_type_choices = []
+        self._dimension_type_labels = []
+        self._dimension_type_error = ""
+        try:
+            candidates = self.controller.dimension_types()
+        except Exception as error:
+            self._dimension_type_error = str(error) or repr(error)
+            self.DimensionTypeCombo.ItemsSource = []
+            self.DimensionTypeCombo.SelectedIndex = -1
+            self.DimensionInfoText.Text = (
+                "Erreur de collecte des types de cote : {}"
+            ).format(self._dimension_type_error)
+            self._update_dimension_button_state()
+            return
+
+        self._dimension_type_choices = [
+            DimensionChoice(candidate)
+            for candidate in candidates
+        ]
+        self._dimension_type_labels = [
+            choice.Label or "Type de cote #{}".format(index + 1)
+            for index, choice in enumerate(self._dimension_type_choices)
+        ]
+        self.DimensionTypeCombo.ItemsSource = self._dimension_type_labels
+        self.DimensionTypeCombo.SelectedIndex = (
+            0 if self._dimension_type_labels else -1
+        )
+
+        if self._dimension_type_labels:
+            self.DimensionInfoText.Text = (
+                "{} type(s) de cote linéaire chargé(s)."
+            ).format(len(self._dimension_type_labels))
+        else:
+            self.DimensionInfoText.Text = (
+                "0 type de cote linéaire trouvé dans le document hôte."
+            )
+        self._update_dimension_button_state()
+
+    def _load_dimension_views(self, housing):
+        self._clear_dimension_views()
+        if housing is None:
+            return
+
+        try:
+            candidates = self.controller.dimension_target_views(housing)
+        except Exception as error:
+            self.DimensionInfoText.Text = str(error)
+            return
+
+        self._dimension_view_choices = [
+            DimensionChoice(candidate)
+            for candidate in candidates
+        ]
+        self.DimensionViewCombo.ItemsSource = self._dimension_view_choices
+        self.DimensionViewCombo.SelectedIndex = (
+            0 if self._dimension_view_choices else -1
+        )
+
+        if self._dimension_type_error:
+            self.DimensionInfoText.Text = (
+                "Erreur de collecte des types de cote : {}"
+            ).format(self._dimension_type_error)
+        elif self._dimension_view_choices:
+            self.DimensionInfoText.Text = (
+                "Prototype 06F : placement intérieur des cotes, étiquettes préservées, "
+                "références aux faces et bords de sols conservées. "
+                "{} type(s) disponible(s)."
+            ).format(len(self._dimension_type_labels))
+        else:
+            self.DimensionInfoText.Text = (
+                "Créez d'abord une vue logement avec le contour optimisé. "
+                "{} type(s) de cote disponible(s)."
+            ).format(len(self._dimension_type_labels))
+        self._update_dimension_button_state()
+
+    def _clear_dimension_views(self):
+        self._dimension_view_choices = []
+        self.DimensionViewCombo.ItemsSource = []
+        self.DimensionViewCombo.SelectedIndex = -1
+        self.CreateDimensionsButton.IsEnabled = False
+        self.DimensionInfoText.Text = (
+            "Sélectionnez un logement puis une vue logement générée."
+        )
+
+    def _update_dimension_button_state(self):
+        self.CreateDimensionsButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.DimensionViewCombo.SelectedItem is not None
+            and self.DimensionTypeCombo.SelectedItem is not None
+        )
+
+    def _ensure_deferred_static_choices_loaded(self):
+        if self._deferred_static_choices_loaded:
+            return
+        self._load_location_static_choices()
+        self._load_room_tag_types()
+        self._load_dimension_types()
+        self._deferred_static_choices_loaded = True
+
+    def SheetTemplateDropDownOpened(self, sender, args):
+        if not self._sheet_templates_loaded:
+            self._load_sheet_templates()
+        self._update_sheet_button_state()
+        self._update_full_generation_button_state()
+
+    def SheetTemplateChanged(self, sender, args):
+        self._inspect_selected_sheet_template()
+        self._update_full_generation_button_state()
+
+    def SheetRoleChoiceChanged(self, sender, args):
+        self._refresh_sheet_info()
+        self._update_sheet_button_state()
+    def SheetFitChoiceChanged(self, sender, args):
+        if not hasattr(self, "SheetInfoText"):
+            return
+        self._refresh_sheet_info()
+        self._update_sheet_button_state()
+        self._update_full_generation_button_state()
+
+    def _sheet_fit_options(self):
+        auto_fit = bool(
+            getattr(self.SheetAutoFitCheckBox, "IsChecked", False)
+        )
+        if not auto_fit:
+            return False, []
+
+        scales = parse_allowed_scales(
+            self.SheetAllowedScalesTextBox.Text
+        )
+        return True, scales
+
+
+    def _selected_sheet_template(self):
+        index = int(self.SheetTemplateCombo.SelectedIndex)
+        if 0 <= index < len(self._sheet_template_choices):
+            return self._sheet_template_choices[index].Candidate
+        return None
+
+    def _inspect_selected_sheet_template(self):
+        self._sheet_template_inspection = None
+        template = self._selected_sheet_template()
+        if template is None:
+            self._clear_sheet_role_choices()
+            self._refresh_sheet_info()
+            self._update_sheet_button_state()
+            self._update_full_generation_button_state()
+            return
+
+        try:
+            self._sheet_template_inspection = (
+                self.controller.inspect_sheet_template(template.unique_id)
+            )
+        except Exception as error:
+            self._clear_sheet_role_choices()
+            self.SheetInfoText.Text = (
+                "Impossible d'analyser la feuille choisie : {}"
+            ).format(str(error) or repr(error))
+            self._update_sheet_button_state()
+            self._update_full_generation_button_state()
+            return
+
+        self._populate_sheet_role_choices()
+        self._refresh_sheet_info()
+        self._update_sheet_button_state()
+        self._update_full_generation_button_state()
+
+    def _clear_sheet_role_choices(self):
+        for combo_name in (
+            "SheetMainViewCombo",
+            "SheetLocationViewCombo",
+            "SheetInteriorScheduleCombo",
+            "SheetExteriorScheduleCombo",
+        ):
+            combo = getattr(self, combo_name, None)
+            if combo is not None:
+                combo.ItemsSource = []
+                combo.SelectedIndex = -1
+
+    def _populate_sheet_role_choices(self):
+        self._clear_sheet_role_choices()
+        inspection = self._sheet_template_inspection
+        if inspection is None:
+            return
+
+        view_labels = [
+            candidate.label
+            for candidate in inspection.view_candidates
+        ]
+        schedule_labels = [
+            candidate.label
+            for candidate in inspection.schedule_candidates
+        ]
+
+        self.SheetMainViewCombo.ItemsSource = list(view_labels)
+        self.SheetLocationViewCombo.ItemsSource = list(view_labels)
+        self.SheetInteriorScheduleCombo.ItemsSource = list(schedule_labels)
+        self.SheetExteriorScheduleCombo.ItemsSource = list(schedule_labels)
+
+        # Aucun rôle n'est deviné. L'utilisateur choisit les quatre éléments.
+        self.SheetMainViewCombo.SelectedIndex = -1
+        self.SheetLocationViewCombo.SelectedIndex = -1
+        self.SheetInteriorScheduleCombo.SelectedIndex = -1
+        self.SheetExteriorScheduleCombo.SelectedIndex = -1
+
+    def _selected_sheet_role_mapping(self):
+        inspection = self._sheet_template_inspection
+        if inspection is None:
+            return None
+
+        main_index = int(self.SheetMainViewCombo.SelectedIndex)
+        location_index = int(self.SheetLocationViewCombo.SelectedIndex)
+        interior_index = int(self.SheetInteriorScheduleCombo.SelectedIndex)
+        exterior_index = int(self.SheetExteriorScheduleCombo.SelectedIndex)
+
+        if (
+            main_index < 0
+            or location_index < 0
+            or interior_index < 0
+            or exterior_index < 0
+        ):
+            return None
+
+        if main_index == location_index or interior_index == exterior_index:
+            return None
+
+        if (
+            main_index >= len(inspection.view_candidates)
+            or location_index >= len(inspection.view_candidates)
+            or interior_index >= len(inspection.schedule_candidates)
+            or exterior_index >= len(inspection.schedule_candidates)
+        ):
+            return None
+
+        return {
+            "main_view": inspection.view_candidates[main_index],
+            "location_view": inspection.view_candidates[location_index],
+            "interior_schedule": inspection.schedule_candidates[interior_index],
+            "exterior_schedule": inspection.schedule_candidates[exterior_index],
+        }
+
+    def CreateFullPlan_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        template = self._selected_sheet_template()
+        descriptor = self._active_descriptor
+
+        if housing is None or template is None or descriptor is None:
+            forms.alert(
+                "Sélectionnez un logement, analysez le paramètre logement "
+                "et choisissez une feuille modèle.",
+                title="Plans de vente — Génération 07D",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            allowed_scales = parse_allowed_scales(
+                self.SheetAllowedScalesTextBox.Text
+            )
+            inspection = self.controller.inspect_full_generation_template(
+                template.unique_id,
+                descriptor,
+            )
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Génération 07D",
+                warn_icon=True,
+            )
+            return
+
+        detected = (
+            "Vue logement : {}\n"
+            "Repérage : {}\n"
+            "Échelle de référence : 1:{}\n"
+            "Nomenclatures placées : {}\n"
+            "Type d'étiquette : {}\n"
+            "Type de cote : {}\n"
+            "Surbrillance repérage : {}"
+        ).format(
+            inspection.main_view_name,
+            inspection.location_view_name,
+            inspection.reference_scale or "?",
+            len(inspection.schedule_names),
+            inspection.room_tag_type_name or "non détecté",
+            inspection.dimension_type_name or "non détecté",
+            inspection.filled_region_type_name or "non détecté",
+        )
+
+        warning_text = ""
+        if inspection.warnings:
+            warning_text = "\n\nPoints à contrôler :\n- " + "\n- ".join(
+                inspection.warnings[:6]
+            )
+
+        confirmed = forms.alert(
+            (
+                "Créer automatiquement le plan de vente « {} » depuis :\n{}\n\n"
+                "{}\n\n"
+                "Le 07D va créer la vue logement, les étiquettes, les cotations, "
+                "le repérage, toutes les nomenclatures du modèle et la feuille.\n"
+                "En cas d'erreur, l'ensemble de la génération sera annulé."
+                "{}"
+            ).format(
+                housing.key,
+                template.label,
+                detected,
+                warning_text,
+            ),
+            title="Plans de vente — Génération complète 07D",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateFullPlanButton.IsEnabled = False
+        self.StatusText.Text = (
+            "Génération complète du plan de vente {}...".format(housing.key)
+        )
+
+        try:
+            result = self.controller.generate_full_plan(
+                housing=housing,
+                descriptor=descriptor,
+                template_sheet_unique_id=template.unique_id,
+                allowed_scales=allowed_scales,
+            )
+
+            tag_count = (
+                result.tag_result.created_count
+                if result.tag_result is not None
+                else 0
+            )
+            dimension_count = (
+                result.dimension_result.created_count
+                if result.dimension_result is not None
+                else 0
+            )
+            schedule_count = len(
+                getattr(result.schedule_result, "items", []) or []
+            )
+
+            warnings = list(result.warnings or [])
+            warning_text = ""
+            if warnings:
+                visible = warnings[:8]
+                warning_text = (
+                    "\n\nAvertissements :\n- "
+                    + "\n- ".join(visible)
+                )
+                if len(warnings) > len(visible):
+                    warning_text += (
+                        "\n- ... {} autre(s) avertissement(s)".format(
+                            len(warnings) - len(visible)
+                        )
+                    )
+
+            self.StatusText.Text = (
+                "Plan de vente {} créé automatiquement sur la feuille {}."
+            ).format(
+                result.housing_key,
+                result.sheet_result.sheet_number,
+            )
+
+            forms.alert(
+                (
+                    "Plan de vente complet créé.\n\n"
+                    "Feuille : {} — {}\n"
+                    "Vue logement : {}\n"
+                    "Repérage : {}\n"
+                    "Nomenclatures : {}\n"
+                    "Étiquettes créées : {}\n"
+                    "Cotations créées : {}\n"
+                    "Échelle finale logement : 1:{}\n\n"
+                    "Moteur : {}"
+                    "{}"
+                ).format(
+                    result.sheet_result.sheet_number,
+                    result.sheet_result.sheet_name,
+                    result.main_view_result.view_name,
+                    result.location_result.view_name,
+                    schedule_count,
+                    tag_count,
+                    dimension_count,
+                    result.sheet_result.main_view_scale or "?",
+                    self.controller.full_generation_build_id(),
+                    warning_text,
+                ),
+                title="Plans de vente — 07D",
+            )
+        except Exception as error:
+            self.StatusText.Text = (
+                "Échec 07D : génération annulée, aucun ensemble partiel conservé."
+            )
+            forms.alert(
+                "{}\n\nMoteur : {}".format(
+                    str(error),
+                    self.controller.full_generation_build_id(),
+                ),
+                title="Plans de vente — Génération 07D",
+                warn_icon=True,
+            )
+        finally:
+            self._load_room_tag_views(housing)
+            self._load_dimension_views(housing)
+            self._load_sheet_readiness(housing)
+            self._update_full_generation_button_state()
+
+    def CreateSheet_Click(self, sender, args):
+        row = self.HousingGrid.SelectedItem
+        housing = getattr(row, "Housing", None) if row is not None else None
+        view_item = self.DimensionViewCombo.SelectedItem
+        main_view = (
+            getattr(view_item, "Candidate", None)
+            if view_item is not None
+            else None
+        )
+        template = self._selected_sheet_template()
+        inspection = self._sheet_template_inspection
+        mapping = self._selected_sheet_role_mapping()
+
+        try:
+            auto_fit_main_view, allowed_scales = self._sheet_fit_options()
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            return
+
+        if housing is None or main_view is None or template is None:
+            forms.alert(
+                "Sélectionnez un logement, une vue logement et une feuille modèle.",
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            return
+
+        if inspection is None or not inspection.is_valid:
+            forms.alert(
+                (
+                    inspection.summary
+                    if inspection is not None
+                    else "La feuille modèle choisie n'a pas encore été validée."
+                ),
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            return
+
+        if mapping is None:
+            forms.alert(
+                (
+                    "Attribuez les quatre rôles de la feuille modèle. "
+                    "La vue logement et le repérage doivent être différents, "
+                    "comme les deux nomenclatures."
+                ),
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            readiness = self.controller.sheet_assembly_readiness(
+                housing,
+                main_view.unique_id,
+            )
+        except Exception as error:
+            forms.alert(
+                str(error),
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            return
+
+        if not readiness.is_ready:
+            forms.alert(
+                readiness.summary,
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+            self._sheet_readiness = readiness
+            self.SheetInfoText.Text = readiness.summary
+            self._update_sheet_button_state()
+            return
+
+        confirmed = forms.alert(
+            (
+                "Créer la feuille du logement « {} » à partir du modèle ?\n\n"
+                "Feuille modèle : {}\n"
+                "Cartouche repris : {}\n\n"
+                "Rôles sur la feuille modèle :\n"
+                "Vue logement : {}\n"
+                "Repérage : {}\n"
+                "Nomenclature intérieure : {}\n"
+                "Nomenclature extérieure : {}\n\n"
+                "Les vrais éléments du logement seront placés exactement "
+                "aux positions de ces quatre éléments modèles.\n\n"
+                "Règle 07C : {}\n"
+                "Échelles de repli : {}"
+            ).format(
+                housing.key,
+                template.label,
+                inspection.title_block_label,
+                mapping["main_view"].label,
+                mapping["location_view"].label,
+                mapping["interior_schedule"].label,
+                mapping["exterior_schedule"].label,
+                (
+                    "échelle du modèle, puis réduction seulement sur collision"
+                    if auto_fit_main_view
+                    else "échelle de la vue existante conservée"
+                ),
+                (
+                    ", ".join(
+                        "1:{}".format(scale)
+                        for scale in allowed_scales
+                    )
+                    if auto_fit_main_view
+                    else "échelle actuelle"
+                ),
+            ),
+            title="Plans de vente — Feuille 07C",
+            yes=True,
+            no=True,
+        )
+        if not confirmed:
+            return
+
+        self.CreateSheetButton.IsEnabled = False
+        try:
+            result = self.controller.create_sheet_from_template(
+                housing=housing,
+                template_sheet_unique_id=template.unique_id,
+                main_view_unique_id=main_view.unique_id,
+                template_main_viewport_unique_id=(
+                    mapping["main_view"].viewport_unique_id
+                ),
+                template_location_viewport_unique_id=(
+                    mapping["location_view"].viewport_unique_id
+                ),
+                template_interior_schedule_instance_unique_id=(
+                    mapping["interior_schedule"].instance_unique_id
+                ),
+                template_exterior_schedule_instance_unique_id=(
+                    mapping["exterior_schedule"].instance_unique_id
+                ),
+                auto_fit_main_view=auto_fit_main_view,
+                allowed_scales=allowed_scales,
+            )
+
+            self.StatusText.Text = (
+                "Feuille {} créée pour {} depuis {}."
+            ).format(
+                result.sheet_number,
+                result.housing_key,
+                result.template_sheet_label,
+            )
+
+            forms.alert(
+                (
+                    "Feuille créée avec succès.\n\n"
+                    "Numéro : {}\n"
+                    "Nom : {}\n"
+                    "Feuille modèle : {}\n"
+                    "Cartouche : {}\n"
+                    "Vue logement : {}\n"
+                    "Repérage : {}\n"
+                    "Nomenclature intérieure : {}\n"
+                    "Nomenclature extérieure : {}\n"
+                    "Échelle vue logement : 1:{}{}\n\n"
+                    "{}"
+                    "Moteur feuille : {}"
+                ).format(
+                    result.sheet_number,
+                    result.sheet_name,
+                    result.template_sheet_label,
+                    result.title_block_label,
+                    result.main_view_name,
+                    result.location_view_name,
+                    result.interior_schedule_name,
+                    result.exterior_schedule_name,
+                    result.main_view_scale or "?",
+                    (
+                        " (copie ajustée)"
+                        if result.main_view_was_duplicated
+                        else ""
+                    ),
+                    (
+                        "Avertissements :\n- "
+                        + "\n- ".join(result.warnings)
+                        + "\n\n"
+                        if result.warnings
+                        else ""
+                    ),
+                    self.controller.sheet_assembly_build_id(),
+                ),
+                title="Plans de vente — Feuille 07C",
+            )
+        except Exception as error:
+            self.StatusText.Text = "Échec de l'assemblage de la feuille modèle."
+            forms.alert(
+                "{}\n\nMoteur feuille : {}".format(
+                    str(error),
+                    self.controller.sheet_assembly_build_id(),
+                ),
+                title="Plans de vente — Feuille 07C",
+                warn_icon=True,
+            )
+        finally:
+            self._load_sheet_readiness(housing)
+
+    def _load_sheet_templates(self):
+        self._sheet_template_choices = []
+        self._sheet_template_labels = []
+        self._sheet_template_inspection = None
+        self._clear_sheet_role_choices()
+        self._sheet_templates_loaded = True
+
+        try:
+            candidates = self.controller.sheet_templates()
+        except Exception as error:
+            self.SheetTemplateCombo.ItemsSource = []
+            self.SheetTemplateCombo.SelectedIndex = -1
+            self.SheetInfoText.Text = (
+                "Erreur de collecte des feuilles : {}"
+            ).format(str(error) or repr(error))
+            self._update_sheet_button_state()
+            return
+
+        self._sheet_template_choices = [
+            SheetTemplateChoice(candidate)
+            for candidate in candidates
+        ]
+        self._sheet_template_labels = [
+            choice.Label or "Feuille #{}".format(index + 1)
+            for index, choice in enumerate(self._sheet_template_choices)
+        ]
+        self.SheetTemplateCombo.ItemsSource = self._sheet_template_labels
+
+        # Aucun choix automatique : c'est l'utilisateur qui désigne
+        # explicitement la feuille servant de modèle.
+        self.SheetTemplateCombo.SelectedIndex = -1
+
+        if not self._sheet_template_labels:
+            self.SheetInfoText.Text = "Aucune feuille n'existe dans le projet."
+        else:
+            self._refresh_sheet_info()
+        self._update_sheet_button_state()
+        self._update_full_generation_button_state()
+
+    def _load_sheet_readiness(self, housing):
+        self._sheet_readiness = None
+        if housing is None:
+            self._clear_sheet_assembly()
+            return
+
+        view_item = self.DimensionViewCombo.SelectedItem
+        main_view = (
+            getattr(view_item, "Candidate", None)
+            if view_item is not None
+            else None
+        )
+        if main_view is None:
+            self.SheetInfoText.Text = (
+                "Créez ou sélectionnez d'abord une vue logement."
+            )
+            self._update_sheet_button_state()
+            return
+
+        try:
+            self._sheet_readiness = self.controller.sheet_assembly_readiness(
+                housing,
+                main_view.unique_id,
+            )
+        except Exception as error:
+            self.SheetInfoText.Text = str(error)
+            self._update_sheet_button_state()
+            return
+
+        self._refresh_sheet_info()
+        self._update_sheet_button_state()
+
+    def _refresh_sheet_info(self):
+        parts = []
+
+        if self._sheet_readiness is not None:
+            parts.append(self._sheet_readiness.summary)
+
+        if not self._sheet_templates_loaded:
+            parts.append(
+                "Ouvrez la liste « Feuille modèle » puis choisissez vous-même "
+                "une feuille du projet."
+            )
+        elif self.SheetTemplateCombo.SelectedIndex < 0:
+            parts.append("Choisissez explicitement la feuille modèle.")
+        elif self._sheet_template_inspection is None:
+            parts.append("Analyse de la feuille choisie non effectuée.")
+        else:
+            parts.append(self._sheet_template_inspection.summary)
+            if self._sheet_template_inspection.is_valid:
+                if self._selected_sheet_role_mapping() is None:
+                    parts.append(
+                        "Choisissez les 2 vues et les 2 nomenclatures à utiliser comme repères."
+                    )
+                else:
+                    parts.append("Les 4 rôles du modèle sont attribués.")
+
+        if hasattr(self, "SheetAutoFitCheckBox"):
+            try:
+                auto_fit, scales = self._sheet_fit_options()
+                if auto_fit:
+                    parts.append(
+                        "07C : échelle modèle prioritaire ; repli sur collision ({})".format(
+                            ", ".join(
+                                "1:{}".format(scale)
+                                for scale in scales
+                            )
+                        )
+                    )
+                else:
+                    parts.append("07C : réduction automatique désactivée.")
+            except Exception as error:
+                parts.append("07C : {}".format(str(error)))
+
+        self.SheetInfoText.Text = " ".join(parts)
+
+    def _clear_sheet_assembly(self):
+        self._sheet_readiness = None
+        self._sheet_template_inspection = None
+        self._clear_sheet_role_choices()
+        if hasattr(self, "SheetInfoText"):
+            self.SheetInfoText.Text = (
+                "Sélectionnez un logement, puis choisissez explicitement "
+                "la feuille modèle dans la liste."
+            )
+        if hasattr(self, "CreateSheetButton"):
+            self.CreateSheetButton.IsEnabled = False
+
+    def _update_full_generation_button_state(self):
+        if not hasattr(self, "CreateFullPlanButton"):
+            return
+
+        fit_valid = True
+        try:
+            parse_allowed_scales(self.SheetAllowedScalesTextBox.Text)
+        except Exception:
+            fit_valid = False
+
+        self.CreateFullPlanButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self._active_descriptor is not None
+            and self._selected_sheet_template() is not None
+            and fit_valid
+        )
+
+    def _update_sheet_button_state(self):
+        if not hasattr(self, "CreateSheetButton"):
+            return
+
+        template_valid = (
+            self._sheet_template_inspection is not None
+            and self._sheet_template_inspection.is_valid
+            and self._selected_sheet_role_mapping() is not None
+        )
+
+        fit_valid = True
+        try:
+            self._sheet_fit_options()
+        except Exception:
+            fit_valid = False
+
+        self.CreateSheetButton.IsEnabled = (
+            self.HousingGrid.SelectedItem is not None
+            and self.DimensionViewCombo.SelectedItem is not None
+            and self.SheetTemplateCombo.SelectedItem is not None
+            and self._sheet_readiness is not None
+            and self._sheet_readiness.is_ready
+            and template_valid
+            and fit_valid
         )
 
     def _clear_prototype_selection(self):
