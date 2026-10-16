@@ -382,7 +382,10 @@ class FullGenerationService(object):
                 "Impossible de déterminer le type de zone remplie du repérage modèle."
             )
 
-        main_template = self._view_template(main_info.view)
+        main_templates = [
+            self._view_template(info.view)
+            for info in main_infos
+        ]
         location_template = self._view_template(location_info.view)
         schedule_instances = self._schedule_instances(sheet)
         template_schedule_ids = []
@@ -628,16 +631,23 @@ class FullGenerationService(object):
             inspection.template_sheet_unique_id,
             "La feuille modèle n'existe plus.",
         )
-        main_info, location_info, classifier_warnings = (
-            self._classify_viewports(sheet)
+        (
+            main_infos,
+            location_info,
+            reference_scale,
+            layout_mode,
+            classifier_warnings,
+        ) = self._classify_multilevel_viewports(
+            sheet,
+            expected_levels=len(level_housings),
         )
 
         tag_type = self._dominant_element_type(
-            main_info.view,
+            main_infos[0].view,
             "OST_RoomTags",
         )
         dimension_type = self._dominant_element_type(
-            main_info.view,
+            main_infos[0].view,
             "OST_Dimensions",
         )
         fill_type = self._filled_region_type(location_info.view)
@@ -690,10 +700,11 @@ class FullGenerationService(object):
         sheet_result = None
 
         try:
-            for level_housing in level_housings:
+            for level_index, level_housing in enumerate(level_housings):
+                model_main_info = main_infos[level_index]
                 source_candidate, source_warnings = self._resolve_source_view(
                     level_housing,
-                    main_info.view,
+                    model_main_info.view,
                 )
                 warnings.extend(source_warnings)
 
@@ -706,13 +717,17 @@ class FullGenerationService(object):
                             if crop_margin_mm is not None
                             else self.DEFAULT_CROP_MARGIN_MM
                         ),
-                        target_scale=inspection.reference_scale,
+                        target_scale=reference_scale,
                         view_template_unique_id=(
                             str(
-                                getattr(main_template, "UniqueId", "")
+                                getattr(
+                                    main_templates[level_index],
+                                    "UniqueId",
+                                    "",
+                                )
                                 or ""
                             )
-                            if main_template is not None
+                            if main_templates[level_index] is not None
                             else None
                         ),
                     )
@@ -848,7 +863,13 @@ class FullGenerationService(object):
                         for item in main_results
                     ],
                     location_view_unique_id=location_result.view_unique_id,
-                    template_main_viewport_unique_id=inspection.main_viewport_unique_id,
+                    template_main_viewport_unique_ids=[
+                        str(
+                            getattr(info.viewport, "UniqueId", "")
+                            or ""
+                        )
+                        for info in main_infos
+                    ],
                     template_location_viewport_unique_id=inspection.location_viewport_unique_id,
                     schedule_bindings=bindings,
                     auto_fit_main_view=bool(auto_fit_main_view),
@@ -1124,6 +1145,130 @@ class FullGenerationService(object):
             )
 
         return main, location, warnings
+
+    def _classify_multilevel_viewports(self, sheet, expected_levels=2):
+        """09B.2 : détecte les viewports logement d'un modèle multi-niveaux.
+
+        Le repérage est identifié comme en 07D. Tous les autres viewports sont
+        considérés comme vues logement et doivent être au même nombre que les
+        niveaux à représenter.
+        """
+        infos = []
+        for viewport_id in list(sheet.GetAllViewports() or []):
+            viewport = self.document.GetElement(viewport_id)
+            if viewport is None:
+                continue
+            view = self.document.GetElement(viewport.ViewId)
+            if view is None:
+                continue
+
+            outline = viewport.GetBoxOutline()
+            width = abs(
+                float(outline.MaximumPoint.X)
+                - float(outline.MinimumPoint.X)
+            )
+            height = abs(
+                float(outline.MaximumPoint.Y)
+                - float(outline.MinimumPoint.Y)
+            )
+
+            infos.append(
+                _TemplateViewportInfo(
+                    viewport=viewport,
+                    view=view,
+                    area=width * height,
+                    filled_regions=self._filled_region_count(view),
+                    room_tags=self._view_category_count(
+                        view,
+                        "OST_RoomTags",
+                    ),
+                    dimensions=self._view_category_count(
+                        view,
+                        "OST_Dimensions",
+                    ),
+                )
+            )
+
+        if len(infos) < int(expected_levels or 0) + 1:
+            raise ValueError(
+                "Le modèle multi-niveaux doit contenir {} vues logement "
+                "et un plan de repérage.".format(expected_levels)
+            )
+
+        warnings = []
+        location_candidates = [
+            info for info in infos
+            if info.filled_regions > 0
+        ]
+        if location_candidates:
+            location_candidates.sort(
+                key=lambda item: (
+                    -item.filled_regions,
+                    item.area,
+                )
+            )
+            location = location_candidates[0]
+        else:
+            location = min(infos, key=lambda item: item.area)
+            warnings.append(
+                "09B.2 : repérage déduit par la plus petite emprise de "
+                "viewport, car aucune zone remplie n'a été détectée."
+            )
+
+        mains = [
+            info for info in infos
+            if info.viewport.Id != location.viewport.Id
+        ]
+        if len(mains) != int(expected_levels or 0):
+            raise ValueError(
+                "Le modèle multi-niveaux doit contenir exactement {} vues "
+                "logement en plus du repérage ; {} ont été détectées."
+                .format(expected_levels, len(mains))
+            )
+
+        scales = sorted(
+            set(
+                int(getattr(info.view, "Scale", 0) or 0)
+                for info in mains
+            )
+        )
+        if len(scales) != 1 or not scales[0]:
+            raise ValueError(
+                "Les vues logement du modèle multi-niveaux doivent utiliser "
+                "exactement la même échelle."
+            )
+
+        centers = []
+        for info in mains:
+            center = info.viewport.GetBoxCenter()
+            centers.append(
+                (
+                    info,
+                    float(center.X),
+                    float(center.Y),
+                )
+            )
+
+        if len(centers) >= 2:
+            x_span = max(item[1] for item in centers) - min(
+                item[1] for item in centers
+            )
+            y_span = max(item[2] for item in centers) - min(
+                item[2] for item in centers
+            )
+        else:
+            x_span = 0.0
+            y_span = 0.0
+
+        if x_span >= y_span:
+            centers.sort(key=lambda item: item[1])
+            layout_mode = "horizontal"
+        else:
+            centers.sort(key=lambda item: -item[2])
+            layout_mode = "vertical"
+
+        ordered_mains = [item[0] for item in centers]
+        return ordered_mains, location, scales[0], layout_mode, warnings
 
     def _resolve_source_view(self, housing, model_main_view):
         candidates = list(
