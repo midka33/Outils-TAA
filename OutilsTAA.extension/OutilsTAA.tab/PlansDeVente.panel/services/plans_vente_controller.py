@@ -328,6 +328,13 @@ class PlansVenteController(object):
             typology_parameter_name=typology_parameter_name,
         )
 
+    def detect_multilevel_template_mode(self, template_sheet_unique_id):
+        if self.full_generation_service is None:
+            raise RuntimeError("Service de génération complète 07D indisponible.")
+        return self.full_generation_service.detect_multilevel_template_mode(
+            template_sheet_unique_id
+        )
+
     def generate_multilevel_one_sheet(
         self,
         housing,
