@@ -1316,23 +1316,12 @@ class SheetAssemblyService(object):
         right = float(outline.Max.U) - margin
         top = float(outline.Max.V) - margin
 
-        # Emprise géométrique des vues principales du modèle. On privilégie
-        # la vraie forme de crop plutôt que le viewport complet afin que les
-        # annotations ne faussent pas la lecture de la zone plans.
+        # Pour identifier les limites du cartouche, utiliser l'emprise
+        # des viewports MODELE sur la feuille. Elle sert uniquement à savoir
+        # quelles lignes sont réellement à droite / sous l'ensemble des plans ;
+        # elle ne sert jamais à calculer l'échelle des vues générées.
         main_rectangles = []
         for viewport in list(template_viewports or []):
-            try:
-                model_view = self.document.GetElement(viewport.ViewId)
-                if model_view is not None:
-                    main_rectangles.append(
-                        self._view_crop_rectangle_on_sheet(
-                            model_view,
-                            viewport,
-                        )
-                    )
-                    continue
-            except Exception:
-                pass
             try:
                 main_rectangles.append(
                     self._viewport_rectangle(viewport)
@@ -1364,7 +1353,7 @@ class SheetAssemblyService(object):
             )
             if rectangle is None:
                 continue
-            if rectangle[0] > main_center_x:
+            if rectangle[0] >= main_right:
                 right = min(right, rectangle[0] - gap)
 
         # Lire également la géométrie du cartouche. La première verticale à
@@ -1377,11 +1366,11 @@ class SheetAssemblyService(object):
             x2, y2 = end
             if abs(x1 - x2) <= self._millimeters_to_internal(0.5):
                 x_value = (x1 + x2) / 2.0
-                if x_value > main_center_x:
+                if x_value > main_right:
                     vertical_candidates.append(x_value)
             if abs(y1 - y2) <= self._millimeters_to_internal(0.5):
                 y_value = (y1 + y2) / 2.0
-                if y_value < main_center_y:
+                if y_value < main_bottom:
                     horizontal_candidates.append(y_value)
 
         if vertical_candidates:
@@ -1389,27 +1378,18 @@ class SheetAssemblyService(object):
             if candidate > left:
                 right = min(right, candidate - gap)
         elif main_rectangles:
-            # Repli symétrique : si la colonne droite du cartouche n'est pas
-            # lisible via sa géométrie, ne pas étendre la zone plans au-delà
-            # de l'emprise droite prévue par les vues modèle.
-            right = min(
-                right,
-                main_right + gap,
-            )
+            fallback_right = main_right + gap
+            if fallback_right > left + self._millimeters_to_internal(50.0):
+                right = min(right, fallback_right)
 
         if horizontal_candidates:
             candidate = max(horizontal_candidates)
             if candidate < top:
                 bottom = max(bottom, candidate + gap)
         elif main_rectangles:
-            # Certains cartouches utilisent des éléments 2D dont les lignes
-            # internes ne remontent pas correctement via l'API. Dans ce cas,
-            # la vue basse du modèle donne une limite sûre : la zone plans ne
-            # doit pas descendre dans la légende située sous cette vue.
-            bottom = max(
-                bottom,
-                main_bottom - gap,
-            )
+            fallback_bottom = main_bottom - gap
+            if fallback_bottom < top - self._millimeters_to_internal(50.0):
+                bottom = max(bottom, fallback_bottom)
 
         sheet_left = float(outline.Min.U) + margin
         sheet_bottom = float(outline.Min.V) + margin
