@@ -1301,145 +1301,49 @@ class SheetAssemblyService(object):
         template_viewports,
         fixed_template_elements,
     ):
-        """Calcule le grand rectangle principal libre de la feuille modèle."""
-        outline = getattr(template_sheet, "Outline", None)
-        if outline is None:
+        """Zone multi-vues = enveloppe globale des viewports du modèle.
+
+        Pour le mode deux vues, la feuille modèle est déjà la référence de
+        mise en page. On n'essaie plus d'interpréter les lignes internes du
+        cartouche : elles sont trop variables selon les familles.
+
+        La zone disponible est simplement le rectangle qui englobe toutes les
+        vues logement modèle, légèrement réduit par une marge intérieure.
+        """
+        viewports = list(template_viewports or [])
+        if not viewports:
             raise RuntimeError(
-                "Impossible de déterminer les limites de la feuille modèle."
+                "Aucune vue logement modèle n'est disponible pour définir la zone."
             )
 
-        margin = self._millimeters_to_internal(5.0)
-        gap = self._millimeters_to_internal(4.0)
-
-        left = float(outline.Min.U) + margin
-        bottom = float(outline.Min.V) + margin
-        right = float(outline.Max.U) - margin
-        top = float(outline.Max.V) - margin
-
-        # Pour identifier les limites du cartouche, utiliser l'emprise
-        # des viewports MODELE sur la feuille. Elle sert uniquement à savoir
-        # quelles lignes sont réellement à droite / sous l'ensemble des plans ;
-        # elle ne sert jamais à calculer l'échelle des vues générées.
-        main_rectangles = []
-        for viewport in list(template_viewports or []):
+        rectangles = []
+        for viewport in viewports:
             try:
-                main_rectangles.append(
+                rectangles.append(
                     self._viewport_rectangle(viewport)
                 )
             except Exception:
                 pass
 
-        if main_rectangles:
-            main_left = min(r[0] for r in main_rectangles)
-            main_bottom = min(r[1] for r in main_rectangles)
-            main_right = max(r[2] for r in main_rectangles)
-            main_top = max(r[3] for r in main_rectangles)
-            main_center_x = (main_left + main_right) / 2.0
-            main_center_y = (main_bottom + main_top) / 2.0
-        else:
-            main_left = left
-            main_bottom = bottom
-            main_right = right
-            main_top = top
-            main_center_x = (left + right) / 2.0
-            main_center_y = (bottom + top) / 2.0
-
-        # Les nomenclatures et le repérage donnent une limite droite fiable
-        # lorsqu'ils sont disposés dans une colonne latérale.
-        for element in list(fixed_template_elements or []):
-            rectangle = self._element_rectangle(
-                element,
-                template_sheet,
+        if not rectangles:
+            raise RuntimeError(
+                "Impossible de mesurer les vues logement de la feuille modèle."
             )
-            if rectangle is None:
-                continue
-            if rectangle[0] >= main_right:
-                right = min(right, rectangle[0] - gap)
 
-        # Lire la géométrie du cartouche, mais ne retenir que les lignes
-        # structurantes. Une petite ligne interne du cartouche (case, texte,
-        # sous-cadre...) ne doit jamais devenir une limite de la zone plans.
-        vertical_candidates = []
-        horizontal_candidates = []
+        left = min(rect[0] for rect in rectangles)
+        bottom = min(rect[1] for rect in rectangles)
+        right = max(rect[2] for rect in rectangles)
+        top = max(rect[3] for rect in rectangles)
 
-        plan_width = max(
-            self._millimeters_to_internal(1.0),
-            main_right - main_left,
-        )
-        plan_height = max(
-            self._millimeters_to_internal(1.0),
-            main_top - main_bottom,
-        )
-
-        axis_tolerance = self._millimeters_to_internal(0.5)
-        minimum_vertical_overlap = plan_height * 0.55
-        minimum_horizontal_overlap = plan_width * 0.55
-
-        for start, end in self._title_block_segments(template_sheet):
-            x1, y1 = start
-            x2, y2 = end
-
-            if abs(x1 - x2) <= axis_tolerance:
-                x_value = (x1 + x2) / 2.0
-                segment_bottom = min(y1, y2)
-                segment_top = max(y1, y2)
-                overlap = max(
-                    0.0,
-                    min(segment_top, main_top)
-                    - max(segment_bottom, main_bottom),
-                )
-                if (
-                    x_value > main_right
-                    and overlap >= minimum_vertical_overlap
-                ):
-                    vertical_candidates.append(
-                        (x_value, overlap)
-                    )
-
-            if abs(y1 - y2) <= axis_tolerance:
-                y_value = (y1 + y2) / 2.0
-                segment_left = min(x1, x2)
-                segment_right = max(x1, x2)
-                overlap = max(
-                    0.0,
-                    min(segment_right, main_right)
-                    - max(segment_left, main_left),
-                )
-                if (
-                    y_value < main_bottom
-                    and overlap >= minimum_horizontal_overlap
-                ):
-                    horizontal_candidates.append(
-                        (y_value, overlap)
-                    )
-
-        if vertical_candidates:
-            candidate = min(
-                item[0] for item in vertical_candidates
-            )
-            if candidate > left:
-                right = min(right, candidate - gap)
-
-        if horizontal_candidates:
-            candidate = max(
-                item[0] for item in horizontal_candidates
-            )
-            if candidate < top:
-                bottom = max(bottom, candidate + gap)
-
-        sheet_left = float(outline.Min.U) + margin
-        sheet_bottom = float(outline.Min.V) + margin
-        sheet_right = float(outline.Max.U) - margin
-        sheet_top = float(outline.Max.V) - margin
-
-        left = max(sheet_left, min(left, sheet_right))
-        right = min(sheet_right, max(right, sheet_left))
-        bottom = max(sheet_bottom, min(bottom, sheet_top))
-        top = min(sheet_top, max(top, sheet_bottom))
+        inset = self._millimeters_to_internal(3.0)
+        left += inset
+        bottom += inset
+        right -= inset
+        top -= inset
 
         if right <= left or top <= bottom:
             raise RuntimeError(
-                "La zone principale disponible de la feuille modèle est invalide."
+                "L'enveloppe des vues modèle est trop petite pour être divisée."
             )
 
         return (left, bottom, right, top)
