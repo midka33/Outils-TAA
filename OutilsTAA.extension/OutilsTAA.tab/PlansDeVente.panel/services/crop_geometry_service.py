@@ -215,7 +215,7 @@ class CropGeometryService(object):
                 )
 
         view.CropBoxActive = True
-        view.CropBoxVisible = True
+        view.CropBoxVisible = False
         manager.SetCropShape(selected_loop)
 
         annotation_warning = self._configure_annotation_crop(
@@ -235,14 +235,21 @@ class CropGeometryService(object):
         return crop_result
 
     def _configure_annotation_crop(self, view, offset_mm=0.0):
-        """Active l'annotation crop pour isoler les annotations du logement.
+        """Active l'annotation crop au minimum autorisé par Revit.
 
-        Les vues dépendantes partagent leurs annotations avec la vue principale.
-        Sans annotation crop, les cotes/étiquettes d'autres logements peuvent
-        agrandir artificiellement l'emprise du viewport.
+        Revit n'accepte pas un décalage nul : le minimum API est 1/8 pouce
+        (3,175 mm en unités papier). Les quatre côtés sont donc réglés à cette
+        valeur minimale pour éviter que des annotations d'autres logements
+        agrandissent artificiellement le viewport.
         """
         try:
             from Autodesk.Revit.DB import BuiltInParameter
+
+            manager = view.GetCropRegionShapeManager()
+            if not bool(getattr(manager, "CanHaveAnnotationCrop", False)):
+                return (
+                    "Cette vue ne permet pas d'activer un cadrage d'annotation."
+                )
 
             active = view.get_Parameter(
                 BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE
@@ -250,13 +257,12 @@ class CropGeometryService(object):
             if active is not None and not bool(active.IsReadOnly):
                 active.Set(1)
 
-            offset = view.get_Parameter(
-                BuiltInParameter.VIEWER_ANNOTATION_CROP_OFFSET
-            )
-            if offset is not None and not bool(offset.IsReadOnly):
-                offset.Set(
-                    self._millimeters_to_internal(offset_mm)
-                )
+            # Minimum Revit : 1/8" = 1/96 ft = 3,175 mm.
+            minimum_offset = 1.0 / 96.0
+            manager.LeftAnnotationCropOffset = minimum_offset
+            manager.RightAnnotationCropOffset = minimum_offset
+            manager.TopAnnotationCropOffset = minimum_offset
+            manager.BottomAnnotationCropOffset = minimum_offset
 
             self.document.Regenerate()
             return ""
