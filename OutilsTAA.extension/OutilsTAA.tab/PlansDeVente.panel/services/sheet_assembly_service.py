@@ -1388,6 +1388,14 @@ class SheetAssemblyService(object):
             candidate = min(vertical_candidates)
             if candidate > left:
                 right = min(right, candidate - gap)
+        elif main_rectangles:
+            # Repli symétrique : si la colonne droite du cartouche n'est pas
+            # lisible via sa géométrie, ne pas étendre la zone plans au-delà
+            # de l'emprise droite prévue par les vues modèle.
+            right = min(
+                right,
+                main_right + gap,
+            )
 
         if horizontal_candidates:
             candidate = max(horizontal_candidates)
