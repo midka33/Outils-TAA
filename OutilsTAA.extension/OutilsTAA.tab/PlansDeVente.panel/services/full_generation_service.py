@@ -160,7 +160,11 @@ class FullGenerationService(object):
             main_info.view,
             "OST_Dimensions",
         )
-        fill_type = self._filled_region_type(location_info.view)
+        fill_type = (
+            self._filled_region_type(location_info.view)
+            if location_info is not None
+            else None
+        )
 
         if tag_type is None:
             warnings.append(
@@ -170,10 +174,9 @@ class FullGenerationService(object):
             warnings.append(
                 "Aucun type de cote n'a été trouvé dans la vue logement modèle."
             )
-        if fill_type is None:
-            raise ValueError(
-                "Le plan de repérage modèle ne contient aucune zone remplie "
-                "permettant de déterminer le type de surbrillance."
+        if location_info is not None and fill_type is None:
+            warnings.append(
+                "Le repérage modèle ne contient aucune zone remplie exploitable."
             )
         if not schedule_instances:
             warnings.append(
@@ -191,11 +194,15 @@ class FullGenerationService(object):
             main_view_name=str(
                 getattr(main_info.view, "Name", "") or ""
             ),
-            location_viewport_unique_id=str(
-                getattr(location_info.viewport, "UniqueId", "") or ""
+            location_viewport_unique_id=(
+                str(getattr(location_info.viewport, "UniqueId", "") or "")
+                if location_info is not None
+                else ""
             ),
-            location_view_name=str(
-                getattr(location_info.view, "Name", "") or ""
+            location_view_name=(
+                str(getattr(location_info.view, "Name", "") or "")
+                if location_info is not None
+                else ""
             ),
             schedule_instance_unique_ids=schedule_instance_ids,
             schedule_names=schedule_names,
@@ -204,7 +211,11 @@ class FullGenerationService(object):
             ),
             room_tag_type_name=self._element_type_name(tag_type),
             dimension_type_name=self._element_type_name(dimension_type),
-            filled_region_type_name=self._element_type_name(fill_type),
+            filled_region_type_name=(
+                self._element_type_name(fill_type)
+                if fill_type is not None
+                else ""
+            ),
             warnings=warnings,
             preview_bounds=self._sheet_preview_bounds(sheet),
             preview_items=self._sheet_preview_items(
@@ -268,12 +279,9 @@ class FullGenerationService(object):
             ),
         )
 
-        known_ids = set(
-            [
-                main_info.viewport.Id,
-                location_info.viewport.Id,
-            ]
-        )
+        known_ids = set([main_info.viewport.Id])
+        if location_info is not None:
+            known_ids.add(location_info.viewport.Id)
         extra_index = 2
         for viewport_id in list(sheet.GetAllViewports() or []):
             if viewport_id in known_ids:
@@ -1124,13 +1132,18 @@ class FullGenerationService(object):
                 )
             )
 
-        if len(infos) < 2:
+        if not infos:
             raise ValueError(
-                "La feuille modèle 07D doit contenir au moins deux vues : "
-                "une vue logement et un plan de repérage."
+                "La feuille modèle doit contenir au moins une vue logement."
             )
 
         warnings = []
+
+        if len(infos) == 1:
+            warnings.append(
+                "Aucun viewport de repérage n'a été détecté sur la feuille modèle."
+            )
+            return infos[0], None, warnings
 
         location_candidates = [
             info for info in infos
@@ -1225,10 +1238,9 @@ class FullGenerationService(object):
                 )
             )
 
-        if len(infos) < 2:
+        if not infos:
             raise ValueError(
-                "La feuille modèle doit contenir au moins une vue logement "
-                "et un plan de repérage."
+                "La feuille modèle doit contenir au moins une vue logement."
             )
 
         location_candidates = [
@@ -1243,13 +1255,22 @@ class FullGenerationService(object):
                 )
             )
             location = location_candidates[0]
+            main_infos = [
+                info for info in infos
+                if info.viewport.Id != location.viewport.Id
+            ]
         else:
-            location = min(infos, key=lambda item: item.area)
+            location = None
+            main_infos = list(infos)
 
-        main_infos = [
-            info for info in infos
-            if info.viewport.Id != location.viewport.Id
-        ]
+            # Avec 3 viewports ou plus, conserver le comportement historique :
+            # la plus petite vue est probablement le repérage.
+            if len(infos) >= 3:
+                location = min(infos, key=lambda item: item.area)
+                main_infos = [
+                    info for info in infos
+                    if info.viewport.Id != location.viewport.Id
+                ]
 
         count = len(main_infos)
         if count == 1:
