@@ -21,6 +21,17 @@ Le transfert contient uniquement :
 
 Aucun fichier Python/XAML métier d'Export ou de Calculs n'est remplacé.
 
+## CI hors Revit
+
+Validation automatique sur la PR #26 :
+
+- Plans de vente : **259 tests réussis** ;
+- Calculs des pièces : **succès** ;
+- Export : **succès** ;
+- contrat ruban Export : **succès**.
+
+Aucune modification de code métier Export / Calculs n'est présente dans le diff.
+
 ## Recette finale Revit
 
 Cette recette vérifie uniquement l'intégration finale sur la branche propre.
