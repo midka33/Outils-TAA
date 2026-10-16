@@ -314,6 +314,7 @@ class PlansVenteController(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_zone_line_style="",
     ):
         if self.full_generation_service is None:
             raise RuntimeError("Service de génération complète 07D indisponible.")
@@ -326,6 +327,7 @@ class PlansVenteController(object):
             auto_fit_main_view=auto_fit_main_view,
             building_parameter_name=building_parameter_name,
             typology_parameter_name=typology_parameter_name,
+            main_view_zone_line_style=main_view_zone_line_style,
         )
 
     def diagnose_template_zones(
