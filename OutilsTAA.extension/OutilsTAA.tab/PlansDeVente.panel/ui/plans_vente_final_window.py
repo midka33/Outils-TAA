@@ -49,7 +49,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc13-zone-style-diagnostic"
+    UI_BUILD = "stage09-rc13-sheet-line-diagnostic"
 
     def __init__(self, controller):
         self.controller = controller
@@ -452,7 +452,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "Feuille : {}".format(
                 result.get("sheet_label", choice.label)
             ),
-            "Sous-catégorie analysée : {}".format(
+            "Style de ligne analysé : {}".format(
                 result.get("subcategory", "Cartouches")
             ),
             "Segments retenus : {}".format(
