@@ -527,7 +527,8 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         origin_y = (height - draw_h) / 2.0
 
         labels = {
-            "main_view": "Vue logement",
+            "main_view": "Vue logement 1",
+            "main_view_extra": "Vue logement 2",
             "location_view": "Repérage",
             "schedule": "Nomenclature",
         }
@@ -556,7 +557,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             rect.StrokeThickness = 3.0 if not compact else 2.0
             rect.Stroke = (
                 Brushes.OrangeRed
-                if kind == "main_view"
+                if kind in ("main_view", "main_view_extra")
                 else (
                     Brushes.DarkOrange
                     if kind == "location_view"
