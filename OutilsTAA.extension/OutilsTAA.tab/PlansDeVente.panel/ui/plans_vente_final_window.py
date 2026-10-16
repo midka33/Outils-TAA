@@ -49,7 +49,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc13"
+    UI_BUILD = "stage09-rc13-diagnostic"
 
     def __init__(self, controller):
         self.controller = controller
@@ -338,6 +338,126 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 "Aucune feuille modèle n'a été trouvée."
             )
         self._refresh_creation_state()
+
+    def DiagnoseZones_Click(self, sender, args):
+        choice = self._selected_sheet_template()
+        if choice is None:
+            forms.alert(
+                "Choisissez d'abord une feuille modèle.",
+                title="Plans de vente — Diagnostic des zones",
+                warn_icon=True,
+            )
+            return
+
+        try:
+            result = self.controller.diagnose_template_zones(
+                choice.unique_id,
+                subcategory_name="Cartouches",
+            )
+        except Exception as error:
+            forms.alert(
+                "Diagnostic impossible :\n\n{}".format(
+                    str(error) or repr(error)
+                ),
+                title="Plans de vente — Diagnostic des zones",
+                warn_icon=True,
+            )
+            return
+
+        def mm(value):
+            try:
+                return float(value) * 304.8
+            except Exception:
+                return 0.0
+
+        lines = [
+            "DIAGNOSTIC FEUILLE MODÈLE",
+            "",
+            "Feuille : {}".format(
+                result.get("sheet_label", choice.label)
+            ),
+            "Sous-catégorie analysée : {}".format(
+                result.get("subcategory", "Cartouches")
+            ),
+            "Segments retenus : {}".format(
+                result.get("segment_count", 0)
+            ),
+            "Zones rectangulaires détectées : {}".format(
+                len(result.get("zones", []) or [])
+            ),
+            "",
+        ]
+
+        style_counts = result.get("style_counts", {}) or {}
+        if style_counts:
+            lines.append("Sous-catégories graphiques rencontrées :")
+            for name in sorted(style_counts.keys()):
+                lines.append(
+                    "- {} : {}".format(name, style_counts[name])
+                )
+            lines.append("")
+
+        zones = list(result.get("zones", []) or [])
+        if zones:
+            lines.append("Zones détectées :")
+            for index, zone in enumerate(zones, 1):
+                lines.append(
+                    "- Zone {} : X {:.1f} → {:.1f} mm | "
+                    "Y {:.1f} → {:.1f} mm | {:.1f} × {:.1f} mm".format(
+                        index,
+                        mm(zone[0]),
+                        mm(zone[2]),
+                        mm(zone[1]),
+                        mm(zone[3]),
+                        mm(zone[2] - zone[0]),
+                        mm(zone[3] - zone[1]),
+                    )
+                )
+            lines.append("")
+        else:
+            lines.append(
+                "Aucune zone rectangulaire fermée n'a été reconstruite."
+            )
+            lines.append("")
+
+        views = list(result.get("views", []) or [])
+        lines.append("Centres des vues logement :")
+        for item in views:
+            zone_ids = list(item.get("zone_ids", []) or [])
+            lines.append(
+                "- Vue {} : X {:.1f} mm | Y {:.1f} mm | zone(s) : {}".format(
+                    item.get("index", "?"),
+                    mm(item.get("center_x", 0.0)),
+                    mm(item.get("center_y", 0.0)),
+                    (
+                        ", ".join(str(value) for value in zone_ids)
+                        if zone_ids
+                        else "aucune"
+                    ),
+                )
+            )
+
+        common = list(result.get("common_zone_ids", []) or [])
+        lines.extend([
+            "",
+            "Zone(s) commune(s) aux centres : {}".format(
+                (
+                    ", ".join(str(value) for value in common)
+                    if common
+                    else "aucune"
+                )
+            ),
+            "Orientation détectée : {}".format(
+                result.get("orientation") or "non déterminée"
+            ),
+            "",
+            "Ce diagnostic ne modifie ni la feuille modèle ni la génération.",
+        ])
+
+        forms.alert(
+            "\n".join(lines),
+            title="Plans de vente — Diagnostic des zones",
+        )
 
     def SheetTemplateChanged(self, sender, args):
         self._template_inspection = None
