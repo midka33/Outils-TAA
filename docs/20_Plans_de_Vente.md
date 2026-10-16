@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.25
+**Version :** 1.26
 **Statut :** Développement — Étape 09 Stabilisation interface V1  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -5104,4 +5104,39 @@ Le bloc d'interface **Résultat attendu** a été supprimé : il faisait doublon
 avec l'aperçu image de la vraie feuille modèle.
 
 **Build :** `stage09b2-template-multilevel-v1`
+**Statut :** implémenté, à tester dans Revit 2025.4.
+
+
+## Étape 09B.2 — Comportement déterminé par la feuille modèle
+
+Le choix manuel entre « une feuille par niveau » et « une feuille multi-niveaux »
+a été supprimé.
+
+Le comportement est maintenant déduit automatiquement de la feuille modèle :
+
+### Modèle avec 1 vue logement + 1 repérage
+
+Pour un logement multi-niveaux :
+
+- le logement est découpé par niveau ;
+- une feuille est créée pour chaque niveau ;
+- chaque feuille reprend la position de l'unique vue logement du modèle ;
+- les nomenclatures restent globales au logement.
+
+### Modèle avec 2 vues logement + 1 repérage
+
+Pour un logement sur deux niveaux :
+
+- une seule feuille est créée ;
+- niveau bas → première position du modèle ;
+- niveau haut → seconde position du modèle ;
+- les deux vues modèle doivent avoir la même échelle ;
+- leurs positions sont reprises exactement ;
+- les nomenclatures restent globales au logement ;
+- le champ Niveau du cartouche affiche les deux étages.
+
+Le module refuse les feuilles contenant plus de deux vues logement dans cette
+étape afin d'éviter une interprétation ambiguë.
+
+**Build :** `stage09b2-template-auto-v1`
 **Statut :** implémenté, à tester dans Revit 2025.4.
