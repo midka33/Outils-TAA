@@ -67,7 +67,7 @@ def test_stage09_main_and_advanced_xaml_are_valid_and_use_taa_brand_orange():
     assert "Création des plans de vente" in main
 
 
-def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
+def test_stage09_main_ui_exposes_generic_filter_and_template_driven_batch():
     xaml = MAIN_XAML.read_text(encoding="utf-8")
 
     for name in (
@@ -78,8 +78,9 @@ def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
         "FilterValueTextBox",
         "HousingGrid",
         "SheetTemplateCombo",
-        "MultiLevelInfoText",
+        "MainViewZoneLineStyleCombo",
         "CreateBatchButton",
+        "CreationInfoText",
     ):
         assert 'x:Name="{}"'.format(name) in xaml
 
@@ -87,7 +88,8 @@ def test_stage09_main_ui_exposes_generic_filter_batch_and_multilevel_choices():
     assert 'Click="AdvancedOptions_Click"' in xaml
     assert 'DisplayMemberPath="label"' in xaml
     assert 'DisplayMemberPath="Label"' in xaml
-    assert "Comportement automatique selon la feuille modèle" in xaml
+    assert "Lignes des zones des vues principales" in xaml
+    assert "MultiLevelInfoText" not in xaml
 
 
 def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
@@ -312,22 +314,22 @@ def test_stage09b2_multilevel_engine_contract():
     assert "all_levels=False" in schedules
 
 
-def test_stage09b2_uses_explicit_multilevel_template_positions():
+def test_stage09b2_uses_explicit_multilevel_template_zones():
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
 
     assert "def _classify_multilevel_viewports(" in full
     assert "expected_levels=len(level_housings)" in full
     assert "template_main_viewport_unique_ids=[" in full
-    assert "Les vues logement du modèle multi-niveaux doivent utiliser" in full
 
     assert "def create_multilevel_sheet_from_blueprint(" in sheet
     assert "template_main_viewport_unique_ids" in sheet
-    assert "main_centers" in sheet
-    assert "Les vues logement du modèle multi-niveaux doivent être" in sheet
-    assert "positions exactes du" in sheet
-    assert "se chevauchent malgré le modèle" in sheet
-    assert "_create_common_scale_multilevel_viewports" not in sheet
+    assert "def _place_multilevel_views_in_template_slots(" in sheet
+    assert "_sheet_curve_segments_by_line_style(" in sheet
+    assert "_zone_around_point_from_segments(" in sheet
+    assert "center = model.GetBoxCenter()" in sheet
+    assert "target_zones.append(zone)" in sheet
+    assert "Aucune zone fermée en lignes" in sheet
 
 
 def test_stage09_duplex_preview_highlights_both_model_views():
@@ -407,15 +409,20 @@ def test_stage09_optional_location_plan_never_blocks_template_selection():
     assert "if template_location_viewport_unique_id:" in sheet
 
 
-def test_stage09_rc2_duplex_slots_share_one_scale():
+def test_stage09_rc2_duplex_explicit_zones_share_one_scale():
     sheet = SHEET.read_text(encoding="utf-8")
+    placement = sheet[
+        sheet.index("    def _place_multilevel_views_in_template_slots("):
+        sheet.index("    def list_title_block_types(")
+    ]
 
-    assert "def _place_multilevel_views_in_template_slots(" in sheet
-    assert "scale_candidates_from_reference(" in sheet
-    assert "slot_sizes" in sheet
-    assert "fits_slots" in sheet
-    assert "no_overlap" in sheet
-    assert "les vues ont été réduites ensemble" in sheet
+    assert "scale_candidates_from_reference(" in placement
+    assert "for candidate in candidates:" in placement
+    assert "working_view.Scale = candidate" in placement
+    assert "_view_crop_paper_size(" in placement
+    assert "target_zones" in placement
+    assert "les vues ont été réduites ensemble" in placement
+    assert "à une échelle commune" in placement
 
 
 def test_stage09_rc2_location_highlight_failure_is_non_blocking():
@@ -445,8 +452,11 @@ def test_stage09_rc3_annotation_crop_is_enabled():
     )
 
     assert "VIEWER_ANNOTATION_CROP_ACTIVE" in crop
-    assert "VIEWER_ANNOTATION_CROP_OFFSET" in crop
     assert "minimum_offset = 1.0 / 96.0" in crop
+    assert "manager.LeftAnnotationCropOffset = minimum_offset" in crop
+    assert "manager.RightAnnotationCropOffset = minimum_offset" in crop
+    assert "manager.TopAnnotationCropOffset = minimum_offset" in crop
+    assert "manager.BottomAnnotationCropOffset = minimum_offset" in crop
     assert "des annotations extérieures peuvent élargir le viewport" in crop
 
 
@@ -468,26 +478,30 @@ def test_stage09_rc4_crop_boundary_is_hidden():
     assert "BottomAnnotationCropOffset = minimum_offset" in crop
 
 
-def test_stage09_rc5_duplex_scale_ignores_annotation_extents():
+def test_stage09_rc5_duplex_scale_uses_crop_geometry_not_viewport_annotations():
     sheet = SHEET.read_text(encoding="utf-8")
-
-    assert "def _view_crop_paper_size(" in sheet
-    assert "self._view_crop_paper_size(" in sheet
-    assert "geometry_rectangles" in sheet
-    assert "GetBoxOutline()" not in sheet[
+    placement = sheet[
         sheet.index("    def _place_multilevel_views_in_template_slots("):
         sheet.index("    def list_title_block_types(")
     ]
 
+    assert "def _view_crop_paper_size(" in sheet
+    assert "self._view_crop_paper_size(" in placement
+    assert 'crop = getattr(view, "CropBox", None)' in sheet
+    assert "GetBoxOutline()" not in placement
 
-def test_stage09_rc6_duplex_alignment_uses_geometric_view_center():
+
+def test_stage09_rc6_duplex_alignment_uses_explicit_zone_centers():
     sheet = SHEET.read_text(encoding="utf-8")
+    placement = sheet[
+        sheet.index("    def _place_multilevel_views_in_template_slots("):
+        sheet.index("    def list_title_block_types(")
+    ]
 
-    assert "def _view_outline_center_on_sheet(" in sheet
-    assert "GetProjectionToSheetTransform()" in sheet
-    assert "viewport.SetBoxCenter(" in sheet
-    assert "actual_center = self._view_outline_center_on_sheet(" in sheet
-    assert "target_x, target_y = slot_centers[index]" in sheet
+    assert "target_x = (zone[0] + zone[2]) / 2.0" in placement
+    assert "target_y = (zone[1] + zone[3]) / 2.0" in placement
+    assert "XYZ(target_x, target_y, 0.0)" in placement
+    assert "Viewport.Create(" in placement
 
 
 def test_stage09_rc7_duplex_alignment_uses_real_crop_shape():
@@ -507,7 +521,7 @@ def test_stage09_rc15_explicit_zones_apply_to_single_and_multilevel():
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
 
-    assert 'UI_BUILD = "stage09-rc15-explicit-main-zones"' in main
+    assert 'UI_BUILD = "stage09-rc17-progress-stages"' in main
 
     # L'interface transmet le même style aux deux chemins de génération.
     multilevel_start = main.index("self.controller.generate_multilevel_one_sheet(")
@@ -617,7 +631,7 @@ def test_stage09_rc17_progress_window_contract():
         / "plans_vente_progress.xaml"
     ).read_text(encoding="utf-8")
 
-    assert 'UI_BUILD = "stage09-rc16-progress"' in main
+    assert 'UI_BUILD = "stage09-rc17-progress-stages"' in main
     assert "from plans_vente_progress_window import PlansVenteProgressSession" in main
     assert "with PlansVenteProgressSession(self, total) as progress:" in main
     assert "progress.update_progress(" in main
