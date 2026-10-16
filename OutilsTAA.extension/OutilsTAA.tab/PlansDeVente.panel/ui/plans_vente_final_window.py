@@ -50,7 +50,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc16-progress"
+    UI_BUILD = "stage09-rc17-progress-stages"
 
     def __init__(self, controller):
         self.controller = controller
@@ -930,15 +930,44 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         "Création {}/{} — {}..."
                     ).format(index, total, housing.key)
 
-                    progress.update(
-                        index - 1,
+                    progress.update_progress(
+                        float(index - 1) / float(max(1, total)),
+                        index,
                         housing_key=housing.key,
-                        phase="Création",
-                        message="Création du plan de vente {}…".format(
+                        phase="Préparation",
+                        message="Préparation du plan de vente {}…".format(
                             housing.key
                         ),
-                        item_label="Revit travaille…",
+                        item_label="Analyse du logement",
                     )
+
+                    def _progress_callback(
+                        fraction,
+                        phase,
+                        item_label,
+                        message,
+                        _index=index,
+                        _housing_key=housing.key,
+                    ):
+                        try:
+                            local_fraction = float(fraction)
+                        except Exception:
+                            local_fraction = 0.0
+                        local_fraction = max(
+                            0.0,
+                            min(local_fraction, 1.0),
+                        )
+                        overall_fraction = (
+                            float(_index - 1) + local_fraction
+                        ) / float(max(1, total))
+                        progress.update_progress(
+                            overall_fraction,
+                            _index,
+                            housing_key=_housing_key,
+                            phase=phase,
+                            message=message,
+                            item_label=item_label,
+                        )
 
                     if self._settings.get("skip_existing", True):
                         try:
@@ -948,10 +977,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                         housing.key
                                     )
                                 )
-                                progress.update(
+                                progress.update_progress(
+                                    float(index) / float(max(1, total)),
                                     index,
                                     housing_key=housing.key,
-                                    phase="Création",
+                                    phase="Finalisation",
                                     message=(
                                         "{} ignoré : plan déjà existant."
                                     ).format(housing.key),
@@ -1001,6 +1031,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                     main_view_zone_line_style=(
                                         self._selected_main_view_zone_line_style()
                                     ),
+                                    progress_callback=_progress_callback,
                                 )
                             )
                         else:
@@ -1030,6 +1061,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                 main_view_zone_line_style=(
                                     self._selected_main_view_zone_line_style()
                                 ),
+                                progress_callback=_progress_callback,
                             )
 
                         created.append(result)
@@ -1042,14 +1074,15 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                     )
                                 )
 
-                        progress.update(
+                        progress.update_progress(
+                            float(index) / float(max(1, total)),
                             index,
                             housing_key=housing.key,
-                            phase="Assemblage",
+                            phase="Finalisation",
                             message="Plan de vente {} terminé.".format(
                                 housing.key
                             ),
-                            item_label="Mise en page terminée",
+                            item_label="Plan terminé",
                         )
 
                     except Exception as error:
@@ -1059,10 +1092,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                 str(error) or repr(error),
                             )
                         )
-                        progress.update(
+                        progress.update_progress(
+                            float(index) / float(max(1, total)),
                             index,
                             housing_key=housing.key,
-                            phase="Création",
+                            phase="Finalisation",
                             message="Échec sur {} — voir le rapport.".format(
                                 housing.key
                             ),
