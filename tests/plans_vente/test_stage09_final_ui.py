@@ -97,7 +97,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc13"' in main
+    assert 'UI_BUILD = "stage09-rc13-diagnostic"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -588,3 +588,42 @@ def test_stage09_rc13_duplex_zone_uses_model_viewport_envelope():
     assert "right = max(rect[2] for rect in rectangles)" in zone
     assert "top = max(rect[3] for rect in rectangles)" in zone
     assert "_title_block_segments" not in zone
+
+
+def test_stage09_zone_diagnostic_uses_cartouches_subcategory():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+    xaml = MAIN_XAML.read_text(encoding="utf-8")
+
+    assert 'x:Name="DiagnoseZonesButton"' in xaml
+    assert 'Click="DiagnoseZones_Click"' in xaml
+    assert "def DiagnoseZones_Click(" in main
+    assert 'subcategory_name="Cartouches"' in main
+
+    assert "def diagnose_template_zones(" in controller
+    assert "def diagnose_template_zones(" in full
+    assert "def diagnose_titleblock_zones(" in sheet
+    assert "def _title_block_segments_by_subcategory(" in sheet
+    assert "GraphicsStyleCategory" in sheet
+    assert "style_name" in sheet
+    assert "subcategory_name" in sheet
+
+    diagnostic = sheet[
+        sheet.index("    def diagnose_titleblock_zones("):
+        sheet.index("    def _title_block_segments(", sheet.index("    def diagnose_titleblock_zones("))
+    ]
+    assert "Transaction" not in diagnostic
+    assert ".Delete(" not in diagnostic
+    assert ".Create(" not in diagnostic
+
+
+def test_stage09_zone_diagnostic_reconstructs_rectangles_from_axes():
+    sheet = SHEET.read_text(encoding="utf-8")
+
+    assert "def _rectangular_zones_from_segments(" in sheet
+    assert "def _cluster_axis_values(" in sheet
+    assert "def _axis_interval_covered(" in sheet
+    assert '"common_zone_ids"' in sheet
+    assert '"orientation"' in sheet
