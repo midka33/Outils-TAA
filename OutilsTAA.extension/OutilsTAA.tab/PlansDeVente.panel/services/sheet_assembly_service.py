@@ -312,7 +312,7 @@ class SheetAssemblyService(object):
         housing,
         template_sheet_unique_id,
         main_view_unique_id,
-        template_main_viewport_unique_id,
+        template_main_viewport_unique_ids,
         template_location_viewport_unique_id,
         template_interior_schedule_instance_unique_id,
         template_exterior_schedule_instance_unique_id,
@@ -505,20 +505,30 @@ class SheetAssemblyService(object):
             template_sheet_unique_id,
             "Sélectionnez une feuille modèle valide.",
         )
-        main_viewport_model = self._get_element(
-            template_main_viewport_unique_id,
-            "Le viewport modèle de la vue logement n'existe plus.",
-        )
+        main_viewport_models = []
+        for unique_id in list(template_main_viewport_unique_ids or []):
+            viewport_model = self._get_element(
+                unique_id,
+                "Un viewport modèle de vue logement n'existe plus.",
+            )
+            self._ensure_owned_by_sheet(
+                viewport_model,
+                template_sheet,
+                "vue logement",
+            )
+            main_viewport_models.append(viewport_model)
+
+        if len(main_viewport_models) != len(main_ids):
+            raise ValueError(
+                "Le nombre de vues logement du modèle ne correspond pas au "
+                "nombre de niveaux du logement."
+            )
+
         location_viewport_model = self._get_element(
             template_location_viewport_unique_id,
             "Le viewport modèle du repérage n'existe plus.",
         )
 
-        self._ensure_owned_by_sheet(
-            main_viewport_model,
-            template_sheet,
-            "vue logement",
-        )
         self._ensure_owned_by_sheet(
             location_viewport_model,
             template_sheet,
@@ -838,29 +848,41 @@ class SheetAssemblyService(object):
 
         from Autodesk.Revit.DB import ScheduleSheetInstance, ViewSheet, Viewport, XYZ
 
-        template_main_view = self.document.GetElement(
-            main_viewport_model.ViewId
-        )
-        reference_scale = int(
-            getattr(template_main_view, "Scale", 0) or 0
-        )
+        reference_scales = []
+        main_viewport_type_ids = []
+        main_centers = []
+        for viewport_model in main_viewport_models:
+            template_main_view = self.document.GetElement(
+                viewport_model.ViewId
+            )
+            reference_scales.append(
+                int(getattr(template_main_view, "Scale", 0) or 0)
+            )
+            try:
+                main_viewport_type_ids.append(
+                    viewport_model.GetTypeId()
+                )
+            except Exception:
+                main_viewport_type_ids.append(None)
+            center = viewport_model.GetBoxCenter()
+            main_centers.append(
+                (
+                    float(center.X),
+                    float(center.Y),
+                )
+            )
 
-        try:
-            main_viewport_type_id = main_viewport_model.GetTypeId()
-        except Exception:
-            main_viewport_type_id = None
+        common_scales = sorted(set(reference_scales))
+        if len(common_scales) != 1 or not common_scales[0]:
+            raise ValueError(
+                "Les vues logement du modèle multi-niveaux doivent être à la même échelle."
+            )
+        reference_scale = common_scales[0]
+
         try:
             location_viewport_type_id = location_viewport_model.GetTypeId()
         except Exception:
             location_viewport_type_id = None
-
-        main_outline = main_viewport_model.GetBoxOutline()
-        main_zone = (
-            float(main_outline.MinimumPoint.X),
-            float(main_outline.MinimumPoint.Y),
-            float(main_outline.MaximumPoint.X),
-            float(main_outline.MaximumPoint.Y),
-        )
 
         sheet = None
         fit_warnings = []
@@ -929,37 +951,51 @@ class SheetAssemblyService(object):
                 )
                 placed_schedule_instances.append(created_instance)
 
-            (
-                placed_main_views,
-                placed_main_viewports,
-                common_scale,
-                layout_mode,
-                multilevel_warnings,
-            ) = self._create_common_scale_multilevel_viewports(
-                sheet=sheet,
-                housing_key=housing.key,
-                source_views=main_views,
-                target_zone=main_zone,
-                viewport_type_id=main_viewport_type_id,
-                reference_scale=reference_scale,
-                allowed_scales=fit_scales,
-                obstacle_elements=tuple(
-                    [location_viewport] + placed_schedule_instances
-                ),
-                auto_fit=bool(auto_fit_main_view),
-            )
-            fit_scales_used = [common_scale for _ in placed_main_views]
-            fit_warnings.extend(multilevel_warnings)
-            fit_warnings.append(
-                "09B.2 : vues multi-niveaux placées {} à l'échelle commune 1:{}."
-                .format(
-                    (
-                        "gauche / droite"
-                        if layout_mode == "horizontal"
-                        else "haut / bas"
-                    ),
-                    common_scale,
+            for index, main_view in enumerate(main_views):
+                if int(getattr(main_view, "Scale", 0) or 0) != int(reference_scale):
+                    raise RuntimeError(
+                        "La vue du niveau {} n'est pas à l'échelle commune 1:{}."
+                        .format(index + 1, reference_scale)
+                    )
+
+                center = main_centers[index]
+                viewport = Viewport.Create(
+                    self.document,
+                    sheet.Id,
+                    main_view.Id,
+                    XYZ(center[0], center[1], 0.0),
                 )
+                self._apply_viewport_type(
+                    viewport,
+                    main_viewport_type_ids[index],
+                )
+                placed_main_viewports.append(viewport)
+                placed_main_views.append(main_view)
+                fit_scales_used.append(reference_scale)
+
+            self.document.Regenerate()
+
+            rectangles = [
+                self._viewport_rectangle(viewport)
+                for viewport in placed_main_viewports
+            ]
+            clearance = self._millimeters_to_internal(2.0)
+            for index, rectangle in enumerate(rectangles):
+                for other in rectangles[index + 1:]:
+                    if rectangles_overlap(
+                        rectangle,
+                        other,
+                        clearance=clearance,
+                    ):
+                        raise RuntimeError(
+                            "Le modèle multi-niveaux provoque un chevauchement "
+                            "entre les vues logement. Corrigez directement la "
+                            "feuille modèle."
+                        )
+
+            fit_warnings.append(
+                "09B.2 : vues multi-niveaux placées aux positions exactes du "
+                "modèle, à l'échelle commune 1:{}.".format(reference_scale)
             )
 
         template_label = "{} — {}".format(
@@ -1004,300 +1040,6 @@ class SheetAssemblyService(object):
                 str(getattr(schedule, "Name", "") or "")
                 for _, schedule in resolved_schedules
             ],
-        )
-
-    def _create_common_scale_multilevel_viewports(
-        self,
-        sheet,
-        housing_key,
-        source_views,
-        target_zone,
-        viewport_type_id,
-        reference_scale,
-        allowed_scales,
-        obstacle_elements,
-        auto_fit=True,
-    ):
-        """09B.2 : place toutes les vues à une échelle commune, sans chevauchement."""
-        from Autodesk.Revit.DB import ViewDuplicateOption, Viewport, XYZ
-
-        views = list(source_views or [])
-        if len(views) < 2:
-            raise ValueError(
-                "09B.2 nécessite au moins deux vues logement."
-            )
-
-        reference_scale = int(reference_scale or 0)
-        if reference_scale <= 0:
-            reference_scale = int(
-                getattr(views[0], "Scale", 0) or 0
-            )
-        if reference_scale <= 0:
-            raise RuntimeError(
-                "Impossible de déterminer l'échelle de référence multi-niveaux."
-            )
-
-        if auto_fit:
-            candidates = scale_candidates_from_reference(
-                reference_scale,
-                allowed_scales,
-            )
-        else:
-            candidates = [reference_scale]
-
-        min_x, min_y, max_x, max_y = [
-            float(value) for value in target_zone
-        ]
-        zone_w = max_x - min_x
-        zone_h = max_y - min_y
-        if zone_w <= 0.0 or zone_h <= 0.0:
-            raise RuntimeError(
-                "La zone de la vue logement modèle est invalide."
-            )
-
-        gap = self._millimeters_to_internal(8.0)
-        clearance = self._millimeters_to_internal(2.0)
-        warnings = []
-
-        for candidate in candidates:
-            candidate = int(candidate)
-            working_views = []
-            duplicated_ids = []
-            viewports = []
-            success = False
-            valid = False
-
-            try:
-                for index, source_view in enumerate(views):
-                    source_scale = int(
-                        getattr(source_view, "Scale", 0) or 0
-                    )
-                    working_view = source_view
-
-                    if source_scale != candidate:
-                        if not source_view.CanViewBeDuplicated(
-                            ViewDuplicateOption.WithDetailing
-                        ):
-                            raise RuntimeError(
-                                "Une vue du logement ne peut pas être dupliquée "
-                                "pour appliquer l'échelle commune 1:{}."
-                                .format(candidate)
-                            )
-
-                        copied_id = source_view.Duplicate(
-                            ViewDuplicateOption.WithDetailing
-                        )
-                        working_view = self.document.GetElement(copied_id)
-                        if working_view is None:
-                            raise RuntimeError(
-                                "Revit n'a pas retourné une vue multi-niveaux dupliquée."
-                            )
-                        duplicated_ids.append(copied_id)
-                        working_view.Name = self._unique_view_name(
-                            "PDV SHEET - {} - N{} - 1-{}".format(
-                                housing_key,
-                                index + 1,
-                                candidate,
-                            )
-                        )
-                        working_view.Scale = candidate
-
-                    if int(
-                        getattr(working_view, "Scale", 0) or 0
-                    ) != candidate:
-                        raise RuntimeError(
-                            "Revit n'a pas appliqué l'échelle commune 1:{}."
-                            .format(candidate)
-                        )
-
-                    working_views.append(working_view)
-
-                zone_center_x = (min_x + max_x) / 2.0
-                zone_center_y = (min_y + max_y) / 2.0
-
-                for working_view in working_views:
-                    viewport = Viewport.Create(
-                        self.document,
-                        sheet.Id,
-                        working_view.Id,
-                        XYZ(zone_center_x, zone_center_y, 0.0),
-                    )
-                    self._apply_viewport_type(
-                        viewport,
-                        viewport_type_id,
-                    )
-                    viewports.append(viewport)
-
-                self.document.Regenerate()
-                sizes = [
-                    self._viewport_box_size(viewport)
-                    for viewport in viewports
-                ]
-
-                horizontal_width = (
-                    sum(size[0] for size in sizes)
-                    + gap * float(len(sizes) - 1)
-                )
-                horizontal_height = max(
-                    size[1] for size in sizes
-                )
-                vertical_width = max(
-                    size[0] for size in sizes
-                )
-                vertical_height = (
-                    sum(size[1] for size in sizes)
-                    + gap * float(len(sizes) - 1)
-                )
-
-                horizontal_fits = (
-                    horizontal_width <= zone_w
-                    and horizontal_height <= zone_h
-                )
-                vertical_fits = (
-                    vertical_width <= zone_w
-                    and vertical_height <= zone_h
-                )
-
-                if not horizontal_fits and not vertical_fits:
-                    raise ValueError("layout-does-not-fit")
-
-                if horizontal_fits and vertical_fits:
-                    # Quand les deux dispositions sont possibles, suivre la
-                    # forme de la zone logement du modèle : paysage =
-                    # gauche/droite, portrait = haut/bas.
-                    layout_mode = (
-                        "horizontal"
-                        if zone_w >= zone_h
-                        else "vertical"
-                    )
-                elif horizontal_fits:
-                    layout_mode = "horizontal"
-                else:
-                    layout_mode = "vertical"
-
-                centers = []
-                if layout_mode == "horizontal":
-                    cursor = zone_center_x - (horizontal_width / 2.0)
-                    top = max_y
-                    for width, height in sizes:
-                        center_x = cursor + (width / 2.0)
-                        center_y = top - (height / 2.0)
-                        centers.append((center_x, center_y))
-                        cursor += width + gap
-                else:
-                    cursor = max_y
-                    left = min_x
-                    for width, height in sizes:
-                        center_x = left + (width / 2.0)
-                        center_y = cursor - (height / 2.0)
-                        centers.append((center_x, center_y))
-                        cursor -= height + gap
-
-                for viewport, center in zip(viewports, centers):
-                    viewport.SetBoxCenter(
-                        XYZ(center[0], center[1], 0.0)
-                    )
-
-                self.document.Regenerate()
-
-                rectangles = [
-                    self._viewport_rectangle(viewport)
-                    for viewport in viewports
-                ]
-
-                valid = True
-                for rectangle in rectangles:
-                    if not self._rectangle_inside(
-                        rectangle,
-                        target_zone,
-                        clearance=clearance,
-                    ):
-                        valid = False
-                        break
-
-                if valid:
-                    for index, rectangle in enumerate(rectangles):
-                        for other in rectangles[index + 1:]:
-                            if rectangles_overlap(
-                                rectangle,
-                                other,
-                                clearance=clearance,
-                            ):
-                                valid = False
-                                break
-                        if not valid:
-                            break
-
-                if valid:
-                    for rectangle in rectangles:
-                        for obstacle in obstacle_elements or []:
-                            other = self._element_rectangle(
-                                obstacle,
-                                sheet,
-                            )
-                            if (
-                                other is not None
-                                and rectangles_overlap(
-                                    rectangle,
-                                    other,
-                                    clearance=clearance,
-                                )
-                            ):
-                                valid = False
-                                break
-                        if not valid:
-                            break
-
-                if valid:
-                    success = True
-                    return (
-                        working_views,
-                        viewports,
-                        candidate,
-                        layout_mode,
-                        warnings,
-                    )
-
-            except ValueError as error:
-                if str(error) != "layout-does-not-fit":
-                    raise
-            finally:
-                if not success:
-                    for viewport in reversed(viewports):
-                        try:
-                            self.document.Delete(viewport.Id)
-                        except Exception:
-                            pass
-                    for copied_id in reversed(duplicated_ids):
-                        try:
-                            self.document.Delete(copied_id)
-                        except Exception:
-                            pass
-                    try:
-                        self.document.Regenerate()
-                    except Exception:
-                        pass
-
-            warnings.append(
-                "09B.2 : l'échelle 1:{} ne permet pas de placer toutes "
-                "les vues sans chevauchement ; essai à l'échelle suivante."
-                .format(candidate)
-            )
-
-        raise RuntimeError(
-            "09B.2 : impossible de placer toutes les vues logement à une "
-            "échelle commune sans chevauchement dans la zone du modèle."
-        )
-
-    @staticmethod
-    def _rectangle_inside(rectangle, container, clearance=0.0):
-        min_x, min_y, max_x, max_y = rectangle
-        c_min_x, c_min_y, c_max_x, c_max_y = container
-        return (
-            min_x >= c_min_x + clearance
-            and min_y >= c_min_y + clearance
-            and max_x <= c_max_x - clearance
-            and max_y <= c_max_y - clearance
         )
 
     def list_title_block_types(self):
