@@ -377,6 +377,7 @@ class FullGenerationService(object):
         building_parameter_name="",
         typology_parameter_name="",
         main_view_unique_id=None,
+        main_view_zone_line_style="",
     ):
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
@@ -622,6 +623,7 @@ class FullGenerationService(object):
                     getattr(descriptor, "name", "") or ""
                 ),
                 room_metadata=room_metadata,
+                main_view_zone_line_style=main_view_zone_line_style,
             )
             warnings.extend(sheet_result.warnings)
 
