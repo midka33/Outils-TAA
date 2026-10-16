@@ -1316,10 +1316,23 @@ class SheetAssemblyService(object):
         right = float(outline.Max.U) - margin
         top = float(outline.Max.V) - margin
 
-        # Emprise des vues principales du modèle : elle permet de sélectionner
-        # les séparations du cartouche qui encadrent réellement la zone plans.
+        # Emprise géométrique des vues principales du modèle. On privilégie
+        # la vraie forme de crop plutôt que le viewport complet afin que les
+        # annotations ne faussent pas la lecture de la zone plans.
         main_rectangles = []
         for viewport in list(template_viewports or []):
+            try:
+                model_view = self.document.GetElement(viewport.ViewId)
+                if model_view is not None:
+                    main_rectangles.append(
+                        self._view_crop_rectangle_on_sheet(
+                            model_view,
+                            viewport,
+                        )
+                    )
+                    continue
+            except Exception:
+                pass
             try:
                 main_rectangles.append(
                     self._viewport_rectangle(viewport)
@@ -1335,6 +1348,10 @@ class SheetAssemblyService(object):
             main_center_x = (main_left + main_right) / 2.0
             main_center_y = (main_bottom + main_top) / 2.0
         else:
+            main_left = left
+            main_bottom = bottom
+            main_right = right
+            main_top = top
             main_center_x = (left + right) / 2.0
             main_center_y = (bottom + top) / 2.0
 
@@ -1376,6 +1393,15 @@ class SheetAssemblyService(object):
             candidate = max(horizontal_candidates)
             if candidate < top:
                 bottom = max(bottom, candidate + gap)
+        elif main_rectangles:
+            # Certains cartouches utilisent des éléments 2D dont les lignes
+            # internes ne remontent pas correctement via l'API. Dans ce cas,
+            # la vue basse du modèle donne une limite sûre : la zone plans ne
+            # doit pas descendre dans la légende située sous cette vue.
+            bottom = max(
+                bottom,
+                main_bottom - gap,
+            )
 
         sheet_left = float(outline.Min.U) + margin
         sheet_bottom = float(outline.Min.V) + margin
