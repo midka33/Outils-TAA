@@ -77,27 +77,10 @@ class PlanViewService(object):
         return sorted(result, key=lambda item: item.name.lower())
 
     def ensure_primary_floor_plan(self, level_name):
-        """Retourne une source PDV dédiée, sans réutiliser une vue métier de SITE.
-
-        Les logements liés doivent être générés depuis une vue technique neutre.
-        Réutiliser une vue SITE existante peut hériter de réglages de visibilité,
-        de phase, de filtre ou de lien qui masquent le bâtiment, notamment au RDC.
-        """
-        technical_base_name = "PDV SOURCE - {}".format(level_name)
+        """Crée une vue plan technique si le niveau SITE n'en possède aucune exploitable."""
         existing = self.list_primary_floor_plans(level_name)
-        technical_existing = [
-            item for item in existing
-            if item.name == technical_base_name
-            or item.name.startswith(technical_base_name + " (")
-        ]
-        if technical_existing:
-            technical_existing.sort(
-                key=lambda item: (
-                    0 if item.name == technical_base_name else 1,
-                    item.name.lower(),
-                )
-            )
-            return [technical_existing[0]]
+        if existing:
+            return existing
 
         from Autodesk.Revit.DB import (
             FilteredElementCollector,
@@ -152,7 +135,7 @@ class PlanViewService(object):
                 .ToElements()
             )
         )
-        base_name = technical_base_name
+        base_name = "PDV SOURCE - {}".format(level_name)
         view_name = base_name
         index = 2
         while view_name in existing_names:
@@ -190,14 +173,10 @@ class PlanViewService(object):
                     pass
                 raise
 
-        result = [
-            item for item in self.list_primary_floor_plans(level_name)
-            if item.name == view_name
-        ]
+        result = self.list_primary_floor_plans(level_name)
         if not result:
             raise RuntimeError(
-                "La vue plan SITE dédiée a été créée mais n'est pas exploitable "
-                "comme source Plans de vente."
+                "La vue plan SITE a été créée mais n'est pas exploitable comme source Plans de vente."
             )
         return result
 
