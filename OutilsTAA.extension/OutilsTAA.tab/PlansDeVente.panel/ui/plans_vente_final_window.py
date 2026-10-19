@@ -641,6 +641,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "main_view_extra": "Vue logement 2",
             "location_view": "Repérage",
             "schedule": "Nomenclature",
+            "legend": "Légende",
         }
 
         for item in inspection.preview_items or []:
@@ -671,7 +672,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 else (
                     Brushes.DarkOrange
                     if kind == "location_view"
-                    else Brushes.DodgerBlue
+                    else (
+                        Brushes.DimGray
+                        if kind == "legend"
+                        else Brushes.DodgerBlue
+                    )
                 )
             )
             rect.Fill = Brushes.Transparent
