@@ -68,8 +68,12 @@ class LocationPlanService(object):
 
     def source_views_for_housing(self, housing):
         level_name = self._single_level_name(housing)
+        if getattr(housing, "source_key", "HOST") != "HOST":
+            candidates = self.plan_view_service.ensure_primary_floor_plan(level_name)
+        else:
+            candidates = self.plan_view_service.list_primary_floor_plans(level_name)
         return [
-            item for item in self.plan_view_service.list_primary_floor_plans(level_name)
+            item for item in candidates
             if not item.name.startswith("PDV_")
         ]
 
