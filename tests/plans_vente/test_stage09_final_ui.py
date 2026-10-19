@@ -703,3 +703,36 @@ def test_stage09_template_detection_ignores_non_floor_plan_viewports():
     ]
     assert "continue" in helper
     assert "ViewType.FloorPlan" in helper
+
+
+def test_stage09_template_legends_are_reused_without_duplication():
+    full = FULL.read_text(encoding="utf-8")
+    sheet = SHEET.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    # Détection : seules les vues en plan peuvent être logement / repérage.
+    assert "def _template_plan_viewport_infos(" in full
+    assert "ViewType.FloorPlan" in full
+
+    # Aperçu : une vraie légende possède son propre rôle et n'est pas une
+    # deuxième vue logement.
+    assert "ViewType.Legend" in full
+    assert '"kind": kind' in full
+    assert '"legend": "Légende"' in main
+
+    # Assemblage : les légendes de la feuille modèle sont replacées sur
+    # chaque feuille générée en réutilisant exactement la même View.Id.
+    assert "def _template_legend_viewports(" in sheet
+    assert "def _place_template_legends(" in sheet
+    assert "ViewType.Legend" in sheet
+    assert "legend_view.Id" in sheet
+    assert "Viewport.Create(" in sheet
+    assert "placed_legend_viewports = self._place_template_legends(" in sheet
+
+    helper = sheet[
+        sheet.index("    def _place_template_legends("):
+        sheet.index("    @staticmethod\n    def _apply_viewport_type(")
+    ]
+    assert ".Duplicate(" not in helper
+    assert "legend_view.Duplicate" not in helper
+    assert "template_viewport.GetBoxCenter()" in helper
