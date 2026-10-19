@@ -148,16 +148,24 @@ def test_source_room_exposes_host_geometry_but_reads_source_parameters(db):
     assert source.get_BoundingBox(None).Min.X == 96
 
 
-def test_identity_includes_link_instance_even_for_same_document_and_room():
+def test_identity_includes_link_instance_without_exposing_it_in_visible_names():
     doc = Document('BATIMENT')
     one, two = linked(1, document=doc), linked(2, document=doc)
     host = RoomSnapshot('r1', housing_key='101', level_name='RDC')
     result = HousingGrouper().group([host, snapshot(one), snapshot(two)], 'Logement')
     assert len(result.housings) == 3
     assert len({h.identity for h in result.housings}) == 3
-    assert len({h.key for h in result.housings}) == 3
+    assert {h.key for h in result.housings} == {'101'}
     assert {h.display_key for h in result.housings} == {'101'}
+    assert all('-L' not in h.key for h in result.housings)
     assert len({r for h in result.housings for r in h.room_unique_ids}) == 3
+
+    result.housings[1].set_output_disambiguator('BAT A')
+    result.housings[2].set_output_disambiguator('BAT B')
+    assert result.housings[1].key == '101 - BAT A'
+    assert result.housings[2].key == '101 - BAT B'
+    assert result.housings[1].filter_key == '101'
+    assert result.housings[2].filter_key == '101'
 
 
 def test_host_room_resolution_remains_exactly_v1():
@@ -550,10 +558,30 @@ def test_checkbox_and_source_binding_have_canonical_handlers():
     assert value.Key == '101' and value.Source == 'Bâtiment [instance 1]'
 
 
-def test_output_name_collision_is_never_silently_skipped_as_an_existing_plan():
-    host = RoomSnapshot('host', housing_key='101-L1', level_name='RDC')
-    with pytest.raises(ValueError, match='Collision'):
-        HousingGrouper().group([host, snapshot(linked(1))], 'Logement')
+def test_link_instance_id_is_internal_and_never_used_as_default_output_suffix():
+    result = HousingGrouper().group([snapshot(linked(5530419))], 'Logement')
+    housing_item = result.housings[0]
+    assert housing_item.key == '101'
+    assert housing_item.filter_key == '101'
+    assert '5530419' not in housing_item.key
+    assert housing_item.source_key != 'HOST'
+
+
+def test_duplicate_numbers_are_resolved_by_user_only_when_needed():
+    ui = (SERVICES.parent / 'ui' / 'plans_vente_final_window.py').read_text()
+    assert 'def _resolve_output_name_collisions(' in ui
+    assert 'if len(group) > 1' in ui
+    assert 'forms.ask_for_string(' in ui
+    assert 'Numéro logement en doublon' in ui
+    assert 'housing.set_output_disambiguator(label)' in ui
+
+
+def test_linked_rooms_always_use_dedicated_site_source_view_even_if_rdc_has_existing_views():
+    plan_views = (SERVICES / 'plan_view_service.py').read_text()
+    assert 'technical_base_name = "PDV SOURCE - {}".format(level_name)' in plan_views
+    assert 'technical_existing = [' in plan_views
+    assert 'return [technical_existing[0]]' in plan_views
+    assert 'if existing:\n            return existing' not in plan_views
 
 
 def test_stale_link_room_fails_before_host_document_lookup():
