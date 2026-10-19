@@ -140,20 +140,108 @@ def resolve_room(document, value):
     return document.GetElement(value)
 
 
+AUTO_HOST_LEVEL_PREFIX = 'PDV_AUTO_'
+HOST_LEVEL_TOLERANCE = 1.0 / 304.8
+
+
+def _auto_host_level_name(elevation):
+    """Nom stable des niveaux techniques créés dans le document SITE."""
+    return '{}{:+07.3f}'.format(
+        AUTO_HOST_LEVEL_PREFIX,
+        float(elevation) * 0.3048,
+    )
+
+
+def _unique_host_level_name(levels, elevation):
+    base = _auto_host_level_name(elevation)
+    existing = set(
+        str(getattr(level, 'Name', '') or '')
+        for level in levels or []
+    )
+    if base not in existing:
+        return base
+
+    index = 2
+    while True:
+        candidate = '{} ({})'.format(base, index)
+        if candidate not in existing:
+            return candidate
+        index += 1
+
+
+def _create_host_level(document, levels, elevation):
+    """Crée le niveau SITE manquant à l'altitude transformée du lien."""
+    from Autodesk.Revit.DB import Level, Transaction
+
+    def create_level():
+        level = Level.Create(document, elevation)
+        if level is None:
+            raise RuntimeError(
+                "Revit n'a pas retourné le niveau SITE créé."
+            )
+        level.Name = _unique_host_level_name(levels, elevation)
+        return level
+
+    if bool(getattr(document, 'IsModifiable', False)):
+        return create_level()
+
+    transaction = Transaction(
+        document,
+        'Plans de vente - Création niveau SITE',
+    )
+    transaction.Start()
+    try:
+        level = create_level()
+        transaction.Commit()
+        return level
+    except Exception:
+        try:
+            transaction.RollBack()
+        except Exception:
+            pass
+        raise
+
+
 def host_level_name(housing, document):
-    """Match linked storeys by transformed project elevation, never by source id/name."""
+    """Résout le niveau hôte par altitude et crée automatiquement le niveau absent."""
     sources = [r.source_room for r in getattr(housing, 'rooms', [])
                if getattr(r, 'source_room', None) is not None and r.source_room.source_kind == 'linked']
     if not sources:
         return None
+
     from Autodesk.Revit.DB import FilteredElementCollector, Level
+
     elevations = [r.Level.ProjectElevation for r in sources if r.Level is not None]
-    if not elevations or max(elevations) - min(elevations) > 1.0 / 304.8:
+    if not elevations or max(elevations) - min(elevations) > HOST_LEVEL_TOLERANCE:
         raise ValueError('{} : sélectionner un seul niveau source.'.format(housing.source_name))
+
+    target_elevation = elevations[0]
     levels = list(FilteredElementCollector(document).OfClass(Level).ToElements())
-    matches = [level for level in levels if abs(level.ProjectElevation - elevations[0]) <= 1.0 / 304.8]
-    if len(matches) != 1:
-        raise ValueError('{} / logement {} : niveau SITE absent ou ambigu à {:.3f} m. '
-                         'Créer un niveau et une vue en plan SITE à cette altitude avant génération.'.format(
-                             housing.source_name, housing.filter_key, elevations[0] * 0.3048))
-    return str(matches[0].Name)
+    matches = [
+        level for level in levels
+        if abs(level.ProjectElevation - target_elevation) <= HOST_LEVEL_TOLERANCE
+    ]
+
+    if len(matches) > 1:
+        names = ', '.join(
+            sorted(str(getattr(level, 'Name', '') or '?') for level in matches)
+        )
+        raise ValueError(
+            '{} / logement {} : plusieurs niveaux SITE existent à {:.3f} m ({}) ; '
+            'conserver un seul niveau à cette altitude avant génération.'.format(
+                housing.source_name,
+                housing.filter_key,
+                target_elevation * 0.3048,
+                names,
+            )
+        )
+
+    if len(matches) == 1:
+        return str(matches[0].Name)
+
+    level = _create_host_level(
+        document,
+        levels,
+        target_elevation,
+    )
+    return str(level.Name)
