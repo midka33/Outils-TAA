@@ -789,6 +789,105 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 return index
         return -1
 
+    def _resolve_output_name_collisions(self, housings):
+        """Demande un libellé uniquement lorsque plusieurs sources partagent le même numéro."""
+        housings = list(housings or [])
+        for housing in housings:
+            try:
+                housing.set_output_disambiguator("")
+            except Exception:
+                pass
+
+        groups = {}
+        for housing in housings:
+            number = str(
+                getattr(housing, "filter_key", "")
+                or getattr(housing, "display_key", "")
+                or ""
+            ).strip()
+            if not number:
+                continue
+            groups.setdefault(number.lower(), []).append(housing)
+
+        duplicates = [
+            group for group in groups.values()
+            if len(group) > 1
+        ]
+        if not duplicates:
+            return True
+
+        forbidden = set('\\/:{}[];<>?`~|')
+        for group in duplicates:
+            number = str(
+                getattr(group[0], "filter_key", "")
+                or getattr(group[0], "display_key", "")
+                or ""
+            ).strip()
+            used = set()
+
+            for housing in group:
+                source = str(
+                    getattr(housing, "source_name", "")
+                    or "Source inconnue"
+                ).strip()
+
+                while True:
+                    value = forms.ask_for_string(
+                        default="",
+                        prompt=(
+                            "Le numéro de logement « {} » existe dans plusieurs "
+                            "sources.\n\nSource à différencier :\n{}\n\n"
+                            "Saisissez le texte à ajouter au nom de sortie "
+                            "(ex. BAT A, BAT B)."
+                        ).format(number, source),
+                        title="Plans de vente — Numéro logement en doublon",
+                    )
+
+                    if value is None:
+                        forms.alert(
+                            "Création annulée : les logements portant le numéro "
+                            "« {} » doivent être différenciés.".format(number),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        return False
+
+                    label = str(value or "").strip()
+                    if not label:
+                        forms.alert(
+                            "Saisissez un texte de différenciation pour « {} ».".format(
+                                number
+                            ),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        continue
+
+                    invalid = sorted(set(label).intersection(forbidden))
+                    if invalid:
+                        forms.alert(
+                            "Le texte contient des caractères interdits dans les "
+                            "noms Revit : {}".format(" ".join(invalid)),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        continue
+
+                    if label.lower() in used:
+                        forms.alert(
+                            "Le libellé « {} » est déjà utilisé pour ce numéro. "
+                            "Choisissez un libellé différent.".format(label),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        continue
+
+                    used.add(label.lower())
+                    housing.set_output_disambiguator(label)
+                    break
+
+        return True
+
     def CreateBatch_Click(self, sender, args):
         if self._busy:
             return
@@ -861,6 +960,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 title="Plans de vente",
                 warn_icon=True,
             )
+            return
+
+        if not self._resolve_output_name_collisions(selected):
             return
 
         multilevel = [
