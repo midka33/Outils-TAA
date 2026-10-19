@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import room_inputs, resolve_room
+
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
 from plans_vente.multilevel import split_housing_by_level
@@ -780,12 +782,7 @@ class FullGenerationService(object):
         level_housings = list(split_housing_by_level(housing) or [])
         try:
             level_housings.sort(
-                key=lambda item: int(
-                    self._floor_number(
-                        (item.level_names or [""])[0]
-                    )
-                    or 9999
-                )
+                key=lambda item: self._level_sort_value(item)
             )
         except Exception:
             pass
@@ -999,12 +996,7 @@ class FullGenerationService(object):
             lower_housing = level_housings[0]
             try:
                 level_housings.sort(
-                    key=lambda item: int(
-                        self._floor_number(
-                            (item.level_names or [""])[0]
-                        )
-                        or 9999
-                    )
+                    key=lambda item: self._level_sort_value(item)
                 )
                 lower_housing = level_housings[0]
             except Exception:
@@ -1200,6 +1192,11 @@ class FullGenerationService(object):
             warnings=warnings,
         )
 
+    def _level_sort_value(self, housing):
+        if getattr(housing, "source_key", "HOST") != "HOST":
+            return min(room.source_room.Level.ProjectElevation for room in housing.rooms)
+        return int(self._floor_number((housing.level_names or [""])[0]) or 9999)
+
     def _room_metadata(
         self,
         housing,
@@ -1210,11 +1207,13 @@ class FullGenerationService(object):
         """Lit les informations de cartouche depuis les pièces du logement."""
         rooms = []
         for unique_id in list(
-            getattr(housing, "room_unique_ids", []) or []
+            room_inputs(housing)
         ):
             try:
-                room = self.document.GetElement(unique_id)
+                room = resolve_room(self.document, unique_id)
             except Exception:
+                if getattr(housing, "source_key", "HOST") != "HOST":
+                    raise
                 room = None
             if room is not None:
                 rooms.append(room)
@@ -1251,7 +1250,8 @@ class FullGenerationService(object):
                     )
                 )
 
-        floor_label = self._main_view_level_name(main_view_unique_id)
+        floor_label = ("" if getattr(housing, "source_key", "HOST") != "HOST"
+                       else self._main_view_level_name(main_view_unique_id))
         if floor_label:
             floor = self._floor_number(floor_label)
             if floor != "":

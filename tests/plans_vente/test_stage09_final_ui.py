@@ -99,7 +99,7 @@ def test_stage09_python_windows_parse_and_batch_reuses_validated_07d_engine():
     ast.parse(main)
     ast.parse(advanced)
 
-    assert 'UI_BUILD = "stage09-rc17-progress-stages"' in main
+    assert 'UI_BUILD = "linked-rooms-v1.1"' in main
     assert "def CreateBatch_Click(" in main
     assert "def _run_batch(" in main
     assert "self.controller.generate_full_plan(" in main
@@ -521,7 +521,7 @@ def test_stage09_rc15_explicit_zones_apply_to_single_and_multilevel():
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
 
-    assert 'UI_BUILD = "stage09-rc17-progress-stages"' in main
+    assert 'UI_BUILD = "linked-rooms-v1.1"' in main
 
     # L'interface transmet le même style aux deux chemins de génération.
     multilevel_start = main.index("self.controller.generate_multilevel_one_sheet(")
@@ -631,7 +631,7 @@ def test_stage09_rc17_progress_window_contract():
         / "plans_vente_progress.xaml"
     ).read_text(encoding="utf-8")
 
-    assert 'UI_BUILD = "stage09-rc17-progress-stages"' in main
+    assert 'UI_BUILD = "linked-rooms-v1.1"' in main
     assert "from plans_vente_progress_window import PlansVenteProgressSession" in main
     assert "with PlansVenteProgressSession(self, total) as progress:" in main
     assert "progress.update_progress(" in main

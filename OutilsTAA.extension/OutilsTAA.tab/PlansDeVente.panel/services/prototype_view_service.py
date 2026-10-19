@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import room_inputs, host_level_name
+
 """Prototype contrôlé : vue dépendante + contour logement optimisé."""
 
 from common.transaction import RevitTransaction
@@ -79,7 +81,7 @@ class PrototypeViewService(object):
             )
 
         crop_result = self.crop_geometry_service.build_optimized_crop(
-            housing.room_unique_ids,
+            room_inputs(housing),  # V1: housing.room_unique_ids; liens: objets sources explicites
             source_view,
             margin_mm,
         )
@@ -271,8 +273,10 @@ class PrototypeViewService(object):
 
         return master_view, True
 
-    @staticmethod
-    def _single_level_name(housing):
+    def _single_level_name(self, housing):
+        linked_level = host_level_name(housing, self.document)
+        if linked_level is not None:
+            return linked_level
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
 

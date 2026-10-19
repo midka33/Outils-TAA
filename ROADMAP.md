@@ -187,28 +187,32 @@ préparation de release ; l’état GitHub de la PR et de la release fait foi.
 
 ### Plans de vente V1.1 — pièces des fichiers Revit liés
 
-**Priorité : prochaine évolution fonctionnelle après la V1.**
+**Statut : implémentation sur `feature/plans-de-vente-linked-rooms`, tests hors Revit ; recette Revit en attente. PR à conserver en Draft.**
 
 Objectif : permettre de lancer Plans de vente depuis un fichier hôte / site
 contenant les feuilles et cartouches, tout en analysant les pièces présentes
 dans un ou plusieurs fichiers Revit liés.
 
-- [ ] Ajouter dans l'étape 1 l'option **Inclure les pièces des fichiers Revit liés**.
-- [ ] Conserver le comportement actuel (document actif uniquement) lorsque l'option est décochée.
-- [ ] Lorsque l'option est cochée, analyser les pièces du document actif et des liens Revit chargés.
-- [ ] Ignorer proprement les liens déchargés et les signaler dans le rapport si nécessaire.
-- [ ] Afficher la **Source** du logement dans le tableau de portée lorsque des liens sont inclus.
-- [ ] Utiliser une identité interne robuste **Source + N° logement** afin d'éviter de fusionner deux logements portant le même numéro dans deux bâtiments différents.
-- [ ] Étendre la couche métier des pièces avec le document source, l'instance de lien et la transformation vers le document hôte.
-- [ ] Adapter le crop des vues aux coordonnées transformées des pièces liées.
-- [ ] Adapter les étiquettes de pièces liées avec `LinkElementId`.
-- [ ] Adapter les cotations automatiques aux références provenant des maquettes liées.
-- [ ] Adapter le plan de repérage et la surbrillance des logements liés.
-- [ ] Vérifier les nomenclatures lorsque leurs données proviennent de pièces liées.
-- [ ] Vérifier le renseignement des paramètres cartouche bâtiment / étage / typologie depuis les pièces liées.
-- [ ] Vérifier les surfaces habitables et annexes pour les logements multi-niveaux issus d'un lien.
-- [ ] Ajouter les tests unitaires / contrats nécessaires.
+- [x] Ajouter dans l'étape 1 l'option **Inclure les pièces des fichiers Revit liés**.
+- [x] Conserver le comportement actuel (document actif uniquement) lorsque l'option est décochée.
+- [x] Lorsque l'option est cochée, analyser les pièces du document actif et des liens Revit chargés.
+- [x] Ignorer proprement les liens déchargés et les signaler dans le rapport si nécessaire.
+- [x] Afficher la **Source** du logement dans le tableau de portée lorsque des liens sont inclus.
+- [x] Utiliser une identité interne robuste **Source + N° logement** afin d'éviter de fusionner deux logements portant le même numéro dans deux bâtiments différents.
+- [x] Étendre la couche métier des pièces avec le document source, l'instance de lien et la transformation vers le document hôte.
+- [x] Adapter le crop des vues aux coordonnées transformées des pièces liées.
+- [x] Adapter les étiquettes de pièces liées avec `LinkElementId`.
+- [x] Adapter les cotations automatiques aux références provenant des maquettes liées.
+- [x] Adapter le plan de repérage et la surbrillance des logements liés.
+- [x] Adapter les nomenclatures natives lorsque leurs données proviennent de pièces liées.
+- [x] Adapter le renseignement des paramètres cartouche bâtiment / étage / typologie depuis les pièces liées.
+- [x] Conserver les surfaces habitables et annexes pour les logements multi-niveaux issus d'un lien.
+- [x] Ajouter les tests unitaires / contrats nécessaires.
 - [ ] Valider dans Revit 2025.4 un workflow réel : `SITE.rvt` + plusieurs bâtiments liés + génération des plans de vente dans `SITE.rvt`.
+
+Recette détaillée : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+Les cases cochées décrivent le code et les tests simulés, pas une validation API/WPF dans Revit.
+Niveaux SITE correspondants et nomenclatures natives incluant les liens requis ; liens imbriqués hors périmètre.
 
 ### Hors périmètre V1 / suite
 

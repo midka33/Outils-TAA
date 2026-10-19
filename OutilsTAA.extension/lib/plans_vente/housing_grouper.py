@@ -24,12 +24,19 @@ class HousingGrouper(object):
                 empty_value_count += 1
                 continue
 
-            groups.setdefault(key, []).append(room)
+            groups.setdefault((getattr(room, "source_key", "HOST"), key), []).append(room)
 
-        housings = [
-            Housing(key=key, rooms=groups[key])
-            for key in sorted(groups.keys(), key=self._sort_key)
-        ]
+        housings = []
+        output_keys = set()
+        for source_key, key in sorted(groups, key=lambda item: (self._sort_key(item[1]), item[0])):
+            rooms = groups[(source_key, key)]
+            source = getattr(rooms[0], "source_room", None)
+            output_key = key + (source.output_suffix if source is not None else "")
+            if output_key in output_keys:
+                raise ValueError("Collision de nom de sortie « {} » entre deux sources. "
+                                 "Modifier le numéro logement ambigu avant génération.".format(output_key))
+            output_keys.add(output_key)
+            housings.append(Housing(key=output_key, rooms=rooms, filter_key=key))
 
         return HousingAnalysisResult(
             parameter_name=parameter_name,

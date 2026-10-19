@@ -1371,6 +1371,32 @@ Export : exécution sur `main` et contrôle du SHA exact avant création du tag.
 BUG-COMMON-002 s’applique aussi au ZIP utilisateur : retrait des répertoires de
 tests/caches et contrôle du contenu décompressé avant publication.
 
+### BUG-PDV-028 — Collisions d'identité et de repère avec les pièces liées
+
+**Symptôme reproduit hors Revit :** deux instances d'un même bâtiment contenant
+la pièce `r1` / logement `101` ne peuvent pas être distinguées par le seul
+UniqueId de pièce ou le numéro logement. Leur géométrie brute reste aux mêmes
+coordonnées malgré deux placements de lien différents.
+
+**Cause racine :** les entrées V1 supposent un document unique ; l'id local et
+la géométrie ne portent pas l'instance de lien.
+
+**Correction :** contexte `SourceRoom` avec instance/UniqueId et transformation,
+regroupement source + logement, adaptation des entrées crop/tags/cotes/repérage,
+filtres natifs des nomenclatures par source et rapprochement des niveaux par
+altitude transformée. Les pièces hôtes conservent le chemin V1.
+
+**Règle préventive :** ne jamais résoudre une référence de pièce liée dans SITE,
+transformer une référence géométrique brute en perdant sa référence native, ou
+filtrer une nomenclature liée uniquement sur le numéro du logement. Une source
+ambiguë doit être signalée avant livraison du plan.
+
+**Anti-régression :** `tests/plans_vente/test_linked_rooms.py` : mêmes UniqueIds
+et numéros, instances répétées, transformations/inverse, doublons de tags,
+cotes natives liées, filtrage des nomenclatures, opt-out hôte, contexte d'erreur.
+La recette API/WPF Revit reste à effectuer, décrite dans
+`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1448,6 +1474,7 @@ BUG-PDV-021
 BUG-PDV-022
 BUG-PDV-023
 BUG-PDV-024
+BUG-PDV-028
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-COMMON-002

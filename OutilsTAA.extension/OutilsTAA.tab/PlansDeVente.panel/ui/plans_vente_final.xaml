@@ -165,6 +165,10 @@
                                            VerticalAlignment="Center"/>
                             </Grid>
 
+                            <CheckBox x:Name="IncludeLinksCheck"
+                                      Content="Inclure les pièces des fichiers Revit liés"
+                                      Margin="0,14,0,0" IsChecked="False"
+                                      Click="IncludeLinksChanged"/>
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="46*"/>
@@ -242,6 +246,7 @@
                                               RowStyle="{StaticResource PDVHousingRow}"
                                               CellStyle="{StaticResource PDVHousingCell}">
                                         <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="*"/>
                                             <DataGridTextColumn Header="Logement"
                                                                 Binding="{Binding Key}"
                                                                 Width="*"/>

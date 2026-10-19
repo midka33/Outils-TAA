@@ -2,7 +2,7 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.29
+**Version :** 1.30
 **Statut :** V1 validée dans Revit 2025.4 le 16 octobre 2026 — livraison Outils TAA v1.2.0
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
@@ -16,6 +16,12 @@ de la non-régression Export / Calculs et des icônes harmonisées.
 Les sections historiques ci-dessous conservent la trace des étapes de développement.
 Le bilan actuel et les limites V1 figurent dans
 `docs/release/Preparation_Plans_de_Vente_V1.md`.
+
+**Évolution V1.1 en préparation (19 octobre 2026, issue #27) :** pièces des liens
+Revit directs, option désactivée par défaut. Implémentation sur branche dédiée,
+**recette Revit non validée**. La validation V1 mentionnée ci-dessus ne vaut pas
+validation de cette évolution. Voir la section V1.1 en fin de document et
+`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
 
@@ -5173,3 +5179,70 @@ Le moteur publie des jalons après les opérations Revit effectivement terminée
 Pour un logement multi-niveaux, les jalons vue / étiquettes / cotations sont
 émis pour chaque niveau. Le pourcentage global combine l'avancement interne
 du logement courant avec sa position dans le lot.
+
+
+## Plans de vente V1.1 — pièces liées (issue #27)
+
+L'étape 1 propose **Inclure les pièces des fichiers Revit liés**. Décochée,
+l'option conserve la collecte et les références du document actif. Cochée,
+elle ajoute les pièces des instances de liens chargés directement dans SITE.
+La colonne **Source** distingue le fichier et l'instance ; le numéro logement
+affiché reste celui du paramètre. Un lien déchargé ou en erreur est ignoré avec
+un avertissement de source dans le statut et le rapport.
+
+### Contexte et identité
+
+`plans_vente/source_room.py` définit `SourceRoom`, adaptateur en lecture seule :
+document source, élément/UniqueId de pièce, instance/UniqueId de lien, libellé
+et transformation `GetTotalTransform` vers SITE. Le contexte d'analyse conserve
+ces objets pendant la session ; les pièces d'un même document sont collectées
+une fois même si ce fichier a plusieurs instances. Découverte des paramètres
+limitée à huit pièces **par document**, pas huit pièces pour tous les bâtiments.
+
+`HousingGrouper` utilise `(source_key, numéro logement)`. `Housing.key` est la
+clé de nommage, avec suffixe `-L<id instance>` pour les liens ; `filter_key` est
+le numéro métier original. La source et les références suivent le découpage par
+niveau. Une collision de noms de sortie est refusée explicitement.
+Les références durables ne reposent pas sur le seul id numérique : l'identité
+des sources/pièces emploie les UniqueIds.
+
+### Adaptation des services V1
+
+- `room_inputs` transmet les UniqueIds hôtes historiques ou un `SourceRoom`
+  explicite. `resolve_room` ne cherche jamais une pièce liée dans SITE.
+- Les frontières source sont transformées une fois avant les moteurs existants
+  de crop et repérage. Les boîtes utilisent leurs huit coins. Les tests
+  d'intérieur utilisent la transformation inverse mise en cache.
+- Les vues restent créées dans SITE, sur un niveau de même altitude projet
+  transformée (tolérance 1 mm). Niveau absent/ambigu : erreur, pas de choix par
+  nom ni de création automatique de niveau.
+- Les étiquettes natives utilisent `LinkElementId(instance.Id, room.Id)` ;
+  les doublons sont détectés par paire instance/pièce, et non par id local seul.
+- Les cotes réutilisent le choix de faces/arêtes V1 dans le document source.
+  Les points numériques sont transformés ; les références natives sont portées
+  dans SITE par `CreateLinkReference`. Pas de cotes fictives en cas d'échec API.
+- Bâtiment/typologie sont lus sur les pièces sources. Les niveaux liés sont
+  ordonnés par altitude transformée pour les deux vues ; les surfaces restent
+  consolidées dans les nomenclatures natives, avec les filtres métier du modèle.
+- Les nomenclatures de pièces modèles doivent inclure les liens nativement.
+  Les copies conservent présentation/totaux et ajoutent les filtres masqués
+  fichier + nom d'instance ; elles ne mélangent pas deux logements homonymes.
+  Un modèle non filtrable ou une source native ambiguë bloque le logement.
+- Les erreurs indiquent source, logement et service en échec. Transaction par
+  logement et jalons réels de progression restent en place.
+
+Les identités de paramètres partagés (GUID) et natifs restent strictes. Un
+paramètre de projet non partagé peut être rapproché par son nom uniquement
+lors du passage entre documents et si ce nom est non ambigu.
+
+### Recette et limites
+
+La [recette V1.1](release/Preparation_Plans_de_Vente_V1.1_Liens.md) contient les
+prérequis et les cas SITE/A/B/C, duplex, sources homonymes, instances multiples,
+rotations, symétries, niveaux manquants, cotes, nomenclatures et erreurs par lot.
+Les liens imbriqués et liens inclinés/renversés verticalement ne sont pas pris
+en charge. Le module ne modifie ni le réglage des phases/visibilités ni les
+fichiers liés. Les cas de références de cotation non acceptées sont signalés.
+
+**Tests hors Revit seuls :** les frontières API sont simulées. La PR reste
+Draft tant que la recette réelle Revit 2025.4 n'est pas confirmée par l'utilisateur.

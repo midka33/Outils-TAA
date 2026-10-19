@@ -6,6 +6,15 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Ajouté — Plans de vente V1.1, pièces liées (issue #27, recette Revit en attente)
+
+- Option désactivée par défaut pour analyser le document actif et les liens Revit chargés directs ; colonne Source et avertissements de collecte.
+- Identités logement/pièce par instance de lien ; suffixe de sortie distinct, numéro métier conservé dans les filtres et cartouches.
+- Adaptation des coordonnées source vers SITE pour crop, placement des tags liés, cotations natives et repérage, sans réécrire les moteurs V1.
+- Correspondance des niveaux par altitude transformée ; prise en charge mono-niveau et duplex, paramètres bâtiment/typologie source.
+- Filtrage natif des copies de nomenclatures par fichier et instance, conservation des totaux et filtres métier ; refus explicite des sources ambiguës.
+- Tests des adaptateurs et recette Revit dédiée. Aucun changement métier Export/Calculs, aucune fusion ni release avant validation Revit utilisateur.
+
 ## [1.2.0] — 2026-10-16
 
 ### Ajouté — Plans de vente V1 (PR #26)

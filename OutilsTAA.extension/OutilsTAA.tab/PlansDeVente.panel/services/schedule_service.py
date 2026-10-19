@@ -66,6 +66,7 @@ class ScheduleService(object):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
+        self._link_schedule_identities = None
 
     def list_templates(self, descriptor):
         if descriptor is None:
@@ -134,6 +135,7 @@ class ScheduleService(object):
                 raise RuntimeError("Revit n'a pas retourné la nomenclature intérieure dupliquée.")
             interior.Name = interior_name
             self._apply_housing_filter(interior, descriptor, filter_key)
+            self._apply_source_filter(interior, housing)
 
             exterior_id = exterior_template.Duplicate(ViewDuplicateOption.Duplicate)
             exterior = self.document.GetElement(exterior_id)
@@ -141,6 +143,7 @@ class ScheduleService(object):
                 raise RuntimeError("Revit n'a pas retourné la nomenclature extérieure dupliquée.")
             exterior.Name = exterior_name
             self._apply_housing_filter(exterior, descriptor, filter_key)
+            self._apply_source_filter(exterior, housing)
 
         return SchedulePairResult(
             housing_key=housing.key,
@@ -196,7 +199,7 @@ class ScheduleService(object):
                 self._validate_template(schedule, descriptor)
                 filterable[str(getattr(schedule, "UniqueId", "") or "")] = True
             except Exception as error:
-                if not allow_unfiltered:
+                if not allow_unfiltered or (getattr(housing, "include_links", False) and self._is_room_schedule(schedule)):
                     raise
                 filterable[str(getattr(schedule, "UniqueId", "") or "")] = False
                 warnings.append(
@@ -256,6 +259,7 @@ class ScheduleService(object):
                         descriptor,
                         filter_key,
                     )
+                self._apply_source_filter(created, housing)
                 reserved_names.add(target_name)
 
                 items.append(
@@ -281,6 +285,68 @@ class ScheduleService(object):
             items=items,
             warnings=warnings,
         )
+
+    @staticmethod
+    def _is_room_schedule(schedule):
+        from Autodesk.Revit.DB import BuiltInCategory, ElementId
+        return schedule.Definition.CategoryId == ElementId(BuiltInCategory.OST_Rooms)
+
+    def _source_schedule_values(self, source):
+        """Native link file + instance-name fields; refuse ambiguous pairs."""
+        if self._link_schedule_identities is None:
+            from Autodesk.Revit.DB import BuiltInParameter, FilteredElementCollector, RevitLinkInstance
+            identities = {}
+            for link in FilteredElementCollector(self.document).OfClass(RevitLinkInstance).ToElements():
+                link_type = self.document.GetElement(link.GetTypeId())
+                file_parameter = link_type.get_Parameter(BuiltInParameter.RVT_LINK_FILE_NAME_WITHOUT_EXT)
+                name_parameter = link.get_Parameter(BuiltInParameter.RVT_LINK_INSTANCE_NAME)
+                file_name = file_parameter.AsString() if file_parameter is not None else ''
+                instance_name = name_parameter.AsString() if name_parameter is not None else ''
+                identities[str(link.UniqueId)] = (file_name or '', instance_name or '')
+            self._link_schedule_identities = identities
+        identities = self._link_schedule_identities
+        values = identities.get(source.link_instance_unique_id)
+        if values is None or not all(values) or list(identities.values()).count(values) != 1:
+            raise ValueError("{} : nomenclatures, nom d'instance de lien vide ou ambigu. "
+                             "Renseigner un Nom distinct pour chaque instance Revit liée puis relancer l'analyse.".format(source.source_name))
+        return values
+
+    def _apply_source_filter(self, schedule, housing):
+        if not getattr(housing, "include_links", False) or not self._is_room_schedule(schedule):
+            return
+        from Autodesk.Revit.DB import (BuiltInParameter, ElementId, ScheduleFieldType,
+                                       ScheduleFilter, ScheduleFilterType)
+        definition = schedule.Definition
+        if housing.source_key == 'HOST':
+            # Only in opt-in mode: prevent a host 101 from including linked 101s.
+            if definition.IncludeLinkedFiles:
+                definition.IncludeLinkedFiles = False
+            return
+        if not definition.IncludeLinkedFiles:
+            raise ValueError("{} / logement {} : nomenclature « {} », activer « Inclure les éléments "
+                             "des fichiers liés » sur le modèle.".format(housing.source_name, housing.filter_key, schedule.Name))
+        source = housing.rooms[0].source_room
+        file_name, instance_name = self._source_schedule_values(source)
+        fields = ((ScheduleFieldType.RevitLinkType, BuiltInParameter.RVT_LINK_FILE_NAME_WITHOUT_EXT, file_name),
+                  (ScheduleFieldType.RevitLinkInstance, BuiltInParameter.RVT_LINK_INSTANCE_NAME, instance_name))
+        # Replace only inherited source filters, keeping all business/area filters.
+        for index in reversed(range(definition.GetFilterCount())):
+            field = definition.GetField(definition.GetFilter(index).FieldId)
+            if field.FieldType in (ScheduleFieldType.RevitLinkInstance, ScheduleFieldType.RevitLinkType):
+                definition.RemoveFilter(index)
+        for field_type, parameter, value in fields:
+            field = None
+            for field_id in definition.GetFieldOrder():
+                candidate = definition.GetField(field_id)
+                if candidate.FieldType == field_type and candidate.ParameterId == ElementId(parameter):
+                    field = candidate
+                    break
+            if field is None:
+                field = definition.AddField(field_type, ElementId(parameter))
+                field.IsHidden = True
+            if not definition.CanFilterByValue(field.FieldId):
+                raise ValueError("{} : nomenclature, filtre natif de source non disponible.".format(housing.source_name))
+            definition.AddFilter(ScheduleFilter(field.FieldId, ScheduleFilterType.Equal, value))
 
     def _housing_filter_value(self, schedule, descriptor):
         """Lit la valeur logement du modèle quand elle est accessible."""
@@ -453,11 +519,19 @@ class ScheduleService(object):
             definition.AddFilter(housing_filter)
 
     def _find_housing_field_id(self, definition, descriptor):
+        by_name = []
         for field_id in definition.GetFieldOrder():
             field = definition.GetField(field_id)
             if self._field_matches_descriptor(field, descriptor):
                 return field_id
-        return None
+            if (getattr(descriptor, "source_kind", "host") == "linked"
+                    and getattr(descriptor, "identity_kind", "") == "DEFINITION"):
+                try:
+                    if str(field.GetName()) == descriptor.name:
+                        by_name.append(field_id)
+                except Exception:
+                    pass
+        return by_name[0] if len(by_name) == 1 else None
 
     def _field_matches_descriptor(self, field, descriptor):
         kind = getattr(descriptor, "identity_kind", "")

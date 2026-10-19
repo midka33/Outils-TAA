@@ -20,6 +20,15 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
 
+## Évolution en préparation — Plans de vente V1.1
+
+La branche `feature/plans-de-vente-linked-rooms` ajoute l'option
+**Inclure les pièces des fichiers Revit liés** : hôte + liens chargés directs,
+colonne Source et génération dans le fichier SITE. L'option est désactivée par défaut.
+Le développement reste en PR brouillon, **non validé dans Revit** et non livré.
+Voir la [recette dédiée](docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md)
+pour les prérequis de niveaux SITE, de nomenclatures natives et les limites.
+
 ## Guide utilisateur
 
 - [Export — tutoriel à jour](docs/release/Tutoriel_Export_v1.2.0.md)
