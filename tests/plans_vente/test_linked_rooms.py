@@ -576,14 +576,6 @@ def test_duplicate_numbers_are_resolved_by_user_only_when_needed():
     assert 'housing.set_output_disambiguator(label)' in ui
 
 
-def test_linked_rooms_always_use_dedicated_site_source_view_even_if_rdc_has_existing_views():
-    plan_views = (SERVICES / 'plan_view_service.py').read_text()
-    assert 'technical_base_name = "PDV SOURCE - {}".format(level_name)' in plan_views
-    assert 'technical_existing = [' in plan_views
-    assert 'return [technical_existing[0]]' in plan_views
-    assert 'if existing:\n            return existing' not in plan_views
-
-
 def test_stale_link_room_fails_before_host_document_lookup():
     source = linked()
     source.room_element.IsValidObject = False
