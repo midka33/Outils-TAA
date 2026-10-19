@@ -683,3 +683,23 @@ def test_stage09_rc17_engine_emits_real_progress_milestones():
     assert '"Vue niveau {} créée"' in full
     assert '"Étiquettes niveau {} traitées"' in full
     assert '"Cotations niveau {} traitées"' in full
+
+
+def test_stage09_template_detection_ignores_non_floor_plan_viewports():
+    full = FULL.read_text(encoding="utf-8")
+
+    assert "def _template_plan_viewport_infos(" in full
+    assert "from Autodesk.Revit.DB import ViewType" in full
+    assert 'getattr(view, "ViewType", None) != ViewType.FloorPlan' in full
+
+    # Les trois chemins de détection doivent partager exactement le même filtre.
+    assert full.count("infos = self._template_plan_viewport_infos(sheet)") >= 3
+
+    # Une légende ou une vue de dessin peut rester sur la feuille modèle sans
+    # être comptée comme vue logement ou repérage.
+    helper = full[
+        full.index("    def _template_plan_viewport_infos("):
+        full.index("    def _classify_viewports(")
+    ]
+    assert "continue" in helper
+    assert "ViewType.FloorPlan" in helper
