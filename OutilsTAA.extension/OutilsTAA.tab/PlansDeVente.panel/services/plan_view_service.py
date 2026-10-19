@@ -76,6 +76,110 @@ class PlanViewService(object):
 
         return sorted(result, key=lambda item: item.name.lower())
 
+    def ensure_primary_floor_plan(self, level_name):
+        """Crée une vue plan technique si le niveau SITE n'en possède aucune exploitable."""
+        existing = self.list_primary_floor_plans(level_name)
+        if existing:
+            return existing
+
+        from Autodesk.Revit.DB import (
+            FilteredElementCollector,
+            Level,
+            Transaction,
+            View,
+            ViewFamily,
+            ViewFamilyType,
+            ViewPlan,
+        )
+
+        levels = [
+            level for level in (
+                FilteredElementCollector(self.document)
+                .OfClass(Level)
+                .ToElements()
+            )
+            if str(getattr(level, "Name", "") or "") == str(level_name or "")
+        ]
+        if len(levels) != 1:
+            raise RuntimeError(
+                "Impossible de résoudre le niveau SITE « {} » pour créer la vue plan technique.".format(
+                    level_name
+                )
+            )
+        level = levels[0]
+
+        view_types = [
+            view_type for view_type in (
+                FilteredElementCollector(self.document)
+                .OfClass(ViewFamilyType)
+                .WhereElementIsElementType()
+                .ToElements()
+            )
+            if getattr(view_type, "ViewFamily", None) == ViewFamily.FloorPlan
+        ]
+        if not view_types:
+            raise RuntimeError(
+                "Aucun type de vue Plan d'étage n'est disponible dans SITE."
+            )
+        view_types.sort(
+            key=lambda item: str(getattr(item, "Name", "") or "").lower()
+        )
+        view_type = view_types[0]
+
+        existing_names = set(
+            str(getattr(view, "Name", "") or "")
+            for view in (
+                FilteredElementCollector(self.document)
+                .OfClass(View)
+                .WhereElementIsNotElementType()
+                .ToElements()
+            )
+        )
+        base_name = "PDV SOURCE - {}".format(level_name)
+        view_name = base_name
+        index = 2
+        while view_name in existing_names:
+            view_name = "{} ({})".format(base_name, index)
+            index += 1
+
+        def create_view():
+            view = ViewPlan.Create(
+                self.document,
+                view_type.Id,
+                level.Id,
+            )
+            if view is None:
+                raise RuntimeError(
+                    "Revit n'a pas retourné la vue plan technique créée."
+                )
+            view.Name = view_name
+            return view
+
+        if bool(getattr(self.document, "IsModifiable", False)):
+            create_view()
+        else:
+            transaction = Transaction(
+                self.document,
+                "Plans de vente - Création vue plan SITE",
+            )
+            transaction.Start()
+            try:
+                create_view()
+                transaction.Commit()
+            except Exception:
+                try:
+                    transaction.RollBack()
+                except Exception:
+                    pass
+                raise
+
+        result = self.list_primary_floor_plans(level_name)
+        if not result:
+            raise RuntimeError(
+                "La vue plan SITE a été créée mais n'est pas exploitable comme source Plans de vente."
+            )
+        return result
+
     def _resolve_revit_dependencies(self):
         from Autodesk.Revit.DB import (
             ElementId,
