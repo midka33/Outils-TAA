@@ -143,11 +143,19 @@ def test_stage07d_repere_is_detected_by_filled_region_class():
 
     assert "def _filled_region_count(" in text
     assert ".OfClass(FilledRegion)" in text
+
+    collector = text[
+        text.index("    def _template_plan_viewport_infos("):
+        text.index("    def _classify_viewports(")
+    ]
+    assert "ViewType.FloorPlan" in collector
+    assert "filled_regions=self._filled_region_count(view)" in collector
+
     classifier = text[
         text.index("    def _classify_viewports("):
         text.index("    def _resolve_source_view(")
     ]
-    assert "filled_regions=self._filled_region_count(view)" in classifier
+    assert "self._template_plan_viewport_infos(sheet)" in classifier
     assert '"OST_FilledRegion"' not in classifier
 
 
