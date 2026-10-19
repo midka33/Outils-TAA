@@ -1349,14 +1349,26 @@ class FullGenerationService(object):
         except Exception:
             return match.group(0).lstrip("+")
 
-    def _classify_viewports(self, sheet):
+    def _template_plan_viewport_infos(self, sheet):
+        """Retourne uniquement les viewports de plans d'étage du modèle.
+
+        Les légendes, vues de dessin, coupes, élévations et autres viewports
+        peuvent rester sur la feuille modèle, mais ne doivent jamais être
+        comptés comme vues logement ou repérage.
+        """
+        from Autodesk.Revit.DB import ViewType
+
         infos = []
         for viewport_id in list(sheet.GetAllViewports() or []):
             viewport = self.document.GetElement(viewport_id)
             if viewport is None:
                 continue
+
             view = self.document.GetElement(viewport.ViewId)
             if view is None:
+                continue
+
+            if getattr(view, "ViewType", None) != ViewType.FloorPlan:
                 continue
 
             outline = viewport.GetBoxOutline()
@@ -1385,6 +1397,11 @@ class FullGenerationService(object):
                     ),
                 )
             )
+
+        return infos
+
+    def _classify_viewports(self, sheet):
+        infos = self._template_plan_viewport_infos(sheet)
 
         if not infos:
             raise ValueError(
@@ -1493,40 +1510,7 @@ class FullGenerationService(object):
             "La feuille modèle n'existe plus.",
         )
 
-        infos = []
-        for viewport_id in list(sheet.GetAllViewports() or []):
-            viewport = self.document.GetElement(viewport_id)
-            if viewport is None:
-                continue
-            view = self.document.GetElement(viewport.ViewId)
-            if view is None:
-                continue
-
-            outline = viewport.GetBoxOutline()
-            width = abs(
-                float(outline.MaximumPoint.X)
-                - float(outline.MinimumPoint.X)
-            )
-            height = abs(
-                float(outline.MaximumPoint.Y)
-                - float(outline.MinimumPoint.Y)
-            )
-            infos.append(
-                _TemplateViewportInfo(
-                    viewport=viewport,
-                    view=view,
-                    area=width * height,
-                    filled_regions=self._filled_region_count(view),
-                    room_tags=self._view_category_count(
-                        view,
-                        "OST_RoomTags",
-                    ),
-                    dimensions=self._view_category_count(
-                        view,
-                        "OST_Dimensions",
-                    ),
-                )
-            )
+        infos = self._template_plan_viewport_infos(sheet)
 
         if not infos:
             raise ValueError(
@@ -1606,41 +1590,7 @@ class FullGenerationService(object):
         considérés comme vues logement et doivent être au même nombre que les
         niveaux à représenter.
         """
-        infos = []
-        for viewport_id in list(sheet.GetAllViewports() or []):
-            viewport = self.document.GetElement(viewport_id)
-            if viewport is None:
-                continue
-            view = self.document.GetElement(viewport.ViewId)
-            if view is None:
-                continue
-
-            outline = viewport.GetBoxOutline()
-            width = abs(
-                float(outline.MaximumPoint.X)
-                - float(outline.MinimumPoint.X)
-            )
-            height = abs(
-                float(outline.MaximumPoint.Y)
-                - float(outline.MinimumPoint.Y)
-            )
-
-            infos.append(
-                _TemplateViewportInfo(
-                    viewport=viewport,
-                    view=view,
-                    area=width * height,
-                    filled_regions=self._filled_region_count(view),
-                    room_tags=self._view_category_count(
-                        view,
-                        "OST_RoomTags",
-                    ),
-                    dimensions=self._view_category_count(
-                        view,
-                        "OST_Dimensions",
-                    ),
-                )
-            )
+        infos = self._template_plan_viewport_infos(sheet)
 
         if len(infos) < int(expected_levels or 0):
             raise ValueError(
