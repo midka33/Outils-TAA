@@ -306,6 +306,8 @@ class FullGenerationService(object):
         known_ids = set([main_info.viewport.Id])
         if location_info is not None:
             known_ids.add(location_info.viewport.Id)
+        from Autodesk.Revit.DB import ViewType
+
         extra_index = 2
         for viewport_id in list(sheet.GetAllViewports() or []):
             if viewport_id in known_ids:
@@ -316,20 +318,35 @@ class FullGenerationService(object):
             view = self.document.GetElement(viewport.ViewId)
             if view is None:
                 continue
+
+            view_type = getattr(view, "ViewType", None)
+            if view_type == ViewType.FloorPlan:
+                kind = "main_view_extra"
+                label = "Vue logement {} — {}".format(
+                    extra_index,
+                    str(getattr(view, "Name", "") or "sans nom"),
+                )
+                extra_index += 1
+            elif view_type == ViewType.Legend:
+                kind = "legend"
+                label = "Légende — {}".format(
+                    str(getattr(view, "Name", "") or "sans nom")
+                )
+            else:
+                # Les coupes, élévations et vues de dessin ne participent pas
+                # au contrat de génération Plans de vente.
+                continue
+
             try:
                 outline = viewport.GetBoxOutline()
                 items.append({
-                    "kind": "main_view_extra",
-                    "label": "Vue logement {} — {}".format(
-                        extra_index,
-                        str(getattr(view, "Name", "") or "sans nom"),
-                    ),
+                    "kind": kind,
+                    "label": label,
                     "min_x": float(outline.MinimumPoint.X),
                     "min_y": float(outline.MinimumPoint.Y),
                     "max_x": float(outline.MaximumPoint.X),
                     "max_y": float(outline.MaximumPoint.Y),
                 })
-                extra_index += 1
             except Exception:
                 pass
 
