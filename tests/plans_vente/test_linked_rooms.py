@@ -268,19 +268,50 @@ def test_project_parameter_name_fallback_is_only_unambiguous_linked_text():
     assert service.get_parameter(source, descriptor) is None
 
 
-def test_host_levels_use_transformed_project_elevation_not_same_name(db):
+def test_host_levels_use_transformed_project_elevation_and_create_missing(db):
     source = linked()
     h = housing(source)
     levels = [NS(Name='RDC', ProjectElevation=0), NS(Name='SITE +3', ProjectElevation=10)]
-    db.Level = object()
+    created = []
+
+    class FakeLevel:
+        @staticmethod
+        def Create(document, elevation):
+            level = NS(
+                Name='',
+                ProjectElevation=elevation,
+                Elevation=elevation,
+                Id=Id(99),
+            )
+            levels.append(level)
+            created.append(level)
+            return level
+
+    class FakeTransaction:
+        def __init__(self, document, name):
+            self.document = document
+            self.name = name
+        def Start(self):
+            return None
+        def Commit(self):
+            return None
+        def RollBack(self):
+            return None
+
+    db.Level = FakeLevel
+    db.Transaction = FakeTransaction
     db.FilteredElementCollector = lambda doc: NS(OfClass=lambda cls: NS(ToElements=lambda: levels))
+
     assert host_level_name(h, Document()) == 'SITE +3'
+
     levels.append(NS(Name='Ambigu', ProjectElevation=10))
-    with pytest.raises(ValueError, match='ambigu'):
+    with pytest.raises(ValueError, match='plusieurs niveaux SITE'):
         host_level_name(h, Document())
+
     levels[:] = [NS(Name='RDC', ProjectElevation=0)]
-    with pytest.raises(ValueError, match='absent'):
-        host_level_name(h, Document())
+    assert host_level_name(h, Document()) == 'PDV_AUTO_+03.048'
+    assert len(created) == 1
+    assert created[0].ProjectElevation == 10
 
 
 def test_real_crop_adapter_receives_link_transformed_boundary(db):
