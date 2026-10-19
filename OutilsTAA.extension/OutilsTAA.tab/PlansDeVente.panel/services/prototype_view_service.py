@@ -46,6 +46,8 @@ class PrototypeViewService(object):
 
     def source_views_for_housing(self, housing):
         level_name = self._single_level_name(housing)
+        if getattr(housing, "source_key", "HOST") != "HOST":
+            return self.plan_view_service.ensure_primary_floor_plan(level_name)
         return self.plan_view_service.list_primary_floor_plans(level_name)
 
     def create_dependent_crop_view(
