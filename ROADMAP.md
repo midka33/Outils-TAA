@@ -185,6 +185,31 @@ Spécification de référence : `docs/20_Plans_de_Vente.md`.
 Ces deux derniers jalons correspondent à la fusion et à la publication de cette
 préparation de release ; l’état GitHub de la PR et de la release fait foi.
 
+### Plans de vente V1.1 — pièces des fichiers Revit liés
+
+**Priorité : prochaine évolution fonctionnelle après la V1.**
+
+Objectif : permettre de lancer Plans de vente depuis un fichier hôte / site
+contenant les feuilles et cartouches, tout en analysant les pièces présentes
+dans un ou plusieurs fichiers Revit liés.
+
+- [ ] Ajouter dans l'étape 1 l'option **Inclure les pièces des fichiers Revit liés**.
+- [ ] Conserver le comportement actuel (document actif uniquement) lorsque l'option est décochée.
+- [ ] Lorsque l'option est cochée, analyser les pièces du document actif et des liens Revit chargés.
+- [ ] Ignorer proprement les liens déchargés et les signaler dans le rapport si nécessaire.
+- [ ] Afficher la **Source** du logement dans le tableau de portée lorsque des liens sont inclus.
+- [ ] Utiliser une identité interne robuste **Source + N° logement** afin d'éviter de fusionner deux logements portant le même numéro dans deux bâtiments différents.
+- [ ] Étendre la couche métier des pièces avec le document source, l'instance de lien et la transformation vers le document hôte.
+- [ ] Adapter le crop des vues aux coordonnées transformées des pièces liées.
+- [ ] Adapter les étiquettes de pièces liées avec `LinkElementId`.
+- [ ] Adapter les cotations automatiques aux références provenant des maquettes liées.
+- [ ] Adapter le plan de repérage et la surbrillance des logements liés.
+- [ ] Vérifier les nomenclatures lorsque leurs données proviennent de pièces liées.
+- [ ] Vérifier le renseignement des paramètres cartouche bâtiment / étage / typologie depuis les pièces liées.
+- [ ] Vérifier les surfaces habitables et annexes pour les logements multi-niveaux issus d'un lien.
+- [ ] Ajouter les tests unitaires / contrats nécessaires.
+- [ ] Valider dans Revit 2025.4 un workflow réel : `SITE.rvt` + plusieurs bâtiments liés + génération des plans de vente dans `SITE.rvt`.
+
 ### Hors périmètre V1 / suite
 
 - [ ] Mise à jour durable des plans déjà générés : reportée après la V1.
