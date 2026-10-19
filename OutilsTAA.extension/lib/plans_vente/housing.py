@@ -30,6 +30,18 @@ class Housing(object):
             if filter_key is None
             else (filter_key or "")
         )
+        self.output_disambiguator = ""
+
+    def set_output_disambiguator(self, value):
+        """Ajoute un libellé visible seulement lorsqu'un numéro est en doublon."""
+        label = str(value or "").strip()
+        self.output_disambiguator = label
+        self.key = (
+            "{} - {}".format(self.filter_key, label)
+            if label
+            else self.filter_key
+        )
+        return self.key
 
     @property
     def source_name(self):
