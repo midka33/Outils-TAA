@@ -741,6 +741,7 @@ class CarnetRepository(object):
         os.rename(temporary_path, self.storage_path)
         return data
 
+    @property
     def uses_shared_storage(self):
         return self.shared_storage is not None
 
