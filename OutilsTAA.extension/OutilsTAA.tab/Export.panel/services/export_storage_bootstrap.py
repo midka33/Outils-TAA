@@ -60,7 +60,8 @@ def build_export_storage(
         local_project_identity,
         resolver=None,
         shared_storage_factory=None,
-        repository_factory=None):
+        repository_factory=None,
+        prepare_local_callback=None):
     """Construit le repository à utiliser pendant la session Export.
 
     Seules les indisponibilités réseau / droits du partage provoquent un
@@ -116,6 +117,11 @@ def build_export_storage(
             central_path=resolved.central_path,
             shared_config_path=resolved.shared_config_path,
         )
+
+    if prepare_local_callback is not None:
+        prepared = prepare_local_callback()
+        if prepared:
+            local_config_path, local_project_identity = prepared
 
     repository = repository_factory(
         local_config_path,
