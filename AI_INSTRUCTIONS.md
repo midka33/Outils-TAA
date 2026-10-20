@@ -257,9 +257,10 @@ Cette règle s'applique notamment aux tests préparés pendant les développemen
 | Workflow Git | `docs/07_Git_Workflow.md` |
 | Tests | `docs/08_Testing.md` |
 | Module Export | `docs/09_Export.md` |
-| RoomCalculator / Calculs des pièces | `docs/10_RoomCalculator.md` |
+| Calculs des pièces | `docs/10_Calculs_Pieces.md` |
 | Registre des bugs | `docs/11_BUGS_Prevention_Registry.md` |
-| Publication multiple Export | `docs/12_Export_Stage06_Publication_Multiple.md` |
+| Plans de vente | `docs/20_Plans_de_Vente.md` |
+| Index documentaire courant | `docs/INDEX.md` |
 
 ---
 
