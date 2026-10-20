@@ -182,7 +182,9 @@ class ExportWindow(forms.WPFWindow):
 
     def _execute_storage_action(self, callback, action=None):
         try:
-            return True, callback()
+            result = callback()
+            self._update_storage_status()
+            return True, result
         except StorageError as exc:
             self._show_storage_error(exc, action)
             return False, None
@@ -878,7 +880,7 @@ class ExportWindow(forms.WPFWindow):
 
     def _apply_profile_values(self, values):
         if not values or self._selected_set is None:
-            return
+            return False
         settings = self._selected_set.publication_settings or PublicationSettings()
         settings.pdf_enabled = bool(values.get("pdf_enabled", True))
         settings.pdf_quality = values.get("pdf_quality") or 300
@@ -911,10 +913,11 @@ class ExportWindow(forms.WPFWindow):
                 "appliquer le profil de publication",
             )
             if not ok:
-                return
+                return False
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
         self._update_publication_overview()
+        return True
 
     def _update_filename_preview(self, settings):
         try:
