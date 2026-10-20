@@ -33,9 +33,10 @@ class ExportWindow(forms.WPFWindow):
 
     INHERITABLE_FIELDS = PublicationSettings.ACTIVE_FIELDS
 
-    def __init__(self, controller, repository):
+    def __init__(self, controller, repository, storage_context=None):
         self.controller = controller
         self.repository = repository
+        self.storage_context = storage_context
         self.session_carnets = []
         self.current_project_unique_ids = set()
         self._loading_settings = False
