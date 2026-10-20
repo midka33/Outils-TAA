@@ -3,7 +3,7 @@
 **Issue :** #25  
 **Branche :** `feature/export-v1.2-collaborative-config`  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows / partage SMB  
-**Statut :** résolveur central/UNC, couche JSON sûre et CarnetRepository collaboratif implémentés hors Revit ; smartbutton/UI pas encore raccordés  
+**Statut :** résolveur, stockage sûr, repository et smartbutton raccordés ; affichage UI / Actualiser pas encore ajouté  
 **Principe :** aucune écriture dans le modèle Revit pour sauvegarder la configuration partagée.
 
 ## 1. État actuel constaté
@@ -388,7 +388,7 @@ distincts** ouverts sur le même central Windows.
 1. ✅ Résolveur de stockage + tests.
 2. ✅ Couche JSON sûre + verrou/révision/backups + tests.
 3. ✅ Refactorisation de `CarnetRepository` autour de `_mutate`.
-4. ⏳ Raccordement du smartbutton sans transaction Revit en mode partagé.
+4. ✅ Raccordement du smartbutton sans transaction Revit en mode partagé.
 5. ⏳ UI Partagé / Local + Actualiser + conflits.
 6. ⏳ Migration locale explicite.
 7. ⏳ Recette automatique complète.
@@ -423,6 +423,21 @@ explicitement la nouvelle révision.
 
 Le mode local historique conserve son comportement et le schéma JSON 8.
 
-La couche n'est volontairement **pas encore raccordée au smartbutton ni à l'UI**.
-La prochaine étape consiste à sélectionner automatiquement partagé/local au
-lancement d'Export, puis à exposer l'état et Actualiser dans la fenêtre.
+Le smartbutton sélectionne désormais automatiquement le stockage au lancement :
+
+- central Windows exploitable et partage accessible → configuration partagée ;
+- central connu mais partage indisponible / accès refusé → configuration locale
+  de secours, sans transaction Revit ni upload automatique ;
+- projet non partagé ou sans central exploitable → comportement local historique ;
+- JSON partagé corrompu ou identité projet incohérente → blocage explicite,
+  sans fallback local silencieux.
+
+Le probe d'accès partagé vérifie lecture/écriture avec un fichier temporaire
+unique, sans créer ni modifier `export.json`.
+
+En mode partagé, aucune identité Extensible Storage n'est créée dans Revit pour
+sauvegarder la configuration. Le comportement historique d'identité embarquée
+reste limité au vrai mode local.
+
+La prochaine étape consiste à exposer dans la fenêtre l'état **Partagée / Locale**,
+la révision chargée, le chemin de stockage et le bouton **Actualiser**.
