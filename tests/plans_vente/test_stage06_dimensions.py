@@ -18,6 +18,7 @@ WINDOW = PANEL / "ui" / "plans_vente_window.py"
 XAML = PANEL / "ui" / "plans_vente.xaml"
 SCRIPT = PANEL / "PlansDeVente.pushbutton" / "script.py"
 DOC = ROOT / "docs" / "20_Plans_de_Vente.md"
+HISTORICAL_DOC = ROOT / "docs" / "archive" / "plans-de-vente" / "20_Plans_de_Vente_Historique_Stages_01_09.md"
 
 
 def test_rectangle_produces_two_principal_dimension_pairs():
@@ -159,7 +160,7 @@ def test_stage06_build_id_is_reported_on_runtime_error():
 
 
 def test_documentation_closes_stage05_and_opens_stage06():
-    text = DOC.read_text(encoding="utf-8")
+    text = HISTORICAL_DOC.read_text(encoding="utf-8")
     assert "Étape 05 — Étiquettes de pièces : VALIDÉE V1." in text
     assert "## Ouverture Étape 06 — Cotations" in text
     assert "feature/plans-de-vente-stage06-dimensions" in text
