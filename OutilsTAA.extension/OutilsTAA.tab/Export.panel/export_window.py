@@ -189,6 +189,34 @@ class ExportWindow(forms.WPFWindow):
             self._show_storage_error(exc, action)
             return False, None
 
+    def Window_Activated(self, sender, args):
+        """Signale une révision plus récente sans recharger automatiquement."""
+        try:
+            if not getattr(
+                    self.repository,
+                    "uses_shared_storage",
+                    False):
+                return
+
+            if self.repository.has_external_change():
+                self._update_storage_status(
+                    "Une version plus récente est disponible — "
+                    "cliquez sur Actualiser."
+                )
+            elif (
+                    self.StorageWarningText.Text
+                    == "Une version plus récente est disponible — "
+                       "cliquez sur Actualiser."
+            ):
+                self._update_storage_status()
+
+        except StorageError as exc:
+            # Ne pas ouvrir une alerte à chaque activation de fenêtre. Le
+            # message reste visible et l'utilisateur garde la main.
+            self._update_storage_status(
+                "Vérification du serveur impossible : {0}".format(exc)
+            )
+
     def StorageRefresh_Click(self, sender, args):
         """Relit la configuration ou réessaie le partage après un fallback."""
         try:
