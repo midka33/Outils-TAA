@@ -3,7 +3,7 @@
 **Issue :** #25  
 **Branche :** `feature/export-v1.2-collaborative-config`  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows / partage SMB  
-**Statut :** socle collaboratif, interface et migration locale explicite implémentés hors Revit ; recette complète et validation multi-postes restantes  
+**Statut :** implémentation et recette automatisée hors Revit complètes ; validation Revit multi-postes restante avant fusion  
 **Principe :** aucune écriture dans le modèle Revit pour sauvegarder la configuration partagée.
 
 ## 1. État actuel constaté
@@ -391,7 +391,7 @@ distincts** ouverts sur le même central Windows.
 4. ✅ Raccordement du smartbutton sans transaction Revit en mode partagé.
 5. ✅ UI Partagé / Local + Actualiser + conflits.
 6. ✅ Migration locale explicite.
-7. ⏳ Recette automatique complète.
+7. ✅ Recette automatique complète.
 8. ⏳ Recette Revit réelle sur deux postes.
 9. ⏳ Documentation et préparation d'une release ultérieure.
 
@@ -439,8 +439,8 @@ En mode partagé, aucune identité Extensible Storage n'est créée dans Revit p
 sauvegarder la configuration. Le comportement historique d'identité embarquée
 reste limité au vrai mode local.
 
-La prochaine étape consiste à exposer dans la fenêtre l'état **Partagée / Locale**,
-la révision chargée, le chemin de stockage et le bouton **Actualiser**.
+L'état **Partagée / Locale**, la révision, le chemin de stockage, **Actualiser**
+et **Réessayer** sont maintenant exposés dans la fenêtre Export.
 
 
 ### Interface collaborative implémentée
@@ -497,3 +497,28 @@ et la confirmation, l'import est annulé avec
 
 En cas de démarrage en mode local de secours parce que le serveur est
 indisponible, le retour réseau ne provoque toujours aucun upload automatique.
+
+
+### Recette automatique complète
+
+La CI contient désormais un workflow dédié
+`Export — configuration collaborative` et une matrice automatisée couvrant les
+contrats hors Revit associés à COLLAB-01 à COLLAB-11.
+
+La couverture automatise notamment :
+
+- deux sessions partageant la même arborescence et les mêmes réglages ;
+- Actualiser après modification distante ;
+- conservation des dossiers vides et des sous-dossiers ;
+- nommage DWG avec PDF combiné ;
+- conflit entre deux writers ;
+- JSON corrompu sans réinitialisation silencieuse ;
+- migration locale sans destruction ni merge ;
+- isolation entre deux projets centraux ;
+- copies locales distinctes pointant vers le même central ;
+- round-trip du contrat PDF/DWG existant ;
+- absence de dépendance à une élévation administrateur.
+
+Ces tests ne remplacent pas la validation réelle du verrou SMB/.NET et des appels
+Revit. La recette manuelle restante est documentée dans
+`docs/28_Export_Recette_Collaborative_Revit.md`.
