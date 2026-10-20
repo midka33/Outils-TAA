@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Persistance locale de l'arborescence Export.
+"""Persistance de l'arborescence Export, locale ou collaborative.
 
 Le stockage historique conserve deux types internes :
 - PublicationFolder : dossier d'organisation ;
@@ -27,11 +27,36 @@ class CarnetRepository(object):
     DEFAULT_FOLDER_ID = "default"
     DEFAULT_FOLDER_NAME = "Général"
 
-    def __init__(self, storage_path, project_identity=None):
-        if not storage_path:
+    def __init__(self, storage_path=None, project_identity=None,
+                 shared_storage=None):
+        if not storage_path and shared_storage is None:
             raise ValueError("Le chemin de stockage est obligatoire.")
-        self.storage_path = storage_path
-        self.project_identity = project_identity
+
+        self.shared_storage = shared_storage
+        self.storage_path = (
+            storage_path
+            or getattr(shared_storage, "config_path", None)
+        )
+        self.project_identity = (
+            project_identity
+            or getattr(shared_storage, "project_identity", None)
+        )
+        self._shared_cache = None
+
+        shared_identity = getattr(
+            shared_storage,
+            "project_identity",
+            None,
+        )
+        if (
+            shared_identity
+            and self.project_identity
+            and str(shared_identity).lower()
+            != str(self.project_identity).lower()
+        ):
+            raise ValueError(
+                "L'identité du repository et du stockage partagé diffèrent."
+            )
 
     def _empty_data(self):
         return {
@@ -641,6 +666,11 @@ class CarnetRepository(object):
         return True
 
     def _read(self):
+        if self.shared_storage is not None:
+            if self._shared_cache is None:
+                return self.refresh()
+            return self._shared_cache
+
         if not os.path.exists(self.storage_path):
             return self._empty_data()
 
@@ -662,6 +692,11 @@ class CarnetRepository(object):
         return self._ensure_structure(data)
 
     def _write(self, data):
+        if self.shared_storage is not None:
+            payload = self.shared_storage.write(data)
+            self._shared_cache = self._ensure_structure(payload)
+            return payload
+
         directory = os.path.dirname(self.storage_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
@@ -673,6 +708,61 @@ class CarnetRepository(object):
         if os.path.exists(self.storage_path):
             os.remove(self.storage_path)
         os.rename(temporary_path, self.storage_path)
+        return data
+
+    def uses_shared_storage(self):
+        return self.shared_storage is not None
+
+    @property
+    def storage_revision(self):
+        if self.shared_storage is None:
+            return None
+        return self.shared_storage.known_revision
+
+    def refresh(self):
+        """Relit explicitement la configuration partagée."""
+        if self.shared_storage is None:
+            return self._read()
+
+        data = self.shared_storage.refresh()
+        if data is None:
+            data = self._empty_data()
+        self._shared_cache = self._ensure_structure(data)
+        return self._shared_cache
+
+    def has_external_change(self):
+        if self.shared_storage is None:
+            return False
+        if self._shared_cache is None:
+            self.refresh()
+            return False
+        return self.shared_storage.has_external_change()
+
+    def _mutate(self, callback):
+        """Point unique de mutation locale ou collaborative."""
+        if callback is None:
+            raise ValueError("Le callback de mutation est obligatoire.")
+
+        if self.shared_storage is None:
+            data = self._ensure_structure(self._read())
+            changed, result = callback(data)
+            if changed:
+                self._write(data)
+            return result
+
+        if self._shared_cache is None:
+            self.refresh()
+
+        def shared_mutation(data):
+            prepared = self._ensure_structure(data)
+            return callback(prepared)
+
+        result = self.shared_storage.mutate(
+            shared_mutation,
+            default_factory=self._empty_data,
+        )
+        self.refresh()
+        return result
 
     @staticmethod
     def _folder_to_dict(folder):
