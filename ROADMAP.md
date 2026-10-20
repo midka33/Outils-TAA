@@ -187,32 +187,35 @@ préparation de release ; l’état GitHub de la PR et de la release fait foi.
 
 ### Plans de vente V1.1 — pièces des fichiers Revit liés
 
-**Statut : implémentation sur `feature/plans-de-vente-linked-rooms`, tests hors Revit ; recette Revit en attente. PR à conserver en Draft.**
+**Statut : recette utilisateur validée dans Revit 2025.4 le 20 octobre 2026 — PR #28 prête pour revue, cible Outils TAA v1.3.0.**
 
-Objectif : permettre de lancer Plans de vente depuis un fichier hôte / site
-contenant les feuilles et cartouches, tout en analysant les pièces présentes
-dans un ou plusieurs fichiers Revit liés.
+Objectif : lancer Plans de vente depuis un fichier hôte / SITE contenant les
+feuilles et cartouches, en analysant les pièces des fichiers Revit liés directs.
 
-- [x] Ajouter dans l'étape 1 l'option **Inclure les pièces des fichiers Revit liés**.
-- [x] Conserver le comportement actuel (document actif uniquement) lorsque l'option est décochée.
-- [x] Lorsque l'option est cochée, analyser les pièces du document actif et des liens Revit chargés.
-- [x] Ignorer proprement les liens déchargés et les signaler dans le rapport si nécessaire.
-- [x] Afficher la **Source** du logement dans le tableau de portée lorsque des liens sont inclus.
-- [x] Utiliser une identité interne robuste **Source + N° logement** afin d'éviter de fusionner deux logements portant le même numéro dans deux bâtiments différents.
-- [x] Étendre la couche métier des pièces avec le document source, l'instance de lien et la transformation vers le document hôte.
-- [x] Adapter le crop des vues aux coordonnées transformées des pièces liées.
-- [x] Adapter les étiquettes de pièces liées avec `LinkElementId`.
-- [x] Adapter les cotations automatiques aux références provenant des maquettes liées.
-- [x] Adapter le plan de repérage et la surbrillance des logements liés.
-- [x] Adapter les nomenclatures natives lorsque leurs données proviennent de pièces liées.
-- [x] Adapter le renseignement des paramètres cartouche bâtiment / étage / typologie depuis les pièces liées.
-- [x] Conserver les surfaces habitables et annexes pour les logements multi-niveaux issus d'un lien.
+- [x] Ajouter l'option **Inclure les pièces des fichiers Revit liés**.
+- [x] Conserver le comportement document actif lorsque l'option est décochée.
+- [x] Analyser les pièces du document actif et des liens Revit chargés directs.
+- [x] Ignorer proprement les liens déchargés et signaler les sources en erreur.
+- [x] Afficher la **Source** du logement dans le tableau de portée.
+- [x] Utiliser une identité interne robuste **Source + N° logement**.
+- [x] Transformer les coordonnées liées vers SITE pour crop et repérage.
+- [x] Créer les étiquettes de pièces liées avec `LinkElementId`.
+- [x] Créer les cotations automatiques avec les références natives des liens.
+- [x] Adapter les nomenclatures natives et les filtres fichier / instance.
+- [x] Lire bâtiment / étage / typologie et conserver les surfaces multi-niveaux.
+- [x] Créer automatiquement les niveaux SITE manquants à l'altitude transformée.
+- [x] Créer une vue plan source SITE lorsque le niveau automatique n'en possède pas.
+- [x] Garder l'identifiant technique du lien hors des noms visibles.
+- [x] Demander un libellé utilisateur uniquement lorsqu'un numéro logement est réellement en doublon entre plusieurs sources.
+- [x] Réutiliser les légendes de la feuille modèle sans dupliquer la vue Legend.
 - [x] Ajouter les tests unitaires / contrats nécessaires.
-- [ ] Valider dans Revit 2025.4 un workflow réel : `SITE.rvt` + plusieurs bâtiments liés + génération des plans de vente dans `SITE.rvt`.
+- [x] Valider un workflow réel `SITE.rvt` + bâtiments liés + génération dans SITE avec Revit 2025.4.
 
-Recette détaillée : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
-Les cases cochées décrivent le code et les tests simulés, pas une validation API/WPF dans Revit.
-Niveaux SITE correspondants et nomenclatures natives incluant les liens requis ; liens imbriqués hors périmètre.
+**Condition connue acceptée pour la release :** les types d'étiquette de pièce
+et de cote doivent exister dans le fichier hôte SITE. Des annotations visibles
+uniquement à travers une vue liée ne sont pas utilisées pour déduire ces types.
+
+Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 ### Hors périmètre V1 / suite
 
