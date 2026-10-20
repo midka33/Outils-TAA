@@ -15,39 +15,39 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
-| **Plans de vente** | V1.1 fichiers liés validée dans Revit 2025.4 — candidate Outils TAA v1.3.0 |
+| **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
 
 ## Plans de vente V1.1 — fichiers Revit liés
 
-La branche `feature/plans-de-vente-linked-rooms` et la PR #28 ajoutent la
-génération depuis un fichier hôte / SITE contenant les feuilles et cartouches,
-avec les logements provenant des liens Revit directs chargés.
+La V1.1, livrée dans **Outils TAA v1.3.0**, permet de lancer Plans de vente
+depuis un fichier hôte / SITE tout en utilisant les pièces des liens Revit
+directs chargés.
 
-La recette utilisateur dans Revit 2025.4 a confirmé le workflow représentatif :
-détection des logements liés, création automatique des niveaux SITE manquants,
-génération des vues, crops, repérages, nomenclatures et cartouches, ainsi que
-les étiquettes et cotations lorsque leurs types existent dans SITE.
+Le workflow validé dans Revit 2025.4 couvre notamment la création automatique
+des niveaux SITE manquants, les vues et crops, le repérage, les nomenclatures,
+le cartouche, les étiquettes et les cotations lorsque leurs types existent dans
+le fichier hôte.
 
-Les identifiants techniques des instances de lien restent internes. Un numéro
-logement n'est suffixé que lorsqu'une collision réelle existe ; dans ce cas,
+Les identifiants techniques des liens restent internes. Un numéro logement
+unique conserve son nom métier ; en cas de doublon réel entre plusieurs sources,
 l'utilisateur choisit le libellé de différenciation.
 
-Limites : liens imbriqués hors périmètre ; les types d'étiquette et de cote
-doivent actuellement être disponibles dans le fichier hôte ; les nomenclatures
-de pièces modèles doivent inclure les éléments des fichiers liés.
+Limites de la V1.1 : liens imbriqués hors périmètre ; types d'étiquette et de
+cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure les
+éléments des fichiers liés.
 
-Cette évolution prépare **Outils TAA v1.3.0**.
-Voir `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+Voir `docs/20_Plans_de_Vente.md` et la recette de release
+`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 ## Guide utilisateur
 
-- [Export — tutoriel à jour](docs/release/Tutoriel_Export_v1.2.0.md)
-- [Calculs des pièces — tutoriel](docs/release/Tutoriel_Calculs_Pieces_v1.2.0.md)
+- [Export — tutoriel](docs/release/Tutoriel_Export_v1.3.0.md)
+- [Calculs des pièces — tutoriel](docs/release/Tutoriel_Calculs_Pieces_v1.3.0.md)
 - [Plans de vente — tutoriel](docs/release/Tutoriel_Plans_de_Vente_v1.3.0.md)
-- [Export — recette de la sélection multiple avant release](docs/21_Export_Recette_Selection_Multiple.md)
+- [Index de la documentation](docs/INDEX.md)
 
 ## Historique des noms
 
@@ -75,7 +75,7 @@ Outils-TAA/
 
 ## Documentation
 
-La documentation complète est disponible dans le dossier `docs/`.
+La documentation courante est indexée dans [`docs/INDEX.md`](docs/INDEX.md). Les documents historiques sont conservés sous `docs/archive/`.
 
 ### Instructions pour les IA et agents de développement
 

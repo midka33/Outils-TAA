@@ -1,7 +1,6 @@
 # Plans de vente — Références d'interface
 
-Ces maquettes sont les références visuelles approuvées pour l'**Étape 09 —
-stabilisation de l'interface V1** du module Plans de vente.
+Ces maquettes conservent la référence visuelle issue de l'**Étape 09 — stabilisation de l'interface V1**. Le comportement fonctionnel courant est défini dans `docs/20_Plans_de_Vente.md` ; cette page ne doit pas être utilisée comme spécification de la V1.1.
 
 ## Interface principale
 
@@ -34,8 +33,8 @@ Référence fonctionnelle :
 
 L'implémentation doit réutiliser la charte commune Outils TAA :
 
-- couleur de mise en avant Tallandier : `#FA641F`
-  (`TAABrandOrangeBrush`) ;
+- accent UI courant : `#FD8B5A` ;
+- orange de marque / icônes : `#FA641F` ;
 - fond principal : `#F7F7F7` ;
 - panneaux : blanc ;
 - texte principal : `#252525` ;
@@ -70,7 +69,7 @@ Implémenté en **09B.1** :
 - conservation de l'identifiant logement original pour les filtres de nomenclatures ;
 - noms de sortie distincts par niveau afin d'éviter les collisions.
 
-Implémenté en **09B.2** — à tester dans Revit 2025.4 :
+Implémenté en **09B.2** — historique de stabilisation V1 :
 
 - une feuille unique avec une vue logement par niveau ;
 - vues de niveau placées côte à côte dans la zone de la vue logement modèle ;
