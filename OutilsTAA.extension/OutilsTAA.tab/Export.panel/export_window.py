@@ -26,6 +26,15 @@ from filename_service import FilenameService
 from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
 from publication_tree_drag_drop import PublicationTreeDragDrop
+from shared_json_storage import (
+    ConcurrentModificationError,
+    ProjectIdentityMismatchError,
+    StorageAccessDeniedError,
+    StorageCorruptedError,
+    StorageError,
+    StorageLockTimeoutError,
+    StorageUnavailableError,
+)
 
 
 class ExportWindow(forms.WPFWindow):
@@ -54,6 +63,7 @@ class ExportWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, xaml_path)
         apply_theme(self)
         self._load_context()
+        self._update_storage_status()
         self._drag_drop_manager = PublicationTreeDragDrop(self)
 
     def _load_context(self):
@@ -66,6 +76,156 @@ class ExportWindow(forms.WPFWindow):
         self.FilenameTokenCombo.ItemsSource = self._filename_variables
         self._refresh_tree()
         self._update_selection_info()
+
+    def _update_storage_status(self, warning=None):
+        context = self.storage_context
+        repository = self.repository
+
+        is_shared = bool(
+            getattr(context, "is_shared", False)
+            or getattr(repository, "uses_shared_storage", False)
+        )
+        fallback = bool(
+            getattr(context, "fallback_from_shared", False)
+        )
+
+        if is_shared:
+            self.StorageModeText.Text = "Configuration : Partagée"
+            revision = getattr(repository, "storage_revision", None)
+            self.StorageRevisionText.Text = (
+                "Révision : {0}".format(revision)
+                if revision is not None
+                else "Révision : —"
+            )
+            self.StoragePathText.Text = (
+                getattr(context, "shared_config_path", None)
+                or getattr(repository, "storage_path", "")
+                or ""
+            )
+            self.StorageRefreshButton.Content = "Actualiser"
+        else:
+            self.StorageModeText.Text = (
+                "Configuration : Locale — serveur indisponible"
+                if fallback
+                else "Configuration : Locale"
+            )
+            self.StorageRevisionText.Text = ""
+            self.StoragePathText.Text = (
+                getattr(context, "local_config_path", None)
+                or getattr(repository, "storage_path", "")
+                or ""
+            )
+            self.StorageRefreshButton.Content = (
+                "Réessayer"
+                if fallback
+                else "Actualiser"
+            )
+
+        context_warning = getattr(context, "warning", None)
+        self.StorageWarningText.Text = (
+            warning
+            if warning is not None
+            else (context_warning or "")
+        )
+
+    def _show_storage_error(self, exc, action=None):
+        if not isinstance(exc, StorageError):
+            return False
+
+        action = action or "modifier la configuration Export"
+
+        if isinstance(exc, ConcurrentModificationError):
+            message = (
+                "La configuration partagée a été modifiée par un autre "
+                "utilisateur.\n\n"
+                "Vos modifications n'ont pas été enregistrées.\n"
+                "Cliquez sur « Actualiser », vérifiez la nouvelle "
+                "configuration puis recommencez."
+            )
+            status = "Modification externe détectée — actualisation requise."
+        elif isinstance(exc, StorageLockTimeoutError):
+            message = (
+                "La configuration Export est actuellement en cours de "
+                "modification par un autre utilisateur.\n\n"
+                "Réessayez dans quelques instants."
+            )
+            status = "Configuration momentanément verrouillée."
+        elif isinstance(
+                exc,
+                (StorageUnavailableError, StorageAccessDeniedError)):
+            message = (
+                "Impossible de {0} :\n\n{1}\n\n"
+                "La configuration partagée n'a pas été modifiée."
+            ).format(action, exc)
+            status = str(exc)
+        elif isinstance(
+                exc,
+                (StorageCorruptedError, ProjectIdentityMismatchError)):
+            message = (
+                "La configuration partagée ne peut pas être utilisée :\n\n"
+                "{0}\n\nAucune correction automatique n'a été effectuée."
+            ).format(exc)
+            status = str(exc)
+        else:
+            message = "Impossible de {0} :\n\n{1}".format(action, exc)
+            status = str(exc)
+
+        script.get_logger().exception(
+            "Erreur de stockage collaboratif Export"
+        )
+        self._update_storage_status(status)
+        forms.alert(
+            message,
+            title="Export — configuration collaborative",
+        )
+        return True
+
+    def _execute_storage_action(self, callback, action=None):
+        try:
+            return True, callback()
+        except StorageError as exc:
+            self._show_storage_error(exc, action)
+            return False, None
+
+    def StorageRefresh_Click(self, sender, args):
+        """Relit la configuration ou réessaie le partage après un fallback."""
+        try:
+            context = self.storage_context
+            previous_fallback = bool(
+                getattr(context, "fallback_from_shared", False)
+            )
+
+            if previous_fallback and context is not None:
+                new_context = context.retry()
+                self.storage_context = new_context
+                self.repository = new_context.repository
+                self.controller.repository = self.repository
+
+            if getattr(self.repository, "uses_shared_storage", False):
+                self.repository.refresh()
+            elif not previous_fallback:
+                # Le stockage local n'est pas mis en cache, mais relire ici
+                # donne au bouton Actualiser un comportement explicite.
+                self.repository.refresh()
+
+            self._refresh_tree()
+            self._update_selection_info()
+
+            if (
+                previous_fallback
+                and getattr(self.storage_context, "is_shared", False)
+            ):
+                self._update_storage_status(
+                    "Connexion au stockage partagé rétablie."
+                )
+            else:
+                self._update_storage_status()
+
+        except StorageError as exc:
+            self._show_storage_error(
+                exc,
+                "actualiser la configuration Export",
+            )
 
     def _load_profiles(self):
         self.ProfileCombo.ItemsSource = self.profile_service.list_profiles()
@@ -609,7 +769,12 @@ class ExportWindow(forms.WPFWindow):
             # Action explicite sur ce dossier uniquement, jamais sur ses descendants.
             for field in self.INHERITABLE_FIELDS:
                 setattr(folder.publication_settings, field, None)
-            self.controller.save_folder(folder)
+            ok, _ = self._execute_storage_action(
+                lambda: self.controller.save_folder(folder),
+                "réinitialiser les réglages du dossier",
+            )
+            if not ok:
+                return
             self._load_folder_settings()
             return
         if self._selected_set is None or self._selected_set.publication_settings is None:
@@ -620,7 +785,14 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.publication_settings = settings
         self._selected_set.output_directory = None
         if self._selected_set.persistent:
-            self.controller.save_persistent(self._selected_set)
+            ok, _ = self._execute_storage_action(
+                lambda: self.controller.save_persistent(
+                    self._selected_set
+                ),
+                "réinitialiser les réglages de publication",
+            )
+            if not ok:
+                return
         self._load_selected_settings()
 
     def _sync_dwg_naming(self, settings):
@@ -672,7 +844,14 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.publication_settings = settings
         self._selected_set.output_directory = settings.output_directory
         if self._selected_set.persistent:
-            self.controller.save_persistent(self._selected_set)
+            ok, _ = self._execute_storage_action(
+                lambda: self.controller.save_persistent(
+                    self._selected_set
+                ),
+                "enregistrer les réglages de publication",
+            )
+            if not ok:
+                return
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
         self._update_publication_overview()
@@ -689,7 +868,12 @@ class ExportWindow(forms.WPFWindow):
             return
         setattr(settings, field, self._control_value(field))
         folder.publication_settings = settings
-        self.controller.save_folder(folder)
+        ok, _ = self._execute_storage_action(
+            lambda: self.controller.save_folder(folder),
+            "enregistrer les réglages du dossier",
+        )
+        if not ok:
+            return
         self._load_folder_settings()
 
     def _apply_profile_values(self, values):
@@ -720,7 +904,14 @@ class ExportWindow(forms.WPFWindow):
         finally:
             self._loading_settings = False
         if self._selected_set.persistent:
-            self.controller.save_persistent(self._selected_set)
+            ok, _ = self._execute_storage_action(
+                lambda: self.controller.save_persistent(
+                    self._selected_set
+                ),
+                "appliquer le profil de publication",
+            )
+            if not ok:
+                return
         self._update_inheritance_info(self._selected_set)
         self._update_filename_preview(self._resolve_settings(self._selected_set))
         self._update_publication_overview()
@@ -789,11 +980,21 @@ class ExportWindow(forms.WPFWindow):
             setattr(settings, field, value)
         target.publication_settings = settings
         if self._selected_kind == "FOLDER":
-            self.controller.save_folder(target)
+            ok, _ = self._execute_storage_action(
+                lambda: self.controller.save_folder(target),
+                "enregistrer les réglages PDF du dossier",
+            )
+            if not ok:
+                return
             self._load_folder_settings()
         else:
             if target.persistent:
-                self.controller.save_persistent(target)
+                ok, _ = self._execute_storage_action(
+                    lambda: self.controller.save_persistent(target),
+                    "enregistrer les réglages PDF",
+                )
+                if not ok:
+                    return
             self._load_selected_settings()
 
     def SettingsChanged(self, sender, args):
