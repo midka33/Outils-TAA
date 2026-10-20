@@ -247,6 +247,7 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [x] Étape 2 — résolveur central / UNC et mode local de secours.
 - [x] Étape 3 — verrou SMB, révision, écriture atomique et backups.
 - [x] Étape 4 — refactorisation de toutes les mutations du repository.
+- [x] Étape 4B — smartbutton raccordé au stockage collaboratif avec fallback local contrôlé.
 - [ ] Étape 5 — UI Partagé / Local, Actualiser et gestion de conflit.
 - [ ] Étape 6 — migration locale explicite.
 - [ ] Étape 7 — tests automatisés de concurrence et panne.
