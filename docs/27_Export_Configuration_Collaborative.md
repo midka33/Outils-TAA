@@ -3,7 +3,7 @@
 **Issue :** #25  
 **Branche :** `feature/export-v1.2-collaborative-config`  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows / partage SMB  
-**Statut :** Étape 0 analysée — contrat de stockage en préparation  
+**Statut :** résolveur central/UNC et couche JSON sûre implémentés hors Revit ; CarnetRepository pas encore raccordé  
 **Principe :** aucune écriture dans le modèle Revit pour sauvegarder la configuration partagée.
 
 ## 1. État actuel constaté
@@ -385,12 +385,27 @@ distincts** ouverts sur le même central Windows.
 
 ## 16. Ordre de réalisation
 
-1. Résolveur de stockage + tests.
-2. Couche JSON sûre + verrou/révision/backups + tests.
-3. Refactorisation de `CarnetRepository` autour de `_mutate`.
-4. Raccordement du smartbutton sans transaction Revit en mode partagé.
-5. UI Partagé / Local + Actualiser + conflits.
-6. Migration locale explicite.
-7. Recette automatique complète.
-8. Recette Revit réelle sur deux postes.
-9. Documentation et préparation d'une release ultérieure.
+1. ✅ Résolveur de stockage + tests.
+2. ✅ Couche JSON sûre + verrou/révision/backups + tests.
+3. ⏳ Refactorisation de `CarnetRepository` autour de `_mutate`.
+4. ⏳ Raccordement du smartbutton sans transaction Revit en mode partagé.
+5. ⏳ UI Partagé / Local + Actualiser + conflits.
+6. ⏳ Migration locale explicite.
+7. ⏳ Recette automatique complète.
+8. ⏳ Recette Revit réelle sur deux postes.
+9. ⏳ Documentation et préparation d'une release ultérieure.
+
+### Implémentation réalisée
+
+- `project_storage_resolver.py` : résolution du central, copie locale vers le
+  même stockage, canonisation UNC des lecteurs mappés et fallback local.
+- `shared_json_storage.py` : verrou SMB de production par handle .NET exclusif
+  `FileShare.None`, révision optimiste, détection de conflit, écriture
+  temporaire validée, `File.Replace`, backups et rotation.
+- tests hors Revit : concurrence de deux writers, révision obsolète, refresh,
+  verrou, corruption, identité projet, préservation du fichier existant en cas
+  d'échec, création et rotation des backups.
+
+La couche n'est volontairement **pas encore utilisée par l'UI** : le prochain
+travail consiste à faire passer toutes les mutations de `CarnetRepository` par
+ce contrat unique avant le raccordement du smartbutton.
