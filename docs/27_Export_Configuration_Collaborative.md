@@ -3,7 +3,7 @@
 **Issue :** #25  
 **Branche :** `feature/export-v1.2-collaborative-config`  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows / partage SMB  
-**Statut :** résolveur, stockage sûr, repository et smartbutton raccordés ; affichage UI / Actualiser pas encore ajouté  
+**Statut :** résolveur, stockage sûr, repository, smartbutton et interface collaborative implémentés hors Revit ; migration locale explicite restante  
 **Principe :** aucune écriture dans le modèle Revit pour sauvegarder la configuration partagée.
 
 ## 1. État actuel constaté
@@ -389,7 +389,7 @@ distincts** ouverts sur le même central Windows.
 2. ✅ Couche JSON sûre + verrou/révision/backups + tests.
 3. ✅ Refactorisation de `CarnetRepository` autour de `_mutate`.
 4. ✅ Raccordement du smartbutton sans transaction Revit en mode partagé.
-5. ⏳ UI Partagé / Local + Actualiser + conflits.
+5. ✅ UI Partagé / Local + Actualiser + conflits.
 6. ⏳ Migration locale explicite.
 7. ⏳ Recette automatique complète.
 8. ⏳ Recette Revit réelle sur deux postes.
@@ -441,3 +441,27 @@ reste limité au vrai mode local.
 
 La prochaine étape consiste à exposer dans la fenêtre l'état **Partagée / Locale**,
 la révision chargée, le chemin de stockage et le bouton **Actualiser**.
+
+
+### Interface collaborative implémentée
+
+La fenêtre principale affiche maintenant :
+
+- **Configuration : Partagée** ou **Configuration : Locale** ;
+- le cas particulier **Locale — serveur indisponible** ;
+- la révision partagée chargée ;
+- le chemin du JSON ;
+- un message d'état ;
+- **Actualiser** en mode partagé/local ;
+- **Réessayer** après un fallback réseau.
+
+Au retour du focus sur la fenêtre, `has_external_change()` signale qu'une
+révision plus récente est disponible sans la charger automatiquement.
+
+Les conflits de révision, délais de verrouillage, accès refusés, indisponibilités
+réseau, corruptions et identités projet incohérentes sont traduits en messages
+utilisateur. Les opérations de glisser-déposer, suppression, création de dossier,
+réglages et gestionnaire de carnets utilisent le même retour d'erreur.
+
+La prochaine étape est la migration initiale locale -> partagé avec confirmation
+explicite, sans fusion silencieuse.
