@@ -771,12 +771,16 @@ class ExportWindow(forms.WPFWindow):
             # Action explicite sur ce dossier uniquement, jamais sur ses descendants.
             for field in self.INHERITABLE_FIELDS:
                 setattr(folder.publication_settings, field, None)
-            ok, _ = self._execute_storage_action(
-                lambda: self.controller.save_folder(folder),
-                "réinitialiser les réglages du dossier",
-            )
-            if not ok:
-                return
+            executor = getattr(self, "_execute_storage_action", None)
+            if executor is None:
+                self.controller.save_folder(folder)
+            else:
+                ok, _ = executor(
+                    lambda: self.controller.save_folder(folder),
+                    "réinitialiser les réglages du dossier",
+                )
+                if not ok:
+                    return
             self._load_folder_settings()
             return
         if self._selected_set is None or self._selected_set.publication_settings is None:
@@ -787,14 +791,18 @@ class ExportWindow(forms.WPFWindow):
         self._selected_set.publication_settings = settings
         self._selected_set.output_directory = None
         if self._selected_set.persistent:
-            ok, _ = self._execute_storage_action(
-                lambda: self.controller.save_persistent(
-                    self._selected_set
-                ),
-                "réinitialiser les réglages de publication",
-            )
-            if not ok:
-                return
+            executor = getattr(self, "_execute_storage_action", None)
+            if executor is None:
+                self.controller.save_persistent(self._selected_set)
+            else:
+                ok, _ = executor(
+                    lambda: self.controller.save_persistent(
+                        self._selected_set
+                    ),
+                    "réinitialiser les réglages de publication",
+                )
+                if not ok:
+                    return
         self._load_selected_settings()
 
     def _sync_dwg_naming(self, settings):
