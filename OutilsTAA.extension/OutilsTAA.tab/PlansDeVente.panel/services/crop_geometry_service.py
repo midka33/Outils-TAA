@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import SourceRoom, resolve_room
+
 """Construction d'un contour de crop optimisé à partir des pièces du logement."""
 
 from plans_vente.crop_bounds import CropBounds
@@ -310,13 +312,15 @@ class CropGeometryService(object):
         reference_z_values = []
 
         for unique_id in room_unique_ids or []:
-            room = self.document.GetElement(unique_id)
+            room = resolve_room(self.document, unique_id)
             if room is None:
                 continue
 
             try:
                 boundary_loops = room.GetBoundarySegments(options)
             except Exception:
+                if isinstance(room, SourceRoom):
+                    raise
                 boundary_loops = None
 
             candidates = []
@@ -884,13 +888,15 @@ class CropGeometryService(object):
         points = []
 
         for unique_id in room_unique_ids or []:
-            room = self.document.GetElement(unique_id)
+            room = resolve_room(self.document, unique_id)
             if room is None:
                 continue
 
             try:
                 loops = room.GetBoundarySegments(options)
             except Exception:
+                if isinstance(room, SourceRoom):
+                    raise
                 loops = None
 
             for segment_loop in loops or []:

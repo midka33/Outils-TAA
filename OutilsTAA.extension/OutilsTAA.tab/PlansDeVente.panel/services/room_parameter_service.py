@@ -23,7 +23,13 @@ class RoomParameterService(object):
     def get_text_parameter_descriptors(self, rooms):
         descriptors = {}
 
-        sampled_rooms = list(rooms or [])[:self.DISCOVERY_SAMPLE_LIMIT]
+        by_document = {}
+        for room in rooms or []:
+            source = getattr(room, "source_document", None)
+            by_document.setdefault(source, []).append(room)
+        sampled_rooms = []
+        for source_rooms in by_document.values():
+            sampled_rooms.extend(source_rooms[:self.DISCOVERY_SAMPLE_LIMIT])
         for room in sampled_rooms:
             for parameter in getattr(room, "Parameters", []) or []:
                 descriptor = self.create_descriptor(parameter)
@@ -31,6 +37,7 @@ class RoomParameterService(object):
                     continue
                 if descriptor.storage_type != "String":
                     continue
+                descriptor.source_kind = getattr(room, "source_kind", "host")
                 descriptors.setdefault(descriptor.identity_key, descriptor)
 
         return sorted(
@@ -116,6 +123,14 @@ class RoomParameterService(object):
                     and candidate.identity_key == descriptor.identity_key
                 ):
                     return parameter
+            # Project parameter definition ids are local to each document.
+            # Only an unambiguous text parameter of the same name may bridge
+            # documents. Shared GUID and built-in identities remain strict.
+            if ((getattr(room, "source_kind", "host") == "linked"
+                     or getattr(descriptor, "source_kind", "host") == "linked")
+                    and len(candidates) == 1
+                    and self._storage_type_name(candidates[0]) == "String"):
+                return candidates[0]
             return None
 
         if len(candidates) == 1:

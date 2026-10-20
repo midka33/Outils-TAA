@@ -24,12 +24,24 @@ class HousingGrouper(object):
                 empty_value_count += 1
                 continue
 
-            groups.setdefault(key, []).append(room)
+            groups.setdefault((getattr(room, "source_key", "HOST"), key), []).append(room)
 
-        housings = [
-            Housing(key=key, rooms=groups[key])
-            for key in sorted(groups.keys(), key=self._sort_key)
-        ]
+        housings = []
+        for source_key, key in sorted(
+            groups,
+            key=lambda item: (self._sort_key(item[1]), item[0]),
+        ):
+            rooms = groups[(source_key, key)]
+            # La source reste dans l'identité interne. Le nom visible reste le
+            # numéro logement tant qu'une vraie collision n'a pas été détectée
+            # et résolue par l'utilisateur dans l'interface.
+            housings.append(
+                Housing(
+                    key=key,
+                    rooms=rooms,
+                    filter_key=key,
+                )
+            )
 
         return HousingAnalysisResult(
             parameter_name=parameter_name,

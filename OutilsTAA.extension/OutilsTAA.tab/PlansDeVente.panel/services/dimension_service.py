@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import SourceRoom, room_inputs, resolve_room, host_level_name
+
 """Étape 06 — cotations principales des pièces."""
 
 DIMENSION_SERVICE_BUILD = "stage06f-two-principal-dimensions-v11"
@@ -119,6 +121,7 @@ class DimensionService(object):
         if document is None:
             raise ValueError("Document Revit manquant.")
         self.document = document
+        self._linked_services = {}
         self.build_id = DIMENSION_SERVICE_BUILD
         self._floor_edge_cache = {}
 
@@ -242,15 +245,18 @@ class DimensionService(object):
         )
         exclusion_boxes = []
 
-        for unique_id in housing.room_unique_ids:
-            room = self.document.GetElement(unique_id)
+        for unique_id in room_inputs(housing):
+            room = resolve_room(self.document, unique_id)
             if room is None:
                 warnings.append(
                     "Une pièce du logement n'existe plus : {}.".format(unique_id)
                 )
                 continue
 
-            boundary_candidates = self._room_boundary_candidates(room)
+            if isinstance(room, SourceRoom):
+                boundary_candidates = self._linked_boundary_candidates(room, warnings)
+            else:
+                boundary_candidates = self._room_boundary_candidates(room)
             segments = [candidate.segment for candidate in boundary_candidates]
 
             # V1 : toujours deux dimensions principales au maximum.
@@ -594,6 +600,48 @@ class DimensionService(object):
             ):
                 result.append(index)
 
+        return result
+
+    def _linked_boundary_candidates(self, room, warnings):
+        """Reuse V1 reference selection in source coordinates, then lift to SITE.
+
+        Never transform reference-bearing geometry: only numeric endpoints and
+        native Reference.CreateLinkReference are passed to the host engine.
+        """
+        from Autodesk.Revit.DB import XYZ
+        from plans_vente.source_room import point_to_host
+        service = self._linked_services.get(room.source_key)
+        if service is None:
+            service = DimensionService(room.source_document)
+            self._linked_services[room.source_key] = service
+        try:
+            candidates = service._room_boundary_candidates(room.room_element)
+        except Exception as error:
+            warnings.append("{} / pièce {} : cotations, lecture des références impossible : {}".format(
+                room.source_name, room.Number, error))
+            return []
+        result = []
+        for candidate in candidates:
+            try:
+                reference = candidate.reference.CreateLinkReference(room.revit_link_instance)
+                ends = None
+                if candidate.length_references:
+                    try:
+                        ends = tuple(r.CreateLinkReference(room.revit_link_instance)
+                                     for r in candidate.length_references)
+                    except Exception as error:
+                        warnings.append("{} / pièce {} : références d'extrémité liées indisponibles : {}".format(
+                            room.source_name, room.Number, error))
+                x0, y0, x1, y1 = candidate.segment
+                z = room.room_element.Level.ProjectElevation
+                start = point_to_host(XYZ(x0, y0, z), room.transform_to_host)
+                end = point_to_host(XYZ(x1, y1, z), room.transform_to_host)
+                result.append(_BoundaryReferenceCandidate(
+                    (start.X, start.Y, end.X, end.Y), reference,
+                    candidate.element_id_value, ends, candidate.source_kind))
+            except Exception as error:
+                warnings.append("{} / pièce {} : référence liée de cotation refusée : {}".format(
+                    room.source_name, room.Number, error))
         return result
 
     def _room_boundary_candidates(self, room):
@@ -1411,8 +1459,10 @@ class DimensionService(object):
         dy = float(segment[3]) - float(segment[1])
         return math.sqrt((dx * dx) + (dy * dy))
 
-    @staticmethod
-    def _single_level_name(housing):
+    def _single_level_name(self, housing):
+        linked_level = host_level_name(housing, self.document)
+        if linked_level is not None:
+            return linked_level
         levels = list(getattr(housing, "level_names", []) or [])
         if len(levels) != 1:
             raise ValueError(

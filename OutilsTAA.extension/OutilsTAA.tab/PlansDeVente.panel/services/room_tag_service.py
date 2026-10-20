@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import SourceRoom, room_inputs, resolve_room, host_level_name
+
 """Placement contrôlé des étiquettes de pièces du plan de vente."""
 
 ROOM_TAG_SERVICE_BUILD = "stage05-room-tags-probe-z-v4"
@@ -194,8 +196,8 @@ class RoomTagService(object):
             )
 
         rooms = []
-        for unique_id in housing.room_unique_ids:
-            room = self.document.GetElement(unique_id)
+        for unique_id in room_inputs(housing):
+            room = resolve_room(self.document, unique_id)
             if room is None:
                 raise ValueError(
                     "Une pièce du logement n'existe plus : {}.".format(unique_id)
@@ -206,7 +208,7 @@ class RoomTagService(object):
         duplicate_rooms = self._already_tagged_room_ids(existing_tags)
         duplicated = [
             room for room in rooms
-            if self._element_id_value(room.Id) in duplicate_rooms
+            if self._room_tag_identity(room) in duplicate_rooms
         ]
         if duplicated:
             labels = [
@@ -307,7 +309,7 @@ class RoomTagService(object):
 
         first = candidates[0]
         tag = self.document.Create.NewRoomTag(
-            LinkElementId(room.Id),
+            (room.tag_id(LinkElementId) if isinstance(room, SourceRoom) else LinkElementId(room.Id)),
             UV(first[0], first[1]),
             view.Id,
         )
@@ -519,18 +521,25 @@ class RoomTagService(object):
             .ToElements()
         )
 
+    def _room_tag_identity(self, room):
+        link = getattr(room, "revit_link_instance", None)
+        return ((self._element_id_value(link.Id) if link is not None else -1),
+                self._element_id_value(room.Id))
+
     def _already_tagged_room_ids(self, tags):
         values = set()
         for tag in tags or []:
+            linked = getattr(tag, "TaggedRoomId", None)
+            if linked is not None:
+                link_id = self._element_id_value(linked.LinkInstanceId)
+                if link_id >= 0:
+                    values.add((link_id, self._element_id_value(linked.LinkedElementId)))
+                    continue
             room_id = getattr(tag, "TaggedLocalRoomId", None)
-            if room_id is None:
-                continue
-            try:
+            if room_id is not None:
                 value = self._element_id_value(room_id)
-            except Exception:
-                continue
-            if value >= 0:
-                values.add(value)
+                if value >= 0:
+                    values.add((-1, value))
         return values
 
     def _validate_target_view(self, view, housing_key, level_name):
@@ -729,8 +738,10 @@ class RoomTagService(object):
 
         return ""
 
-    @staticmethod
-    def _single_level_name(housing):
+    def _single_level_name(self, housing):
+        linked_level = host_level_name(housing, self.document)
+        if linked_level is not None:
+            return linked_level
         levels = list(getattr(housing, "level_names", []) or [])
         if len(levels) != 1:
             raise ValueError(

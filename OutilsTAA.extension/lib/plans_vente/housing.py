@@ -7,12 +7,16 @@ from __future__ import unicode_literals
 class RoomSnapshot(object):
     """Vue métier minimale d'une pièce Revit."""
 
-    def __init__(self, unique_id, name="", number="", level_name="", housing_key=""):
+    def __init__(self, unique_id, name="", number="", level_name="", housing_key="", source_room=None, include_links=False):
         self.unique_id = unique_id or ""
         self.name = name or ""
         self.number = number or ""
         self.level_name = level_name or ""
         self.housing_key = housing_key or ""
+        self.include_links = bool(include_links)
+        self.source_room = source_room
+        self.source_key = source_room.source_key if source_room is not None else "HOST"
+        self.source_name = source_room.source_name if source_room is not None else "Fichier actif"
 
 
 class Housing(object):
@@ -26,6 +30,42 @@ class Housing(object):
             if filter_key is None
             else (filter_key or "")
         )
+        self.output_disambiguator = ""
+
+    def set_output_disambiguator(self, value):
+        """Ajoute un libellé visible seulement lorsqu'un numéro est en doublon."""
+        label = str(value or "").strip()
+        self.output_disambiguator = label
+        self.key = (
+            "{} - {}".format(self.filter_key, label)
+            if label
+            else self.filter_key
+        )
+        return self.key
+
+    @property
+    def source_name(self):
+        return self.rooms[0].source_name if self.rooms else "Fichier actif"
+
+    @property
+    def source_key(self):
+        return self.rooms[0].source_key if self.rooms else "HOST"
+
+    @property
+    def include_links(self):
+        return any(getattr(room, "include_links", False) for room in self.rooms)
+
+    @property
+    def identity(self):
+        return (self.source_key, self.filter_key)
+
+    @property
+    def display_key(self):
+        return self.filter_key
+
+    @property
+    def report_label(self):
+        return "{} / logement {}".format(self.source_name, self.key)
 
     @property
     def room_count(self):

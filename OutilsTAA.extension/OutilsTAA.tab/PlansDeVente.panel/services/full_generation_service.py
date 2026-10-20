@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import room_inputs, resolve_room
+
 """Étape 07D — génération complète d'un plan de vente depuis une feuille modèle."""
 
 from plans_vente.multilevel import split_housing_by_level
@@ -304,6 +306,8 @@ class FullGenerationService(object):
         known_ids = set([main_info.viewport.Id])
         if location_info is not None:
             known_ids.add(location_info.viewport.Id)
+        from Autodesk.Revit.DB import ViewType
+
         extra_index = 2
         for viewport_id in list(sheet.GetAllViewports() or []):
             if viewport_id in known_ids:
@@ -314,20 +318,35 @@ class FullGenerationService(object):
             view = self.document.GetElement(viewport.ViewId)
             if view is None:
                 continue
+
+            view_type = getattr(view, "ViewType", None)
+            if view_type == ViewType.FloorPlan:
+                kind = "main_view_extra"
+                label = "Vue logement {} — {}".format(
+                    extra_index,
+                    str(getattr(view, "Name", "") or "sans nom"),
+                )
+                extra_index += 1
+            elif view_type == ViewType.Legend:
+                kind = "legend"
+                label = "Légende — {}".format(
+                    str(getattr(view, "Name", "") or "sans nom")
+                )
+            else:
+                # Les coupes, élévations et vues de dessin ne participent pas
+                # au contrat de génération Plans de vente.
+                continue
+
             try:
                 outline = viewport.GetBoxOutline()
                 items.append({
-                    "kind": "main_view_extra",
-                    "label": "Vue logement {} — {}".format(
-                        extra_index,
-                        str(getattr(view, "Name", "") or "sans nom"),
-                    ),
+                    "kind": kind,
+                    "label": label,
                     "min_x": float(outline.MinimumPoint.X),
                     "min_y": float(outline.MinimumPoint.Y),
                     "max_x": float(outline.MaximumPoint.X),
                     "max_y": float(outline.MaximumPoint.Y),
                 })
-                extra_index += 1
             except Exception:
                 pass
 
@@ -780,12 +799,7 @@ class FullGenerationService(object):
         level_housings = list(split_housing_by_level(housing) or [])
         try:
             level_housings.sort(
-                key=lambda item: int(
-                    self._floor_number(
-                        (item.level_names or [""])[0]
-                    )
-                    or 9999
-                )
+                key=lambda item: self._level_sort_value(item)
             )
         except Exception:
             pass
@@ -999,12 +1013,7 @@ class FullGenerationService(object):
             lower_housing = level_housings[0]
             try:
                 level_housings.sort(
-                    key=lambda item: int(
-                        self._floor_number(
-                            (item.level_names or [""])[0]
-                        )
-                        or 9999
-                    )
+                    key=lambda item: self._level_sort_value(item)
                 )
                 lower_housing = level_housings[0]
             except Exception:
@@ -1200,6 +1209,11 @@ class FullGenerationService(object):
             warnings=warnings,
         )
 
+    def _level_sort_value(self, housing):
+        if getattr(housing, "source_key", "HOST") != "HOST":
+            return min(room.source_room.Level.ProjectElevation for room in housing.rooms)
+        return int(self._floor_number((housing.level_names or [""])[0]) or 9999)
+
     def _room_metadata(
         self,
         housing,
@@ -1210,11 +1224,13 @@ class FullGenerationService(object):
         """Lit les informations de cartouche depuis les pièces du logement."""
         rooms = []
         for unique_id in list(
-            getattr(housing, "room_unique_ids", []) or []
+            room_inputs(housing)
         ):
             try:
-                room = self.document.GetElement(unique_id)
+                room = resolve_room(self.document, unique_id)
             except Exception:
+                if getattr(housing, "source_key", "HOST") != "HOST":
+                    raise
                 room = None
             if room is not None:
                 rooms.append(room)
@@ -1251,7 +1267,8 @@ class FullGenerationService(object):
                     )
                 )
 
-        floor_label = self._main_view_level_name(main_view_unique_id)
+        floor_label = ("" if getattr(housing, "source_key", "HOST") != "HOST"
+                       else self._main_view_level_name(main_view_unique_id))
         if floor_label:
             floor = self._floor_number(floor_label)
             if floor != "":
@@ -1349,14 +1366,26 @@ class FullGenerationService(object):
         except Exception:
             return match.group(0).lstrip("+")
 
-    def _classify_viewports(self, sheet):
+    def _template_plan_viewport_infos(self, sheet):
+        """Retourne uniquement les viewports de plans d'étage du modèle.
+
+        Les légendes, vues de dessin, coupes, élévations et autres viewports
+        peuvent rester sur la feuille modèle, mais ne doivent jamais être
+        comptés comme vues logement ou repérage.
+        """
+        from Autodesk.Revit.DB import ViewType
+
         infos = []
         for viewport_id in list(sheet.GetAllViewports() or []):
             viewport = self.document.GetElement(viewport_id)
             if viewport is None:
                 continue
+
             view = self.document.GetElement(viewport.ViewId)
             if view is None:
+                continue
+
+            if getattr(view, "ViewType", None) != ViewType.FloorPlan:
                 continue
 
             outline = viewport.GetBoxOutline()
@@ -1385,6 +1414,11 @@ class FullGenerationService(object):
                     ),
                 )
             )
+
+        return infos
+
+    def _classify_viewports(self, sheet):
+        infos = self._template_plan_viewport_infos(sheet)
 
         if not infos:
             raise ValueError(
@@ -1493,40 +1527,7 @@ class FullGenerationService(object):
             "La feuille modèle n'existe plus.",
         )
 
-        infos = []
-        for viewport_id in list(sheet.GetAllViewports() or []):
-            viewport = self.document.GetElement(viewport_id)
-            if viewport is None:
-                continue
-            view = self.document.GetElement(viewport.ViewId)
-            if view is None:
-                continue
-
-            outline = viewport.GetBoxOutline()
-            width = abs(
-                float(outline.MaximumPoint.X)
-                - float(outline.MinimumPoint.X)
-            )
-            height = abs(
-                float(outline.MaximumPoint.Y)
-                - float(outline.MinimumPoint.Y)
-            )
-            infos.append(
-                _TemplateViewportInfo(
-                    viewport=viewport,
-                    view=view,
-                    area=width * height,
-                    filled_regions=self._filled_region_count(view),
-                    room_tags=self._view_category_count(
-                        view,
-                        "OST_RoomTags",
-                    ),
-                    dimensions=self._view_category_count(
-                        view,
-                        "OST_Dimensions",
-                    ),
-                )
-            )
+        infos = self._template_plan_viewport_infos(sheet)
 
         if not infos:
             raise ValueError(
@@ -1606,41 +1607,7 @@ class FullGenerationService(object):
         considérés comme vues logement et doivent être au même nombre que les
         niveaux à représenter.
         """
-        infos = []
-        for viewport_id in list(sheet.GetAllViewports() or []):
-            viewport = self.document.GetElement(viewport_id)
-            if viewport is None:
-                continue
-            view = self.document.GetElement(viewport.ViewId)
-            if view is None:
-                continue
-
-            outline = viewport.GetBoxOutline()
-            width = abs(
-                float(outline.MaximumPoint.X)
-                - float(outline.MinimumPoint.X)
-            )
-            height = abs(
-                float(outline.MaximumPoint.Y)
-                - float(outline.MinimumPoint.Y)
-            )
-
-            infos.append(
-                _TemplateViewportInfo(
-                    viewport=viewport,
-                    view=view,
-                    area=width * height,
-                    filled_regions=self._filled_region_count(view),
-                    room_tags=self._view_category_count(
-                        view,
-                        "OST_RoomTags",
-                    ),
-                    dimensions=self._view_category_count(
-                        view,
-                        "OST_Dimensions",
-                    ),
-                )
-            )
+        infos = self._template_plan_viewport_infos(sheet)
 
         if len(infos) < int(expected_levels or 0):
             raise ValueError(

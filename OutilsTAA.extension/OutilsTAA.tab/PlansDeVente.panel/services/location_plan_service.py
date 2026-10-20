@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from plans_vente.source_room import room_inputs, host_level_name
+
 """Création du plan de repérage et surbrillance du logement."""
 
 from common.transaction import RevitTransaction
@@ -66,8 +68,12 @@ class LocationPlanService(object):
 
     def source_views_for_housing(self, housing):
         level_name = self._single_level_name(housing)
+        if getattr(housing, "source_key", "HOST") != "HOST":
+            candidates = self.plan_view_service.ensure_primary_floor_plan(level_name)
+        else:
+            candidates = self.plan_view_service.list_primary_floor_plans(level_name)
         return [
-            item for item in self.plan_view_service.list_primary_floor_plans(level_name)
+            item for item in candidates
             if not item.name.startswith("PDV_")
         ]
 
@@ -136,7 +142,7 @@ class LocationPlanService(object):
         self._ensure_view_name_available(target_name)
 
         highlight_result = self.crop_geometry_service.build_optimized_crop(
-            housing.room_unique_ids,
+            room_inputs(housing),  # V1: housing.room_unique_ids; liens: objets sources explicites
             source_view,
             0.0,
         )
@@ -677,8 +683,10 @@ class LocationPlanService(object):
 
         return ""
 
-    @staticmethod
-    def _single_level_name(housing):
+    def _single_level_name(self, housing):
+        linked_level = host_level_name(housing, self.document)
+        if linked_level is not None:
+            return linked_level
         if housing is None:
             raise ValueError("Sélectionnez un logement.")
         levels = list(getattr(housing, "level_names", []) or [])

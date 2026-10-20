@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     paths:
+      - "OutilsTAA.extension/lib/plans_vente/**"
+      - "OutilsTAA.extension/OutilsTAA.tab/PlansDeVente.panel/**"
       - "OutilsTAA.extension/OutilsTAA.tab/Calculs.panel/**"
       - "OutilsTAA.extension/lib/calculation/**"
       - "OutilsTAA.extension/lib/common/**"

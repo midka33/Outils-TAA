@@ -42,7 +42,8 @@ class SheetTemplateChoice(object):
 class HousingRow(object):
     def __init__(self, housing):
         self.Housing = housing
-        self.Key = housing.key
+        self.Key = housing.display_key
+        self.Source = housing.source_name
         self.RoomCount = housing.room_count
         self.LevelCount = len(housing.level_names or [])
         self.Levels = housing.levels_label
@@ -50,7 +51,7 @@ class HousingRow(object):
 
 class PlansVenteFinalWindow(forms.WPFWindow):
 
-    UI_BUILD = "stage09-rc17-progress-stages"
+    UI_BUILD = "linked-rooms-v1.1"
 
     def __init__(self, controller):
         self.controller = controller
@@ -66,6 +67,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         self._multilevel_mode = "sheet_per_level"
         self._multilevel_template_info = None
         self._busy = False
+        self._analysis_warnings = []
         self._settings = {
             "skip_existing": True,
             "crop_margin_mm": 500.0,
@@ -114,7 +116,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
     def _load_context(self):
         self.StatusText.Text = "Lecture des pièces et paramètres..."
         try:
-            context = self.controller.load_context()
+            include_links = bool(getattr(self.IncludeLinksCheck, "IsChecked", False))
+            context = self.controller.load_context(include_links=include_links)
+            self._analysis_warnings = list(getattr(context, "warnings", []) or [])
         except Exception as error:
             self.StatusText.Text = "Impossible de lire les pièces."
             forms.alert(
@@ -218,7 +222,18 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             message += " {} pièce(s) sans identifiant ignorée(s).".format(
                 result.empty_value_count
             )
+        if self._analysis_warnings:
+            message += "\n" + "\n".join(self._analysis_warnings)
         self.StatusText.Text = message
+
+    def IncludeLinksChanged(self, sender, args):
+        if not hasattr(self, "HousingGrid") or self._busy:
+            return
+        self._all_housings = []
+        self._filtered_housings = []
+        self._active_descriptor = None
+        self._refresh_scope()
+        self._load_context()
 
     def ScopeModeChanged(self, sender, args):
         if not hasattr(self, "FilterPanel"):
@@ -626,6 +641,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "main_view_extra": "Vue logement 2",
             "location_view": "Repérage",
             "schedule": "Nomenclature",
+            "legend": "Légende",
         }
 
         for item in inspection.preview_items or []:
@@ -656,7 +672,11 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 else (
                     Brushes.DarkOrange
                     if kind == "location_view"
-                    else Brushes.DodgerBlue
+                    else (
+                        Brushes.DimGray
+                        if kind == "legend"
+                        else Brushes.DodgerBlue
+                    )
                 )
             )
             rect.Fill = Brushes.Transparent
@@ -688,6 +708,8 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         )
 
     def _refresh_creation_state(self):
+        if hasattr(self, "IncludeLinksCheck"):
+            self.IncludeLinksCheck.IsEnabled = not self._busy
         if not hasattr(self, "CreateBatchButton"):
             return
 
@@ -767,6 +789,105 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 return index
         return -1
 
+    def _resolve_output_name_collisions(self, housings):
+        """Demande un libellé uniquement lorsque plusieurs sources partagent le même numéro."""
+        housings = list(housings or [])
+        for housing in housings:
+            try:
+                housing.set_output_disambiguator("")
+            except Exception:
+                pass
+
+        groups = {}
+        for housing in housings:
+            number = str(
+                getattr(housing, "filter_key", "")
+                or getattr(housing, "display_key", "")
+                or ""
+            ).strip()
+            if not number:
+                continue
+            groups.setdefault(number.lower(), []).append(housing)
+
+        duplicates = [
+            group for group in groups.values()
+            if len(group) > 1
+        ]
+        if not duplicates:
+            return True
+
+        forbidden = set('\\/:{}[];<>?`~|')
+        for group in duplicates:
+            number = str(
+                getattr(group[0], "filter_key", "")
+                or getattr(group[0], "display_key", "")
+                or ""
+            ).strip()
+            used = set()
+
+            for housing in group:
+                source = str(
+                    getattr(housing, "source_name", "")
+                    or "Source inconnue"
+                ).strip()
+
+                while True:
+                    value = forms.ask_for_string(
+                        default="",
+                        prompt=(
+                            "Le numéro de logement « {} » existe dans plusieurs "
+                            "sources.\n\nSource à différencier :\n{}\n\n"
+                            "Saisissez le texte à ajouter au nom de sortie "
+                            "(ex. BAT A, BAT B)."
+                        ).format(number, source),
+                        title="Plans de vente — Numéro logement en doublon",
+                    )
+
+                    if value is None:
+                        forms.alert(
+                            "Création annulée : les logements portant le numéro "
+                            "« {} » doivent être différenciés.".format(number),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        return False
+
+                    label = str(value or "").strip()
+                    if not label:
+                        forms.alert(
+                            "Saisissez un texte de différenciation pour « {} ».".format(
+                                number
+                            ),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        continue
+
+                    invalid = sorted(set(label).intersection(forbidden))
+                    if invalid:
+                        forms.alert(
+                            "Le texte contient des caractères interdits dans les "
+                            "noms Revit : {}".format(" ".join(invalid)),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        continue
+
+                    if label.lower() in used:
+                        forms.alert(
+                            "Le libellé « {} » est déjà utilisé pour ce numéro. "
+                            "Choisissez un libellé différent.".format(label),
+                            title="Plans de vente",
+                            warn_icon=True,
+                        )
+                        continue
+
+                    used.add(label.lower())
+                    housing.set_output_disambiguator(label)
+                    break
+
+        return True
+
     def CreateBatch_Click(self, sender, args):
         if self._busy:
             return
@@ -839,6 +960,9 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 title="Plans de vente",
                 warn_icon=True,
             )
+            return
+
+        if not self._resolve_output_name_collisions(selected):
             return
 
         multilevel = [
@@ -920,7 +1044,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         created = []
         skipped = []
         failures = []
-        warnings = []
+        warnings = list(self._analysis_warnings)
 
         total = len(processable)
         try:
@@ -933,7 +1057,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                     progress.update_progress(
                         float(index - 1) / float(max(1, total)),
                         index,
-                        housing_key=housing.key,
+                        housing_key=housing.report_label,
                         phase="Préparation",
                         message="Préparation du plan de vente {}…".format(
                             housing.key
@@ -947,7 +1071,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         item_label,
                         message,
                         _index=index,
-                        _housing_key=housing.key,
+                        _housing_key=housing.report_label,
                     ):
                         try:
                             local_fraction = float(fraction)
@@ -980,7 +1104,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                 progress.update_progress(
                                     float(index) / float(max(1, total)),
                                     index,
-                                    housing_key=housing.key,
+                                    housing_key=housing.report_label,
                                     phase="Finalisation",
                                     message=(
                                         "{} ignoré : plan déjà existant."
@@ -1069,7 +1193,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                             for warning in result.warnings or []:
                                 warnings.append(
                                     "{} : {}".format(
-                                        housing.key,
+                                        housing.report_label,
                                         warning,
                                     )
                                 )
@@ -1077,7 +1201,7 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                         progress.update_progress(
                             float(index) / float(max(1, total)),
                             index,
-                            housing_key=housing.key,
+                            housing_key=housing.report_label,
                             phase="Finalisation",
                             message="Plan de vente {} terminé.".format(
                                 housing.key
@@ -1088,14 +1212,14 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                     except Exception as error:
                         failures.append(
                             "{} : {}".format(
-                                housing.key,
+                                housing.report_label,
                                 str(error) or repr(error),
                             )
                         )
                         progress.update_progress(
                             float(index) / float(max(1, total)),
                             index,
-                            housing_key=housing.key,
+                            housing_key=housing.report_label,
                             phase="Finalisation",
                             message="Échec sur {} — voir le rapport.".format(
                                 housing.key

@@ -613,6 +613,7 @@ class SheetAssemblyService(object):
         fit_duplicated = False
         fit_warnings = []
         placed_schedule_instances = []
+        placed_legend_viewports = []
 
         with RevitTransaction(
             self.document,
@@ -646,6 +647,11 @@ class SheetAssemblyService(object):
                 room_metadata or {},
             )
             fit_warnings.extend(metadata_warnings)
+
+            placed_legend_viewports = self._place_template_legends(
+                template_sheet,
+                sheet,
+            )
 
             location_viewport = None
             if location_view is not None and location_center is not None:
@@ -697,6 +703,7 @@ class SheetAssemblyService(object):
                         else []
                     )
                     + placed_schedule_instances
+                    + placed_legend_viewports
                 ),
                 main_view_zone_line_style=main_view_zone_line_style,
             )
@@ -918,6 +925,7 @@ class SheetAssemblyService(object):
         sheet = None
         fit_warnings = []
         placed_schedule_instances = []
+        placed_legend_viewports = []
         placed_main_viewports = []
 
         with RevitTransaction(
@@ -954,6 +962,11 @@ class SheetAssemblyService(object):
                     sheet,
                     room_metadata or {},
                 )
+            )
+
+            placed_legend_viewports = self._place_template_legends(
+                template_sheet,
+                sheet,
             )
 
             location_viewport = None
@@ -1000,12 +1013,14 @@ class SheetAssemblyService(object):
                 reference_scale=reference_scale,
                 allowed_scales=allowed_scales,
                 auto_fit=bool(auto_fit_main_view),
-                fixed_template_elements=[
-                    item[0] for item in resolved_schedules
-                ] + (
-                    [location_viewport_model]
-                    if location_viewport_model is not None
-                    else []
+                fixed_template_elements=(
+                    placed_schedule_instances
+                    + placed_legend_viewports
+                    + (
+                        [location_viewport]
+                        if location_viewport is not None
+                        else []
+                    )
                 ),
                 main_view_zone_line_style=main_view_zone_line_style,
             )
@@ -2570,6 +2585,111 @@ class SheetAssemblyService(object):
                     role_label
                 )
             )
+
+    def _template_legend_viewports(self, template_sheet):
+        """Liste les légendes placées sur la feuille modèle.
+
+        Une vue de légende Revit peut être placée sur plusieurs feuilles.
+        Elle doit donc être réutilisée telle quelle, sans duplication.
+        """
+        from Autodesk.Revit.DB import ViewType
+
+        result = []
+        for viewport_id in list(template_sheet.GetAllViewports() or []):
+            viewport = self.document.GetElement(viewport_id)
+            if viewport is None:
+                continue
+
+            view = self.document.GetElement(viewport.ViewId)
+            if view is None:
+                continue
+
+            if getattr(view, "ViewType", None) != ViewType.Legend:
+                continue
+
+            result.append((viewport, view))
+
+        return result
+
+    def _place_template_legends(self, template_sheet, target_sheet):
+        """Replace les mêmes vues de légende sur la feuille générée.
+
+        La vue Legend n'est jamais dupliquée : seul un nouveau Viewport est
+        créé sur la nouvelle feuille, au centre du viewport modèle.
+        """
+        from Autodesk.Revit.DB import Viewport, XYZ
+
+        created = []
+        for template_viewport, legend_view in self._template_legend_viewports(
+            template_sheet
+        ):
+            center = template_viewport.GetBoxCenter()
+            legend_name = str(
+                getattr(legend_view, "Name", "") or "Légende"
+            )
+
+            try:
+                can_place = Viewport.CanAddViewToSheet(
+                    self.document,
+                    target_sheet.Id,
+                    legend_view.Id,
+                )
+            except Exception:
+                can_place = True
+
+            if not can_place:
+                raise ValueError(
+                    "La légende « {} » ne peut pas être placée sur la feuille "
+                    "générée.".format(legend_name)
+                )
+
+            try:
+                viewport = Viewport.Create(
+                    self.document,
+                    target_sheet.Id,
+                    legend_view.Id,
+                    XYZ(
+                        float(center.X),
+                        float(center.Y),
+                        0.0,
+                    ),
+                )
+            except Exception as error:
+                raise ValueError(
+                    "Impossible de placer la légende « {} » sur la feuille "
+                    "générée : {}.".format(
+                        legend_name,
+                        str(error) or repr(error),
+                    )
+                )
+
+            try:
+                self._apply_viewport_type(
+                    viewport,
+                    template_viewport.GetTypeId(),
+                )
+            except Exception:
+                pass
+
+            # Reprendre les propriétés d'instance disponibles sans rendre
+            # l'opération dépendante d'une version précise de l'API.
+            for property_name in (
+                "Rotation",
+                "LabelOffset",
+                "LabelLineLength",
+            ):
+                try:
+                    setattr(
+                        viewport,
+                        property_name,
+                        getattr(template_viewport, property_name),
+                    )
+                except Exception:
+                    pass
+
+            created.append(viewport)
+
+        return created
 
     @staticmethod
     def _apply_viewport_type(viewport, viewport_type_id):

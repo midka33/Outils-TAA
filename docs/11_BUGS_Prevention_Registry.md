@@ -1371,6 +1371,78 @@ Export : exécution sur `main` et contrôle du SHA exact avant création du tag.
 BUG-COMMON-002 s’applique aussi au ZIP utilisateur : retrait des répertoires de
 tests/caches et contrôle du contenu décompressé avant publication.
 
+### BUG-PDV-028 — Collisions d'identité et de repère avec les pièces liées
+
+**Symptôme reproduit hors Revit :** deux instances d'un même bâtiment contenant
+la pièce `r1` / logement `101` ne peuvent pas être distinguées par le seul
+UniqueId de pièce ou le numéro logement. Leur géométrie brute reste aux mêmes
+coordonnées malgré deux placements de lien différents.
+
+**Cause racine :** les entrées V1 supposent un document unique ; l'id local et
+la géométrie ne portent pas l'instance de lien.
+
+**Correction :** contexte `SourceRoom` avec instance/UniqueId et transformation,
+regroupement source + logement, adaptation des entrées crop/tags/cotes/repérage,
+filtres natifs des nomenclatures par source et rapprochement des niveaux par
+altitude transformée. Les pièces hôtes conservent le chemin V1.
+
+**Règle préventive :** ne jamais résoudre une référence de pièce liée dans SITE,
+transformer une référence géométrique brute en perdant sa référence native, ou
+filtrer une nomenclature liée uniquement sur le numéro du logement. Une source
+ambiguë doit être signalée avant livraison du plan.
+
+**Anti-régression :** `tests/plans_vente/test_linked_rooms.py` : mêmes UniqueIds
+et numéros, instances répétées, transformations/inverse, doublons de tags,
+cotes natives liées, filtrage des nomenclatures, opt-out hôte, contexte d'erreur.
+Le workflow représentatif API/WPF a ensuite été validé par l'utilisateur dans
+Revit 2025.4 le 20 octobre 2026 ; les cas limites restant hors périmètre sont
+listés dans `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+
+
+### BUG-PDV-029 — Identifiant numérique du lien exposé dans les noms de sortie
+
+**Symptôme :** un plan généré depuis un lien pouvait être nommé
+`A18-L5530419`, et le même suffixe contaminait la feuille, les vues et les
+nomenclatures.
+
+**Cause racine :** la clé technique utilisée pour empêcher les collisions entre
+sources était réutilisée comme clé de nommage visible.
+
+**Correction :** séparer l'identité interne `Source + N° logement` de la clé
+visible. Le numéro métier reste inchangé tant qu'il est unique. Si plusieurs
+sources portent le même numéro, l'interface demande à l'utilisateur un libellé
+lisible pour différencier les sorties.
+
+**Règle préventive :** un `ElementId` ou identifiant interne de lien ne doit
+jamais devenir un nom utilisateur par défaut. La désambiguïsation visible doit
+être déclenchée uniquement par une collision réelle et rester compréhensible.
+
+**Anti-régression :** `tests/plans_vente/test_linked_rooms.py` vérifie
+l'absence du suffixe technique et la présence du dialogue de différenciation en
+cas de doublon.
+
+### BUG-PDV-030 — Niveau SITE absent bloquant un logement lié
+
+**Symptôme :** la génération s'arrêtait avec
+`niveau SITE absent ou ambigu à ...` lorsque le bâtiment lié possédait un
+niveau sans équivalent déjà créé dans SITE.
+
+**Cause racine :** une `ViewPlan` doit appartenir à un niveau du document
+hôte, mais la première V1.1 imposait à l'utilisateur de préparer manuellement
+tous les niveaux et vues SITE.
+
+**Correction :** résoudre l'altitude transformée du niveau lié, réutiliser un
+niveau SITE unique lorsqu'il existe, sinon créer automatiquement un niveau
+`PDV_AUTO_±XX.XXX` et, si nécessaire, une vue plan source SITE. Une ambiguïté
+réelle entre plusieurs niveaux déjà présents à la même altitude reste bloquante.
+
+**Règle préventive :** l'absence d'un niveau technique hôte ne doit pas imposer
+une préparation manuelle pour un workflow automatisé. Ne jamais choisir
+arbitrairement entre plusieurs niveaux existants à la même altitude.
+
+**Anti-régression :** test de `host_level_name` avec création automatique du
+niveau et validation réelle dans Revit 2025.4 pendant la recette V1.1.
+
 ## 5. Identifiants des bugs
 
 ```text
@@ -1448,6 +1520,9 @@ BUG-PDV-021
 BUG-PDV-022
 BUG-PDV-023
 BUG-PDV-024
+BUG-PDV-028
+BUG-PDV-029
+BUG-PDV-030
 BUG-ROOMCALC-001
 BUG-COMMON-001
 BUG-COMMON-002

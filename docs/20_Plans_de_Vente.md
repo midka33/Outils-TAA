@@ -2,12 +2,12 @@
 
 ## Spécification fonctionnelle et technique
 
-**Version :** 1.29
-**Statut :** V1 validée dans Revit 2025.4 le 16 octobre 2026 — livraison Outils TAA v1.2.0
+**Version :** 1.31
+**Statut :** V1.1 fichiers liés validée dans Revit 2025.4 le 20 octobre 2026 — candidate Outils TAA v1.3.0
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Interface :** WPF — Design System Outils TAA  
 **Langue :** Français  
-**Date :** 2026-10-16
+**Date :** 2026-10-20
 
 
 **Validation finale :** l’utilisateur confirme la réussite de l’ouverture, de la
@@ -16,6 +16,12 @@ de la non-régression Export / Calculs et des icônes harmonisées.
 Les sections historiques ci-dessous conservent la trace des étapes de développement.
 Le bilan actuel et les limites V1 figurent dans
 `docs/release/Preparation_Plans_de_Vente_V1.md`.
+
+**Plans de vente V1.1 (20 octobre 2026, issue #27 / PR #28) :** le workflow
+depuis SITE avec pièces de liens Revit directs a été validé par l'utilisateur
+dans Revit 2025.4. La cible de livraison est Outils TAA v1.3.0. Voir la section
+V1.1 en fin de document et
+`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 **Crop actuel :** voir A.3.20 — géométrie locale des pièces, sans sélection de mur.
 
@@ -190,11 +196,16 @@ Pour la V1 :
 - les pièces sans valeur d'identification sont ignorées et signalées ;
 - les doublons ou valeurs incohérentes sont signalés dans la prévisualisation.
 
-## 5.3 Évolution future
+## 5.3 V1.1 — pièces de fichiers Revit liés
 
-Le support complet des pièces provenant de fichiers Revit liés pourra être étudié ultérieurement.
+La V1.1 ajoute les pièces du document actif et des liens Revit directs chargés
+comme sources possibles. Deux logements portant le même numéro dans deux sources
+restent distincts par leur identité interne. La source est visible dans
+l'interface, tandis que l'identifiant technique du lien n'est pas exposé dans
+les noms de sortie.
 
-Il ne doit pas bloquer la V1.
+Lorsque plusieurs sources contiennent réellement le même numéro logement,
+l'utilisateur choisit le texte lisible ajouté aux noms pour les différencier.
 
 ---
 
@@ -5173,3 +5184,74 @@ Le moteur publie des jalons après les opérations Revit effectivement terminée
 Pour un logement multi-niveaux, les jalons vue / étiquettes / cotations sont
 émis pour chaque niveau. Le pourcentage global combine l'avancement interne
 du logement courant avec sa position dans le lot.
+
+
+## Plans de vente V1.1 — pièces liées (issue #27 / PR #28)
+
+L'étape 1 propose **Inclure les pièces des fichiers Revit liés**. Décochée,
+l'option conserve le comportement historique du document actif. Cochée, elle
+ajoute les pièces des instances de liens chargés directement dans SITE.
+La colonne **Source** distingue fichier et instance.
+
+### Contexte, identité et nommage
+
+`SourceRoom` conserve le document source, la pièce, l'instance de lien et la
+transformation vers SITE. L'identité interne d'un logement reste
+`(source, numéro logement)`, afin de ne jamais mélanger deux bâtiments.
+
+Cette identité technique n'est pas utilisée comme nom visible. Un logement
+`A18` reste donc `A18` tant que ce numéro est unique dans le périmètre.
+Si plusieurs sources contiennent `A18`, l'interface demande à l'utilisateur
+un libellé de différenciation lisible, par exemple `BAT A` / `BAT B`.
+
+### Niveaux et vues SITE
+
+Les altitudes des niveaux liés sont transformées dans le repère SITE avec une
+tolérance de 1 mm.
+
+- un niveau SITE unique à la bonne altitude est réutilisé ;
+- s'il n'existe pas, le module crée automatiquement un niveau technique
+  `PDV_AUTO_±XX.XXX` ;
+- si ce niveau ne dispose d'aucune vue plan source exploitable, une vue plan
+  SITE technique est créée automatiquement ;
+- plusieurs niveaux SITE déjà présents à la même altitude restent une ambiguïté
+  bloquante : le module ne choisit pas arbitrairement.
+
+### Adaptation des services
+
+- Crop et repérage utilisent les coordonnées transformées des pièces liées.
+- Les étiquettes utilisent `LinkElementId(instance.Id, room.Id)`.
+- Les cotes utilisent les références natives du document source puis
+  `CreateLinkReference` vers SITE.
+- Les nomenclatures de pièces du modèle doivent inclure les éléments des fichiers
+  liés ; les copies ajoutent les filtres fichier / instance sans supprimer les
+  filtres métier, totaux, unités ou regroupements.
+- Les paramètres bâtiment / typologie sont lus dans la source ; les niveaux
+  multi-niveaux sont ordonnés par altitude transformée.
+- Les légendes de la feuille modèle sont replacées en réutilisant la même vue
+  `Legend`, sans duplication.
+
+### Types d'étiquette et de cote
+
+La V1.1 déduit encore les types d'étiquette et de cote à partir des annotations
+présentes dans la vue modèle **du fichier hôte SITE**.
+
+Par conséquent, si la vue modèle affiche une vue liée et que les annotations
+visibles appartiennent uniquement au fichier lié, aucun type hôte n'est détecté.
+Pour la release v1.3.0, le prérequis retenu est donc : les types d'étiquette de
+pièce et de cote utilisés par Plans de vente doivent exister et être représentés
+dans le fichier hôte / modèle SITE.
+
+### Recette et limites
+
+Le workflow représentatif a été validé par l'utilisateur dans Revit 2025.4 le
+20 octobre 2026 : génération depuis SITE avec bâtiments liés, niveaux
+automatiques, vues/crops, repérage, nomenclatures, cartouche, nommage sans
+suffixe technique, étiquettes et cotations lorsque leurs types sont dans SITE.
+
+Les liens imbriqués, les liens inclinés ou renversés verticalement et la
+déduction des types d'annotation uniquement depuis une vue liée restent hors
+périmètre de cette release.
+
+Référence de recette :
+`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.

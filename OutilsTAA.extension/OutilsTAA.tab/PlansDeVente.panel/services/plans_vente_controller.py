@@ -27,8 +27,10 @@ class PlansVenteController(object):
         self.sheet_assembly_service = sheet_assembly_service
         self.full_generation_service = full_generation_service
 
-    def load_context(self):
-        return self.analysis_service.load_context()
+    def load_context(self, include_links=False):
+        self.schedule_service._link_schedule_identities = None
+        self.dimension_service._linked_services = {}
+        return self.analysis_service.load_context(include_links=include_links)
 
     def analyze(self, descriptor):
         return self.analysis_service.analyze(descriptor)
@@ -319,8 +321,8 @@ class PlansVenteController(object):
     ):
         if self.full_generation_service is None:
             raise RuntimeError("Service de génération complète 07D indisponible.")
-        return self.full_generation_service.generate(
-            housing,
+        return self._generate_with_source_context(
+            self.full_generation_service.generate, housing,
             descriptor,
             template_sheet_unique_id,
             allowed_scales=allowed_scales,
@@ -368,8 +370,8 @@ class PlansVenteController(object):
     ):
         if self.full_generation_service is None:
             raise RuntimeError("Service de génération complète 07D indisponible.")
-        return self.full_generation_service.generate_multilevel_one_sheet(
-            housing=housing,
+        return self._generate_with_source_context(
+            self.full_generation_service.generate_multilevel_one_sheet, housing,
             descriptor=descriptor,
             template_sheet_unique_id=template_sheet_unique_id,
             allowed_scales=allowed_scales,
@@ -380,6 +382,32 @@ class PlansVenteController(object):
             main_view_zone_line_style=main_view_zone_line_style,
             progress_callback=progress_callback,
         )
+
+    def _generate_with_source_context(self, method, housing, *args, **kwargs):
+        if getattr(housing, "source_key", "HOST") == "HOST":
+            return method(housing, *args, **kwargs)
+        phase = ["Préparation"]
+        callback = kwargs.get("progress_callback")
+        def progress(*values, **named):
+            phase[0] = str(named.get("phase") or (values[1] if len(values) > 1 else phase[0]))
+            if callback is not None:
+                callback(*values, **named)
+        kwargs["progress_callback"] = progress
+        try:
+            return method(housing, *args, **kwargs)
+        except Exception as error:
+            # Trace the actual failing service, even between completed progress milestones.
+            import sys
+            stages = {"crop_geometry_service.py": "Crop", "prototype_view_service.py": "Vue logement",
+                      "room_tag_service.py": "Étiquettes", "dimension_service.py": "Cotations",
+                      "location_plan_service.py": "Repérage", "schedule_service.py": "Nomenclatures",
+                      "sheet_assembly_service.py": "Assemblage / cartouche"}
+            trace = sys.exc_info()[2]
+            while trace is not None:
+                filename = trace.tb_frame.f_code.co_filename.replace(chr(92), "/").rsplit("/", 1)[-1]
+                phase[0] = stages.get(filename, phase[0])
+                trace = trace.tb_next
+            raise RuntimeError("{} — étape {} : {}".format(housing.report_label, phase[0], error))
 
     def full_generation_build_id(self):
         if self.full_generation_service is None:
