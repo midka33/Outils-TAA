@@ -3,7 +3,7 @@
 **Issue :** #25  
 **Branche :** `feature/export-v1.2-collaborative-config`  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows / partage SMB  
-**Statut :** résolveur, stockage sûr, repository, smartbutton et interface collaborative implémentés hors Revit ; migration locale explicite restante  
+**Statut :** socle collaboratif, interface et migration locale explicite implémentés hors Revit ; recette complète et validation multi-postes restantes  
 **Principe :** aucune écriture dans le modèle Revit pour sauvegarder la configuration partagée.
 
 ## 1. État actuel constaté
@@ -390,7 +390,7 @@ distincts** ouverts sur le même central Windows.
 3. ✅ Refactorisation de `CarnetRepository` autour de `_mutate`.
 4. ✅ Raccordement du smartbutton sans transaction Revit en mode partagé.
 5. ✅ UI Partagé / Local + Actualiser + conflits.
-6. ⏳ Migration locale explicite.
+6. ✅ Migration locale explicite.
 7. ⏳ Recette automatique complète.
 8. ⏳ Recette Revit réelle sur deux postes.
 9. ⏳ Documentation et préparation d'une release ultérieure.
@@ -465,3 +465,35 @@ réglages et gestionnaire de carnets utilisent le même retour d'erreur.
 
 La prochaine étape est la migration initiale locale -> partagé avec confirmation
 explicite, sans fusion silencieuse.
+
+
+### Migration locale explicite implémentée
+
+Lorsqu'aucun `export.json` partagé n'existe encore, le smartbutton recherche
+les configurations locales historiquement plausibles du projet, sans créer
+d'identité Revit supplémentaire.
+
+Une configuration locale est proposée uniquement si elle contient réellement
+des données utilisateur : dossiers supplémentaires, publications, mises en page
+ou réglages portés par le dossier Général.
+
+L'utilisateur reçoit une confirmation explicite avant tout import. Le dialogue
+indique que :
+
+- le JSON local reste intact ;
+- aucune fusion automatique n'est réalisée ;
+- une configuration serveur apparue entre-temps est prioritaire ;
+- un refus est mémorisé localement afin de ne pas reproposer l'import à chaque
+  ouverture du même projet.
+
+L'import remplace l'identité locale par l'identité du central, conserve le
+schéma métier 8 et retire les métadonnées de révision locale avant de créer la
+révision partagée 1.
+
+La création passe par le même verrou SMB et le même contrôle de révision que
+toute autre écriture. Si un autre poste crée `export.json` entre la proposition
+et la confirmation, l'import est annulé avec
+`ConcurrentModificationError` ; aucune fusion ni suppression locale n'a lieu.
+
+En cas de démarrage en mode local de secours parce que le serveur est
+indisponible, le retour réseau ne provoque toujours aucun upload automatique.
