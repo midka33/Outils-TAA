@@ -141,7 +141,7 @@ def _normalised_local_data(path, local_project_identity):
                         CarnetRepository.SCHEMA_VERSION,
                     )
                 )
-        except ValueError:
+        except (TypeError, ValueError):
             raise LocalConfigurationCorruptedError(
                 "La version de schéma du JSON local est invalide."
             )
@@ -155,7 +155,11 @@ def _normalised_local_data(path, local_project_identity):
 
     repository = CarnetRepository(
         path,
-        project_identity=local_project_identity,
+        project_identity=(
+            local_project_identity
+            if raw.get("project_identity")
+            else None
+        ),
     )
     return repository._read()
 
