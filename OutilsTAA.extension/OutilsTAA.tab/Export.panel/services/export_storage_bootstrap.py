@@ -28,7 +28,8 @@ class ExportStorageContext(object):
             central_path=None,
             shared_config_path=None,
             warning=None,
-            fallback_from_shared=False):
+            fallback_from_shared=False,
+            retry_callback=None):
         self.repository = repository
         self.mode = mode
         self.local_config_path = local_config_path
@@ -37,6 +38,7 @@ class ExportStorageContext(object):
         self.shared_config_path = shared_config_path
         self.warning = warning
         self.fallback_from_shared = bool(fallback_from_shared)
+        self.retry_callback = retry_callback
 
     @property
     def is_shared(self):
@@ -45,6 +47,11 @@ class ExportStorageContext(object):
     @property
     def revision(self):
         return getattr(self.repository, "storage_revision", None)
+
+    def retry(self):
+        if self.retry_callback is None:
+            return self
+        return self.retry_callback()
 
 
 def _shared_warning(exc):
@@ -93,7 +100,7 @@ def build_export_storage(
                 local_config_path,
                 project_identity=local_project_identity,
             )
-            return ExportStorageContext(
+            context = ExportStorageContext(
                 repository,
                 ExportStorageContext.MODE_LOCAL,
                 local_config_path,
@@ -103,6 +110,20 @@ def build_export_storage(
                 warning=_shared_warning(exc),
                 fallback_from_shared=True,
             )
+
+            def retry_shared():
+                return build_export_storage(
+                    document,
+                    local_config_path,
+                    local_project_identity,
+                    resolver=resolver,
+                    shared_storage_factory=shared_storage_factory,
+                    repository_factory=repository_factory,
+                    prepare_local_callback=None,
+                )
+
+            context.retry_callback = retry_shared
+            return context
 
         repository = repository_factory(
             resolved.shared_config_path,
