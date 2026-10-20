@@ -16,6 +16,7 @@ WINDOW = PANEL / "ui" / "plans_vente_window.py"
 XAML = PANEL / "ui" / "plans_vente.xaml"
 SCRIPT = PANEL / "PlansDeVente.pushbutton" / "script.py"
 DOC = ROOT / "docs" / "20_Plans_de_Vente.md"
+HISTORICAL_DOC = ROOT / "docs" / "archive" / "plans-de-vente" / "20_Plans_de_Vente_Historique_Stages_01_09.md"
 
 
 def test_default_sheet_anchors_are_inside_sheet_and_separated():
@@ -159,7 +160,7 @@ def test_stage07_ui_exposes_sheet_template_and_create_action():
 
 
 def test_stage07_documentation_is_opened():
-    text = DOC.read_text(encoding="utf-8")
+    text = HISTORICAL_DOC.read_text(encoding="utf-8")
     assert "Étape 06 — Cotations V1 : VALIDÉE." in text
     assert "## Ouverture Étape 07 — Assemblage de la feuille" in text
     assert "Prototype 07A : VALIDÉ TECHNIQUEMENT" in text
