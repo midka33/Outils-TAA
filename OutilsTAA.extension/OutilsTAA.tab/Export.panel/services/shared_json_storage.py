@@ -6,6 +6,7 @@ sur le partage SMB. Le fallback Python pur existe uniquement pour les tests hors
 Revit et les environnements sans System.IO.
 """
 
+import copy
 import errno
 import getpass
 import io
@@ -527,6 +528,73 @@ class SharedJsonStorage(object):
         payload["last_write_user"] = self._diagnostic_user()
         payload["last_write_machine"] = self._diagnostic_machine()
         return payload
+
+    def mutate(self, mutator, default_factory=None):
+        """Applique une mutation sous un seul verrou et contrôle de révision.
+
+        Le callback reçoit une copie modifiable des données les plus récentes et
+        doit retourner (changed, result). Si changed est faux, aucune écriture
+        ni incrément de révision n'est réalisé.
+        """
+        if self.known_revision is None:
+            raise RuntimeError(
+                "La configuration doit être lue avant toute mutation partagée."
+            )
+        if mutator is None:
+            raise ValueError("Le callback de mutation est obligatoire.")
+
+        temp_path = None
+        with self._lock():
+            current = self._read_unlocked(allow_missing=True)
+            current_revision = self._revision(current)
+
+            if current_revision != self.known_revision:
+                raise ConcurrentModificationError(
+                    "La configuration Export a été modifiée par un autre "
+                    "utilisateur. Actualisez avant d'enregistrer."
+                )
+
+            if current is None:
+                working = (
+                    default_factory()
+                    if default_factory is not None
+                    else {
+                        "project_identity": self.project_identity,
+                    }
+                )
+            else:
+                working = copy.deepcopy(current)
+
+            changed, result = mutator(working)
+            if not changed:
+                return result
+
+            payload = self._prepare_payload(
+                working,
+                current_revision + 1,
+            )
+            temp_path = self._write_temporary(payload)
+            try:
+                self._validate_temporary(temp_path)
+
+                if current is None:
+                    self._move_first_file(temp_path)
+                    temp_path = None
+                else:
+                    backup_path = self._backup_path(current_revision)
+                    self._replace_existing(temp_path, backup_path)
+                    temp_path = None
+                    self._rotate_backups()
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except Exception:
+                        pass
+
+            self.known_revision = payload["storage_revision"]
+            self.known_write_id = payload["last_write_id"]
+            return result
 
     def write(self, data):
         """Écrit uniquement depuis la révision précédemment lue.
