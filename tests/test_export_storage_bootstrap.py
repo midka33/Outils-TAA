@@ -190,3 +190,35 @@ def test_smartbutton_wires_bootstrap_before_export_window():
     assert "storage_context=storage_context" in source
     assert "prepare_local_callback=prepare_historical_local_storage" in source
     assert "Aucun basculement local automatique" in source
+
+
+def test_fallback_context_can_retry_and_return_to_shared_mode():
+    state = {"available": False}
+
+    class RecoveringStorage(GoodSharedStorage):
+        def probe_access(self):
+            if not state["available"]:
+                raise StorageUnavailableError("serveur hors ligne")
+            self.known_revision = 7
+            return {"storage_revision": 7}
+
+    resolver = FakeResolver(shared_paths())
+    context = build_export_storage(
+        object(),
+        r"C:\local\candidate.json",
+        LOCAL_ID,
+        resolver=resolver,
+        shared_storage_factory=RecoveringStorage,
+        repository_factory=FakeRepository,
+    )
+
+    assert context.fallback_from_shared
+    assert not context.is_shared
+
+    state["available"] = True
+    recovered = context.retry()
+
+    assert recovered.is_shared
+    assert not recovered.fallback_from_shared
+    assert recovered.repository.shared_storage.known_revision == 7
+    assert recovered.shared_config_path.endswith("export.json")
