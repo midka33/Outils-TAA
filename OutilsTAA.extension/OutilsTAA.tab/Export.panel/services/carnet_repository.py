@@ -279,75 +279,78 @@ class CarnetRepository(object):
                 output_directory=publication_set.output_directory
             )
 
-        data = self._ensure_structure(self._read())
-        sets = data.get("sets", [])
-        existing_index = None
-        existing = None
+        def mutation(data):
+            sets = data.get("sets", [])
+            existing_index = None
+            existing = None
 
-        for index, value in enumerate(sets):
-            if str(value.get("id")) == str(publication_set.id):
-                existing_index = index
-                existing = value
-                break
+            for index, value in enumerate(sets):
+                if str(value.get("id")) == str(publication_set.id):
+                    existing_index = index
+                    existing = value
+                    break
 
-        if getattr(publication_set, "tree_order", None) is None:
-            if existing is not None:
-                publication_set.tree_order = existing.get("tree_order")
+            if getattr(publication_set, "tree_order", None) is None:
+                if existing is not None:
+                    publication_set.tree_order = existing.get("tree_order")
+                else:
+                    publication_set.tree_order = self._append_tree_order(
+                        data,
+                        publication_set.folder_id,
+                    )
+
+            if getattr(publication_set, "sort_order", None) is None:
+                publication_set.sort_order = 0
+
+            serialized = self._to_dict(publication_set)
+            if existing_index is not None:
+                sets[existing_index] = serialized
             else:
-                publication_set.tree_order = self._append_tree_order(
-                    data,
-                    publication_set.folder_id,
-                )
+                sets.append(serialized)
 
-        if getattr(publication_set, "sort_order", None) is None:
-            publication_set.sort_order = 0
+            data["sets"] = sets
+            self._normalize_tree_order(data)
+            return True, publication_set
 
-        serialized = self._to_dict(publication_set)
-        if existing_index is not None:
-            sets[existing_index] = serialized
-        else:
-            sets.append(serialized)
-
-        data["sets"] = sets
-        self._normalize_tree_order(data)
-        self._write(data)
-        return publication_set
+        return self._mutate(mutation)
 
     def save_folder(self, folder):
         if folder is None or not folder.id:
             raise ValueError("Le dossier doit posséder un identifiant.")
 
         folder.persistent = True
-        data = self._ensure_structure(self._read())
-        folders = data.get("folders", [])
-        existing_index = None
-        existing = None
 
-        for index, value in enumerate(folders):
-            if str(value.get("id")) == str(folder.id):
-                existing_index = index
-                existing = value
-                break
+        def mutation(data):
+            folders = data.get("folders", [])
+            existing_index = None
+            existing = None
 
-        if getattr(folder, "tree_order", None) is None:
-            if existing is not None:
-                folder.tree_order = existing.get("tree_order")
+            for index, value in enumerate(folders):
+                if str(value.get("id")) == str(folder.id):
+                    existing_index = index
+                    existing = value
+                    break
+
+            if getattr(folder, "tree_order", None) is None:
+                if existing is not None:
+                    folder.tree_order = existing.get("tree_order")
+                else:
+                    folder.tree_order = self._append_tree_order(
+                        data,
+                        folder.parent_id,
+                    )
+
+            serialized = self._folder_to_dict(folder)
+            if existing_index is not None:
+                folders[existing_index] = serialized
             else:
-                folder.tree_order = self._append_tree_order(
-                    data,
-                    folder.parent_id,
-                )
+                folders.append(serialized)
 
-        serialized = self._folder_to_dict(folder)
-        if existing_index is not None:
-            folders[existing_index] = serialized
-        else:
-            folders.append(serialized)
+            data["folders"] = folders
+            self._normalize_tree_order(data)
+            return True, folder
 
-        data["folders"] = folders
-        self._normalize_tree_order(data)
-        self._write(data)
-        return folder
+        return self._mutate(mutation)
 
     def _record(self, data, kind, item_id):
         item_id = str(item_id)
@@ -362,220 +365,244 @@ class CarnetRepository(object):
         return None
 
     def move_tree_nodes(self, nodes, parent_id, before_node=None):
-        """Déplace/reclasse des dossiers de types internes différents.
-
-        nodes : liste de tuples ("FOLDER"|"CARNET", id)
-        parent_id : identifiant de n'importe quel dossier visuel destination
-        before_node : tuple (kind, id) ou None pour ajouter en fin
-
-        Depuis le schéma 8, PublicationFolder et PublicationSet peuvent tous
-        deux servir de parent. L'ID parent reste stocké dans parent_id/folder_id
-        pour compatibilité avec les anciens JSON.
-        """
+        """Déplace/reclasse des dossiers de types internes différents."""
         nodes = list(nodes or [])
         if not nodes:
             return False
 
-        data = self._ensure_structure(self._read())
-        folders = data.get("folders", [])
-        sets = data.get("sets", [])
-        container_map = {}
-        container_kind = {}
-        for value in folders:
-            key = str(value.get("id"))
-            container_map[key] = value
-            container_kind[key] = "FOLDER"
-        for value in sets:
-            key = str(value.get("id"))
-            container_map[key] = value
-            container_kind[key] = "CARNET"
+        def mutation(data):
+            folders = data.get("folders", [])
+            sets = data.get("sets", [])
+            container_map = {}
+            container_kind = {}
 
-        if (
-            parent_id is not None
-            and str(parent_id) not in container_map
-        ):
-            return False
+            for value in folders:
+                key = str(value.get("id"))
+                container_map[key] = value
+                container_kind[key] = "FOLDER"
 
-        normalized = []
-        seen = set()
-        for kind, item_id in nodes:
-            kind = str(kind)
-            item_id = str(item_id)
-            if kind not in ("FOLDER", "CARNET"):
-                return False
-            key = (kind, item_id)
-            if key in seen:
-                continue
-            seen.add(key)
-            value = self._record(data, kind, item_id)
-            if value is None:
-                return False
+            for value in sets:
+                key = str(value.get("id"))
+                container_map[key] = value
+                container_kind[key] = "CARNET"
+
             if (
-                kind == "FOLDER"
-                and item_id == self.DEFAULT_FOLDER_ID
+                parent_id is not None
+                and str(parent_id) not in container_map
             ):
-                return False
-            normalized.append((kind, value))
+                return False, False
 
-        if not normalized:
-            return False
+            normalized = []
+            seen = set()
+            for kind, item_id in nodes:
+                kind = str(kind)
+                item_id = str(item_id)
+                if kind not in ("FOLDER", "CARNET"):
+                    return False, False
 
-        moving_keys = set(
-            (kind, str(value.get("id")))
-            for kind, value in normalized
-        )
-
-        if before_node is not None:
-            before_key = (str(before_node[0]), str(before_node[1]))
-            if before_key in moving_keys:
-                return False
-        else:
-            before_key = None
-
-        if any(kind == "CARNET" for kind, value in normalized):
-            if parent_id is None:
-                return False
-
-        # Interdire qu'un dossier visuel (quel que soit son type interne)
-        # devienne son propre descendant.
-        for kind, value in normalized:
-            source_id = str(value.get("id"))
-            current = str(parent_id) if parent_id is not None else None
-            visited = set()
-            while current is not None and current not in visited:
-                if current == source_id:
-                    return False
-                visited.add(current)
-                parent = container_map.get(current)
-                if parent is None:
-                    current = None
+                key = (kind, item_id)
+                if key in seen:
                     continue
-                parent_kind = container_kind.get(current)
-                parent_id_value = (
-                    parent.get("parent_id")
-                    if parent_kind == "FOLDER"
-                    else parent.get("folder_id", self.DEFAULT_FOLDER_ID)
-                )
-                current = (
-                    str(parent_id_value)
-                    if parent_id_value is not None
-                    else None
-                )
+                seen.add(key)
 
-        source_parents = set()
-        for kind, value in normalized:
-            if kind == "FOLDER":
-                source_parents.add(value.get("parent_id"))
-                value["parent_id"] = parent_id
-            else:
-                source_parents.add(
-                    value.get("folder_id", self.DEFAULT_FOLDER_ID)
-                )
-                value["folder_id"] = parent_id
+                value = self._record(data, kind, item_id)
+                if value is None:
+                    return False, False
+                if (
+                    kind == "FOLDER"
+                    and item_id == self.DEFAULT_FOLDER_ID
+                ):
+                    return False, False
+                normalized.append((kind, value))
 
-        destination = self._children(
-            data,
-            parent_id,
-            excluded=moving_keys,
-        )
-        destination.sort(key=self._tree_sort_key)
+            if not normalized:
+                return False, False
 
-        insert_at = len(destination)
-        if before_key is not None:
-            for index, entry in enumerate(destination):
-                key = (entry[0], str(entry[1].get("id")))
-                if key == before_key:
-                    insert_at = index
-                    break
-            else:
-                return False
-
-        destination[insert_at:insert_at] = normalized
-
-        # Destination : ordre mixte explicite.
-        for index, entry in enumerate(destination):
-            entry[1]["tree_order"] = index
-        self._assign_orders(destination)
-
-        # Sources quittées : refermer les trous.
-        source_parents.add(parent_id)
-        for source_parent in source_parents:
-            if self._same_parent(source_parent, parent_id):
-                continue
-            self._assign_orders(
-                self._children(data, source_parent)
+            moving_keys = set(
+                (kind, str(value.get("id")))
+                for kind, value in normalized
             )
 
-        self._write(data)
-        return True
+            if before_node is not None:
+                before_key = (
+                    str(before_node[0]),
+                    str(before_node[1]),
+                )
+                if before_key in moving_keys:
+                    return False, False
+            else:
+                before_key = None
+
+            if any(kind == "CARNET" for kind, value in normalized):
+                if parent_id is None:
+                    return False, False
+
+            for kind, value in normalized:
+                source_id = str(value.get("id"))
+                current = (
+                    str(parent_id)
+                    if parent_id is not None
+                    else None
+                )
+                visited = set()
+
+                while current is not None and current not in visited:
+                    if current == source_id:
+                        return False, False
+                    visited.add(current)
+                    parent = container_map.get(current)
+                    if parent is None:
+                        current = None
+                        continue
+
+                    parent_kind = container_kind.get(current)
+                    parent_id_value = (
+                        parent.get("parent_id")
+                        if parent_kind == "FOLDER"
+                        else parent.get(
+                            "folder_id",
+                            self.DEFAULT_FOLDER_ID,
+                        )
+                    )
+                    current = (
+                        str(parent_id_value)
+                        if parent_id_value is not None
+                        else None
+                    )
+
+            source_parents = set()
+            for kind, value in normalized:
+                if kind == "FOLDER":
+                    source_parents.add(value.get("parent_id"))
+                    value["parent_id"] = parent_id
+                else:
+                    source_parents.add(
+                        value.get(
+                            "folder_id",
+                            self.DEFAULT_FOLDER_ID,
+                        )
+                    )
+                    value["folder_id"] = parent_id
+
+            destination = self._children(
+                data,
+                parent_id,
+                excluded=moving_keys,
+            )
+            destination.sort(key=self._tree_sort_key)
+
+            insert_at = len(destination)
+            if before_key is not None:
+                for index, entry in enumerate(destination):
+                    key = (
+                        entry[0],
+                        str(entry[1].get("id")),
+                    )
+                    if key == before_key:
+                        insert_at = index
+                        break
+                else:
+                    return False, False
+
+            destination[insert_at:insert_at] = normalized
+
+            for index, entry in enumerate(destination):
+                entry[1]["tree_order"] = index
+            self._assign_orders(destination)
+
+            source_parents.add(parent_id)
+            for source_parent in source_parents:
+                if self._same_parent(source_parent, parent_id):
+                    continue
+                self._assign_orders(
+                    self._children(data, source_parent)
+                )
+
+            return True, True
+
+        return self._mutate(mutation)
 
     def move_sheets_into_folder(self, sheet_refs, folder_id):
-        """Move ordered (set_id, sheet_unique_id) pairs into an ordinary folder.
-
-        Promote the destination to a PublicationSet while preserving its ID,
-        position, parent, children, and inherited settings. One JSON write makes
-        the entire move atomic (including the promotion).
-        """
-        refs = [(str(sid), str(uid)) for sid, uid in (sheet_refs or [])]
+        """Déplace des feuilles dans un dossier avec promotion atomique."""
+        refs = [
+            (str(sid), str(uid))
+            for sid, uid in (sheet_refs or [])
+        ]
         if not refs or len(refs) != len(set(refs)):
             return False
 
-        data = self._ensure_structure(self._read())
-        folder = next((f for f in data["folders"]
-                       if str(f.get("id")) == str(folder_id)), None)
-        if folder is None:
-            return False
-        if str(folder_id) == self.DEFAULT_FOLDER_ID:
-            # Root's parent is None; a PublicationSet cannot be a root.
-            return False
+        def mutation(data):
+            folder = next((
+                value
+                for value in data["folders"]
+                if str(value.get("id")) == str(folder_id)
+            ), None)
+            if folder is None:
+                return False, False
+            if str(folder_id) == self.DEFAULT_FOLDER_ID:
+                return False, False
 
-        sources = dict((str(value.get("id")), value)
-                       for value in data["sets"])
-        moved = []
-        for sid, uid in refs:
-            source = sources.get(sid)
-            if source is None:
-                return False
-            item = next((item for item in source.get("items", [])
-                         if str(item.get("unique_id")) == uid), None)
-            if item is None:
-                return False
-            moved.append(item)
+            sources = dict(
+                (str(value.get("id")), value)
+                for value in data["sets"]
+            )
+            moved = []
 
-        # Keep the stable node ID so existing children continue to point here.
-        promoted = {
-            "id": folder["id"],
-            "name": folder.get("name", ""),
-            "persistent": True,
-            "folder_id": folder.get("parent_id"),
-            "sort_order": folder.get("sort_order", 0),
-            "tree_order": folder.get("tree_order"),
-            "output_directory": None,
-            "filename_template_id": None,
-            "publication_settings": folder.get("publication_settings"),
-            "source": {"mode": PublicationSource.MANUAL,
-                       "parameter_name": None, "parameter_value": None},
-            "items": list(moved),
-        }
+            for sid, uid in refs:
+                source = sources.get(sid)
+                if source is None:
+                    return False, False
+                item = next((
+                    value
+                    for value in source.get("items", [])
+                    if str(value.get("unique_id")) == uid
+                ), None)
+                if item is None:
+                    return False, False
+                moved.append(item)
 
-        removals = {}
-        for sid, uid in refs:
-            removals.setdefault(sid, set()).add(uid)
-        for sid, removed in removals.items():
-            source = sources[sid]
-            source["items"] = [
-                item for item in source.get("items", [])
-                if str(item.get("unique_id")) not in removed
+            promoted = {
+                "id": folder["id"],
+                "name": folder.get("name", ""),
+                "persistent": True,
+                "folder_id": folder.get("parent_id"),
+                "sort_order": folder.get("sort_order", 0),
+                "tree_order": folder.get("tree_order"),
+                "output_directory": None,
+                "filename_template_id": None,
+                "publication_settings": folder.get(
+                    "publication_settings"
+                ),
+                "source": {
+                    "mode": PublicationSource.MANUAL,
+                    "parameter_name": None,
+                    "parameter_value": None,
+                },
+                "items": list(moved),
+            }
+
+            removals = {}
+            for sid, uid in refs:
+                removals.setdefault(sid, set()).add(uid)
+
+            for sid, removed in removals.items():
+                source = sources[sid]
+                source["items"] = [
+                    value
+                    for value in source.get("items", [])
+                    if str(value.get("unique_id")) not in removed
+                ]
+
+            data["folders"] = [
+                value
+                for value in data["folders"]
+                if str(value.get("id")) != str(folder_id)
             ]
+            data["sets"].append(promoted)
+            self._normalize_tree_order(data)
+            return True, True
 
-        data["folders"] = [
-            value for value in data["folders"]
-            if str(value.get("id")) != str(folder_id)
-        ]
-        data["sets"].append(promoted)
-        self._normalize_tree_order(data)
-        self._write(data)
-        return True
+        return self._mutate(mutation)
 
     def move_set(self, set_id, folder_id, before_set_id=None):
         return self.move_sets([set_id], folder_id, before_set_id)
@@ -609,61 +636,65 @@ class CarnetRepository(object):
         )
 
     def delete(self, set_id):
-        data = self._ensure_structure(self._read())
         set_id = str(set_id)
 
-        # Un dossier contenant des sous-dossiers ne peut pas être supprimé
-        # directement, même s'il est historiquement stocké comme PublicationSet.
-        if any(
-                str(value.get("parent_id")) == set_id
-                for value in data.get("folders", [])):
-            return False
-        if any(
-                str(value.get("folder_id")) == set_id
-                for value in data.get("sets", [])
-                if str(value.get("id")) != set_id):
-            return False
+        def mutation(data):
+            if any(
+                    str(value.get("parent_id")) == set_id
+                    for value in data.get("folders", [])):
+                return False, False
 
-        sets = data.get("sets", [])
-        filtered = [
-            value for value in sets
-            if str(value.get("id")) != set_id
-        ]
-        if len(filtered) == len(sets):
-            return False
-        data["sets"] = filtered
-        self._normalize_tree_order(data)
-        self._write(data)
-        return True
+            if any(
+                    str(value.get("folder_id")) == set_id
+                    for value in data.get("sets", [])
+                    if str(value.get("id")) != set_id):
+                return False, False
+
+            sets = data.get("sets", [])
+            filtered = [
+                value
+                for value in sets
+                if str(value.get("id")) != set_id
+            ]
+            if len(filtered) == len(sets):
+                return False, False
+
+            data["sets"] = filtered
+            self._normalize_tree_order(data)
+            return True, True
+
+        return self._mutate(mutation)
 
     def delete_folder(self, folder_id):
         if str(folder_id) == self.DEFAULT_FOLDER_ID:
             return False
 
-        data = self._ensure_structure(self._read())
-        folders = data.get("folders", [])
+        def mutation(data):
+            folders = data.get("folders", [])
 
-        if any(
-                str(value.get("parent_id")) == str(folder_id)
-                for value in folders):
-            return False
+            if any(
+                    str(value.get("parent_id")) == str(folder_id)
+                    for value in folders):
+                return False, False
 
-        if any(
-                str(value.get("folder_id")) == str(folder_id)
-                for value in data.get("sets", [])):
-            return False
+            if any(
+                    str(value.get("folder_id")) == str(folder_id)
+                    for value in data.get("sets", [])):
+                return False, False
 
-        filtered = [
-            value for value in folders
-            if str(value.get("id")) != str(folder_id)
-        ]
-        if len(filtered) == len(folders):
-            return False
+            filtered = [
+                value
+                for value in folders
+                if str(value.get("id")) != str(folder_id)
+            ]
+            if len(filtered) == len(folders):
+                return False, False
 
-        data["folders"] = filtered
-        self._normalize_tree_order(data)
-        self._write(data)
-        return True
+            data["folders"] = filtered
+            self._normalize_tree_order(data)
+            return True, True
+
+        return self._mutate(mutation)
 
     def _read(self):
         if self.shared_storage is not None:
