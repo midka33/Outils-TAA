@@ -187,7 +187,7 @@ préparation de release ; l’état GitHub de la PR et de la release fait foi.
 
 ### Plans de vente V1.1 — pièces des fichiers Revit liés
 
-**Statut : recette utilisateur validée dans Revit 2025.4 le 20 octobre 2026 — PR #28 prête pour revue, cible Outils TAA v1.3.0.**
+**Statut : livrée dans Outils TAA v1.3.0 le 20 octobre 2026 — PR #28 fusionnée, recette utilisateur Revit 2025.4 validée.**
 
 Objectif : lancer Plans de vente depuis un fichier hôte / SITE contenant les
 feuilles et cartouches, en analysant les pièces des fichiers Revit liés directs.
