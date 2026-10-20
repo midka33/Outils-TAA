@@ -306,3 +306,36 @@ def test_write_requires_prior_read_to_establish_revision_contract(tmp_path):
 
     with pytest.raises(RuntimeError):
         repo.write(base_data())
+
+
+def test_probe_access_does_not_create_export_json(tmp_path):
+    repo = storage(tmp_path)
+
+    data = repo.probe_access()
+
+    assert data is None
+    assert repo.known_revision == 0
+    assert not (tmp_path / "OutilsTAA" / "export.json").exists()
+    assert not list((tmp_path / "OutilsTAA").glob(".export-access-*.tmp"))
+
+
+def test_probe_access_validates_existing_shared_json(tmp_path):
+    target = tmp_path / "OutilsTAA" / "export.json"
+    write_raw(target, base_data(revision=9))
+
+    repo = storage(tmp_path)
+    data = repo.probe_access()
+
+    assert data["storage_revision"] == 9
+    assert repo.known_revision == 9
+
+
+def test_probe_access_never_masks_corrupted_existing_json(tmp_path):
+    target = tmp_path / "OutilsTAA" / "export.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{ broken", encoding="utf-8")
+
+    repo = storage(tmp_path)
+
+    with pytest.raises(StorageCorruptedError):
+        repo.probe_access()
