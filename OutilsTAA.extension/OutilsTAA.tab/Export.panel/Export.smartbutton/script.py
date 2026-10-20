@@ -26,6 +26,11 @@ import publication_preview_integration
 from publication_preview_integration import install_preview_on_export_window
 from publication_history_service import PublicationHistoryService
 from project_identity import get_project_identity, project_key, ensure_project_identity
+from export_storage_bootstrap import build_export_storage
+from shared_json_storage import (
+    ProjectIdentityMismatchError,
+    StorageCorruptedError,
+)
 
 install_preview_on_export_window(ExportWindow)
 
@@ -301,13 +306,54 @@ def main():
     carnet_service = CarnetService(export_service)
     parameter_service = ParameterService(parameter_utils)
     publication_service = PublicationService(revit.doc)
-    storage_path = _prepare_project_storage(revit.doc)
-    project_identity = get_project_identity(revit.doc)
-    repository = CarnetRepository(storage_path, project_identity=project_identity)
-    controller = CarnetController(export_service, carnet_service, parameter_service,
-                                   repository, publication_service)
-    window = ExportWindow(controller, repository)
     from pyrevit import script, forms
+
+    # Résoudre d'abord le stockage sans modifier le document Revit.
+    # Pour un central Windows accessible, aucune identité Extensible Storage
+    # n'est créée : la configuration partagée est identifiée par le central.
+    local_candidate_path = _get_storage_path(revit.doc)
+    local_candidate_identity = get_project_identity(revit.doc)
+
+    def prepare_historical_local_storage():
+        # Le comportement local historique est conservé uniquement lorsqu'il
+        # n'existe pas de central exploitable. Un fallback réseau d'un projet
+        # partagé n'écrit donc rien dans le modèle Revit.
+        local_path = _prepare_project_storage(revit.doc)
+        return local_path, get_project_identity(revit.doc)
+
+    try:
+        storage_context = build_export_storage(
+            revit.doc,
+            local_candidate_path,
+            local_candidate_identity,
+            prepare_local_callback=prepare_historical_local_storage,
+        )
+    except (StorageCorruptedError, ProjectIdentityMismatchError) as exc:
+        script.get_logger().exception(
+            "Configuration collaborative Export invalide"
+        )
+        forms.alert(
+            "Impossible d'ouvrir la configuration Export partagée :\n\n{}\n\n"
+            "Aucun basculement local automatique n'a été effectué afin de ne "
+            "pas masquer une corruption ou un mauvais projet."
+            .format(exc),
+            title="Export — configuration collaborative",
+        )
+        return
+
+    repository = storage_context.repository
+    controller = CarnetController(
+        export_service,
+        carnet_service,
+        parameter_service,
+        repository,
+        publication_service,
+    )
+    window = ExportWindow(
+        controller,
+        repository,
+        storage_context=storage_context,
+    )
     from dwg_ui_session import DwgUiSession, restore
     from dwg_setup_command import post_settings
     window._ui_application = __revit__
