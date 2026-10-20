@@ -33,6 +33,7 @@ Compléments techniques encore actifs :
 - `24_Export_Reglages_DWG.md` — réglages et stratégie DWG.
 - `15_Export_Stage08_Dynamique.md` — évolution future non raccordée à la publication.
 - `27_Export_Configuration_Collaborative.md` — contrat de stockage collaboratif Export V1.2 (issue #25).
+- `28_Export_Recette_Collaborative_Revit.md` — recette Revit multi-postes COLLAB-01 à COLLAB-11.
 
 Les anciennes étapes, audits et recettes de campagne sont sous
 `archive/export/` et `archive/export-tests/`.
