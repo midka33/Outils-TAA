@@ -3,7 +3,7 @@
 **Issue :** #25  
 **Branche :** `feature/export-v1.2-collaborative-config`  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows / partage SMB  
-**Statut :** résolveur central/UNC et couche JSON sûre implémentés hors Revit ; CarnetRepository pas encore raccordé  
+**Statut :** résolveur central/UNC, couche JSON sûre et CarnetRepository collaboratif implémentés hors Revit ; smartbutton/UI pas encore raccordés  
 **Principe :** aucune écriture dans le modèle Revit pour sauvegarder la configuration partagée.
 
 ## 1. État actuel constaté
@@ -387,7 +387,7 @@ distincts** ouverts sur le même central Windows.
 
 1. ✅ Résolveur de stockage + tests.
 2. ✅ Couche JSON sûre + verrou/révision/backups + tests.
-3. ⏳ Refactorisation de `CarnetRepository` autour de `_mutate`.
+3. ✅ Refactorisation de `CarnetRepository` autour de `_mutate`.
 4. ⏳ Raccordement du smartbutton sans transaction Revit en mode partagé.
 5. ⏳ UI Partagé / Local + Actualiser + conflits.
 6. ⏳ Migration locale explicite.
@@ -406,6 +406,23 @@ distincts** ouverts sur le même central Windows.
   verrou, corruption, identité projet, préservation du fichier existant en cas
   d'échec, création et rotation des backups.
 
-La couche n'est volontairement **pas encore utilisée par l'UI** : le prochain
-travail consiste à faire passer toutes les mutations de `CarnetRepository` par
-ce contrat unique avant le raccordement du smartbutton.
+Le `CarnetRepository` accepte désormais un backend partagé optionnel. En mode
+collaboratif, il conserve en mémoire la révision explicitement chargée et toutes
+les mutations directes passent par `_mutate()` :
+
+- sauvegarde d'un dossier de publication ;
+- sauvegarde d'un dossier d'organisation ;
+- déplacement / réordonnancement simple ou multiple ;
+- promotion d'un dossier vide lors d'un déplacement de feuilles ;
+- suppression de dossier ou de publication.
+
+Une lecture ordinaire de l'arborescence ne rafraîchit pas silencieusement la
+révision : si un autre utilisateur a enregistré entre-temps, la mutation lève
+`ConcurrentModificationError`. `refresh()` est la seule opération qui adopte
+explicitement la nouvelle révision.
+
+Le mode local historique conserve son comportement et le schéma JSON 8.
+
+La couche n'est volontairement **pas encore raccordée au smartbutton ni à l'UI**.
+La prochaine étape consiste à sélectionner automatiquement partagé/local au
+lancement d'Export, puis à exposer l'état et Actualiser dans la fenêtre.
