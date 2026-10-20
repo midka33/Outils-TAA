@@ -339,6 +339,49 @@ class SharedJsonStorage(object):
 
         return self._validate_data(data)
 
+    def probe_access(self):
+        """Vérifie que le dossier partagé est lisible et inscriptible.
+
+        Le probe ne crée ni ne modifie export.json et n'acquiert pas le verrou
+        métier. Il écrit uniquement un petit fichier temporaire unique dans le
+        même dossier, puis le supprime. Si export.json existe, il est également
+        relu et validé afin de ne jamais masquer une corruption ou une identité
+        projet différente.
+        """
+        directory = os.path.dirname(self.config_path)
+        probe_path = None
+        try:
+            if directory and not os.path.isdir(directory):
+                os.makedirs(directory)
+
+            probe_name = ".export-access-{}.tmp".format(uuid.uuid4().hex)
+            probe_path = os.path.join(directory, probe_name)
+            with io.open(probe_path, "w", encoding="utf-8") as handle:
+                handle.write("Outils TAA Export access probe")
+                handle.flush()
+                try:
+                    os.fsync(handle.fileno())
+                except Exception:
+                    pass
+        except Exception as exc:
+            _raise_storage_io(
+                exc,
+                "Le dossier partagé Outils TAA est inaccessible en écriture",
+            )
+        finally:
+            if probe_path and os.path.exists(probe_path):
+                try:
+                    os.remove(probe_path)
+                except Exception:
+                    pass
+
+        data = self._read_unlocked(allow_missing=True)
+        self.known_revision = self._revision(data)
+        self.known_write_id = (
+            data.get("last_write_id") if data is not None else None
+        )
+        return data
+
     def read(self):
         """Relit la source partagée et met à jour la révision connue."""
         data = self._read_unlocked(allow_missing=True)
