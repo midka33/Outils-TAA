@@ -255,8 +255,8 @@ Les tests Python valident le contrat logiciel mais pas :
 - le rendu WPF à 100 % / 125 % ;
 - la commande native de configuration dans Revit 2025.4.
 
-La recette de référence est :
-[`docs/25_Export_Recette_DWG.md`](25_Export_Recette_DWG.md).
+La recette historique utilisée pendant la stabilisation est conservée ici :
+[`docs/archive/export-tests/25_Export_Recette_DWG.md`](archive/export-tests/25_Export_Recette_DWG.md).
 
 ## Sources techniques déjà utilisées pour cette évolution
 
@@ -266,6 +266,6 @@ La recette de référence est :
 - référence `PostableCommand` consultée par l'évolution initiale ;
 - documentation Autodesk sur les images raster exportées comme ressources externes.
 
-La validation de ces comportements reste complétée par la recette réelle Revit
+La validation de ces comportements a été complétée par la recette réelle Revit
 2025.4 : aucune documentation ne remplace le test du build réellement utilisé par
 l'agence.
