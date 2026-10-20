@@ -14,6 +14,7 @@ WINDOW = PANEL / "ui" / "plans_vente_window.py"
 XAML = PANEL / "ui" / "plans_vente.xaml"
 SCRIPT = PANEL / "PlansDeVente.pushbutton" / "script.py"
 DOC = ROOT / "docs" / "20_Plans_de_Vente.md"
+HISTORICAL_DOC = ROOT / "docs" / "archive" / "plans-de-vente" / "20_Plans_de_Vente_Historique_Stages_01_09.md"
 
 
 def test_stage07d_service_is_template_driven_and_atomic():
@@ -98,7 +99,7 @@ def test_stage07d_ui_has_one_click_full_plan_action():
 
 
 def test_stage07d_documentation_is_present():
-    text = DOC.read_text(encoding="utf-8")
+    text = HISTORICAL_DOC.read_text(encoding="utf-8")
 
     assert "## Étape 07D — Génération complète depuis la feuille modèle" in text
     assert "stage07d-template-driven-full-generation-v4" in text

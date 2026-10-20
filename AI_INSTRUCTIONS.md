@@ -12,7 +12,7 @@ Ce fichier constitue le point d'entrée des consignes destinées à toute IA, ag
 
 Une IA qui intervient sur ce repository doit considérer les règles ci-dessous comme des **contraintes de développement**, et non comme de simples recommandations.
 
-La documentation fonctionnelle et technique reste la référence détaillée. En cas de doute, consulter les documents concernés avant de modifier le code.
+La documentation fonctionnelle et technique reste la référence détaillée. En cas de doute, consulter les documents concernés avant de modifier le code. L'index courant est `docs/INDEX.md` ; `docs/archive/` contient uniquement de l'historique et ne doit pas être pris comme comportement actuel.
 
 ---
 
@@ -67,7 +67,7 @@ Commit
 Pour les outils disposant d'une documentation dédiée, celle-ci constitue la référence fonctionnelle à maintenir à jour. Par exemple :
 
 - **Export** → `docs/09_Export.md` ;
-- **Calculs des pièces** → `docs/10_RoomCalculator.md` ;
+- **Calculs des pièces** → `docs/10_Calculs_Pieces.md` ;
 - règles transversales → documentation générale `docs/`.
 
 **Il est interdit de considérer une modification fonctionnelle comme terminée si le comportement documenté n'a pas été mis à jour.**
@@ -257,9 +257,10 @@ Cette règle s'applique notamment aux tests préparés pendant les développemen
 | Workflow Git | `docs/07_Git_Workflow.md` |
 | Tests | `docs/08_Testing.md` |
 | Module Export | `docs/09_Export.md` |
-| RoomCalculator / Calculs des pièces | `docs/10_RoomCalculator.md` |
+| Calculs des pièces | `docs/10_Calculs_Pieces.md` |
 | Registre des bugs | `docs/11_BUGS_Prevention_Registry.md` |
-| Publication multiple Export | `docs/12_Export_Stage06_Publication_Multiple.md` |
+| Plans de vente | `docs/20_Plans_de_Vente.md` |
+| Index documentaire courant | `docs/INDEX.md` |
 
 ---
 

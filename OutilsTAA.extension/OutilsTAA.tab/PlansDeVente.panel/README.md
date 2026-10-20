@@ -4,8 +4,7 @@ Module Outils TAA pour Autodesk Revit 2025.4 / pyRevit 5.x.
 
 La V1 historique a été livrée dans Outils TAA v1.2.0. La V1.1 ajoute la
 génération depuis les pièces de fichiers Revit liés directs et a été validée
-par l'utilisateur dans Revit 2025.4 le 20 octobre 2026. Elle prépare la release
-Outils TAA v1.3.0.
+par l'utilisateur dans Revit 2025.4 le 20 octobre 2026. Elle est livrée dans **Outils TAA v1.3.0**.
 
 Le module génère vues, crops, étiquettes, cotations, repérages, nomenclatures,
 légendes et feuilles depuis une feuille modèle. Les niveaux SITE nécessaires aux

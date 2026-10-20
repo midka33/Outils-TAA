@@ -5,7 +5,7 @@
 **PR :** #28 vers `main`  
 **Cible produit :** Outils TAA v1.3.0  
 **Cible technique :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows  
-**Statut :** recette utilisateur représentative validée ; candidate à la release.
+**Statut :** recette utilisateur validée ; intégrée et publiée dans Outils TAA v1.3.0.
 
 ## Décision de release
 
@@ -131,10 +131,10 @@ ZIP utilisateur et contrôle son contenu avant toute publication.
 - [x] Limites connues acceptées pour la release.
 - [x] Documentation fonctionnelle / technique alignée sur le comportement final.
 - [x] Préparation du workflow et des notes Outils TAA v1.3.0.
-- [ ] CI de la tête finale de PR #28 réussie après la préparation de release.
-- [ ] PR #28 fusionnée dans `main`.
-- [ ] CI du SHA exact de `main` réussie.
-- [ ] Publication automatique du tag / de la release `v1.3.0`.
+- [x] CI de la tête finale de PR #28 réussie après la préparation de release.
+- [x] PR #28 fusionnée dans `main` — commit `811c314127c00c11e51634407dc2ff47792b4f88`.
+- [x] CI du SHA exact de `main` réussie.
+- [x] Publication automatique du tag / de la release `v1.3.0`.
 
 La publication effective reste attestée par GitHub Actions et la release GitHub,
 pas par ce document seul.

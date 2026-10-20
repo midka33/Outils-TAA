@@ -191,7 +191,8 @@ def test_stage09_reference_mockups_are_committed():
     assert advanced_image.exists()
 
     text = readme.read_text(encoding="utf-8")
-    assert "TAABrandOrangeBrush" in text
+    assert "#FD8B5A" in text
+    assert "#FA641F" in text
     assert "09_interface_principale.webp" in text
     assert "09_options_avancees.webp" in text
     assert "Étape 09B" in text

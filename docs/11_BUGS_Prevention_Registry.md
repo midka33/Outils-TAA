@@ -576,9 +576,7 @@ sans rendre la main à Revit. La disponibilité future n'est pas garantie par
 `CanPostCommand` ; journaliser/afficher les erreurs immédiates.
 
 **Anti-régression :** `tests/test_export_dwg_settings.py`, tests de sélection multiple
-sur le smartbutton actif et suite complète Export/PDF/progression. Recette
-TEST-DWG-SETUP-01 à 12 dans `docs/25_Export_Recette_DWG.md` : **en attente de validation
-utilisateur dans Revit 2025.4**, notamment vues, liens, raster et fenêtre native.
+sur le smartbutton actif et suite complète Export/PDF/progression. Recette historique TEST-DWG-SETUP-01 à 12 conservée dans `docs/archive/export-tests/25_Export_Recette_DWG.md`. Le workflow DWG principal a ensuite été validé dans Revit 2025.4 ; les limites natives sur ressources externes restent documentées dans `docs/24_Export_Reglages_DWG.md`.
 
 ### BUG-EXPORT-042 — « Dossier du carnet » dépendait du mode combiné/séparé
 
@@ -624,7 +622,7 @@ réglages courants restent visibles sans scroll obligatoire en Full HD.
 
 **Anti-régression :** contrat XAML dans `tests/test_export_dwg_settings.py` :
 absence des contrôles de mode, hauteur bornée, libellé dossier du carnet ; recette
-visuelle 1920 × 1080 à 100 % et 125 % dans `docs/25_Export_Recette_DWG.md`.
+visuelle 1920 × 1080 à 100 % et 125 % dans `docs/archive/export-tests/25_Export_Recette_DWG.md`.
 
 ### BUG-EXPORT-044 — PDF combiné nommé avec la première feuille
 

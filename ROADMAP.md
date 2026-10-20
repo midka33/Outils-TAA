@@ -38,7 +38,7 @@
 - [x] Transmettre le modèle hérité sans changer les surcharges persistantes.
 - [x] Supprimer les deux initialisations redondantes du glisser-déposer.
 - [x] Actualiser les tests et capitaliser les bugs 020 à 024.
-- [x] TEST-14 validé par l'utilisateur le 2026-09-29 dans Revit 2025.4 : profils, PDF combinés/séparés, noms et contenu des fichiers (dont `PC 09*`), code `7bb533c`. Voir `docs/17_Export_Preparation_TEST14.md`.
+- [x] TEST-14 validé par l'utilisateur le 2026-09-29 dans Revit 2025.4 : profils, PDF combinés/séparés, noms et contenu des fichiers (dont `PC 09*`), code `7bb533c`. Voir `docs/archive/export-tests/17_Export_Preparation_TEST14.md`.
 - [ ] Recontrôler TEST-04 et un déplacement multiple après suppression des doublons.
 - [ ] Consolider la surcouche `stage07` après validation réelle.
 
@@ -46,9 +46,9 @@
 
 - [x] Raccorder la sélection Ctrl/Maj au résumé, à l'aperçu et à la publication.
 - [x] Tester hors Revit les sous-ensembles, l'ordre, les doublons et les réglages indépendants.
-- [x] Rédiger le [tutoriel utilisateur](docs/20_Export_Tutoriel.md).
+- [x] Rédiger le [tutoriel utilisateur](docs/archive/export/20_Export_Tutoriel.md).
 - [x] Validation utilisateur du fonctionnement de la sélection multiple dans Revit le 2026-10-05 (PR #11).
-- [ ] Valider MS-01 à MS-10 dans Revit 2025.4 : [recette](docs/21_Export_Recette_Selection_Multiple.md).
+- [ ] Valider MS-01 à MS-10 dans Revit 2025.4 : [recette](docs/archive/export-tests/21_Export_Recette_Selection_Multiple.md).
 - [ ] Valider le tutoriel avec l'utilisateur avant release.
 
 ### V1 — Stabilisation et sortie
@@ -142,7 +142,7 @@ La priorité est de finaliser les tests et corrections de la V1, puis de la sort
 
 ## Phase 4 — Plans de vente
 
-**Statut : V1 validée le 16 octobre 2026 — intégration par la PR #26 et livraison dans Outils TAA v1.2.0.**
+**Statut : V1.1 fichiers liés validée le 20 octobre 2026 — intégrée par la PR #28 et livrée dans Outils TAA v1.3.0.**
 Spécification de référence : `docs/20_Plans_de_Vente.md`.
 
 ### Conception
@@ -187,7 +187,7 @@ préparation de release ; l’état GitHub de la PR et de la release fait foi.
 
 ### Plans de vente V1.1 — pièces des fichiers Revit liés
 
-**Statut : recette utilisateur validée dans Revit 2025.4 le 20 octobre 2026 — PR #28 prête pour revue, cible Outils TAA v1.3.0.**
+**Statut : livrée dans Outils TAA v1.3.0 le 20 octobre 2026 — PR #28 fusionnée, recette utilisateur Revit 2025.4 validée.**
 
 Objectif : lancer Plans de vente depuis un fichier hôte / SITE contenant les
 feuilles et cartouches, en analysant les pièces des fichiers Revit liés directs.
