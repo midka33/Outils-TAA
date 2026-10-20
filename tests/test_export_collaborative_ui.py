@@ -116,3 +116,16 @@ def test_delete_service_does_not_swallow_storage_errors():
     assert "from shared_json_storage import StorageError" in source
     assert "except StorageError:" in source
     assert "raise" in source
+
+
+def test_window_activation_reports_external_revision_without_auto_reload():
+    xaml = (PANEL / "ui.xaml").read_text(encoding="utf-8")
+    assert 'Activated="Window_Activated"' in xaml
+
+    func = method("export_window.py", "ExportWindow", "Window_Activated")
+    text = source_segment("export_window.py", func)
+
+    assert "self.repository.has_external_change()" in text
+    assert "Une version plus récente est disponible" in text
+    assert "Actualiser" in text
+    assert "self.repository.refresh()" not in text
