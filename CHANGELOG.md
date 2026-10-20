@@ -60,7 +60,7 @@ Le format suit les principes de *Keep a Changelog*.
 
 Version publiée. Périmètre vérifié depuis v1.0.3 : évolutions Export
 issues des PR #22 et #23, sans modification des modules Calculs ou Plans de vente.
-Voir le [bilan de préparation](docs/release/Preparation_v1.1.0.md).
+Voir le [bilan de préparation](docs/archive/releases/v1.1.0/Preparation_v1.1.0.md).
 
 - **PR #22** : dossiers et anciens carnets unifiés visuellement, sous-dossiers,
   glisser-déposer avant/dedans/après (15 % / 70 % / 15 %), dossiers ouverts ou

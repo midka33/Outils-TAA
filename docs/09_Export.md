@@ -72,7 +72,7 @@ désormais commun : ils peuvent être intercalés comme dans un explorateur de f
 **Statut : PR #22 et #23 fusionnées dans `main`, fonctionnement confirmé par
 l'utilisateur dans Revit 2025.4 le 13 octobre 2026.**
 
-Voir : [`docs/26_Export_Recette_Arborescence.md`](26_Export_Recette_Arborescence.md).
+Voir : [`docs/archive/export-tests/26_Export_Recette_Arborescence.md`](archive/export-tests/26_Export_Recette_Arborescence.md).
 
 ### Déplacement des mises en page — PR #23
 
@@ -140,8 +140,8 @@ Ctrl/Maj notifie explicitement la fenêtre, car l'événement natif WPF est inte
 Le handler natif `Tree_SelectedItemChanged` reste propriétaire du chargement des réglages ;
 la surcouche de sélection de dossier devenue redondante est retirée.
 
-Voir [le tutoriel utilisateur](20_Export_Tutoriel.md) et
-[la recette Revit](21_Export_Recette_Selection_Multiple.md).
+Voir [le tutoriel utilisateur](archive/export/20_Export_Tutoriel.md) et
+[la recette Revit](archive/export-tests/21_Export_Recette_Selection_Multiple.md).
 **Statut : 212 tests Python réussis ; fonctionnement de la sélection multiple
 confirmé par l’utilisateur dans Revit le 2026-10-05 sur la branche de la PR #11.**
 La recette détaillée MS-01 à MS-10 reste distincte de cette validation fonctionnelle.
@@ -217,9 +217,9 @@ le rapport reste la source de vérité sur les succès et les fichiers.
 `PdfExportService`. Les hooks Stage 07 du smartbutton et les fonctions de repli
 sont raccordés. Les noms, destinations, sélections et règles d'historique sont conservés.
 
-**Validation : 257 tests Python réussis ; recette Revit 2025.4 encore requise.**
+**Validation : workflow de progression validé dans Revit 2025.4 le 8 octobre 2026 ; les anciennes recettes détaillées sont conservées dans `docs/archive/export-tests/`.**
 Voir [la spécification et l'implémentation](22_Export_Progression.md) et
-[la recette de progression](23_Export_Recette_Progression.md).
+[la recette de progression](archive/export-tests/23_Export_Recette_Progression.md).
 
 ## Ruban Revit — bouton Export graphique seul
 
@@ -1260,7 +1260,7 @@ L'aperçu précise preset et références. Pour plusieurs feuilles, il affiche u
 ligne par DWG avec le **nom final TAA** prévu. Le rapport reprend les chemins réels
 après rapprochement, renommage et livraison.
 Analyse, surcharges et limites : [24_Export_Reglages_DWG.md](24_Export_Reglages_DWG.md).
-Recette non encore validée : [25_Export_Recette_DWG.md](25_Export_Recette_DWG.md).
+Recette non encore validée : [archive/export-tests/25_Export_Recette_DWG.md](archive/export-tests/25_Export_Recette_DWG.md).
 
 ---
 
@@ -1693,7 +1693,7 @@ Le socle, la prévisualisation et le raccordement simple/multiple sont implémen
 Restent la validation Revit 2025.4 et la consolidation ultérieure de la surcouche
 `stage07`. Les correctifs de préparation TEST-14 sont testés hors Revit : nommage
 PDF séparé, héritage du modèle et instance unique du glisser-déposer.
-Voir `17_Export_Preparation_TEST14.md` et la roadmap racine.
+Voir `archive/export-tests/17_Export_Preparation_TEST14.md` et la roadmap racine.
 
 ### Étape 08 — Dynamique avancé
 
