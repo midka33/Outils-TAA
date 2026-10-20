@@ -59,7 +59,8 @@ def test_stage09_main_and_advanced_xaml_are_valid_and_use_taa_brand_orange():
     for text in (main, advanced):
         assert 'FontFamily="Segoe UI"' in text
         assert 'FontSize="13"' in text
-        assert "TAABrandOrangeBrush" in text
+        assert "#FD8B5A" in text
+    assert "#FA641F" in text
 
     assert "Portée de génération" in main
     assert "Choix de la feuille modèle" in main
