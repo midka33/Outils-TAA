@@ -152,8 +152,14 @@ En mode partagé, la persistance de la configuration ne nécessite aucune
 transaction ni synchronisation du modèle Revit. Le comportement Extensible
 Storage historique reste réservé au vrai mode local.
 
-La migration initiale d'une configuration locale vers le partage reste l'étape
-suivante et doit toujours demander une confirmation explicite.
+La migration initiale d'une configuration locale vers le partage est maintenant
+prévue explicitement : elle n'est proposée que si aucun `export.json` partagé
+n'existe, si le JSON local contient des données utilisateur et après confirmation.
+
+Le fichier local est conservé. Un refus est mémorisé localement pour éviter les
+demandes répétées. Si un autre poste crée la configuration partagée pendant la
+confirmation, l'import est annulé et la version serveur est utilisée. Aucune
+fusion automatique n'est réalisée.
 
 Référence technique :
 [`docs/27_Export_Configuration_Collaborative.md`](27_Export_Configuration_Collaborative.md).
