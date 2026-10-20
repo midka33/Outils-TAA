@@ -6,14 +6,31 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
-### Ajouté — Plans de vente V1.1, pièces liées (issue #27, recette Revit en attente)
+## [1.3.0] — 2026-10-20
 
-- Option désactivée par défaut pour analyser le document actif et les liens Revit chargés directs ; colonne Source et avertissements de collecte.
-- Identités logement/pièce par instance de lien ; suffixe de sortie distinct, numéro métier conservé dans les filtres et cartouches.
-- Adaptation des coordonnées source vers SITE pour crop, placement des tags liés, cotations natives et repérage, sans réécrire les moteurs V1.
-- Correspondance des niveaux par altitude transformée ; prise en charge mono-niveau et duplex, paramètres bâtiment/typologie source.
-- Filtrage natif des copies de nomenclatures par fichier et instance, conservation des totaux et filtres métier ; refus explicite des sources ambiguës.
-- Tests des adaptateurs et recette Revit dédiée. Aucun changement métier Export/Calculs, aucune fusion ni release avant validation Revit utilisateur.
+### Ajouté — Plans de vente V1.1 : fichiers Revit liés (PR #28 / issue #27)
+
+- Option **Inclure les pièces des fichiers Revit liés** pour générer depuis `SITE.rvt` à partir des pièces des liens Revit directs chargés, avec colonne Source et identité interne par instance de lien.
+- Transformation des coordonnées liées vers SITE pour le crop, le repérage, les étiquettes de pièces liées et les cotations natives.
+- Création automatique des niveaux SITE manquants à l'altitude transformée, avec niveaux techniques `PDV_AUTO_...` et création d'une vue plan source lorsque nécessaire.
+- Nomenclatures de pièces liées filtrées par fichier / instance sans perdre les filtres métier, totaux, regroupements et unités du modèle.
+- Réutilisation des légendes de la feuille modèle sans duplication de la vue Legend.
+- Les identifiants techniques d'instance de lien restent internes : aucun suffixe `-L<id>` n'est ajouté par défaut aux noms visibles.
+- En cas de même numéro logement dans plusieurs sources, le module demande à l'utilisateur un libellé lisible pour différencier les sorties.
+
+### Validation
+
+- Workflow réel confirmé par l'utilisateur dans **Revit 2025.4 / pyRevit 5.x** le 20 octobre 2026 : génération depuis SITE avec bâtiments liés, niveaux automatiques, vues/crops, repérage, nomenclatures, cartouche et nommage.
+- Étiquettes de pièces et cotations confirmées lorsque leurs **types existent dans le fichier hôte SITE**.
+- CI de la branche et contrôles de packaging au vert avant préparation de la PR de release.
+- Export et Calculs des pièces ne reçoivent aucun changement métier dans cette version.
+
+### Limites connues
+
+- Liens Revit directs chargés uniquement ; liens imbriqués et transformations verticalement inclinées / renversées hors périmètre.
+- Le type d'étiquette de pièce et le type de cote sont encore déduits d'annotations appartenant au fichier hôte. Une annotation visible uniquement via une vue liée ne fournit pas ce type à la V1.1.
+- Les nomenclatures de pièces modèles doivent être configurées pour inclure les éléments des fichiers liés.
+- La mise à jour automatique des plans déjà générés reste hors périmètre.
 
 ## [1.2.0] — 2026-10-16
 
