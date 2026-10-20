@@ -250,7 +250,7 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [x] Étape 4B — smartbutton raccordé au stockage collaboratif avec fallback local contrôlé.
 - [x] Étape 5 — UI Partagé / Local, Actualiser et gestion de conflit.
 - [x] Étape 6 — migration locale explicite.
-- [ ] Étape 7 — tests automatisés de concurrence et panne.
+- [x] Étape 7 — tests automatisés de concurrence, panne, migration et contrats COLLAB hors Revit.
 - [ ] Étape 8 — recette Revit sur deux postes avant toute fusion.
 
 Aucune fusion dans `main` ni publication ne doit intervenir avant validation réelle
