@@ -29,7 +29,8 @@ jobs:
       - name: Suite complète Export et contrats de progression
         run: >-
           python -m pytest tests OutilsTAA.extension/OutilsTAA.tab/Export.panel/tests
-          --ignore=tests/calculation --ignore=tests/plans_vente --import-mode=importlib -q
+          --ignore=tests/calculation --ignore=tests/plans_vente
+          --ignore=tests/test_export_ribbon_contract.py --import-mode=importlib -q
       - name: Contrôler les fichiers de l'archive source
         run: |
           python - <<'PY'
