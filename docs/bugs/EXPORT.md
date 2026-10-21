@@ -713,3 +713,26 @@ la ligne du nœud doit utiliser les dimensions du header, jamais
 **Anti-régression :** test avec un TreeViewItem simulé à 220 px et un header à
 20 px ; le centre du header doit rester `INSIDE`, indépendamment de la hauteur
 des enfants.
+
+### BUG-EXPORT-053 — Wrapper d'initialisation incompatible avec le nouveau contexte de stockage
+
+**Symptôme :** après raccordement du smartbutton collaboratif, l'appel
+`ExportWindow(..., storage_context=...)` aurait pu échouer à l'ouverture avec
+un argument inattendu, alors que la classe `ExportWindow` elle-même acceptait
+bien ce nouveau paramètre.
+
+**Cause racine :** `publication_preview_integration.install_preview_on_export_window`
+remplace dynamiquement `ExportWindow.__init__` par un wrapper dont la signature
+était restée limitée à `(controller, repository)`. L'extension dynamique
+masquait donc le nouveau contrat du constructeur réel.
+
+**Correction :** faire suivre explicitement `storage_context=None` dans le
+wrapper puis appeler le constructeur d'origine avec ce paramètre.
+
+**Règle préventive :** tout monkey-patch ou décorateur qui remplace une méthode
+publique doit préserver son contrat d'appel, y compris les nouveaux paramètres
+optionnels. Lorsqu'un constructeur est enveloppé, ajouter un test statique ou
+d'intégration couvrant les arguments transmis par le point d'entrée réel.
+
+**Anti-régression :** `tests/test_export_collaborative_ui.py` vérifie que le
+wrapper accepte et retransmet `storage_context`.
