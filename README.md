@@ -16,6 +16,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
+| **Règle des 1/6 — surfaces vitrées** | Prototype V0.1 préparé hors dépôt ; intégration et validation Revit à réaliser sur `feature/calculs-regle-1-6-baies` |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
@@ -41,6 +42,23 @@ cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure le
 
 Voir `docs/20_Plans_de_Vente.md` et la recette de release
 `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+
+## Règle des 1/6 — surfaces vitrées (en développement)
+
+Module de contrôle des surfaces des baies pour les **maisons individuelles** et les **bâtiments de logements collectifs**, cible **Revit 2025.4 / pyRevit 5.x**.
+
+Objectif : comparer la surface des baies mesurée en tableau à un objectif de **1/6 de la surface habitable (SHAB)**, en distinguant le contrôle à l'échelle du bâtiment et les bilans par logement. L'analyse réglementaire doit aussi gérer les éventuelles modalités alternatives applicables au projet. Le calcul ne doit pas être présenté comme une preuve automatique de conformité RE2020.
+
+Périmètre fonctionnel prévu :
+
+- Collecter les pièces du projet actif et, si sélectionnés, des liens Revit directs chargés ; regrouper par bâtiment et numéro de logement.
+- Lire les surfaces habitables pertinentes, en contrôlant leur périmètre et en évitant d'assimiler systématiquement la surface brute des pièces Revit à la SHAB.
+- Inventorier les fenêtres, portes vitrées et panneaux de mur-rideau admissibles ; distinguer surface de baie mesurée en tableau, estimation géométrique et donnée manquante.
+- Éviter le double comptage des ouvertures et signaler les baies à vérifier (local desservi, paroi extérieure, doublons, identifiant de logement, lien).
+- Produire un bilan des surfaces exigées, recensées et manquantes, ainsi qu'un rapport exportable avec avertissements.
+- Prévoir un fonctionnement **en lecture seule** lors du diagnostic ; toute écriture future dans des paramètres Revit sera optionnelle et explicitement confirmée.
+
+**État au 21 octobre 2026 :** un prototype V0.1 autonome a été préparé en archive ZIP, mais **son code n'est pas encore intégré dans ce dépôt**. La branche de travail [`feature/calculs-regle-1-6-baies`](https://github.com/midka33/Outils-TAA/tree/feature/calculs-regle-1-6-baies) existe ; elle sert à la future intégration, aux tests et à la revue. Aucun test de validation en situation dans Revit 2025.4 n'a encore été effectué pour ce nouveau module.
 
 ## Guide utilisateur
 
