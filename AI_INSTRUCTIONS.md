@@ -20,8 +20,8 @@ La documentation fonctionnelle et technique reste la référence détaillée. En
 
 Avant de créer, modifier, supprimer ou déplacer du code :
 
-1. Lire `docs/11_BUGS_Prevention_Registry.md`.
-2. Rechercher les bugs et règles préventives concernant le module ou la zone de code modifiée.
+1. Lire `docs/11_BUGS_Prevention_Registry.md`, puis `docs/bugs/INDEX.md`.
+2. Lire le registre du module concerné (`docs/bugs/EXPORT.md`, `CALCULS.md`, `PLANS_DE_VENTE.md`, `COMMON.md` ou `TESTS.md`) et rechercher les règles préventives applicables.
 3. Lire la documentation technique ou fonctionnelle associée si elle existe.
 4. Identifier les risques de régression liés à la modification.
 5. Prévoir le test ou contrôle permettant de vérifier la modification.
@@ -182,7 +182,7 @@ Avant toute modification, vérifier notamment :
 - imports et risques de collision de modules ;
 - comportement réel dans Revit lorsque la modification concerne WPF, Revit API ou export.
 
-Les règles détaillées et les cas historiques se trouvent dans le registre des bugs.
+Les règles détaillées et les cas historiques se trouvent dans les registres modulaires sous `docs/bugs/`.
 
 ---
 
@@ -258,7 +258,7 @@ Cette règle s'applique notamment aux tests préparés pendant les développemen
 | Tests | `docs/08_Testing.md` |
 | Module Export | `docs/09_Export.md` |
 | Calculs des pièces | `docs/10_Calculs_Pieces.md` |
-| Registre des bugs | `docs/11_BUGS_Prevention_Registry.md` |
+| Registre des bugs | `docs/11_BUGS_Prevention_Registry.md` puis `docs/bugs/INDEX.md` |
 | Plans de vente | `docs/20_Plans_de_Vente.md` |
 | Index documentaire courant | `docs/INDEX.md` |
 
@@ -282,7 +282,7 @@ Une IA ne doit pas contourner une règle documentée simplement parce qu'une aut
 
 Avant de répondre « terminé » :
 
-- [ ] `docs/11_BUGS_Prevention_Registry.md` consulté.
+- [ ] `docs/11_BUGS_Prevention_Registry.md` et le registre `docs/bugs/` du module consultés.
 - [ ] Règles applicables identifiées.
 - [ ] Cause racine identifiée en cas de bug.
 - [ ] Correction réalisée.

@@ -1,0 +1,170 @@
+name: Repository maintenance once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repository-maintenance-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supprimer uniquement les refs auditées
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          deleted=0
+          skipped=0
+          while IFS='|' read -r branch expected; do
+            [ -z "$branch" ] && continue
+            current="$(gh api "repos/$REPO/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)"
+            if [ -z "$current" ]; then
+              echo "Déjà absente : $branch"
+              skipped=$((skipped + 1))
+              continue
+            fi
+            if [ "$current" != "$expected" ]; then
+              echo "SKIP $branch : head déplacée ($current != $expected)"
+              skipped=$((skipped + 1))
+              continue
+            fi
+            gh api --method DELETE "repos/$REPO/git/refs/heads/$branch"
+            echo "Supprimée : $branch"
+            deleted=$((deleted + 1))
+          done <<'BRANCHES'
+stage08-bridge|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real3|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real4|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real5|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real6|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-real7|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-work|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-work2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-bridge-work3|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-dynamic-architecture-next2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-clean|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-clean2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-clean3|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-clean4|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-final|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-final2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-final3|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-final4|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-impl|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-impl2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-impl3|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-impl4|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-v2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-work|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-x|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+stage08-publication-bridge-x2|1e70a2d714da6b0f6c14681929fcfb42da9e0201
+feature/export-carnet-management-20260903|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-final|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-final2|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-v2|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-v3|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-v4|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-v5|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-v6|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-work|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-management-work2|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui2|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui3|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui4|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui5|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui6|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-carnet-ui-final2|84f9915961465284e70417c5d3d887652c0ae81f
+feature/export-stage07-history-2|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+feature/export-stage07-history-3|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+feature/export-stage07-history-4|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+stage07-final|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+stage07x|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+stage07y|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+stage07z|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+stage07|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+tmp-check|a3f715e16127fd2baa07d21a0df4eff17d4f9119
+chore/docs-cleanup-v1.3|b80ab10600500315c126e05ae8eacac876f00bb7
+feature/plans-de-vente-linked-rooms|5ac49d1bdd26137d03b2b97d818ded63a8a370f0
+release/plans-de-vente-v1|b1c6d1f675a784ae0d25f6e56ec9a35b941b6413
+fix/test-04-folder-targets|74b838d75c54effee32aec1356dde10ab2863517
+fix/export-test-wave|d926f1d92622efe0e5227a1b015e31bdee7d4497
+BRANCHES
+          echo "Branches supprimées : $deleted"
+          echo "Branches ignorées : $skipped"
+          echo "### Nettoyage branches" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Supprimées : $deleted" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ignorées / déjà absentes : $skipped" >> "$GITHUB_STEP_SUMMARY"
+
+  try-protect-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tenter d'activer une ruleset de protection main
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > /tmp/ruleset.json <<'JSON'
+          {
+            "name": "Protect main — Outils TAA",
+            "target": "branch",
+            "enforcement": "active",
+            "conditions": {
+              "ref_name": {
+                "include": ["~DEFAULT_BRANCH"],
+                "exclude": []
+              }
+            },
+            "rules": [
+              {"type": "deletion"},
+              {"type": "non_fast_forward"},
+              {
+                "type": "pull_request",
+                "parameters": {
+                  "dismiss_stale_reviews_on_push": false,
+                  "require_code_owner_review": false,
+                  "require_last_push_approval": false,
+                  "required_approving_review_count": 0,
+                  "required_review_thread_resolution": true
+                }
+              },
+              {
+                "type": "required_status_checks",
+                "parameters": {
+                  "strict_required_status_checks_policy": true,
+                  "do_not_enforce_on_create": true,
+                  "required_status_checks": [
+                    {"context": "tests-calculs"},
+                    {"context": "tests-plans-vente"},
+                    {"context": "export"},
+                    {"context": "test-export-ribbon"}
+                  ]
+                }
+              }
+            ],
+            "bypass_actors": []
+          }
+          JSON
+          if gh api --method POST "repos/$REPO/rulesets" --input /tmp/ruleset.json >/tmp/ruleset-result.json 2>/tmp/ruleset-error.txt; then
+            echo "Protection main créée."
+            echo "### Protection main" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Ruleset créée avec PR obligatoire et CI obligatoires." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Impossible d'activer la protection avec GITHUB_TOKEN."
+            cat /tmp/ruleset-error.txt
+            echo "### Protection main" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Échec : le token Actions n'a pas les droits Administration nécessaires." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
