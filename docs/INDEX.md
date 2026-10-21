@@ -18,7 +18,8 @@ mais ne constituent pas une source de vérité fonctionnelle.
 - `06_AI_Development_Guide.md` — règles de développement assisté.
 - `07_Git_Workflow.md` — branches, commits, PR et releases.
 - `08_Testing.md` — stratégie de test.
-- `11_BUGS_Prevention_Registry.md` — registre global des bugs et règles préventives.
+- `11_BUGS_Prevention_Registry.md` — point d’entrée du registre des bugs.
+- `bugs/INDEX.md` — index des registres modulaires (Export, Calculs, Plans de vente, Commun, Tests).
 
 ## Export
 
