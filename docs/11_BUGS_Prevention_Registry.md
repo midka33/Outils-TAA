@@ -438,7 +438,7 @@ relecture du dossier, conservation des descendants ; validation Revit restante.
 **Règle :** lorsqu'un état Revit temporaire est nécessaire pour écrire, l'activer et le restaurer dans la même transaction ; toute restauration entraînant une modification secondaire inattendue doit provoquer un rollback.
 **Anti-régression :** tests dédiés sur la découverte d'une destination readonly mais déverrouillable, le cycle `True → écriture → False`, l'exclusion des paramètres intégrés et le rollback lorsque la restauration réaligne des éléments.
 
-### BUG-CALCULS-006 — Divergence de groupes entraînant un rollback sans choix utilisateur
+### BUG-CALCULS-007 — Divergence de groupes entraînant un rollback sans choix utilisateur
 
 **Symptôme :** lorsqu'un paramètre de pièce aligné par type de groupe devait recevoir des résultats différents entre plusieurs occurrences, Calculs des pièces annulait systématiquement toute la transaction avec le message indiquant que Revit aurait réaligné des éléments.
 **Cause :** le correctif BUG-CALCULS-005 sécurisait la restauration de l'alignement mais ne proposait qu'une seule politique : restaurer l'état initial ou annuler. Il ne distinguait pas les deux intentions métier possibles : conserver les résultats exacts ou conserver l'alignement du paramètre.
