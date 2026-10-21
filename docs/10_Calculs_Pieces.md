@@ -451,7 +451,7 @@ Bugs spécifiques actuellement capitalisés :
 - `BUG-CALCULS-003` — échappements de chaînes corrompant le code Python généré ;
 - `BUG-CALCULS-004` — dossier de tests masquant le package métier `calculation` ;
 - `BUG-CALCULS-005` — écriture impossible dans les paramètres alignés entre occurrences de groupes ;
-- `BUG-CALCULS-007` — divergence entre occurrences entraînant un rollback systématique sans choix utilisateur.
+- `BUG-CALCULS-006` — divergence entre occurrences entraînant un rollback systématique sans choix utilisateur.
 
 ---
 
