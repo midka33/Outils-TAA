@@ -236,3 +236,22 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - Étudier l'export PDF en arrière-plan : suivi des tâches Revit, annulation, rapport
   différé et livraison/renommage sécurisés après achèvement. La case reste désactivée
   dans la V1 synchrone ; ne pas l'activer uniquement via SetExportInBackground(True).
+
+
+## Export V1.2 — Configuration collaborative par projet
+
+**Issue #25 — branche `feature/export-v1.2-collaborative-config`.**
+
+- [x] Étape 0 — cartographie de la persistance actuelle et des risques de concurrence.
+- [x] Étape 1 — contrat de stockage partagé documenté dans `docs/27_Export_Configuration_Collaborative.md`.
+- [x] Étape 2 — résolveur central / UNC et mode local de secours.
+- [x] Étape 3 — verrou SMB, révision, écriture atomique et backups.
+- [x] Étape 4 — refactorisation de toutes les mutations du repository.
+- [x] Étape 4B — smartbutton raccordé au stockage collaboratif avec fallback local contrôlé.
+- [x] Étape 5 — UI Partagé / Local, Actualiser et gestion de conflit.
+- [x] Étape 6 — migration locale explicite.
+- [x] Étape 7 — tests automatisés de concurrence, panne, migration et contrats COLLAB hors Revit.
+- [ ] Étape 8 — recette Revit sur deux postes avant toute fusion.
+
+Aucune fusion dans `main` ni publication ne doit intervenir avant validation réelle
+de la recette COLLAB-01 à COLLAB-11.

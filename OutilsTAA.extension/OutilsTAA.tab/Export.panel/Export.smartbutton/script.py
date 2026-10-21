@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Entry point for the Export module."""
 
+import hashlib
 import json
 import os
 import sys
@@ -26,6 +27,19 @@ import publication_preview_integration
 from publication_preview_integration import install_preview_on_export_window
 from publication_history_service import PublicationHistoryService
 from project_identity import get_project_identity, project_key, ensure_project_identity
+from export_storage_bootstrap import build_export_storage
+from local_config_migration import (
+    LocalMigrationError,
+    find_local_migration_candidate,
+    import_local_configuration,
+    mark_declined,
+)
+from shared_json_storage import (
+    ConcurrentModificationError,
+    ProjectIdentityMismatchError,
+    StorageCorruptedError,
+    StorageError,
+)
 
 install_preview_on_export_window(ExportWindow)
 
@@ -151,6 +165,136 @@ def _prepare_project_storage(document):
             # de démarrer. Le repository créera alors un stockage neuf et sûr.
             pass
     return persistent_path
+
+
+def _storage_path_from_identity(identity):
+    if not identity:
+        return None
+    key = hashlib.sha1(str(identity).encode("utf-8")).hexdigest()
+    return os.path.join(
+        _project_storage_directory(),
+        key + "_carnets.json",
+    )
+
+
+def _local_migration_candidates(document, primary_path, primary_identity):
+    """Chemins locaux historiquement plausibles, sans transaction Revit."""
+    result = [(primary_path, primary_identity)]
+    legacy_identity = _legacy_document_identity(document)
+    legacy_path = _storage_path_from_identity(legacy_identity)
+    if legacy_path and legacy_path != primary_path:
+        result.append((legacy_path, legacy_identity))
+    return result
+
+
+def _offer_local_migration(
+        document,
+        storage_context,
+        primary_path,
+        primary_identity,
+        forms,
+        logger):
+    """Propose une seule fois l'import local si le partage est encore vide."""
+    if not getattr(storage_context, "is_shared", False):
+        return
+
+    repository = storage_context.repository
+    shared_storage = getattr(repository, "shared_storage", None)
+    if shared_storage is None:
+        return
+
+    # Une configuration partagée, même ancienne sans storage_revision, prime
+    # toujours sur le local et interdit toute proposition d'import.
+    existing_shared = shared_storage.read()
+    if existing_shared is not None:
+        return
+
+    try:
+        candidate = find_local_migration_candidate(
+            _local_migration_candidates(
+                document,
+                primary_path,
+                primary_identity,
+            ),
+            storage_context.project_identity,
+        )
+    except LocalMigrationError as exc:
+        logger.exception(
+            "Ancienne configuration locale Export non migrable"
+        )
+        forms.alert(
+            "Une ancienne configuration Export locale a été trouvée, "
+            "mais elle ne peut pas être proposée à l'import :\n\n{}"
+            "\n\nLa configuration partagée reste inchangée."
+            .format(exc),
+            title="Export — configuration collaborative",
+        )
+        return
+
+    if candidate is None:
+        return
+
+    message = (
+        "Une configuration Export locale existante a été trouvée pour "
+        "ce projet.\n\n"
+        "{0}\n\n"
+        "Importer cette organisation et ses réglages dans la nouvelle "
+        "configuration partagée ?\n\n"
+        "• Le fichier local sera conservé.\n"
+        "• Aucun mélange automatique avec une configuration serveur "
+        "existante ne sera effectué.\n"
+        "• Si vous choisissez Non, cette proposition ne sera plus "
+        "affichée pour ce projet."
+    ).format(candidate.summary())
+
+    confirmed = forms.alert(
+        message,
+        title="Export — migration vers la configuration partagée",
+        yes=True,
+        no=True,
+    )
+
+    if not confirmed:
+        try:
+            mark_declined(candidate)
+        except Exception:
+            logger.exception(
+                "Impossible d'enregistrer le refus de migration Export"
+            )
+        storage_context.warning = (
+            "Configuration locale conservée ; import partagé ignoré."
+        )
+        return
+
+    try:
+        import_local_configuration(candidate, shared_storage)
+        repository.refresh()
+        storage_context.warning = (
+            "Configuration locale importée dans le stockage partagé."
+        )
+    except ConcurrentModificationError:
+        # Un autre poste a créé export.json entre la proposition et la
+        # confirmation. Recharger le serveur et ne jamais fusionner.
+        repository.refresh()
+        forms.alert(
+            "La configuration partagée a été créée ou modifiée par "
+            "un autre utilisateur pendant l'import.\n\n"
+            "Votre configuration locale n'a pas été importée et reste "
+            "inchangée. La version serveur va être utilisée.",
+            title="Export — migration annulée",
+        )
+    except StorageError as exc:
+        logger.exception(
+            "Import de la configuration locale vers le partage impossible"
+        )
+        forms.alert(
+            "L'import vers la configuration partagée a échoué :\n\n{}"
+            "\n\nLe fichier local reste intact. Fermez Export et "
+            "réessayez lorsque le partage est disponible."
+            .format(exc),
+            title="Export — migration impossible",
+        )
+        raise
 
 
 def _get_history_path(document):
@@ -301,13 +445,66 @@ def main():
     carnet_service = CarnetService(export_service)
     parameter_service = ParameterService(parameter_utils)
     publication_service = PublicationService(revit.doc)
-    storage_path = _prepare_project_storage(revit.doc)
-    project_identity = get_project_identity(revit.doc)
-    repository = CarnetRepository(storage_path, project_identity=project_identity)
-    controller = CarnetController(export_service, carnet_service, parameter_service,
-                                   repository, publication_service)
-    window = ExportWindow(controller, repository)
     from pyrevit import script, forms
+
+    # Résoudre d'abord le stockage sans modifier le document Revit.
+    # Pour un central Windows accessible, aucune identité Extensible Storage
+    # n'est créée : la configuration partagée est identifiée par le central.
+    local_candidate_path = _get_storage_path(revit.doc)
+    local_candidate_identity = get_project_identity(revit.doc)
+
+    def prepare_historical_local_storage():
+        # Le comportement local historique est conservé uniquement lorsqu'il
+        # n'existe pas de central exploitable. Un fallback réseau d'un projet
+        # partagé n'écrit donc rien dans le modèle Revit.
+        local_path = _prepare_project_storage(revit.doc)
+        return local_path, get_project_identity(revit.doc)
+
+    try:
+        storage_context = build_export_storage(
+            revit.doc,
+            local_candidate_path,
+            local_candidate_identity,
+            prepare_local_callback=prepare_historical_local_storage,
+        )
+    except (StorageCorruptedError, ProjectIdentityMismatchError) as exc:
+        script.get_logger().exception(
+            "Configuration collaborative Export invalide"
+        )
+        forms.alert(
+            "Impossible d'ouvrir la configuration Export partagée :\n\n{}\n\n"
+            "Aucun basculement local automatique n'a été effectué afin de ne "
+            "pas masquer une corruption ou un mauvais projet."
+            .format(exc),
+            title="Export — configuration collaborative",
+        )
+        return
+
+    try:
+        _offer_local_migration(
+            revit.doc,
+            storage_context,
+            local_candidate_path,
+            local_candidate_identity,
+            forms,
+            script.get_logger(),
+        )
+    except StorageError:
+        return
+
+    repository = storage_context.repository
+    controller = CarnetController(
+        export_service,
+        carnet_service,
+        parameter_service,
+        repository,
+        publication_service,
+    )
+    window = ExportWindow(
+        controller,
+        repository,
+        storage_context=storage_context,
+    )
     from dwg_ui_session import DwgUiSession, restore
     from dwg_setup_command import post_settings
     window._ui_application = __revit__

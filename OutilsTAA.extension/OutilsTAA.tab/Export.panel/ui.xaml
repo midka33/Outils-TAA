@@ -1,19 +1,39 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Export — Outils TAA" Height="760" Width="1320" MinHeight="620" MinWidth="1060" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource TaaBackground}" Foreground="{DynamicResource TaaText}" UseLayoutRounding="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Export — Outils TAA" Height="760" Width="1320" MinHeight="620" MinWidth="1060" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource TaaBackground}" Foreground="{DynamicResource TaaText}" UseLayoutRounding="True" Activated="Window_Activated">
   <Grid Margin="16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <DockPanel Grid.Row="0" Margin="0,0,0,12">
-      <Border Width="40" Height="40" CornerRadius="4" Background="{DynamicResource TaaBrand}" Margin="0,0,12,0" DockPanel.Dock="Left">
-        <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+      <DockPanel>
+        <Border Width="40" Height="40" CornerRadius="4" Background="{DynamicResource TaaBrand}" Margin="0,0,12,0" DockPanel.Dock="Left">
+          <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Export" FontSize="20" FontWeight="SemiBold" Margin="0" />
+          <TextBlock Text="Publication PDF et DWG · Outils TAA" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
+        </StackPanel>
+      </DockPanel>
+
+      <Border x:Name="StorageStatusPanel" Margin="0,10,0,0" Padding="10,7" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" CornerRadius="4" Background="{DynamicResource TaaSurface}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock x:Name="StorageModeText" Grid.Column="0" Text="Configuration : Locale" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBlock x:Name="StorageRevisionText" Grid.Column="1" Text="" Margin="14,0,0,0" Foreground="{DynamicResource TaaSecondary}" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="2" Margin="14,0,12,0">
+            <TextBlock x:Name="StoragePathText" Text="" FontSize="11" Foreground="{DynamicResource TaaSecondary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <TextBlock x:Name="StorageWarningText" Text="" FontSize="11" Foreground="{DynamicResource TaaSecondary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+          </StackPanel>
+          <Button x:Name="StorageRefreshButton" Grid.Column="3" Content="Actualiser" Click="StorageRefresh_Click" MinWidth="94" Padding="10,4" VerticalAlignment="Center" ToolTip="Relire la configuration Export depuis sa source" />
+        </Grid>
       </Border>
-      <StackPanel VerticalAlignment="Center">
-        <TextBlock Text="Export" FontSize="20" FontWeight="SemiBold" Margin="0" />
-        <TextBlock Text="Publication PDF et DWG · Outils TAA" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
-      </StackPanel>
-    </DockPanel>
+    </StackPanel>
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*" />

@@ -1,6 +1,6 @@
 # Outils TAA – Outil Export
 
-**Version :** 4.4
+**Version :** 4.5
 **Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
@@ -98,6 +98,71 @@ Le nommage DWG est distinct du réglage de fusion des vues/liens et du traitemen
 automatique des exports par lot.
 
 ---
+
+## Export V1.2 — configuration collaborative par projet
+
+**Statut : PR Draft #30 — développement et tests hors Revit ; non livré dans la version stable.**
+
+Pour un projet Revit partagé sur serveur Windows, Export V1.2 prépare une
+configuration commune située à côté du modèle central :
+
+```text
+<dossier central>\
+  Projet_Central.rvt
+  OutilsTAA\
+    export.json
+    export.lock
+    backups\
+```
+
+Une copie locale du même central doit résoudre le même `export.json`. Le module
+favorise un chemin UNC lorsque la correspondance d'un lecteur réseau mappé peut
+être retrouvée.
+
+La fenêtre Export indique désormais le mode de stockage courant :
+
+```text
+Configuration : Partagée
+Révision : 7
+\\SERVEUR\...\OutilsTAA\export.json
+[ Actualiser ]
+```
+
+ou, lorsque le central est connu mais le partage momentanément inaccessible :
+
+```text
+Configuration : Locale — serveur indisponible
+[ Réessayer ]
+```
+
+Le bouton **Actualiser** relit explicitement la configuration partagée. Une
+révision plus récente détectée lorsque la fenêtre reprend le focus est signalée,
+mais elle n'est jamais chargée automatiquement pendant que l'utilisateur travaille.
+
+Si un autre utilisateur a modifié la configuration depuis la dernière lecture,
+l'enregistrement est refusé et l'utilisateur doit Actualiser avant de recommencer.
+Aucun « dernier enregistrement gagne » silencieux n'est autorisé.
+
+Le stockage partagé utilise une révision croissante, un verrou SMB exclusif,
+une écriture temporaire validée, un remplacement atomique et des sauvegardes
+rotatives. Un JSON corrompu ou portant l'identité d'un autre projet bloque le
+chargement au lieu d'être masqué par un fallback local.
+
+En mode partagé, la persistance de la configuration ne nécessite aucune
+transaction ni synchronisation du modèle Revit. Le comportement Extensible
+Storage historique reste réservé au vrai mode local.
+
+La migration initiale d'une configuration locale vers le partage est maintenant
+prévue explicitement : elle n'est proposée que si aucun `export.json` partagé
+n'existe, si le JSON local contient des données utilisateur et après confirmation.
+
+Le fichier local est conservé. Un refus est mémorisé localement pour éviter les
+demandes répétées. Si un autre poste crée la configuration partagée pendant la
+confirmation, l'import est annulé et la version serveur est utilisée. Aucune
+fusion automatique n'est réalisée.
+
+Référence technique :
+[`docs/27_Export_Configuration_Collaborative.md`](27_Export_Configuration_Collaborative.md).
 
 ## Périmètre V1 — décision du 2026-09-30
 

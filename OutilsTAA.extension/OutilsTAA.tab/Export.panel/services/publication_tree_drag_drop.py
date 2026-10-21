@@ -868,11 +868,22 @@ class PublicationTreeDragDrop(object):
 
         except Exception as exc:
             try:
-                from pyrevit import forms
-                forms.alert(
-                    "Impossible de réorganiser les éléments.\n\n{0}".format(exc),
-                    title="Export",
+                handler = getattr(
+                    self.window,
+                    "_show_storage_error",
+                    None,
                 )
+                if handler is not None and handler(
+                        exc,
+                        "réorganiser les éléments"):
+                    pass
+                else:
+                    from pyrevit import forms
+                    forms.alert(
+                        "Impossible de réorganiser les éléments.\n\n{0}"
+                        .format(exc),
+                        title="Export",
+                    )
             except Exception:
                 pass
         finally:
