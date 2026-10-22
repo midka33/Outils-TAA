@@ -283,7 +283,9 @@ de leurs mises en page.
 - [x] Corriger les faux positifs de garde-corps voisins : filtrage par chemin `Railing.GetPath()` sur les seules limites sélectionnées, avant extraction des arêtes natives (BUG-COMMON-013).
 - [x] Réduire le parcours géométrique aux composants TopRail / HandRail au lieu de la géométrie complète du garde-corps (BUG-COMMON-014), en conservant le budget de 120 arêtes.
 - [x] Inspecter aussi les GeometryInstance des rails filants avec GetSymbolGeometry() sans transformation, application des transforms aux points et budget 64 objets/rail (BUG-COMMON-015).
-- [ ] Recetter le garde-corps réel de 2238 : identifier direct Solid / GeometryInstance dans les traces, valider références acceptées, le nu retenu, le masquage des séparations et l'absence de doublons avant réactivation en masse.
+- [x] Appliquer aux annexes extérieures la priorité de référence **murs → garde-corps → détail 2D** ; exclure la substitution par dalle dans Cotation automatique seulement.
+- [x] Autoriser un rattrapage borné à 50 mm entre séparation et garde-corps pour les annexes ; journaliser la valeur réelle de l'écart, exiger contrôle du nu au-delà de 20 mm (BUG-COMMON-016).
+- [ ] Recetter le garde-corps réel de 2238 avec décalage de 35 mm, la cote native produite, le nu retenu, le masquage des séparations et l'absence de doublons avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
