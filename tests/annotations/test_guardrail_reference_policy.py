@@ -12,7 +12,8 @@ from common.guardrail_reference_policy import (
     matches_guardrail_edge, select_guardrail_edge,
     select_guardrails_by_path,
     is_exterior_annex, guardrail_tolerance_mm,
-    guardrail_minimum_overlap, diagnose_guardrail_candidates)
+    guardrail_minimum_overlap, diagnose_guardrail_candidates,
+    select_contiguous_guardrail_pair)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -267,31 +268,77 @@ def test_filtrage_ne_relit_pas_les_solides_pour_diagnostiquer():
 
 
 
-def test_annexe_2238_arrete_52pct_15mm_est_valide():
-    """Cas réel : écart 15 mm / angle 0 / couverture 52 pour cent."""
-    limite = (0., 0., 0., 3.62)
-    portion = (.015, 0., .015, 3.62*.52)
-    edges = [(portion, "rail-native", "garde-corps", 3.2)]
-    assert guardrail_minimum_overlap(True) == .50
-    assert guardrail_minimum_overlap(False) == .60
+def test_annexe_rail_seul_52pct_ne_suffit_pas():
+    """Une arête couvrant 52% de la pièce n'est PAS suffisante seule."""
+    limit = (0., 0., 0., 3.62)
+    first = ((.015, 0., .015, 3.62*.52), "native-1", 10, 3.2)
+    assert guardrail_minimum_overlap(True) == .60
     assert select_guardrail_edge(
-        limite, edges, tolerance=.050,
-        minimum_overlap=.60) is None
-    match = select_guardrail_edge(
-        limite, edges, tolerance=.050,
-        minimum_overlap=guardrail_minimum_overlap(True),
-        include_metrics=True)
-    assert match[0] == "rail-native"
-    assert abs(match[2]["distance"] - .015) < 1e-9
-    assert abs(match[2]["overlap_ratio"] - .52) < 1e-9
-
-
-def test_annexe_rejette_un_garde_corps_ne_couvrant_que_49pct():
-    limite = (0., 0., 0., 3.62)
-    edges = [((.015, 0., .015, 3.62*.49), "rail", 50, 0.)]
-    assert select_guardrail_edge(
-        limite, edges, tolerance=.050,
+        limit, [first], tolerance=.050,
         minimum_overlap=guardrail_minimum_overlap(True)) is None
+    assert select_contiguous_guardrail_pair(
+        limit, [first], tolerance=.050,
+        max_gap=.10, max_lateral_mismatch=.02) is None
+
+
+def test_deux_garde_corps_de_52pct_et_48pct_forment_une_limite_continue():
+    """2238 : coter sur une vraie Reference, companion = preuve de continuité."""
+    limit = (0., 0., 0., 3.62)
+    pieces = [
+        ((.015, 0., .015, 3.62*.52), "native-1", 10, 3.2),
+        ((.018, 3.62*.52, .018, 3.62), "native-2", 11, 3.2),
+    ]
+    chosen = select_contiguous_guardrail_pair(
+        limit, pieces, tolerance=.050, max_gap=.10,
+        max_lateral_mismatch=.02, max_elevation_difference=.15)
+    assert chosen[0] == "native-1"
+    assert chosen[1] == 10
+    info = chosen[2]
+    assert info["support_count"] == 2
+    assert abs(info["combined_overlap_ratio"]-1.) < 1e-9
+    assert info["overlap_ratio"] < .60
+    assert abs(info["lateral_mismatch"]-.003) < 1e-9
+
+
+def test_deux_rails_meme_element_ou_superposes_ne_sont_pas_contigus():
+    lim = (0., 0., 0., 3.62)
+    first = ((.015, 0., .015, 3.62*.52), "native-1", 10, 3.2)
+    repeated = ((.018, 3.62*.52, .018, 3.62), "native-2", 10, 3.2)
+    assert select_contiguous_guardrail_pair(
+        lim, [first, repeated], .050, max_gap=.10,
+        max_lateral_mismatch=.02) is None
+    same_half = ((.018, 0., .018, 3.62*.52), "native-2", 11, 3.2)
+    assert select_contiguous_guardrail_pair(
+        lim, [first, same_half], .050, max_gap=.10,
+        max_lateral_mismatch=.02) is None
+
+
+def test_un_trou_de_150mm_ou_un_decalage_de_30mm_rejette_la_paire():
+    lim = (0., 0., 0., 3.62)
+    first = ((.015, 0., .015, 3.62*.52), "native-1", 10, 3.2)
+    hole = ((.018, 3.62*.52+.15, .018, 3.62), "native-2", 11, 3.2)
+    assert select_contiguous_guardrail_pair(
+        lim, [first, hole], .050, max_gap=.10,
+        max_lateral_mismatch=.02) is None
+    off = ((.045, 3.62*.52, .045, 3.62), "native-2", 11, 3.2)
+    assert select_contiguous_guardrail_pair(
+        lim, [first, off], .050, max_gap=.10,
+        max_lateral_mismatch=.02) is None
+
+
+def test_limite_incomplete_ou_garde_corps_vertical_rejete():
+    lim = (0., 0., 0., 3.62)
+    pieces = [
+        ((.015, 0., .015, 3.62*.35), "native-1", 10, 3.2),
+        ((.015, 3.62*.35, .015, 3.62*.70), "native-2", 11, 3.2),
+    ]
+    assert select_contiguous_guardrail_pair(
+        lim, pieces, .050, max_gap=.10, max_lateral_mismatch=.02) is None
+    pieces[1] = ((.015, 3.62*.35, .015, 3.62*.95),
+                 "native-2", 11, 4.0)
+    assert select_contiguous_guardrail_pair(
+        lim, pieces, .050, max_gap=.10,
+        max_lateral_mismatch=.02, max_elevation_difference=.15) is None
 
 
 def test_annexe_52pct_rejette_au_dela_50mm_et_angle_sup_3deg():
