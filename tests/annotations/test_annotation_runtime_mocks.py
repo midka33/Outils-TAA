@@ -358,3 +358,145 @@ def test_mode_diagnostic_seule_la_piece_cible_est_examinee(monkeypatch):
         "dims", [view], "type", diagnostic_room_uid="B")
     assert processed == ["B"]
     assert count == 0
+
+
+def test_balcon_proxies_2d_reference_native_sans_solides_et_cleanup(monkeypatch):
+    """Revit simulé : une limite separator devient une DetailCurve cotable."""
+    mod = load_annotation_module(monkeypatch)
+    db = mod.DB
+    timeline = []
+
+    class EId(object):
+        def __init__(self, n):
+            self.Value = n
+
+    class Ref(object):
+        def __init__(self, element_id):
+            self.ElementId = element_id
+
+    class Detail(object):
+        def __init__(self, i):
+            self.Id = EId(i)
+            self.GeometryCurve = types.SimpleNamespace(Reference=Ref(self.Id))
+            self.LineStyle = None
+
+    class Transaction(object):
+        def __init__(self, document, label):
+            self.label = label
+
+        def Start(self):
+            timeline.append("tx-start")
+
+        def Commit(self):
+            timeline.append("tx-commit")
+
+        def RollBack(self):
+            timeline.append("tx-rollback")
+
+    class Line(object):
+        @staticmethod
+        def CreateBound(a, b):
+            return a, b
+
+    db.Transaction = Transaction
+    db.Line = Line
+    db.XYZ = lambda x, y, z: (x, y, z)
+    db.UnitTypeId = types.SimpleNamespace(Millimeters="mm")
+    db.UnitUtils = types.SimpleNamespace(
+        ConvertToInternalUnits=lambda x, unit: x / 304.8)
+
+    class Maker(object):
+        def __init__(self):
+            self.details = []
+
+        def NewDetailCurve(self, view, curve):
+            detail = Detail(100 + len(self.details))
+            self.details.append((detail, curve))
+            return detail
+
+    maker = Maker()
+    doc = types.SimpleNamespace(
+        Create=maker,
+        Regenerate=lambda: timeline.append("regenerate"),
+        Delete=lambda element_id: timeline.append(
+            "delete-" + str(element_id.Value)),
+    )
+    service = mod.AnnotationService(doc)
+    class Boundary(object):
+        def __init__(self, source, segment):
+            self.source_kind = source
+            self.segment = segment
+            self.reference = Ref(EId(999))
+            self.element_id_value = 999
+            self.length_references = None
+
+    separator = Boundary("separator", (0., 0., 0., 3.6))
+    wall = Boundary("wall", (3.12, 0., 3.12, 3.6))
+    room = types.SimpleNamespace(
+        UniqueId="2238", Level=types.SimpleNamespace(Elevation=10.))
+    service.dims._room_boundary_candidates = lambda r: [separator, wall]
+    view, style = object(), object()
+    created = service._create_separator_proxies(view, [room], style)
+    assert len(created) == 1
+    assert len(maker.details) == 1
+    assert separator.source_kind == "proxy"
+    assert separator.reference.ElementId.Value == created[0].Value
+    assert separator.length_references is None
+    assert wall.source_kind == "wall"
+    assert service.dims.proxy_candidates["2238"] == [separator, wall]
+    assert maker.details[0][0].LineStyle is style
+    assert "regenerate" in timeline
+    assert timeline[-1] == "tx-commit"
+
+    # La cote native utilise la référence du détail : rien à supprimer.
+    dim = types.SimpleNamespace(
+        Id=EId(1), References=[separator.reference, wall.reference])
+    service._elements = lambda v, kind: [dim]
+    service._cleanup_unused_separator_proxies(view, created, {1})
+    assert not any(event.startswith("delete-") for event in timeline)
+
+
+def test_balcon_deux_proxies_et_seulement_une_cote_nettoie_reste(monkeypatch):
+    """Des lignes 2D orphelines ne restent pas si une cote est refusée."""
+    mod = load_annotation_module(monkeypatch)
+    class EId(object):
+        def __init__(self, value):
+            self.Value = value
+    class Tx(object):
+        def __init__(self, doc, name):
+            pass
+        def Start(self):
+            pass
+        def Commit(self):
+            pass
+        def RollBack(self):
+            pass
+    mod.DB.Transaction = Tx
+    deleted = []
+    doc = types.SimpleNamespace(Delete=lambda element_id: deleted.append(
+        element_id.Value))
+    service = mod.AnnotationService(doc)
+    dim = types.SimpleNamespace(
+        Id=EId(500),
+        References=[types.SimpleNamespace(ElementId=EId(12)),
+                    types.SimpleNamespace(ElementId=EId(111))])
+    service._elements = lambda v, kind: [dim]
+    service._cleanup_unused_separator_proxies(
+        object(), [EId(12), EId(13)], {500})
+    assert deleted == [13]
+
+
+def test_balcon_aucune_dimension_references_proxies_provoque_rollback(monkeypatch):
+    """Pas d'accumulation de traits 2D après un échec de cotation."""
+    mod = load_annotation_module(monkeypatch)
+    class EId(object):
+        def __init__(self, value):
+            self.Value = value
+    service = mod.AnnotationService(object())
+    service._elements = lambda view, kind: []
+    try:
+        service._cleanup_unused_separator_proxies(object(), [EId(99)], set())
+    except RuntimeError as error:
+        assert "Aucune cote creee" in str(error)
+    else:
+        raise AssertionError("Une ligne orpheline doit provoquer une annulation.")
