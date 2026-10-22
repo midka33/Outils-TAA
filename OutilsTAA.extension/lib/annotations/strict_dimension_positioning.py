@@ -27,9 +27,11 @@ class SkippedPlacement(object):
 
 
 def _is_eligible(candidate):
+    # Le texte peut exceptionnellement sortir d'une tres petite piece.
+    # Les etiquettes, textes de cotes et recouvrements restent interdits.
+    # Une position avec texte entierement interieur est prioritaire au score.
     return (not candidate.tag_hits
-            and not candidate.dimension_hits
-            and bool(getattr(candidate, "text_inside", True)))
+            and not candidate.dimension_hits)
 
 
 def _same_line_direction(left, right, tolerance_degrees=15.0):
@@ -95,6 +97,11 @@ def select_collision_free_placements(candidate_groups, rails=(),
             continue
         score = (
             -len(chosen),
+            # D'abord chercher les positions textuelles interieures.
+            # Si aucune n'existe (WC/cellier/loggia), autoriser un texte
+            # partiellement exterieur sans renoncer a la cote.
+            sum(not getattr(candidate, "text_inside", True)
+                for candidate in chosen),
             sum(int(candidate.outside_count > 0) for candidate in chosen),
             sum(candidate.outside_count for candidate in chosen),
             sum(alignment_penalty(candidate, rails, max_neighbor_gap,
@@ -121,6 +128,10 @@ def select_collision_free_placements(candidate_groups, rails=(),
             result.append(SkippedPlacement(reason))
         else:
             candidate.warnings = []
+            if not getattr(candidate, "text_inside", True):
+                candidate.warnings.append(
+                    "texte de cote partiellement hors piece faute de place (controle visuel)"
+                )
             if candidate.outside_count:
                 candidate.warnings.append(
                     "ligne de cote possiblement proche ou au-dela de la limite de piece"
