@@ -69,7 +69,7 @@ class _GenericViewMixin(object):
     def _validate_target_view(self, view, housing_key, level_name):
         if not plan_compatible(view):
             raise ValueError("Seuls les plans d'etage non gabarits sont acceptes.")
-        if getattr(getattr(view, "GenLevel", None), "Name", None) != level_name:
+        if safe_name(getattr(view, "GenLevel", None), "") != level_name:
             raise ValueError("Niveau de la vue different du niveau des pieces.")
 
 
