@@ -332,13 +332,13 @@ cause du crash n'est pas confirmée.
 - `2238 : aucune arête de sol superposée fiable n'a été trouvée pour une séparation de pièce utilisée par une cote. La cote peut disparaître si les séparations sont masquées dans la vue.`
 - Deux avertissements de proximité avec un équipement.
 
-**Distinction des preuves :** les deux captures jointes montrent la pièce **1170 au niveau 0** (loggia sélectionnée, cotes 3,12 m / 3,62 m). Le rapport `2238` du niveau 1 confirme deux cotes produites, **sans capture du résultat 2238**. Il ne faut pas confondre ces deux validations.
+**Distinction des preuves :** les premières captures montrent la pièce **1170 au niveau 0** (3,12 m / 3,62 m). Une capture supplémentaire a été reçue pour la pièce **2238 au niveau 1**, également cotée **3,12 m / 3,62 m**. Les deux jeux de cotes sont visuellement cohérents et sans chevauchement manifeste du texte. Cette validation visuelle ne démontre toutefois pas que les cotes 2238 restent visibles si leurs références de séparation de pièce sont masquées.
 
 **Analyse :** le moteur canonique Plans de vente n'a pas trouvé de référence native d'arête de plancher fiable pour une limite de 2238 et a utilisé une séparation de pièce. La dimension peut alors dépendre de la visibilité de cette catégorie. La proximité d'équipement est un avertissement conservateur, pas une collision prouvée.
 
 - [x] REV-ANN-36 — Lancement unitaire de 2238 : 2 cotes créées, aucun crash signalé.
 - [ ] REV-ANN-37 — Sur **copie de maquette**, masquer temporairement l'affichage des séparations de pièces dans la vue du niveau 1 et vérifier que les cotes de 2238 restent visibles et que leurs références restent valides ; rétablir la visibilité après essai.
-- [ ] REV-ANN-38 — Contrôler la capture rapprochée de 2238 (cotes et équipements), pour confirmer dimensions et placement.
+- [x] REV-ANN-38 — Capture rapprochée de 2238 examinée : 3,12 m × 3,62 m, directions distinctes, sans chevauchement évident du texte ; références de séparation à valider.
 - [ ] REV-ANN-39 — Vérifier le traceur `%TEMP%\\OutilsTAA_Annotations_crashtrace.log` pour les deux essais : `ROOM_COMMITTED` et `RUN_END`, puis évaluer s'il est prudent d'élargir le diagnostic à un WC ou cellier.
 
 **Décision :** ne pas restaurer la recherche expérimentale des solides des planchers ni le traitement multi-pièces sur la seule base de ces deux essais isolés. Le service Plans de vente stable demeure inchangé.
