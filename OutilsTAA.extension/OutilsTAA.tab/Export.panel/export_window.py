@@ -26,6 +26,7 @@ from filename_service import FilenameService
 from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
 from publication_tree_drag_drop import PublicationTreeDragDrop
+from sheet_explorer import SheetExplorer
 
 
 class ExportWindow(forms.WPFWindow):
@@ -54,9 +55,11 @@ class ExportWindow(forms.WPFWindow):
         apply_theme(self)
         self._load_context()
         self._drag_drop_manager = PublicationTreeDragDrop(self)
+        self._sheet_explorer = SheetExplorer(self, self._available_sheets)
 
     def _load_context(self):
         sheets = self.controller.export_service.get_sheets()
+        self._available_sheets = list(sheets)
         self.current_project_unique_ids = set(sheet.UniqueId for sheet in sheets if sheet is not None and getattr(sheet, "UniqueId", None))
         self.PdfQualityCombo.ItemsSource = list(PublicationSettings.PDF_QUALITIES)
         self._load_dwg_setups()
@@ -205,6 +208,8 @@ class ExportWindow(forms.WPFWindow):
             populate("FOLDER", folder, node, set())
 
         self._load_selected_settings()
+        if getattr(self, "_sheet_explorer", None) is not None:
+            self._sheet_explorer.refresh()
 
     def _node_header(self, text, icon_key, bold=False):
         """Pictogrammes vectoriels sans dépendance à une police d'icônes."""
@@ -827,3 +832,40 @@ class ExportWindow(forms.WPFWindow):
                     else self._resolve_settings(node)
                 )
 
+
+    # Explorateur source Revit (les interactions de publication existantes
+    # restent gérées indépendamment par PublicationTreeDragDrop).
+    def SheetExplorerToggle_Click(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.toggle()
+
+    def SheetExplorerSearch_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.refresh()
+
+    def SheetExplorerGrouping_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.refresh()
+
+    def SheetExplorerFilter_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.refresh()
+
+    def SheetExplorerSelection_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.selection_changed(args)
+
+    def SheetExplorerAdd_Click(self, sender, args):
+        self._sheet_explorer.add_to_current()
+
+    def SheetExplorerDoubleClick(self, sender, args):
+        self._sheet_explorer.add_to_current()
+        args.Handled = True
+
+    def SheetExplorerMouseDown(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.mouse_down(args)
+
+    def SheetExplorerMouseMove(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.mouse_move(args)
