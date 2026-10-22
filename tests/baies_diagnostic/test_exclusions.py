@@ -51,3 +51,19 @@ def test_original_classification_compatibility():
 
 def test_candidates_eligible_only_as_qualified_not_certified():
     assert rule_16_status("FEN-EXT-GEN-1V_ITI", host_category="Murs", wall_function="Interior") == "HORS_PERIMETRE_OU_A_VERIFIER"
+
+def test_coffre_tunnel_not_assumed_tableau():
+    from baies_diagnostic.facade_scope import coffre_tunnel_alert
+    name="PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel"
+    assert coffre_tunnel_alert(name) == "RESERVATION_COFFRE_TUNNEL_A_VERIFIER"
+    assert rule_16_status(name, host_category="Murs", wall_function="Exterior") == "A_VERIFIER_COFFRE_TUNNEL"
+
+
+def test_other_vr_is_not_automatically_tunnel():
+    from baies_diagnostic.facade_scope import coffre_tunnel_alert
+    assert coffre_tunnel_alert("FEN-EXT-GEN-2V_VR_ITI") == ""
+    assert rule_16_status("FEN-EXT-GEN-2V_VR_ITI", host_category="Murs", wall_function="Exterior") == "CANDIDAT_A_CONTROLER"
+
+
+def test_exclusions_override_coffre_warning():
+    assert rule_16_status("FEN-EXT-GEN-1V_MRX_VR tunnel", host_category="Murs", wall_function="Exterior") == "EXCLU_MRX"

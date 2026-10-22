@@ -45,11 +45,26 @@ def facade_status(name, host_category="", wall_function="", type_name=""):
     return "FACADE_PRESUMEE_A_VALIDER"
 
 
+def coffre_tunnel_alert(family_name, type_name=""):
+    """Alerte métier : la réservation brute inclut le coffre tunnel du volet.
+
+    Le nom ne suffit pas à mesurer le tableau : aucun seuil réglementaire
+    n'est déduit, même si les cotes brutes et nominales sont disponibles.
+    """
+    name = u"{} {}".format(family_name or u"", type_name or u"").lower()
+    if ("tunnel" in name and (
+            "vr" in name or "volet" in name or "coffre" in name)):
+        return "RESERVATION_COFFRE_TUNNEL_A_VERIFIER"
+    return ""
+
+
 def rule_16_status(family_name, type_name="", host_category="", wall_function=""):
     """Un statut de présélection, jamais une attestation réglementaire."""
     reason = exclusion_reason(family_name, type_name, host_category)
     if reason:
         return "EXCLU_" + reason
+    if coffre_tunnel_alert(family_name, type_name):
+        return "A_VERIFIER_COFFRE_TUNNEL"
     if facade_status(family_name, host_category, wall_function, type_name) == "FACADE_PRESUMEE_A_VALIDER":
         return "CANDIDAT_A_CONTROLER"
     return "HORS_PERIMETRE_OU_A_VERIFIER"

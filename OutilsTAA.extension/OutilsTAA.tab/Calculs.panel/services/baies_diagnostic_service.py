@@ -5,7 +5,7 @@ Ni boîte englobante ni cote nominale ne prouve la surface en tableau.
 """
 import json
 from baies_diagnostic.evaluator import evaluate, aggregate_by_type
-from baies_diagnostic.facade_scope import is_facade_family, facade_status, exclusion_reason, rule_16_status
+from baies_diagnostic.facade_scope import is_facade_family, facade_status, exclusion_reason, rule_16_status, coffre_tunnel_alert
 
 def _text(value):
     try:
@@ -143,6 +143,7 @@ class BaiesDiagnosticService(object):
                     wall_function=function,from_room=room_from,to_room=room_to,
                     facade_status=classification,
                     rule_16_status=rule_16_status(family_name,type_name,host_category,function),
+                    coffre_tunnel_alert=coffre_tunnel_alert(family_name,type_name),
                     method=selected.get("method",u""),
                     width_m=selected.get("width_m",u""),
                     height_m=selected.get("height_m",u""),

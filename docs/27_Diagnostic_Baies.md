@@ -139,3 +139,15 @@ Quatre exports du projet hôte `Diagnostic_Baies_20261022_174334*.csv` ont été
 Les 396 lignes du rapport conservé portent toutes `facade_status=FACADE_PRESUMEE_A_VALIDER`, `rule_16_status=CANDIDAT_A_CONTROLER`, `host_category=Murs` et `wall_function=Exterior`. Les 20 exclusions ont chacune un motif explicite `LANTERNEAU` ou `MRX`. Toutes les lignes proviennent de `Projet hôte`.
 
 **Recette validée :** filtrage hôte, exclusions par défaut, classement, quantités, traçabilité et export des quatre CSV. **Restent à tester :** basculement individuel des deux cases, lecture de liens Revit directs, classification des familles atypiques, justesse des cotes en tableau et moteur réglementaire SHAB/1⁄6. Les valeurs nominales ou brutes ne constituent pas encore des surfaces en tableau certifiées. La PR #38 reste en brouillon.
+
+## Précision du modèle : réservation du coffre tunnel (22 octobre 2026)
+
+L'utilisateur confirme que, dans la famille `PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel.rfa`, la surhauteur de la dimension **Hauteur brute** correspond à la **réservation du coffre tunnel de volet roulant**. Exemple extrait du modèle pour le type 270 × 218 : `Largeur = 2,70 m`, `Hauteur = 2,18 m`, `Largeur brute = 2,74 m`, `Hauteur brute = 2,48 m` (surhauteur brute de **0,30 m**). L'écart de largeur de 4 cm reste de nature à confirmer.
+
+**Conséquence :** `Largeur brute × Hauteur brute` décrit une réservation de gros œuvre qui peut intégrer le coffre ; elle **ne doit pas être réutilisée automatiquement** comme surface de baie en tableau pour la règle du 1/6. Inversement, `Largeur × Hauteur` est une candidate à vérifier, pas une mesure réglementaire garantie. La position effective du coffre (dans le tableau / derrière le linteau) peut influencer la mesure, ce que la simple convention de nommage ne résout pas.
+
+Le diagnostic signale désormais les familles/types portant `VR tunnel`, `volet ... tunnel` ou `coffre ... tunnel` : colonne `coffre_tunnel_alert=RESERVATION_COFFRE_TUNNEL_A_VERIFIER`, et `rule_16_status=A_VERIFIER_COFFRE_TUNNEL`. **Le cas n'est ni automatiquement additionné comme baie valide, ni exclu à tort comme une porte pleine.** Cette prudence s'applique aux futures calculs jusqu'à examen de la coupe de famille et confirmation de la limite haute réelle du tableau.
+
+**Source réglementaire :** [article 23 de l'arrêté du 4 août 2021, version applicable](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000045581703/2022-04-15). Il exige une surface totale mesurée **en tableau**, sans décrire explicitement dans cet article tous les cas de coffres intégrés. La [FAQ officielle RE2020 016](https://rt-re-batiment.developpement-durable.gouv.fr/faq-re2020-016-quels-sont-les-types-de-baies-a-a580.html) précise les liaisons entre locaux pris en compte, non les hauteurs de réservation de coffre.
+
+**Tests hors Revit :** ajout de trois scénarios dans `tests/baies_diagnostic/test_exclusions.py`. **Validation Revit et examen de la famille RFA encore nécessaires** avant d'utiliser cette surface pour une attestation réglementaire.
