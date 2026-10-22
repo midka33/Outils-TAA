@@ -288,5 +288,6 @@ sélection imposée) et `test_annotation_runtime_mocks.py` (moteur
 canonique PDV et filtre par une pièce). Exécuter Annotations,
 Plans de vente et suite Export en CI, puis demander les
 journaux Revit du crash et valider sur **copie de maquette**.
-Statut : crash natif **non reproduit hors Revit** et cause
-précise à déterminer.
+**Recette utilisateur post-correctif (22 octobre 2026) :** lancement en mode diagnostique sur une seule pièce hors groupe, numéro **1170**, vue **Collectifs A_Niveau 0** : **2 annotations créées**, rapport pyRevit terminé sans fermeture signalée. Un avertissement de *proximité avec un équipement* demande une vérification visuelle ; ce n'est pas la preuve d'un chevauchement. Ce résultat confirme un essai unitaire réussi, mais ne prouve ni les bonnes valeurs/positions des deux cotes, ni la stabilité multi-pièces. Journal `OutilsTAA_Annotations_crashtrace.log` et capture du résultat encore à examiner.
+
+Statut : crash natif **non reproduit lors de ce premier essai isolé** ; cause précise du crash initial à déterminer.
