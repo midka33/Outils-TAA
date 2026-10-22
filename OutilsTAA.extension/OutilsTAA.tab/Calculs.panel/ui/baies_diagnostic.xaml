@@ -19,6 +19,8 @@
     <TextBlock Text="LECTURE SEULE" Style="{DynamicResource TAASectionTitle}"/>
     <TextBlock Text="Les cotes de familles ne démontrent pas la surface de la baie en tableau. Portes pleines comprises dans l'inventaire, non dans un calcul réglementaire."
      TextWrapping="Wrap" Foreground="#666666" Margin="0,0,0,8"/>
+    <CheckBox x:Name="FacadeOnly" IsChecked="True" Margin="0,0,0,6"
+     Content="Limiter aux familles commençant par FEN-EXT ou PORFEN-EXT"/>
     <CheckBox x:Name="IncludeLinks" Margin="0,0,0,10"
      Content="Inclure les fichiers Revit liés directs chargés"/>
     <StackPanel Orientation="Horizontal">
@@ -41,7 +43,8 @@
     <DataGridTextColumn Header="Type" Binding="{Binding type}" Width="*"/>
     <DataGridTextColumn Header="Nb" Binding="{Binding count}" Width="55"/>
     <DataGridTextColumn Header="Méthode" Binding="{Binding methods}" Width="145"/>
-    <DataGridTextColumn Header="Statut" Binding="{Binding status}" Width="195"/>
+    <DataGridTextColumn Header="Dimensions" Binding="{Binding status}" Width="195"/>
+    <DataGridTextColumn Header="Façade" Binding="{Binding facade_status}" Width="220"/>
    </DataGrid.Columns>
   </DataGrid>
   <TextBlock Grid.Row="4" TextWrapping="Wrap" Margin="0,10,0,0" Foreground="#666666"
