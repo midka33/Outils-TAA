@@ -286,7 +286,8 @@ de leurs mises en page.
 - [x] Appliquer aux annexes extérieures la priorité de référence **murs → garde-corps → détail 2D** ; exclure la substitution par dalle dans Cotation automatique seulement.
 - [x] Autoriser un rattrapage borné à 50 mm entre séparation et garde-corps pour les annexes ; journaliser la valeur réelle de l'écart, exiger contrôle du nu au-delà de 20 mm (BUG-COMMON-016).
 - [x] Corriger le filtre de garde-corps par limite (BUG-COMMON-017), sans rejet global lorsqu'un troisième ouvrage est présent ; ajouter diagnostics de sélection et ambiguïté.
-- [ ] Recetter le garde-corps réel de 2238 avec décalage manuel d'environ 40 mm, contrôler les compteurs du nouveau filtre, la cote native produite, le nu retenu, le masquage des séparations et l'absence de doublons avant réactivation en masse.
+- [x] Gérer une limite constituée de **deux garde-corps contigus**, chacun proche de 50 % : accepter la paire si elle couvre >=90 %, sans affaiblir le seuil de 60 % d'un rail isolé (BUG-COMMON-018).
+- [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
