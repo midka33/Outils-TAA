@@ -296,3 +296,26 @@ tests/plans_vente/
 - Références UI : `docs/references/plans-vente/`
 - Registre des bugs : `docs/11_BUGS_Prevention_Registry.md`
 - Historique détaillé : `docs/archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`
+
+
+### Note d'architecture bêta — recherche des arêtes de dalle partagée
+
+Sur la branche `feature/annotations-automatiques-beta` uniquement, le
+service de cotation de Plans de vente délègue la **sélection des planchers**
+à `lib/common/floor_reference_policy.py`. Son mode par défaut
+(`legacy`) et la clé de cache par niveau reproduisent exactement
+la sélection d'avant refactorisation : tous les planchers du même niveau,
+ou ceux de niveaux proches uniquement lorsqu'aucun plancher du même
+niveau n'existe. L'extraction native des arêtes, les critères
+d'appariement, la priorité des références, le fallback et la
+création des cotes sont **inchangés**.
+
+Le module Cotation automatique hérite du même collecteur d'arêtes mais
+active une politique distincte `local` : recherche par emprise XY
+de la pièce (marge 300 mm), support des planchers de niveaux voisins
+déjà filtrés en altitude, six planchers maximum et cache par pièce.
+
+Cette abstraction ne constitue **pas** une nouvelle validation Revit
+du moteur commun ; aucun changement du moteur stable de la branche
+`main` n'est effectué. Référence : BUG-COMMON-011 et
+`tests/annotations/test_floor_reference_policy.py`.
