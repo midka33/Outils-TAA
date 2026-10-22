@@ -219,3 +219,47 @@ par niveau uniquement après l'échec de la recherche canonique.
 `test_balcon_recherche_reelle_aretes_niveaux_voisins_et_cache`.
 Exécuter les tests Annotations, les tests Plans de vente et Export ;
 revalidation visuelle obligatoire dans Revit 2025.4.
+
+
+---
+
+### BUG-COMMON-009 — Fermeture brutale de Revit après mise à jour cotation balcons
+
+**Symptôme :** après le correctif des WC, celliers et balcons,
+l'utilisateur signale une fermeture brutale de Revit 2025.4 au
+lancement de Cotation automatique. Pas de journal Revit analysé à ce
+stade ; il ne faut donc pas affirmer que la cause exacte est confirmée.
+
+**Cause suspectée (non prouvée) :** le nouveau chemin
+`GenericDimensions._nearby_floor_edges` introduisait un second
+parcours des dalles du document, des solides natifs et de leurs arêtes.
+Il se déclenchait quand la recherche habituelle de Plans de vente ne
+trouvait pas de référence ; l'appel Revit natif peut ne laisser aucune
+exception Python exploitable si le processus tombe. D'autres causes
+(état du document, référence native, API Revit) restent possibles.
+
+**Mesure conservatoire :** supprimer entièrement l'exploration
+supplémentaire des solides et le fallback des dalles de niveaux voisins,
+pour revenir à `DimensionService._matching_floor_edge_reference` de
+Plans de vente (inchangé). Suspendre les cotations multi-vues,
+multi-pièces et les groupes attachés. La bêta exige temporairement
+la sélection d'une vue et d'une pièce hors groupe sur une **copie**.
+Avant la création de cotations, le journal
+`%TEMP%\OutilsTAA_Annotations_crashtrace.log` est écrit et fermé pour
+préserver les dernières étapes si un crash natif se reproduit.
+
+**Règle préventive :** ne jamais réactiver un parcours
+supplémentaire de géométrie lourde native Revit après un crash
+sans journal de crash, mesure de coût, limites explicites et test
+sur une pièce isolée. Suspendre le traitement de masse en cas de
+crash complet et documenter qu'une vérification statique ne
+certifie pas la stabilité du processus Revit.
+
+**Anti-régression :** `tests/annotations/test_crash_guard.py`
+(journal écrit, absence de méthode de parcours supplémentaire,
+sélection imposée) et `test_annotation_runtime_mocks.py` (moteur
+canonique PDV et filtre par une pièce). Exécuter Annotations,
+Plans de vente et suite Export en CI, puis demander les
+journaux Revit du crash et valider sur **copie de maquette**.
+Statut : crash natif **non reproduit hors Revit** et cause
+précise à déterminer.
