@@ -8,12 +8,15 @@ leurs deux plus grandes dimensions dans des directions obliques.
 Le moteur geometrique de Plans de vente reste la source des paires.
 """
 
+import math
+
 from plans_vente.dimension_geometry import dominant_dimension_pairs
 
 
 def principal_pairs(segments, angle_tolerance_degrees=5.0,
                     minimum_relative_length=0.25,
-                    placement_fraction=0.25):
+                    placement_fraction=0.25,
+                    minimum_axis_angle_degrees=15.0):
     """Choisit les deux plus grandes distances mesurables sur deux axes utiles.
 
     Le moteur PDV fournit une paire dominante *par famille de directions*.
@@ -33,7 +36,18 @@ def principal_pairs(segments, angle_tolerance_degrees=5.0,
         max_results=len(segments),
     )
     available.sort(key=lambda pair: (pair.distance, pair.score), reverse=True)
-    return available[:2]
+    selected = []
+    min_angle = max(0., min(89., float(minimum_axis_angle_degrees)))
+    max_parallel_dot = math.cos(math.radians(min_angle))
+    for pair in available:
+        if any(abs(pair.normal[0] * other.normal[0] +
+                   pair.normal[1] * other.normal[1]) >= max_parallel_dot
+               for other in selected):
+            continue
+        selected.append(pair)
+        if len(selected) == 2:
+            break
+    return selected
 
 
 def principal_reference_indexes(segments, **settings):
