@@ -438,3 +438,49 @@ second parcours indépendant des solides n'a été introduit.
 
 Ce changement est **non validé dans Revit** ; les tests unitaires
 et CI ne remplacent pas la recette. Voir BUG-COMMON-011.
+
+
+### Amélioration du fallback des loggias — garde-corps avant repère 2D
+
+Après l'essai de 2238 (deux cotes 3,12 m / 3,62 m, références
+`reperes 2D utilises`), la hiérarchie des références a été
+complétée sur la branche de test :
+
+1. **Faces finies de murs** lorsqu'elles délimitent réellement la pièce.
+2. **Arête native de la dalle**, recherchée par le moteur partagé de
+   Plans de vente, avec recherche locale par pièce pour Annotations.
+3. **Arête native de garde-corps Revit**, uniquement si un
+   `DB.Architecture.Railing` visible, proche de la pièce et avec
+   une arête suffisamment colinéaire à la limite (20 mm, 3°, 60 %).
+   Il ne s'agit **pas de l'axe théorique** du garde-corps ; son nu
+   intérieur devra être contrôlé visuellement.
+4. **Repère 2D de 5 mm** (non associatif) si les références natives
+   sont indisponibles ou refusées.
+
+**Protection contre le crash précédent :** recherche des garde-corps
+limitée à la vue active, aux ouvrages situés à moins de 150 mm en plan
+de l'emprise de la pièce, à deux garde-corps et à 120 arêtes
+examinées. Dépassement => fallback 2D. Mode une seule pièce par
+lancement maintenu. Aucune reprise du traitement en masse.
+
+**Interprétation réglementaire :** la SHAB exclut balcons et loggias
+(CCH, R.156-1) ; les loggias peuvent entrer dans la surface annexe
+(arrêté du 9 mai 1995 modifié). Ces textes ne prescrivent pas
+universellement le nu du garde-corps comme limite de mesurage.
+Le cas échéant, la limite au nu intérieur est une règle métier
+du projet à vérifier. Références :
+- https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000043819221
+- https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000006831202
+
+**Recette Revit 2025.4 à faire sur copie :**
+
+- [ ] REV-ANN-49 : pièce 2238, garde-corps réellement modélisé,
+      vérifier qu'une **arête native** est sélectionnée, sans
+      déplacement de la cote par rapport à la limite intérieure.
+- [ ] REV-ANN-50 : masquer les séparations : conserver les deux cotes
+      si leur référence est une dalle, un garde-corps visible ou 2D.
+- [ ] REV-ANN-51 : garde-corps absent/inexploitable : repère 2D
+      conservé, sans saut silencieux vers la séparation.
+- [ ] REV-ANN-52 : contrôler la stabilité Revit, la seconde
+      exécution sans doublon et la présence du journal
+      `%TEMP%\\OutilsTAA_Annotations_crashtrace.log`.
