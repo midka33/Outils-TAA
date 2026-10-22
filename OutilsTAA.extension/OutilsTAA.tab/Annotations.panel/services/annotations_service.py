@@ -93,6 +93,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         super(GenericDimensions, self).__init__(document)
         self.proxy_candidates = {}
         self.target_view = None
+        self._guardrail_cache = {}
+        self._guardrail_warnings = []
 
     def _stable_reference(self, reference):
         if reference is None:
@@ -196,6 +198,136 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     return True
         return False
 
+    def _nearby_guardrail_edges(self, room):
+        """Arêtes NATIVES de deux garde-corps au plus, sans parcours global.
+
+        Les arêtes sont seulement interrogées pour une pièce ayant une
+        séparation non résolue par une dalle. Si Revit ne fournit pas de
+        référence valide, le chemin de secours 2D reste applicable.
+        """
+        if self.target_view is None:
+            return []
+        key = str(room.UniqueId)
+        if key in self._guardrail_cache:
+            return self._guardrail_cache[key]
+        # En cas de refus ou d'ambiguite, garder le cache vide plutôt
+        # que de parcourir la geometrie une deuxieme fois.
+        self._guardrail_cache[key] = []
+        try:
+            from Autodesk.Revit.DB.Architecture import Railing
+            from common.floor_reference_policy import intersects_xy
+        except Exception:
+            return []
+
+        view = self.target_view
+        try:
+            box = self._bbox_xy(room.get_BoundingBox(None))
+            if box is None:
+                return []
+            candidates = (DB.FilteredElementCollector(self.document, view.Id)
+                          .OfClass(Railing)
+                          .WhereElementIsNotElementType().ToElements())
+        except Exception:
+            return []
+
+        railings = []
+        margin = self._millimeters_to_internal(150.)
+        for railing in candidates:
+            try:
+                bbox = self._bbox_xy(railing.get_BoundingBox(view))
+                if intersects_xy(box, bbox, padding=margin):
+                    railings.append(railing)
+                    if len(railings) > 2:
+                        self._guardrail_warnings.append(
+                            "{} : plus de deux garde-corps proches ; "
+                            "recherche native ignoree par securite.".format(key))
+                        return []
+            except Exception:
+                continue
+        if not railings:
+            return []
+        options = DB.Options()
+        options.ComputeReferences = True
+        options.IncludeNonVisibleObjects = False
+        try:
+            options.DetailLevel = DB.ViewDetailLevel.Coarse
+        except Exception:
+            pass
+        min_length = self._millimeters_to_internal(100.)
+        edges = []
+        # Garde-fou fort apres le crash Revit : 2 garde-corps / 120
+        # arêtes de référence ; jamais d'extraction sur toute la maquette.
+        for railing in railings:
+            try:
+                geometry = railing.get_Geometry(options)
+                if geometry is None:
+                    continue
+                for solid in self._geometry_solids(
+                        geometry, DB.Solid, DB.GeometryInstance):
+                    for edge in solid.Edges:
+                        if len(edges) >= 120:
+                            self._guardrail_warnings.append(
+                                "{} : budget 120 aretes atteint ; "
+                                "repli 2D prefere.".format(key))
+                            return []
+                        try:
+                            reference = edge.Reference
+                            curve = edge.AsCurve()
+                            if reference is None or not isinstance(
+                                    curve, DB.Line):
+                                continue
+                            p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
+                            if curve.Length < min_length:
+                                continue
+                            if abs(p1.Z-p0.Z) > min_length * .1:
+                                continue
+                            # Reference de geometrie native accessible.
+                            reference.ConvertToStableRepresentation(self.document)
+                            edges.append((
+                                (float(p0.X), float(p0.Y),
+                                 float(p1.X), float(p1.Y)),
+                                reference, railing.Id,
+                                (float(p0.Z)+float(p1.Z))*.5))
+                        except Exception:
+                            continue
+            except Exception as error:
+                self._guardrail_warnings.append(
+                    "{} : garde-corps non exploitable : {}".format(key, error))
+                continue
+        self._guardrail_cache[key] = edges
+        return edges
+
+    def _upgrade_separator_guardrail(self, room, candidates):
+        """Dalle d'abord (service PDV), puis garde-corps, enfin 2D."""
+        remaining = [item for item in candidates
+                     if getattr(item, "source_kind", "") == "separator"]
+        if not remaining:
+            return candidates
+        from common.guardrail_reference_policy import select_guardrail_edge
+        edges = self._nearby_guardrail_edges(room)
+        if not edges:
+            return candidates
+        tolerance = self._millimeters_to_internal(
+            self.FLOOR_EDGE_TOLERANCE_MM)
+        for candidate in remaining:
+            match = select_guardrail_edge(
+                candidate.segment, edges,
+                tolerance=tolerance,
+                angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                minimum_overlap=self.FLOOR_EDGE_MIN_OVERLAP_RATIO)
+            if match is None:
+                continue
+            reference, railing_id = match
+            candidate.reference = reference
+            candidate.element_id_value = id_value(railing_id)
+            candidate.length_references = None
+            candidate.source_kind = "guardrail_edge"
+            self._guardrail_warnings.append(
+                "{} : arete native de garde-corps utilisee ; "
+                "verifier le nu interieur et la visibilite du garde-corps."
+                .format(room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")))
+        return candidates
+
     def _room_boundary_candidates(self, room):
         cached = self.proxy_candidates.get(str(room.UniqueId))
         if cached is not None:
@@ -205,6 +337,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         # Choisir les deux plus grandes portees de directions distinctes,
         # puis exclure les seules portees deja cotees dans cette vue.
         candidates = super(GenericDimensions, self)._room_boundary_candidates(room)
+        candidates = self._upgrade_separator_guardrail(room, candidates)
         from annotations.principal_dimension_axes import principal_pairs
         pairs = principal_pairs(
             [item.segment for item in candidates],
@@ -770,6 +903,8 @@ class AnnotationService(object):
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
+        self.dims._guardrail_cache = {}
+        self.dims._guardrail_warnings = []
         self.dims.target_view = view
         try:
             before = self._ids(view, kind)
@@ -815,7 +950,7 @@ class AnnotationService(object):
             scope.Assimilate()
             trace("ROOM_COMMITTED", safe_name(view), room_id,
                   "created={}".format(len(new_ids)))
-            messages = list(result.warnings)
+            messages = list(result.warnings) + list(self.dims._guardrail_warnings)
             if separator_proxy_ids:
                 messages.append(
                     "{} : reperes 2D utilises a la place des separations "
@@ -832,6 +967,8 @@ class AnnotationService(object):
                 traceback.format_exc())]
         finally:
             self.dims.proxy_candidates = {}
+            self.dims._guardrail_cache = {}
+            self.dims._guardrail_warnings = []
             self.dims.target_view = None
 
     def run(self, kind, views, annotation_type_id, line_style=None,
