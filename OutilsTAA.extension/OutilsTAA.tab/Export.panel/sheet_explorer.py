@@ -18,6 +18,7 @@ class SheetExplorer(object):
         self.sheets = dict((str(sheet.UniqueId), sheet) for sheet in sheets
                            if sheet is not None and getattr(sheet, "UniqueId", None))
         self.selected_ids = set()
+        self._collapsed_groups = set()
         self._rendering = False
         self._mouse_point = None
         self._last_width = 310.0
@@ -146,9 +147,11 @@ class SheetExplorer(object):
                 if mode and heading != group:
                     group = heading
                     header = ListBoxItem()
-                    header.Content = TextBlock(Text=heading)
-                    header.IsEnabled = False
+                    header.Tag = "GROUP:" + heading
+                    header.Content = TextBlock(Text=("> " if heading in self._collapsed_groups else "v ") + heading)
                     w.SheetExplorerList.Items.Add(header)
+                if mode and heading in self._collapsed_groups:
+                    continue
                 uid = str(sheet.UniqueId)
                 entry = ListBoxItem()
                 entry.Tag = uid
@@ -280,6 +283,23 @@ class SheetExplorer(object):
             forms.alert("Ajout impossible : {0}".format(exc), title="Export")
 
     def mouse_down(self, args):
+        node = args.OriginalSource
+        while node is not None and not isinstance(node, ListBoxItem):
+            try:
+                node = VisualTreeHelper.GetParent(node)
+            except Exception:
+                node = None
+        tag = getattr(node, "Tag", None)
+        if tag and str(tag).startswith("GROUP:"):
+            group = str(tag)[6:]
+            if group in self._collapsed_groups:
+                self._collapsed_groups.remove(group)
+            else:
+                self._collapsed_groups.add(group)
+            self.refresh()
+            args.Handled = True
+            self._mouse_point = None
+            return
         self._mouse_point = args.GetPosition(self.window.SheetExplorerList)
 
     def mouse_move(self, args):
