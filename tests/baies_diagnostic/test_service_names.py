@@ -3,8 +3,10 @@
 from __future__ import unicode_literals
 
 import importlib.util
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "OutilsTAA.extension" / "lib"))
 
 SERVICE_PATH = (Path(__file__).resolve().parents[2]
     / "OutilsTAA.extension" / "OutilsTAA.tab" / "Calculs.panel"
