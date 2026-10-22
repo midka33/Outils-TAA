@@ -72,3 +72,41 @@ Recette utilisateur dans Revit 2025.4 obligatoire.
 **Règle préventive :** dans un moteur multi-annotations, ne jamais traiter une collision d'un élément comme un échec total si les autres éléments peuvent être créés individuellement et sans collision. Prévoir une sentinelle explicite, des diagnostics par orientation et un test de création partielle.
 
 **Anti-régression :** `tests/annotations/test_strict_dimension_positioning.py` teste le placement partiel, la non-superposition et des candidats du moteur 06F. La CI exécute aussi `tests/plans_vente`. Recette Revit à rejouer sur les pièces 1123/2213, puis les deux vues.
+
+
+---
+
+### BUG-COMMON-005 — Cotes paralleles et longueurs de murs a la place des dimensions de pieces
+
+**Symptome :** la commande Cotation cree 57 cotes sur le niveau 0,
+mais plusieurs sont paralleles dans une meme piece et mesurent de courts
+troncons de murs au lieu des deux grandes dimensions interieures.
+Retour utilisateur du 22 octobre 2026, avec capture et rapport.
+
+**Cause racine :** `DimensionService.create_dimensions` du module
+Plans de vente tente d'abord les paires de faces opposees (06F), puis
+`_fallback_length_indexes` si une cote principale n'a pas ete produite.
+Cette methode produit des dimensions le long des murs via leurs references
+d'extremite. Le nouvel adaptateur strict avait conserve ce comportement :
+il pouvait remplir deux positions avec des longueurs de murs paralleles.
+
+**Correction :** uniquement dans `GenericDimensions` des nouveaux
+modules, `_fallback_length_indexes` renvoie une liste vide.
+`_room_boundary_candidates` reutilise les references de faces finies du
+service valide, puis garde les deux paires principales de faces opposees
+orthogonales via `lib/annotations/principal_dimension_axes.py`. Si une
+paire n'est pas exploitable sans chevauchement, aucune cote de secours sur
+un segment de mur ne la remplace. Plans de vente reste inchange.
+
+**Regle preventive :** une cote de longueur de mur n'est pas une cote
+entre faces opposees. Une exigence de deux grandes dimensions par piece
+doit etre garantie lors du choix de references, avant le placement.
+Ne jamais compenser une orientation principale manquante par une longueur
+de mur, et ne jamais generer deux directions paralleles.
+
+**Anti-regression :** `tests/annotations/test_principal_dimension_axes.py`
+(7 x 3,5 m, plan tourne, pair non orthogonal, une seule direction),
+`tests/annotations/test_annotation_runtime_mocks.py` (filtrage reel
+de l'adaptateur et fallback inactif), execution de `tests/plans_vente`
+et du workflow Export. Recette Revit sur copie avec suppression manuelle
+des cotes erronees du test precedent avant relance.
