@@ -297,3 +297,20 @@ Avant de répondre « terminé » :
 - [ ] Commit seulement après validation de cette checklist.
 
 **Cette checklist est obligatoire pour tout agent IA intervenant sur Outils-TAA.**
+
+
+---
+
+## Regle transversale obligatoire — indicateur de progression apres 20 secondes (2026-10-22)
+
+**Portee : TOUS les modules et TOUTES les commandes d'Outils TAA, actuels et futurs. Obligation pour chaque IA et developpeur intervenant sur le depot.**
+
+- Toute commande dont l'execution dure plus de **20 secondes** doit presenter a l'utilisateur un indicateur de chargement/progression visible et reactif. Aucune operation longue ne doit laisser l'utilisateur sans retour visuel.
+- Pour une operation dont la duree peut raisonnablement depasser 20 secondes, preparer et afficher l'indicateur des le lancement (ou apres un seuil de 20 secondes via un mecanisme non bloquant fiable). Ne pas attendre la fin d'un appel Revit synchrone qui bloque le thread UI pour tenter d'afficher la fenetre.
+- L'indicateur affiche au minimum le nom de la commande, la phase ou l'operation courante et un signe d'activite. Utiliser une barre determinee et un pourcentage uniquement si la progression reelle est mesurable ; sinon, utiliser une barre indeterminee animee. Ne jamais simuler une progression fictive ou un temps restant non fonde.
+- Lorsqu'un appel natif Revit ne permet pas de rafraichir l'interface, respecter strictement les contraintes de thread et de contexte API Revit : ne pas lancer d'acces a l'API depuis un thread de fond non autorise. Documenter la limite technique et garantir un retour visuel avant le blocage si possible.
+- Fermer l'indicateur et restaurer l'interface en fin de traitement, en cas d'echec et apres annulation lorsqu'elle est effectivement prise en charge. Ne pas afficher un bouton Annuler si l'operation ne peut pas etre interrompue en securite.
+- Mutualiser un composant de progression respectant la charte WPF TAA plutot que multiplier des implementations incompatibles. Reutiliser le systeme de progression d'Export lorsque pertinent, sans perturber son comportement valide.
+- Pour chaque nouvelle commande ou modification susceptible de durer plus de 20 secondes, verifier et documenter le comportement de progression. Ajouter a la recette un test d'execution longue (>20 s), un test d'erreur et un controle de non-regression. La validation effective sous Revit 2025.4 / pyRevit 5.x reste obligatoire pour les aspects WPF/API.
+
+**Critere de recette : aucune commande depassant 20 secondes sans indicateur visible, coherent et techniquement compatible avec Revit.**
