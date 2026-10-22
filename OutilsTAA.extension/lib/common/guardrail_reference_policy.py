@@ -23,7 +23,7 @@ def matches_guardrail_edge(boundary, edge, tolerance,
 
 def select_guardrail_edge(boundary, edges, tolerance,
                           angle_degrees=3., minimum_overlap=.60,
-                          max_edges=120):
+                          max_edges=120, include_metrics=False):
     """Choisir une référence d'arête valide, pas un axe théorique.
 
     edges: (segment_xy, reference, element_id, z) déjà présélectionnés
@@ -43,9 +43,11 @@ def select_guardrail_edge(boundary, edges, tolerance,
             continue
         score = metrics["score"]
         if best is None or score < best[0]:
-            best = (score, reference, element_id)
+            best = (score, reference, element_id, metrics)
     if best is None:
         return None
+    if include_metrics:
+        return best[1], best[2], best[3]
     return best[1], best[2]
 
 
@@ -155,3 +157,23 @@ def diagnose_guardrail_candidates(boundary, edges, tolerance,
         "recouvrement" in record["reasons"],
         record["distance"], record["angle"]))
     return result
+
+
+def is_exterior_annex(room_name, interior_exterior=""):
+    """Loggia, terrasse, balcon ou jardin ; ou classification projet Ext.
+
+    Le nom est issu du parametre ROOM_NAME (pas de Room.Name sous
+    IronPython). La classification optionnelle est le parametre
+    utilisateur 'Int/Ext'. Ne pas deduire 'exterieur' de la geometrie
+    de la Room ou de la simple presence d'une separation de piece.
+    """
+    name = (room_name or "").lower().strip()
+    flag = (interior_exterior or "").lower().strip()
+    return (any(word in name for word in (
+                "loggia", "balcon", "terrasse", "jardin"))
+            or flag in ("ext", "exterieur", "extérieur", "externe"))
+
+
+def guardrail_tolerance_mm(is_exterior, ordinary_mm=20., recovery_mm=50.):
+    """Marge supplementaire UNIQUEMENT pour les annexes exterieures."""
+    return float(recovery_mm if is_exterior else ordinary_mm)
