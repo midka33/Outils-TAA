@@ -226,17 +226,18 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 ## Phase 4 bis — Règle des 1/6 : surfaces des baies
 
-**Statut au 21 octobre 2026 :** module en développement ; prototype V0.1 préparé hors dépôt. Branche de travail : `feature/calculs-regle-1-6-baies`. **Non livré et non validé dans Revit.**
+**Statut au 22 octobre 2026 :** diagnostic V0.1 intégré à la branche, tests unitaires ajoutés ; validation Revit réelle à effectuer. Branche de travail : `feature/calculs-regle-1-6-baies`. **Non livré et non validé dans Revit.**
 
 - [x] Définir le périmètre initial : logements individuels et collectifs, comparaison surfaces des baies / SHAB.
 - [x] Préparer un prototype V0.1 indépendant en ZIP.
 - [x] Créer la branche de développement et documenter le périmètre dans le README principal.
-- [ ] Intégrer le prototype au dépôt en respectant l'architecture et le thème Outils TAA.
+- [x] Intégrer le diagnostic V0.1 au dépôt (bouton, WPF, export CSV, moteur isolé, thème TAA).
 - [ ] Vérifier précisément les modalités réglementaires (niveau bâtiment ou logement, exceptions et méthode de mesure en tableau) avant validation des verdicts.
 - [ ] Fiabiliser SHAB, identification des logements et analyse des sources Revit directes et liées.
 - [ ] Identifier les baies éligibles et traiter les doublons, portes vitrées, murs-rideaux et ouvertures non renseignées.
 - [ ] Séparer valeurs mesurées, estimées et inconnues ; produire un diagnostic prudent, non assimilé à une attestation réglementaire.
-- [ ] Tester le moteur de calcul hors Revit, intégrer la CI et documenter les scénarios.
+- [x] Ajouter les tests unitaires du moteur de diagnostic, la CI et la documentation.
+- [ ] Exécuter et vérifier les workflows GitHub Actions sur la branche / PR.
 - [ ] Valider les parcours réels sous Revit 2025.4 / pyRevit 5.x avant toute fusion dans `main`.
 
 ## Phase 5 — Industrialisation

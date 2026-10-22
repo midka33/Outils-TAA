@@ -11,6 +11,8 @@ on:
       - "OutilsTAA.extension/lib/calculation/**"
       - "OutilsTAA.extension/lib/common/**"
       - "tests/calculation/**"
+      - "tests/baies_diagnostic/**"
+      - "OutilsTAA.extension/lib/baies_diagnostic/**"
       - ".github/workflows/calculs-tests.yml"
 
 jobs:
@@ -29,4 +31,4 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest
 
       - name: Tests Calculs des pièces
-        run: python -m pytest tests/calculation -q
+        run: python -m pytest tests/calculation tests/baies_diagnostic -q

@@ -16,7 +16,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
-| **Règle des 1/6 — surfaces vitrées** | Prototype V0.1 préparé hors dépôt ; intégration et validation Revit à réaliser sur `feature/calculs-regle-1-6-baies` |
+| **Règle des 1/6 — surfaces vitrées** | Diagnostic V0.1 intégré à la branche de développement ; validation Revit 2025.4 à réaliser |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
@@ -43,7 +43,7 @@ cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure le
 Voir `docs/20_Plans_de_Vente.md` et la recette de release
 `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
-## Règle des 1/6 — surfaces vitrées (en développement)
+## Diagnostic des baies / règle des 1/6 (en développement)
 
 Module de contrôle des surfaces des baies pour les **maisons individuelles** et les **bâtiments de logements collectifs**, cible **Revit 2025.4 / pyRevit 5.x**.
 
@@ -58,13 +58,14 @@ Périmètre fonctionnel prévu :
 - Produire un bilan des surfaces exigées, recensées et manquantes, ainsi qu'un rapport exportable avec avertissements.
 - Prévoir un fonctionnement **en lecture seule** lors du diagnostic ; toute écriture future dans des paramètres Revit sera optionnelle et explicitement confirmée.
 
-**État au 21 octobre 2026 :** un prototype V0.1 autonome a été préparé en archive ZIP, mais **son code n'est pas encore intégré dans ce dépôt**. La branche de travail [`feature/calculs-regle-1-6-baies`](https://github.com/midka33/Outils-TAA/tree/feature/calculs-regle-1-6-baies) existe ; elle sert à la future intégration, aux tests et à la revue. Aucun test de validation en situation dans Revit 2025.4 n'a encore été effectué pour ce nouveau module.
+**État au 22 octobre 2026 :** le diagnostic V0.1 (bouton, analyse, CSV et tests) est intégré à cette branche ; il n'est pas encore validé dans Revit. La branche de travail [`feature/calculs-regle-1-6-baies`](https://github.com/midka33/Outils-TAA/tree/feature/calculs-regle-1-6-baies) sert aux essais, corrections et à la revue. Aucun test de validation en situation dans Revit 2025.4 n'a encore été effectué pour ce nouveau module. Voir `docs/27_Diagnostic_Baies.md`.
 
 ## Guide utilisateur
 
 - [Export — tutoriel](docs/release/Tutoriel_Export_v1.3.0.md)
 - [Calculs des pièces — tutoriel](docs/release/Tutoriel_Calculs_Pieces_v1.3.0.md)
 - [Plans de vente — tutoriel](docs/release/Tutoriel_Plans_de_Vente_v1.3.0.md)
+- [Diagnostic des baies — guide et limites](docs/27_Diagnostic_Baies.md)
 - [Index de la documentation](docs/INDEX.md)
 
 ## Historique des noms

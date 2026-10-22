@@ -43,6 +43,10 @@ Les anciennes étapes, audits et recettes de campagne sont sous
 
 - `18_Calculs_Pieces_Tests_Revit.md` — campagne de validation Revit.
 
+## Diagnostic des baies (développement)
+
+- `27_Diagnostic_Baies.md` — diagnostic V0.1 des familles fenêtres/portes ; futurs contrôles des 1/6, non validés dans Revit.
+
 ## Plans de vente
 
 **Référence fonctionnelle principale :** `20_Plans_de_Vente.md`
