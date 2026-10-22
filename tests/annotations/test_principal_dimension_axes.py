@@ -51,6 +51,7 @@ def test_deux_plus_grandes_cotes_pas_necessairement_perpendiculaires(monkeypatch
     class Pair(object):
         def __init__(self, tangent, distance, score, i, j):
             self.tangent = tangent
+            self.normal = (-tangent[1], tangent[0])
             self.distance = distance
             self.score = score
             self.first_index = i
@@ -108,3 +109,29 @@ def test_adaptateur_nutilise_pas_longueur_mur_de_secours():
     assert isinstance(method.body[0], ast.Return)
     assert isinstance(method.body[0].value, ast.List)
     assert len(method.body[0].value.elts) == 0
+
+
+
+def test_directions_trop_proches_ne_sont_pas_les_deux_cotes():
+    # L'angle aigu entre les normales est de 8 degres : ce ne sont
+    # pas deux dimensions principales de directions distinctes.
+    class Pair(object):
+        def __init__(self, degrees, distance, score, i, j):
+            a = math.radians(degrees)
+            self.normal = (math.cos(a), math.sin(a))
+            self.tangent = (-math.sin(a), math.cos(a))
+            self.distance = distance
+            self.score = score
+            self.first_index = i
+            self.second_index = j
+
+    offered = [Pair(0., 9., 10., 0, 1),
+               Pair(8., 8., 10., 2, 3),
+               Pair(60., 6., 10., 4, 5)]
+    old = axes.dominant_dimension_pairs
+    try:
+        axes.dominant_dimension_pairs = lambda segments, **kwargs: list(offered)
+        chosen = axes.principal_pairs(rectangle(9., 6.))
+    finally:
+        axes.dominant_dimension_pairs = old
+    assert chosen == [offered[0], offered[2]]
