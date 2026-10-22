@@ -234,6 +234,7 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [x] Intégrer le diagnostic V0.1 au dépôt (bouton, WPF, export CSV, moteur isolé, thème TAA).
 - [ ] Vérifier précisément les modalités réglementaires (niveau bâtiment ou logement, exceptions et méthode de mesure en tableau) avant validation des verdicts.
 - [ ] Fiabiliser SHAB, identification des logements et analyse des sources Revit directes et liées.
+- [x] Analyser les exports réels du 22 octobre 2026 et intégrer le filtre FEN-EXT / PORFEN-EXT activé par défaut, avec signalement des cas atypiques.
 - [ ] Identifier les baies éligibles et traiter les doublons, portes vitrées, murs-rideaux et ouvertures non renseignées.
 - [ ] Séparer valeurs mesurées, estimées et inconnues ; produire un diagnostic prudent, non assimilé à une attestation réglementaire.
 - [x] Ajouter les tests unitaires du moteur de diagnostic, la CI et la documentation.
