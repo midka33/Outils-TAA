@@ -198,7 +198,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     return True
         return False
 
-    def _nearby_guardrail_edges(self, room):
+    def _nearby_guardrail_edges(self, room, boundary_segments):
         """Arêtes NATIVES de deux garde-corps au plus, sans parcours global.
 
         Les arêtes sont seulement interrogées pour une pièce ayant une
@@ -216,6 +216,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         try:
             from Autodesk.Revit.DB.Architecture import Railing
             from common.floor_reference_policy import intersects_xy
+            from common.guardrail_reference_policy import (
+                select_guardrails_by_path)
         except Exception:
             return []
 
@@ -230,22 +232,71 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         except Exception:
             return []
 
-        railings = []
+        # La bbox de tout le local peut contenir plusieurs garde-corps
+        # de logements voisins ; elle n'est qu'un premier filtre peu couteux.
+        # GetPath donne leur trajet en plan, pas une Reference de cotation.
+        # On n'extrait les solides que des chemins longeant réellement
+        # les separations selectionnees pour les deux cotes principales.
+        nearby = []
         margin = self._millimeters_to_internal(150.)
         for railing in candidates:
             try:
                 bbox = self._bbox_xy(railing.get_BoundingBox(view))
                 if intersects_xy(box, bbox, padding=margin):
-                    railings.append(railing)
-                    if len(railings) > 2:
+                    nearby.append(railing)
+                    if len(nearby) > 24:
                         self._guardrail_warnings.append(
-                            "{} : plus de deux garde-corps proches ; "
-                            "recherche native ignoree par securite.".format(key))
+                            "{} : trop de garde-corps dans la vue "
+                            "(plus de 24) ; reperes 2D conserves.".format(
+                                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)))
                         return []
             except Exception:
                 continue
-        if not railings:
+        if not nearby:
             return []
+
+        paths = []
+        count_path_segments = 0
+        for railing in nearby:
+            try:
+                segments = []
+                for curve in list(railing.GetPath() or []):
+                    count_path_segments += 1
+                    if count_path_segments > 80:
+                        self._guardrail_warnings.append(
+                            "{} : plus de 80 segments de chemin de garde-corps "
+                            "; reperes 2D conserves.".format(
+                                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)))
+                        return []
+                    if not isinstance(curve, DB.Line):
+                        continue
+                    p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
+                    segments.append((float(p0.X), float(p0.Y),
+                                     float(p1.X), float(p1.Y)))
+                paths.append((railing, segments))
+            except Exception:
+                # GetPath peut etre inapplicable pour un garde-corps
+                # atypique. Ne surtout pas extraire sa geometrie a
+                # l'aveugle apres le crash Revit deja rencontre.
+                continue
+
+        railings = select_guardrails_by_path(
+            paths, boundary_segments,
+            tolerance=self._millimeters_to_internal(500.),
+            max_railings=2, max_segments=80,
+            angle_degrees=12., minimum_overlap=.30)
+        if not railings:
+            self._guardrail_warnings.append(
+                "{} : aucun garde-corps avec chemin suffisamment proche "
+                "des limites a coter (ou recherche ambigue) ; "
+                "reperes 2D conserves.".format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)))
+            return []
+        self._guardrail_warnings.append(
+            "{} : {} garde-corps retenu(s) par leur chemin "
+            "pour examen des aretes natives.".format(
+                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                len(railings)))
         options = DB.Options()
         options.ComputeReferences = True
         options.IncludeNonVisibleObjects = False
@@ -306,7 +357,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         if not remaining:
             return candidates
         from common.guardrail_reference_policy import select_guardrail_edge
-        edges = self._nearby_guardrail_edges(room)
+        edges = self._nearby_guardrail_edges(
+            room, [item.segment for item in remaining])
         if not edges:
             return candidates
         tolerance = self._millimeters_to_internal(
