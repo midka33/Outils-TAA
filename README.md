@@ -54,6 +54,8 @@ Une première version non validée dans Revit est préparée sur la branche
 Elle réutilise les moteurs Plans de vente sans modifier leur comportement.
 La recette et les limitations figurent dans [`docs/21_Annotations_Automatiques.md`](docs/21_Annotations_Automatiques.md).
 
+**Loggias (bêta) :** en cas de séparation de pièce sans arête de dalle exploitable, Cotation automatique tente maintenant des repères 2D de 5 mm, dans un style visible au choix de l'utilisateur. Cette substitution est non associative, doit être testée dans Revit et ne modifie pas le moteur Plans de vente. Les anciennes cotes sur séparations doivent être recréées manuellement sur copie pour cet essai.
+
 **Sécurité (22/10/2026) :** après une fermeture brutale de Revit, la cotation en masse est désactivée dans la bêta. Ne tester que sur une copie de projet ; le bouton Cotation exige une seule pièce et conserve un journal dans `%TEMP%\OutilsTAA_Annotations_crashtrace.log`. Les groupes attachés et l'exploration des dalles de niveaux voisins sont temporairement suspendus. **Ne pas fusionner dans `main` avant diagnostic et recette.**
 
 ## Guide utilisateur
