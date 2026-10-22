@@ -568,3 +568,56 @@ def test_balcon_second_lancement_reconnait_cote_existante_avec_proxy(monkeypatch
     remaining = service._room_boundary_candidates(
         types.SimpleNamespace(UniqueId="room-2238"))
     assert remaining == [raw[0], raw[2]]
+
+
+def test_revit_adapter_local_floor_candidates_filters_other_level_by_xy(monkeypatch):
+    """Vrai raccordement du hook du service a la politique commune."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    class Point(object):
+        def __init__(self, x, y):
+            self.X, self.Y = x, y
+
+    class Box(object):
+        def __init__(self, x0, y0, x1, y1):
+            self.Min = Point(x0, y0)
+            self.Max = Point(x1, y1)
+
+    class Floor(object):
+        def __init__(self, box, key):
+            self.box, self.key = box, key
+
+        def get_BoundingBox(self, view):
+            return self.box
+
+    remote = Floor(Box(100, 100, 110, 110), "meme-niveau")
+    neighbor = Floor(Box(-.1, -.1, 3.2, 3.7), "proche-autre-niveau")
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_BoundingBox=lambda v: Box(0, 0, 3.12, 3.62),
+        get_Parameter=lambda param: FakeParameter("2238"))
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    chosen = service._floor_candidates(room, [remote], [neighbor])
+    assert chosen == [neighbor]
+    assert service._floor_cache_key(room, 10) == (10, "2238")
+    assert service._floor_cache_key(types.SimpleNamespace(UniqueId="1170"), 10) != (
+        10, "2238")
+
+
+def test_revit_adapter_ninsiste_pas_si_trop_de_planchers_a_extraire(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    v = lambda x, y: types.SimpleNamespace(X=x, Y=y)
+    bounds = types.SimpleNamespace(Min=v(0, 0), Max=v(4, 4))
+    floors = [types.SimpleNamespace(
+        get_BoundingBox=lambda view: bounds) for _ in range(7)]
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_BoundingBox=lambda view: bounds,
+        get_Parameter=lambda param: FakeParameter("2238"))
+    assert service._floor_candidates(room, floors, []) == []
