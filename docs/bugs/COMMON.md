@@ -94,7 +94,7 @@ il pouvait remplir deux positions avec des longueurs de murs paralleles.
 modules, `_fallback_length_indexes` renvoie une liste vide.
 `_room_boundary_candidates` reutilise les references de faces finies du
 service valide, puis garde les deux paires principales de faces opposees
-orthogonales via `lib/annotations/principal_dimension_axes.py`. Si une
+de plus grande portee, non necessairement perpendiculaires, via `lib/annotations/principal_dimension_axes.py`. Si une
 paire n'est pas exploitable sans chevauchement, aucune cote de secours sur
 un segment de mur ne la remplace. Plans de vente reste inchange.
 
@@ -102,7 +102,7 @@ un segment de mur ne la remplace. Plans de vente reste inchange.
 entre faces opposees. Une exigence de deux grandes dimensions par piece
 doit etre garantie lors du choix de references, avant le placement.
 Ne jamais compenser une orientation principale manquante par une longueur
-de mur, et ne jamais generer deux directions paralleles.
+de mur ; les deux paires retenues doivent correspondre a deux directions distinctes, sans imposer 90 degres.
 
 **Anti-regression :** `tests/annotations/test_principal_dimension_axes.py`
 (7 x 3,5 m, plan tourne, pair non orthogonal, une seule direction),
@@ -110,3 +110,18 @@ de mur, et ne jamais generer deux directions paralleles.
 de l'adaptateur et fallback inactif), execution de `tests/plans_vente`
 et du workflow Export. Recette Revit sur copie avec suppression manuelle
 des cotes erronees du test precedent avant relance.
+
+
+---
+
+### BUG-COMMON-006 — Contrainte orthogonale injustifiee et cotes non alignees
+
+**Symptome :** une piece biaise ne peut pas recevoir ses deux plus grandes cotes si leurs orientations ne sont pas perpendiculaires. Les cotations horizontales/obliques des pieces voisines ne suivent pas une meme ligne.
+
+**Cause racine :** le filtre initial `principal_pairs` exigeait un angle droit entre les deux familles de faces opposees ; le selecteur strict ne tenait compte que des collisions et des positions propres a chaque piece, sans guidage par les cotes deja posees.
+
+**Correction :** trier les paires dominantes du moteur Plans de vente par **distance entre faces decroissante**, conserver les deux plus grandes de directions distinctes, sans contrainte de 90 degres. Recuperer les lignes des cotes deja presentes dans la vue ; generer, lorsque c'est possible, des positions de cote *exactement colineaires* a celles des pieces voisines de meme orientation. L'alignement n'est choisi que si l'emprise reste dans la piece et ne recouvre ni etiquette ni autre cote. Les references natives Revit demeurent inchangees. Les deux modules restent sur la branche de test, sans toucher Plans de vente.
+
+**Regle preventive :** ne pas ajouter de contrainte geometrique absente de la demande metier. Distinguer choix de la dimension (portee maximisee) et placement graphique (alignement privilegie, collisions prioritaires).
+
+**Anti-regression :** `tests/annotations/test_principal_dimension_axes.py` (piece biais, 2 grandes portees non orthogonales), `tests/annotations/test_dimension_alignment.py` (alignement, obstacle, voisin eloigne), `tests/annotations/test_annotation_runtime_mocks.py` (adaptateur reel simule), suite complete `tests/plans_vente` et tests Export sur GitHub Actions. Validation dans Revit 2025.4 obligatoire.
