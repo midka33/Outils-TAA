@@ -264,3 +264,16 @@ de leurs mises en page.
 - Étudier l'export PDF en arrière-plan : suivi des tâches Revit, annulation, rapport
   différé et livraison/renommage sécurisés après achèvement. La case reste désactivée
   dans la V1 synchrone ; ne pas l'activer uniquement via SetExportInBackground(True).
+
+
+### Export — ergonomie de l'ajout des mises en page (decision du 2026-10-22)
+
+**Statut : planifie, non developpe.** Reference : `docs/09_Export.md`, section « Evolution UX planifiee — explorateur escamotable des mises en page ».
+
+- [ ] Auditer les XAML, handlers et services existants de « Ajouter / gerer… » et du glisser-deposer.
+- [ ] Integrer un panneau gauche escamotable, redimensionnable et a etat memorise, sans supprimer les panneaux publication et parametres.
+- [ ] Afficher les feuilles du document Revit actif, recherche instantanee et filtres, indicateurs d'utilisation et regroupements utiles.
+- [ ] Selection Ctrl/Maj/Ctrl+A persistante entre recherches ; ajout par bouton, double-clic, menu contextuel et glisser-deposer multiple vers les dossiers.
+- [ ] Reutiliser le comportement de survol, ouverture automatique, scroll et insertion de l'arborescence existante ; eviter les doublons dans un dossier, autoriser la reutilisation inter-dossiers.
+- [ ] Preserver le modele a dossiers uniques, les parametres PDF/DWG, le stockage, les profils et les publications existantes.
+- [ ] Ajouter tests automatises et recette Revit 2025.4 / pyRevit 5.x : clavier, DPI, Full HD, interactions, persistance et non-regression.
