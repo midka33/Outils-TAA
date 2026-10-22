@@ -91,25 +91,70 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
     def __init__(self, document):
         super(GenericDimensions, self).__init__(document)
         self.proxy_candidates = {}
+        self.target_view = None
+
+    def _stable_reference(self, reference):
+        if reference is None:
+            return None
+        try:
+            return str(reference.ConvertToStableRepresentation(self.document))
+        except Exception:
+            return None
+
+    def _existing_dimension_reference_pairs(self):
+        """Identifier les cotes deja presentes par leurs references Revit.
+
+        Une bbox partagee avec une autre piece n'est jamais une preuve
+        que cette piece est deja cotee.
+        """
+        view = self.target_view
+        if view is None:
+            return set()
+        result = set()
+        try:
+            dimensions = (DB.FilteredElementCollector(self.document, view.Id)
+                          .OfCategory(DB.BuiltInCategory.OST_Dimensions)
+                          .WhereElementIsNotElementType().ToElements())
+            for dimension in dimensions:
+                try:
+                    if dimension.IsHidden(view):
+                        continue
+                    keys = [self._stable_reference(reference)
+                            for reference in dimension.References]
+                    if len(keys) == 2 and all(keys) and keys[0] != keys[1]:
+                        result.add(frozenset(keys))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return result
 
     def _room_boundary_candidates(self, room):
         cached = self.proxy_candidates.get(str(room.UniqueId))
         if cached is not None:
             return cached
 
-        # Reutiliser les vraies references de faces finies du moteur PDV,
-        # mais ne conserver que les deux paires de faces opposees les plus
-        # representatives et perpendiculaires. Aucun mur adjacent n'est
-        # cote par sa simple longueur dans ce module.
+        # Reutiliser les references de faces finies du moteur PDV.
+        # Choisir les deux plus grandes portees de directions distinctes,
+        # puis exclure les seules portees deja cotees dans cette vue.
         candidates = super(GenericDimensions, self)._room_boundary_candidates(room)
-        from annotations.principal_dimension_axes import principal_reference_indexes
-        indexes = principal_reference_indexes(
+        from annotations.principal_dimension_axes import principal_pairs
+        pairs = principal_pairs(
             [item.segment for item in candidates],
             angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
             minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
             placement_fraction=self.PLACEMENT_FRACTION,
         )
-        return [item for index, item in enumerate(candidates)
+        existing = self._existing_dimension_reference_pairs()
+        indexes = set()
+        for pair in pairs:
+            refs = [self._stable_reference(candidates[index].reference)
+                    for index in (pair.first_index, pair.second_index)]
+            if len(refs) == 2 and all(refs) and frozenset(refs) in existing:
+                continue
+            indexes.add(pair.first_index)
+            indexes.add(pair.second_index)
+        return [candidate for index, candidate in enumerate(candidates)
                 if index in indexes]
 
     def _fallback_length_indexes(self, boundary_candidates, pairs):
@@ -306,28 +351,17 @@ class AnnotationService(object):
         return [room for room in rooms if self.tags._room_tag_identity(room) not in ids]
 
     def _not_yet_dimensioned(self, view, rooms):
-        # Choix conservateur : ne pas ajouter un jeu de cotes dans une piece
-        # ayant deja une cote dont l'emprise intersecte la piece.
-        existing = self._elements(view, "dims")
+        # Ne PAS exclure toute une piece des qu'une cote touche sa bbox.
+        # Cela empechait d'ajouter l'axe manquant lors d'un second lancement.
+        # GenericDimensions._room_boundary_candidates compare les references
+        # des deux portees principales avec celles des cotes deja posees.
         filtered = []
         for room in rooms:
-            bounds = room.get_BoundingBox(view)
-            if bounds is None:
+            try:
+                if room.get_BoundingBox(view) is not None:
+                    filtered.append(room)
+            except Exception:
                 continue
-            used = False
-            for dim in existing:
-                try:
-                    bbox = dim.get_BoundingBox(view)
-                    if (bbox and bbox.Max.X > bounds.Min.X and
-                            bbox.Min.X < bounds.Max.X and
-                            bbox.Max.Y > bounds.Min.Y and
-                            bbox.Min.Y < bounds.Max.Y):
-                        used = True
-                        break
-                except Exception:
-                    pass
-            if not used:
-                filtered.append(room)
         return filtered
 
     def _create_proxies(self, view, rooms, group, line_style):
@@ -457,6 +491,7 @@ class AnnotationService(object):
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
+        self.dims.target_view = view
         try:
             before = self._ids(view, kind)
             existing_attached = (
@@ -491,6 +526,7 @@ class AnnotationService(object):
                 traceback.format_exc())]
         finally:
             self.dims.proxy_candidates = {}
+            self.dims.target_view = None
 
     def run(self, kind, views, annotation_type_id, line_style=None):
         report, total = [], 0
