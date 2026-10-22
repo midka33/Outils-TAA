@@ -69,9 +69,11 @@ def test_test_non_regression_ordre_references():
                "services" / "annotations_service.py")
     source = adapter.read_text(encoding="utf-8")
     assert "super(GenericDimensions, self)._room_boundary_candidates(room)" in source
-    assert "_upgrade_separator_guardrail(room, candidates)" in source
+    assert "self._upgrade_separator_guardrail(" in source
     assert source.index(
         "candidates = super(GenericDimensions, self)._room_boundary_candidates(room)"
-    ) < source.index("candidates = self._upgrade_separator_guardrail(room, candidates)")
+    ) < source.index("self._upgrade_separator_guardrail(")
+    assert source.index("self._upgrade_separator_guardrail(") < source.index(
+        "existing = self._existing_dimension_reference_pairs()")
     assert 'candidate.source_kind = "guardrail_edge"' in source
     assert 'if getattr(candidate, "source_kind", None) != "separator":' in source
