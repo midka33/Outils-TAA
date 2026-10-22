@@ -318,8 +318,27 @@ cause du crash n'est pas confirmée.
 **Retour réel Revit 2025.4 (22 octobre 2026) :** une pièce hors groupe sélectionnée dans `Collectifs A_Niveau 0`, numéro **1170** ; **2 annotations créées** dans une vue, sans crash signalé. Le rapport contient `1170 : proximite avec un equipement (controle recommande)`.
 
 - [x] REV-ANN-32 — Une pièce, traitement de cotation terminé sans crash signalé ; deux annotations natives annoncées par pyRevit.
-- [ ] REV-ANN-33 — Vérifier sur capture que les deux cotes mesurent les deux plus grandes dimensions de la pièce, dans deux directions distinctes, sans collision avec étiquette ou équipement.
+- [x] REV-ANN-33 — Capture de la loggia 1170 (`Collectifs A_Niveau 0`) : deux cotes perpendiculaires graphiquement cohérentes, **3,12 m × 3,62 m**, aucun recouvrement évident sur la capture. Validation des références réelles et de la pérennité à poursuivre.
 - [ ] REV-ANN-34 — Examiner `%TEMP%\OutilsTAA_Annotations_crashtrace.log` : présence de `BEFORE_DIMENSION_ENGINE`, `AFTER_DIMENSION_ENGINE`, `ROOM_COMMITTED`, `RUN_END` pour la pièce 1170.
 - [ ] REV-ANN-35 — Avant retour au mode multi-pièces, réessayer un autre profil de pièce sur une copie, avec la même surveillance du journal ; ne pas réactiver automatiquement la cotation multi-vues.
 
 **Portée du résultat :** succès fonctionnel du lancement d'une pièce, non validation de la qualité graphique, de l'absence de collision, des balcons, des groupes attachés ou de la stabilité à grande échelle.
+
+
+### Deuxième essai isolé après crash — loggia 2238
+
+**Retour utilisateur du 22 octobre 2026 :** dans `Collectifs A_Niveau 1`, la cotation isolée de la pièce **2238** a créé **2 annotations**, commande terminée sans crash signalé. Le rapport contient :
+
+- `2238 : aucune arête de sol superposée fiable n'a été trouvée pour une séparation de pièce utilisée par une cote. La cote peut disparaître si les séparations sont masquées dans la vue.`
+- Deux avertissements de proximité avec un équipement.
+
+**Distinction des preuves :** les deux captures jointes montrent la pièce **1170 au niveau 0** (loggia sélectionnée, cotes 3,12 m / 3,62 m). Le rapport `2238` du niveau 1 confirme deux cotes produites, **sans capture du résultat 2238**. Il ne faut pas confondre ces deux validations.
+
+**Analyse :** le moteur canonique Plans de vente n'a pas trouvé de référence native d'arête de plancher fiable pour une limite de 2238 et a utilisé une séparation de pièce. La dimension peut alors dépendre de la visibilité de cette catégorie. La proximité d'équipement est un avertissement conservateur, pas une collision prouvée.
+
+- [x] REV-ANN-36 — Lancement unitaire de 2238 : 2 cotes créées, aucun crash signalé.
+- [ ] REV-ANN-37 — Sur **copie de maquette**, masquer temporairement l'affichage des séparations de pièces dans la vue du niveau 1 et vérifier que les cotes de 2238 restent visibles et que leurs références restent valides ; rétablir la visibilité après essai.
+- [ ] REV-ANN-38 — Contrôler la capture rapprochée de 2238 (cotes et équipements), pour confirmer dimensions et placement.
+- [ ] REV-ANN-39 — Vérifier le traceur `%TEMP%\\OutilsTAA_Annotations_crashtrace.log` pour les deux essais : `ROOM_COMMITTED` et `RUN_END`, puis évaluer s'il est prudent d'élargir le diagnostic à un WC ou cellier.
+
+**Décision :** ne pas restaurer la recherche expérimentale des solides des planchers ni le traitement multi-pièces sur la seule base de ces deux essais isolés. Le service Plans de vente stable demeure inchangé.
