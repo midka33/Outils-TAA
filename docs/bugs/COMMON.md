@@ -349,3 +349,58 @@ les anciennes cotes de 2238 sur une copie, relancer la commande,
 masquer les lignes de séparation et vérifier la persistance des cotes
 sans masquer le style des lignes 2D. Pas de validation Revit de cette
 correction tant que le nouvel essai n'a pas été fait.
+
+
+---
+
+### BUG-COMMON-011 — Une dalle de loggia pertinente ignorée par le sélecteur de niveau PDV
+
+**Symptôme :** la loggia 2238 peut recevoir deux cotations géométriquement
+correctes mais associées à des lignes de séparation ; elles disparaissent
+toutes deux au masquage de la catégorie. Le moteur n'a pas retenu d'arête
+de dalle native. Le cas de dalle attachée à un autre niveau est suspecté,
+mais **non prouvé dans la maquette 2238**.
+
+**Cause racine démontrée dans le code :** le service historique choisissait
+`candidate_floors = same_level if same_level else nearby_level`.
+Dès qu'au moins un plancher du niveau existait dans le projet, tous les
+planchers des niveaux voisins, même à proximité géométrique de la Room,
+étaient écartés. Le cache des arêtes était indexé par le niveau seul ;
+une recherche locale par pièce ne pourrait pas le réutiliser correctement.
+
+**Correction (sur la branche bêta exclusivement) :** extraction de la
+**politique de sélection des planchers** dans
+`lib/common/floor_reference_policy.py`, sans accès à l'API Revit. Le
+service natif `DimensionService._floor_edges_for_room` demeure l'unique
+propriétaire de l'extraction d'arêtes et réutilise cette politique :
+
+- `mode="legacy"` utilisé par Plans de vente reproduit strictement le
+  comportement et la clé de cache historiques (aucune évolution métier PDV) ;
+- `mode="local"` utilisé par Cotation automatique exige le recoupement
+  de la boîte XY de la Room (marge 300 mm), accepte les dalles sur même
+  niveau **et** niveaux proches déjà filtrés en altitude (±500 mm),
+  limite à **six planchers au total** et retourne une liste vide si le
+  budget est dépassé ou si les emprises sont inconnues ;
+- le cache devient **par pièce** uniquement pour Cotation automatique.
+  L'extraction de géométrie native n'est **pas dupliquée**. Si aucune
+  arête fiable n'est trouvée, le fallback des repères 2D existant est
+  conservé, sans rendre une cote dépendante de la séparation.
+
+**Règle préventive :** dissocier la politique pure de choix de supports
+et le parcours natif de leurs solides. Pour tout adaptateur de lecture
+géométrique, garantir une enveloppe XY, un budget d'objets, une
+stratégie de repli sûre, une clé de cache adaptée au périmètre et
+une non-régression du mode historique.
+
+**Anti-régression :** `tests/annotations/test_floor_reference_policy.py`
+(mode legacy inchangé, dalle voisine, budget, bbox inconnue, absence de
+second parcours natif), `tests/annotations/test_annotation_runtime_mocks.py`
+(raccordement du hook et cache par pièce), suites complètes
+Annotations, Plans de vente, Export et Calculs. Les tests Python
+ne prouvent pas la fiabilité du nouveau parcours en Revit : conserver
+**une vue / une pièce hors groupe**, sur une copie de maquette, et
+vérifier la loggia 2238 avec séparations masquées avant toute
+activation du traitement en masse.
+
+**Statut :** code partagé et suites Python testés ; comportement
+de 2238 dans Revit 2025.4 encore non validé.
