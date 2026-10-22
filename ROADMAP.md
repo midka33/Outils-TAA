@@ -252,6 +252,21 @@ de leurs mises en page.
 - [ ] Définir le modèle de mise en page et les règles de nommage.
 - [ ] Préparer le workflow de génération, mise à jour et contrôle avant développement.
 
+## Phase 4 bis — Cotation et Étiquetage automatiques (bêta)
+
+- [x] Deux boutons pyRevit dans le panneau `Annotations` sur une branche dédiée.
+- [x] Adaptateurs réutilisant les moteurs Plans de vente sans toucher à leur V1.1.
+- [x] Sélection multi-vues, type de cote/étiquette et style des lignes 2D.
+- [x] Traitement des groupes par transactions avec retour arrière sur refus API.
+- [x] Ajouter les tests statiques et la recette documentée.
+- [ ] Exécuter la recette Revit 2025.4 du groupe de détails attaché existant (point critique API).
+- [ ] Vérifier l'association des cotes aux petites lignes de détail.
+- [ ] Valider les collisions et les re-lancements dans des vues métier réelles.
+- [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
+- [ ] Fusionner seulement après recette Revit et non-régression.
+
+Voir `docs/21_Annotations_Automatiques.md`.
+
 ## Phase 5 — Industrialisation
 
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.
