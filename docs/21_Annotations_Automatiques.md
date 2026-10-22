@@ -135,8 +135,7 @@ C'est un comportement distinct du besoin des boutons Annotations.
 
 1. Identifier les faces finies de la piece en reutilisant le service PDV.
 2. Retenir la meilleure paire de faces opposees (mesure interieure).
-3. Retenir la meilleure paire de faces opposees perpendiculaire a la premiere
-   (tolerance de 15 degres), si une telle paire existe.
+3. Retenir la seconde plus grande portee entre faces opposees dans une autre direction, sans imposer de perpendicularite.
 4. Garder les deux emprises et references d'origine, avec placement adaptatif
    sans collision avec etiquette/cote et sans texte hors piece.
 5. Si aucune position fiable n'existe pour un axe, n'ajouter aucune cote
@@ -158,10 +157,27 @@ effacer des cotes manuelles existantes. Le module reste prudent en
 presence de cotes preexistantes.
 
 - [ ] REV-ANN-17 : apres nettoyage de la copie, une piece rectangulaire
-  recoit deux mesures interieures entre faces opposees orthogonales.
+  recoit ses deux plus grandes mesures interieures entre faces opposees (orthogonales seulement si la geometrie l'est).
 - [ ] REV-ANN-18 : aucune cote de longueur de mur / petit troncon,
   meme quand la seconde direction ne peut pas etre placee.
 - [ ] REV-ANN-19 : une piece avec une seule paire opposable ne recoit
   au maximum qu'une cote.
 - [ ] REV-ANN-20 : aucune collision sur les 40 etiquettes deja validees ;
   les pieces complexes produisent un diagnostic plutot qu'une fausse cote.
+
+
+## Precision metier : les plus grandes cotes et alignement entre pieces
+
+**Decision utilisateur du 22 octobre 2026 (prioritaire sur les anciens prototypes)** :
+
+- Retenir **deux plus grandes distances utiles entre faces finies opposees de chaque piece**, par ordre de portee. Ces deux directions peuvent etre obliques et ne doivent **pas obligatoirement** etre perpendiculaires.
+- Reutiliser la geometrie PDV de detection des faces et l'API de cotation native. Aucune longueur isolee de mur en remplacement d'une cote de piece.
+- Pour les cotes de meme orientation dans les pieces voisines, rechercher une ligne de cote **colineaire** a une cote existante de la vue ; ne jamais modifier la longueur mesuree ni les references d'origine. Un guide eloigne n'impose aucun alignement.
+- Aligner seulement si la nouvelle cote est positionnable dans la piece avec un texte interieur, **sans chevauchement d'etiquettes ni d'autres cotations**. A defaut, utiliser le meilleur placement sans collision, ou omettre cette cote et expliquer pourquoi.
+- Si seulement une portee est mesurable sans conflit, ne creer que cette cote. Ne pas forcer de cotations incorrectes pour atteindre deux.
+
+**Implementation beta :** `principal_dimension_axes.py` trie les paires PDV par distance ; `dimension_alignment.py` cherche les rails de meme orientation, peut generer une position exactement colineaire au rail voisin ; `strict_dimension_positioning.py` favorise ces candidats *apres* l'elimination des collisions. `GenericDimensions._alignment_rails` lit les lignes des cotes deja posees dans la vue (y compris les cotes creees sur les pieces precedentes). Le moteur PDV n'est pas modifie.
+
+**Parametres internes beta :** proximite maximale du guide : 25 mm sur papier a l'echelle de la vue ; tolerance de coincidence : 0,25 mm papier ; parallelisme : 5 degres. Les nouvelles positions sont colineaires exactement avec le guide, dans les limites de precision numerique. Ces valeurs sont ajustables apres recette Revit.
+
+**Tests Revit a faire sur une copie propre** : piece rectangulaire, piece biaise, deux pieces voisines avec cotes paralleles et guides d'alignement, variante avec etiquette bloquant le guide, et second lancement sans doublons. Retirer *manuellement* les anciennes cotes incorrectes des essais beta avant de tester, sans suppression automatique des cotes utilisateur.
