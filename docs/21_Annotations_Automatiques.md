@@ -567,3 +567,22 @@ comme référence de cote par Revit.
       supports de cote ; contrôler la visibilité des deux cotes.
 - [ ] REV-ANN-56 — Aucun doublon au second lancement et aucune fermeture
       de Revit ; conserver le diagnostic sur une seule pièce.
+
+
+### Recherche dans GeometryInstance des rails filants — recette 2238
+
+**Retour Revit du 22/10/2026 :** `2 garde-corps retenu(s)` ; puis `1 rail(s) filant(s), 0 aretes inspectees, 0 reference(s) candidate(s)`. Les deux cotations 3,12 et 3,62 m existent toujours grâce aux reperes 2D non associatifs.
+
+**Point technique :** le parcours precedent ne visitait que les `DB.Solid` au premier niveau de la geometrie d'un TopRail / HandRail. Les solides places dans une `GeometryInstance` etaient ignores. Cette hypothese est coherente avec les zero aretes observees, mais la structure du vrai composant 2238 n'est pas encore verifiee.
+
+**Changement de la beta :** la geometrie des seuls TopRail et HandRail deja selectionnes est analysee aussi dans les `DB.GeometryInstance` (deux niveaux au maximum). L'API `GetSymbolGeometry()` **sans argument** restitue la geometrie originale et les references Revit exploitables ; les points sont transformes dans le repere maquette avec `GeometryInstance.Transform.OfPoint`. **Ne pas employer** `GetInstanceGeometry()` ni `GetSymbolGeometry(Transform)` pour construire une cote : ces methodes retournent une copie dont les References ne sont pas valables pour la creation d'une cote native.
+
+Les protections sont conservees : maximum deux garde-corps, maximum 64 objets geometriques par rail, profondeur deux instances, et **120 aretes examinees au total**. Une geometrie absente, inaccessible, trop complexe ou une reference non acceptee laisse le fallback 2D. L'option de detail est `Medium` pour les composants filants uniquement. Aucun parcours de la geometrie du garde-corps parent n'est retabli.
+
+**Nouveau rapport :** chaque rail examine indique le nombre d'instances, de symboles, de solides directs et de solides symboliques trouves, puis le total des aretes et references candidates. Le journal persistent signale toujours `GUARDRAIL_COMPONENT_BEFORE` et `GUARDRAIL_COMPONENT_AFTER`.
+
+**Recette sur copie** : supprimer uniquement les deux anciennes cotes de 2238, actualiser la branche et redemarrer Revit, puis coter la seule piece 2238. Verifier les nouvelles lignes de rapport et les cotes 3,12 / 3,62 m ; masquer les separations tout en gardant visibles garde-corps et reperes 2D ; controler l'absence de doublons a la relance.
+
+- [ ] REV-ANN-57 — Rapport 2238 indiquant la nature effective de la geometrie du rail filant (Solid / GeometryInstance).
+- [ ] REV-ANN-58 — Cote appuyee sur une reference symbolique native effectivement acceptee par Revit, si disponible.
+- [ ] REV-ANN-59 — Validation de la stabilite Revit et des cotes masquees / remises visibles sur copie de maquette.
