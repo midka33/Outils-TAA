@@ -484,3 +484,50 @@ du projet à vérifier. Références :
 - [ ] REV-ANN-52 : contrôler la stabilité Revit, la seconde
       exécution sans doublon et la présence du journal
       `%TEMP%\\OutilsTAA_Annotations_crashtrace.log`.
+
+
+### Affinage du filtre garde-corps — après essai 2238 du 22/10/2026
+
+**Retour réel :** 2 cotes natives créées (3,12 m et 3,62 m), sans
+plantage signalé ; cependant la recherche garde-corps a été
+abandonnée avec `plus de deux garde-corps proches`. Le module
+est revenu aux `repères 2D`, signalés non associatifs.
+
+**Explication :** le filtre comptait tous les garde-corps dont la
+boîte englobante traversait la **pièce entière**. Plusieurs objets
+voisins pouvaient ainsi atteindre le seuil de sécurité, sans être
+pertinents pour une des deux grandes dimensions.
+
+**Nouveau filtrage :** les garde-corps visibles passent d'abord un
+filtre d'emprise XY, puis leur **trajet Revit** (`Railing.GetPath`)
+est comparé **seulement aux segments de séparation choisis par le
+moteur de dimensions**. Le trajet sert à présélectionner les ouvrages ;
+il n'est jamais référencé pour coter. Seules les vraies arêtes des
+solides des garde-corps retenus peuvent fournir une référence
+native valide (`Edge.Reference`), sous les critères précis
+du moteur existant. Si aucune arête fiable n'est trouvée, les
+repères 2D de 5 mm restent le dernier recours.
+
+**Protections :** 24 garde-corps au maximum après filtre d'emprise,
+80 segments de chemin, puis 2 garde-corps et 120 arêtes natives
+examinées au maximum. Dépassement, chemin indisponible ou doute
+géométrique : fallback 2D, **sans** exploration supplémentaire
+des solides. Le mode diagnostic à une seule pièce n'est pas
+supprimé.
+
+**Test requis sur copie :** la loggia 2238, ancien jeu de cotes
+supprimé manuellement ; relancer Cotation automatique après mise
+à jour Git, puis observer dans le rapport :
+- `1 garde-corps retenu par leur chemin` ou `2 garde-corps retenus`
+  si un chemin longe réellement les séparations de cette loggia ;
+- `arete native de garde-corps utilisee` **seulement si** une vraie
+  arête coïncide avec la limite à 20 mm, sous 3° et recouvrement
+  supérieur à 60 % ; sinon `reperes 2D utilises`;
+- vérifier les deux cotes après masquage de la catégorie
+  `Séparations de pièces`, la visibilité du garde-corps ou du
+  style des repères restant conservée ;
+- deuxième lancement : pas de doublon, même si les références
+  proviennent d'un garde-corps.
+
+Cette correction n'a pas encore été exécutée dans Revit 2025.4.
+Voir BUG-COMMON-013.
