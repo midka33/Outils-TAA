@@ -239,6 +239,7 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [x] Ajouter les tests unitaires du moteur de diagnostic, la CI et la documentation.
 - [ ] Exécuter et vérifier les workflows GitHub Actions sur la branche / PR.
 - [x] Corriger le premier blocage du diagnostic WPF (`System.Data` non chargé), enregistrer BUG-CALCULS-007 et ajouter quatre tests unitaires simulant l'assembly.
+- [x] Corriger BUG-CALCULS-008 : accès `Name` des familles/types et ajouter des tests anti-régression.
 - [ ] Valider les parcours réels sous Revit 2025.4 / pyRevit 5.x avant toute fusion dans `main`.
 
 ## Phase 5 — Industrialisation

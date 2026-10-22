@@ -29,6 +29,39 @@ def _room(room):
     except Exception:
         return u""
 
+
+def _element_name(element, db, fallback=u""):
+    """Retourne Element.Name sans erreur de binding IronPython sur ElementType.
+
+    La propriété .Name de certains FamilySymbol / Family peut lever
+    AttributeError('Name') malgré sa présence dans l'API Revit.
+    """
+    if element is None:
+        return fallback
+    try:
+        name = db.Element.Name.GetValue(element)
+        if name:
+            return _text(name)
+    except Exception:
+        pass
+    try:
+        name = element.Name
+        if name:
+            return _text(name)
+    except Exception:
+        pass
+    # Dernier recours spécifique aux types de familles.
+    try:
+        parameter = element.get_Parameter(db.BuiltInParameter.SYMBOL_NAME_PARAM)
+        if parameter:
+            name = parameter.AsString()
+            if name:
+                return _text(name)
+    except Exception:
+        pass
+    return fallback
+
+
 class BaiesDiagnosticService(object):
     def __init__(self, document):
         if document is None:
@@ -68,6 +101,9 @@ class BaiesDiagnosticService(object):
         if symbol is None:
             raise ValueError("Type manquant")
         family=symbol.Family
+        # Familles/types Revit : .Name peut lever AttributeError sous IronPython.
+        family_name=_element_name(family, self._db(), u"Famille inconnue #{}".format(_eid(family)))
+        type_name=_element_name(symbol, self._db(), u"Type inconnu #{}".format(_eid(symbol)))
         params=self._parameters(instance,"occurrence")+self._parameters(symbol,"type")
         outcome=evaluate(params)
         selected=outcome["selected"] or {}
@@ -96,8 +132,8 @@ class BaiesDiagnosticService(object):
         except Exception:
             pass
         return dict(source=source,source_id=source_id,document=_text(dbdoc.Title),
-                    category=category,family=_text(family.Name) if family else u"",
-                    type=_text(symbol.Name),element_id=_eid(instance),
+                    category=category,family=family_name,
+                    type=type_name,element_id=_eid(instance),
                     unique_id=_text(instance.UniqueId),
                     host_id=_eid(host) if host else u"",
                     host_category=_text(host.Category.Name) if host and host.Category else u"",

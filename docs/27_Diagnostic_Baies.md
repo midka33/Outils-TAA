@@ -59,3 +59,7 @@ Commande : `python -m pytest tests/baies_diagnostic -q`.
 L'erreur rencontrée lors du premier essai dans Revit 2025.4 était `ImportError: No module named Data` pendant la création du tableau de synthèse WPF, **après** la collecte initiale. Le composant `baies_diagnostic/ui_table.py` charge désormais explicitement l'assembly `System.Data.Common` (avec repli `System.Data`), puis remplit des `DataRow` typés avec des chaînes Unicode.
 
 Les 4 tests de l'adaptateur exécutés hors Revit utilisent des simulations CLR et **ne valident pas** la présence ou le fonctionnement de cet assembly dans le vrai moteur pyRevit. Rejouer le diagnostic dans Revit puis exporter les trois CSV pour confirmer. Voir `BUG-CALCULS-007`.
+
+## Correctif noms FamilySymbol / Family — 22 octobre 2026
+
+Le second essai utilisateur a montré **1 349 occurrences exclues** avec le même message `Name`. Les paramètres n'étaient pas en cause : l'appel direct de `symbol.Name` pouvait échouer sous IronPython. Les noms des familles et types sont désormais lus par `DB.Element.Name.GetValue` avec mécanismes de repli, afin de conserver l'occurrence même en cas de nom inaccessible. Voir `BUG-CALCULS-008`. La reprise de l'analyse dans le Revit réel reste à confirmer.

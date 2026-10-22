@@ -84,3 +84,15 @@ métadonnées Revit qu'une seule fois.
 **Règle préventive :** tout type issu d'un assembly .NET non automatiquement chargé doit être importé **après** `clr.AddReference`; les appels à des collections `.NET` avec surcharges doivent privilégier des objets fortement typés. Ne pas assimiler la réussite de tests CPython à une validation IronPython/WPF dans Revit.
 
 **Anti-régression :** `tests/baies_diagnostic/test_ui_table.py` vérifie le chargement explicite, le repli, les lignes de synthèse et les accents sous mocks CLR (4 tests). **À rejouer impérativement dans Revit 2025.4 / pyRevit 5.1** : ouvrir Diagnostic des baies, lancer Analyser, vérifier le tableau et exporter les 3 CSV (projet simple et familles accentuées).
+
+### BUG-CALCULS-008 — 1 349 menuiseries ignorées : AttributeError `Name` sur les familles/types
+
+**Symptôme :** lors du test utilisateur du 22 octobre 2026 dans Revit 2025.4 / pyRevit 5.1, le diagnostic indique **0 occurrence, 0 type, 1 349 alertes**. Le fichier `Diagnostic_Baies_20261022_164239_alertes.csv` contient 1 349 fois `Impossible de lire l'occurrence : Name`, identifiants de menuiseries différents.
+
+**Cause racine :** `baies_diagnostic_service._snapshot()` accédait directement à `symbol.Name` et `family.Name`. L'API Revit expose `Name` sur `Element`, mais l'accès dynamique de certains `FamilySymbol` sous IronPython lève `AttributeError('Name')`, ce qui interrompait chaque occurrence. La correction précédente BUG-CALCULS-007 traitait seulement l'affichage WPF.
+
+**Correction :** fonction `_element_name()` lisant d'abord `DB.Element.Name.GetValue(element)`, puis `element.Name`, puis le paramètre `SYMBOL_NAME_PARAM`; en dernier recours, libellé avec `ElementId`, sans exclure la menuiserie. Le reste du diagnostic et les surfaces candidates restent inchangés.
+
+**Règle préventive :** ne pas supposer que `FamilySymbol.Name` ou `Family.Name` se lit comme une propriété Python ordinaire sous pyRevit/IronPython ; centraliser l'accès avec un mécanisme de repli. Chaque échec de lecture facultative d'un nom doit rester local et ne pas supprimer une occurrence.
+
+**Anti-régression :** `tests/baies_diagnostic/test_service_names.py` couvre l'erreur `AttributeError('Name')`, les replis et un `_snapshot` complet avec noms indisponibles en accès direct. **À confirmer dans Revit 2025.4 :** analyser le même projet, constater plus de 0 occurrence et l'absence des 1 349 alertes `Name` ; exporter et transmettre les CSV.
