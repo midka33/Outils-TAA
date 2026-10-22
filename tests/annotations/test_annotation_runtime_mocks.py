@@ -858,3 +858,132 @@ def test_2238_quatre_gc_dans_bbox_un_seul_garde_corps_sonde(monkeypatch):
                for t in service._guardrail_warnings)
     assert not any("plus de deux garde-corps proches" in w
                    for w in service._guardrail_warnings)
+
+
+
+def test_symbole_rail_geometrie_native_transformee_et_reference_preservee(monkeypatch):
+    """GetSymbolGeometry sans transform, pas GetInstanceGeometry (copies)."""
+    mod = load_annotation_module(monkeypatch)
+    db = mod.DB
+
+    class Point(object):
+        def __init__(self, x, y, z):
+            self.X, self.Y, self.Z = x, y, z
+
+    class FakeTransform(object):
+        def __init__(self, dx, dy, dz):
+            self.dx, self.dy, self.dz = dx, dy, dz
+
+        def OfPoint(self, p):
+            return Point(p.X+self.dx, p.Y+self.dy, p.Z+self.dz)
+
+    class Solid(object):
+        Volume = 1.
+
+    class Instance(object):
+        def __init__(self, symbol, transform):
+            self.symbol = symbol
+            self.Transform = transform
+            self.symbol_calls = 0
+
+        def GetSymbolGeometry(self):
+            self.symbol_calls += 1
+            return list(self.symbol)
+
+        def GetInstanceGeometry(self, *args):
+            raise AssertionError(
+                "Une reference issue de GetInstanceGeometry serait une copie.")
+
+    db.Solid = Solid
+    db.GeometryInstance = Instance
+    own = Solid()
+    instance = Instance([own], FakeTransform(20., 30., 0.))
+    service = mod.GenericDimensions(object())
+    solids, counters = service._native_rail_solids(
+        [instance], max_objects=4, max_depth=1)
+    result = list(solids)
+    assert result == [(own, (instance.Transform,))]
+    assert instance.symbol_calls == 1
+    assert counters == {"objects": 2, "instances": 1, "symbols": 1,
+                        "direct_solids": 0, "symbol_solids": 1}
+    moved = service._rail_model_point(Point(0., 3.62, 1.), result[0][1])
+    assert (moved.X, moved.Y, moved.Z) == (20., 33.62, 1.)
+
+
+def test_symboles_imbriques_appliquent_transformations_dans_bon_ordre(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    db = mod.DB
+
+    class P(object):
+        def __init__(self, x):
+            self.X = x
+
+    class Transform(object):
+        def __init__(self, x):
+            self.x = x
+
+        def OfPoint(self, point):
+            return P(point.X + self.x)
+
+    class Solid(object):
+        Volume = 1.
+
+    class Instance(object):
+        def __init__(self, child, transform):
+            self.child = child
+            self.Transform = transform
+
+        def GetSymbolGeometry(self):
+            return [self.child]
+
+        def GetInstanceGeometry(self):
+            raise AssertionError("Ne doit jamais etre appele.")
+
+    db.Solid, db.GeometryInstance = Solid, Instance
+    own = Solid()
+    inner = Instance(own, Transform(5))
+    outer = Instance(inner, Transform(10))
+    service = mod.GenericDimensions(object())
+    solids, counts = service._native_rail_solids(
+        [outer], max_depth=2)
+    result = list(solids)
+    assert result[0][0] is own
+    assert service._rail_model_point(P(1), result[0][1]).X == 16
+    assert counts["instances"] == 2
+    assert counts["symbol_solids"] == 1
+
+
+def test_budget_objets_et_profondeur_limites_avant_extraction_lourde(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    db = mod.DB
+
+    class Solid(object):
+        Volume = 1.
+
+    class Instance(object):
+        def __init__(self, child):
+            self.child = child
+            self.Transform = None
+            self.calls = 0
+
+        def GetSymbolGeometry(self):
+            self.calls += 1
+            return [self.child]
+
+    db.Solid, db.GeometryInstance = Solid, Instance
+    service = mod.GenericDimensions(object())
+    deep = Instance(Solid())
+    root = Instance(deep)
+    solids, stats = service._native_rail_solids(
+        [root], max_depth=1)
+    assert list(solids) == []
+    assert root.calls == 1 and deep.calls == 0
+
+    solids, stats = service._native_rail_solids(
+        [Solid(), Solid(), Solid()], max_objects=2)
+    try:
+        list(solids)
+    except ValueError as error:
+        assert "Budget" in str(error)
+    else:
+        raise AssertionError("Le plafond des objets doit interrompre.")
