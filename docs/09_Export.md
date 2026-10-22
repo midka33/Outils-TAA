@@ -1937,3 +1937,16 @@ Statut : tests hors Revit uniquement ; validation utilisateur Revit 2025.4 atten
 - Inspecter les vues WPF/XAML et les handlers d'ajout actuels avant implementation ; etendre/reutiliser les services plutot que dupliquer les logiques d'ajout, de persistance et de glisser-deposer.
 - Tester : panneau ouvert/ferme et largeur memorisee ; recherches successives et selection Ctrl/Maj ; ajout simple/multiple, double-clic, bouton, menu contextuel et drag-and-drop ; dossier ferme/survol/scroll ; doublon dans le meme dossier ; meme feuille dans deux dossiers ; mise a jour des indicateurs ; annulation et reouverture ; non-regression des deplacements internes et de l'export PDF/DWG.
 - Tests automatises des comportements isolables, puis recette WPF dans Revit 2025.4 / pyRevit 5.x avant toute validation finale.
+
+
+### Implementation explorateur de feuilles — branche feature/export-explorateur-feuilles (2026-10-22)
+
+**Statut : code propose, recette Revit 2025.4 non encore realisee.**
+
+- La fenetre principale ajoute un panneau source Revit escamotable et redimensionnable, avec preference locale de largeur et de visibilite.
+- Recherche par numero/nom, filtre des feuilles non ajoutees, modes de regroupement par prefixe de numero, initiale du nom et parametres Revit disponibles ; groupes repliables.
+- Selection Ctrl/Maj/Ctrl+A, selection conservee entre filtres, ajout par bouton, double-clic, menu contextuel et glisser-deposer vers un dossier.
+- L'ajout est une **copie de reference de feuille**, pas un deplacement depuis les dossiers existants. Le repository conserve les sources et les sous-dossiers lors de la promotion d'un dossier ordinaire en dossier de publication ; doublons ignores dans un meme dossier, feuille autorisee dans plusieurs dossiers.
+- Le drag-and-drop interne de publication reste independant. L'explorateur emploie un format de donnees WPF distinct.
+- Les tests `tests/test_export_sheet_explorer_add.py` couvrent le service de persistance ; leur execution reelle reste a effectuer avant validation.
+- **A verifier dans Revit :** ouverture WPF/XAML, largeur, selection multiple et filtrage, glisser-deposer, survol, menus, persistence, performances, export PDF/DWG et affichage 1920x1080.
