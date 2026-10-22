@@ -94,6 +94,7 @@ def load_annotation_module(monkeypatch):
         "PLACEMENT_FRACTION": 0.25,
         "FLOOR_LEVEL_TOLERANCE_MM": 500.,
         "FLOOR_EDGE_MIN_LENGTH_MM": 100.,
+        "_millimeters_to_internal": staticmethod(lambda mm: mm / 1000.),
     })
     tags = types.ModuleType("room_tag_service")
     tags.RoomTagService = type("RoomTagService", (object,), {
@@ -516,7 +517,7 @@ def test_balcon_second_lancement_reconnait_cote_existante_avec_proxy(monkeypatch
             self.GeometryCurve = NativeLine()
 
     class NativeLine(object):
-        Length = .0164
+        Length = .005
         def GetEndPoint(self, i):
             return types.SimpleNamespace(X=0., Y=1.81)  # loggia 3,62 m
 
