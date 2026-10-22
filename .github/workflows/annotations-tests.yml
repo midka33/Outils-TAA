@@ -17,7 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run static annotation tests
+      - name: Run annotation tests and Plan de vente non-regression
+        env:
+          PYTHONPATH: ${{ github.workspace }}/OutilsTAA.extension/lib
         run: |
           python -m pip install pytest
-          python -m pytest -q tests/annotations
+          python -m pytest -q tests/annotations tests/plans_vente
