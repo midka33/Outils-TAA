@@ -12,7 +12,7 @@ from common.guardrail_reference_policy import (
     matches_guardrail_edge, select_guardrail_edge,
     select_guardrails_by_path,
     is_exterior_annex, guardrail_tolerance_mm,
-    diagnose_guardrail_candidates)
+    guardrail_minimum_overlap, diagnose_guardrail_candidates)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -264,3 +264,42 @@ def test_filtrage_ne_relit_pas_les_solides_pour_diagnostiquer():
         with_diagnostics=True)
     assert result == [a]
     assert info["inspected"] == 1
+
+
+
+def test_annexe_2238_arrete_52pct_15mm_est_valide():
+    """Cas réel : écart 15 mm / angle 0 / couverture 52 pour cent."""
+    limite = (0., 0., 0., 3.62)
+    portion = (.015, 0., .015, 3.62*.52)
+    edges = [(portion, "rail-native", "garde-corps", 3.2)]
+    assert guardrail_minimum_overlap(True) == .50
+    assert guardrail_minimum_overlap(False) == .60
+    assert select_guardrail_edge(
+        limite, edges, tolerance=.050,
+        minimum_overlap=.60) is None
+    match = select_guardrail_edge(
+        limite, edges, tolerance=.050,
+        minimum_overlap=guardrail_minimum_overlap(True),
+        include_metrics=True)
+    assert match[0] == "rail-native"
+    assert abs(match[2]["distance"] - .015) < 1e-9
+    assert abs(match[2]["overlap_ratio"] - .52) < 1e-9
+
+
+def test_annexe_rejette_un_garde_corps_ne_couvrant_que_49pct():
+    limite = (0., 0., 0., 3.62)
+    edges = [((.015, 0., .015, 3.62*.49), "rail", 50, 0.)]
+    assert select_guardrail_edge(
+        limite, edges, tolerance=.050,
+        minimum_overlap=guardrail_minimum_overlap(True)) is None
+
+
+def test_annexe_52pct_rejette_au_dela_50mm_et_angle_sup_3deg():
+    limit = (0., 0., 0., 3.62)
+    assert select_guardrail_edge(
+        limit, [((.065, 0., .065, 3.62*.52), "rail", 50, 0.)],
+        tolerance=.050, minimum_overlap=.50) is None
+    assert select_guardrail_edge(
+        limit, [((.015, 0., .4, 3.62*.52), "rail", 50, 0.)],
+        tolerance=.050, angle_degrees=3.,
+        minimum_overlap=.50) is None
