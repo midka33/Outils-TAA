@@ -337,6 +337,10 @@ class SheetExplorer(object):
         destination = self._destination_from_event(args)
         valid = destination is not None and str(destination) != "default"
         manager._hover_expand(node, "APPEND" if valid else None)
+        if valid:
+            manager._show_drop_indicator(node, "APPEND")
+        else:
+            manager._clear_drop_indicator()
         args.Effects = DragDropEffects.Copy if valid else DragDropEffects.None
         args.Handled = True
 
@@ -344,6 +348,7 @@ class SheetExplorer(object):
         if not args.Data.GetDataPresent(self.DATA_FORMAT):
             return
         destination = self._destination_from_event(args)
+        self.window._drag_drop_manager._clear_drop_indicator()
         if destination and str(destination) != "default":
             try:
                 ids = set(json.loads(str(args.Data.GetData(self.DATA_FORMAT))))
