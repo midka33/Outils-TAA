@@ -500,3 +500,70 @@ def test_balcon_aucune_dimension_references_proxies_provoque_rollback(monkeypatc
         assert "Aucune cote creee" in str(error)
     else:
         raise AssertionError("Une ligne orpheline doit provoquer une annulation.")
+
+
+def test_balcon_second_lancement_reconnait_cote_existante_avec_proxy(monkeypatch):
+    """Les deux références du proxy diffèrent des séparations initiales."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    class EId(object):
+        def __init__(self, number):
+            self.Value = number
+
+    class DetailLine(object):
+        def __init__(self):
+            self.GeometryCurve = NativeLine()
+
+    class NativeLine(object):
+        Length = .0164
+        def GetEndPoint(self, i):
+            return types.SimpleNamespace(X=0., Y=1.81)  # loggia 3,62 m
+
+    class Collector(object):
+        def __init__(self, doc, view_id):
+            self.doc = doc
+        def OfCategory(self, category):
+            return self
+        def WhereElementIsNotElementType(self):
+            return self
+        def ToElements(self):
+            return self.doc.dimensions
+
+    class Ref(object):
+        def __init__(self, ident):
+            self.ElementId = EId(ident)
+
+    mod.DB.DetailCurve = DetailLine
+    mod.DB.Line = NativeLine
+    mod.DB.FilteredElementCollector = Collector
+    mod.DB.BuiltInCategory = types.SimpleNamespace(OST_Dimensions=5)
+    dim = types.SimpleNamespace(
+        References=[Ref(17), Ref(71)], Value=3.12,
+        IsHidden=lambda view: False)
+    doc = types.SimpleNamespace(
+        dimensions=[dim],
+        GetElement=lambda i: DetailLine() if i.Value == 17 else None)
+    service = mod.GenericDimensions(doc)
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service.target_view = types.SimpleNamespace(Id="test-view")
+    class Candidate(object):
+        def __init__(self, segment, kind):
+            self.segment, self.source_kind = segment, kind
+            self.reference = object()
+    raw = [
+        Candidate((0., 0., 3.12, 0.), "wall"),
+        Candidate((3.12, 0., 3.12, 3.62), "wall"),
+        Candidate((3.12, 3.62, 0., 3.62), "wall"),
+        Candidate((0., 3.62, 0., 0.), "separator"),
+    ]
+    monkeypatch.setattr(
+        mod.DimensionService, "_room_boundary_candidates",
+        lambda self, room: list(raw), raising=False)
+    service._existing_dimension_reference_pairs = lambda: set()
+    assert service._existing_proxy_dimensions() == [(3.12, [(0., 1.81)])]
+    # Les faces gauche/droite mesurent deja 3,12 m. Ne proposer que
+    # les faces haut/bas pour la cote de 3,62 m restante.
+    remaining = service._room_boundary_candidates(
+        types.SimpleNamespace(UniqueId="room-2238"))
+    assert remaining == [raw[0], raw[2]]
