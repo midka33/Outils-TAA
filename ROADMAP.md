@@ -252,6 +252,47 @@ de leurs mises en page.
 - [ ] Définir le modèle de mise en page et les règles de nommage.
 - [ ] Préparer le workflow de génération, mise à jour et contrôle avant développement.
 
+## Phase 4 bis — Cotation et Étiquetage automatiques (bêta)
+
+- [x] Deux boutons pyRevit dans le panneau `Annotations` sur une branche dédiée.
+- [x] Adaptateurs réutilisant les moteurs Plans de vente sans toucher à leur V1.1.
+- [x] Sélection multi-vues, type de cote/étiquette et style des lignes 2D.
+- [x] Traitement des groupes par transactions avec retour arrière sur refus API.
+- [x] Ajouter les tests statiques et la recette documentée.
+- [ ] Exécuter la recette Revit 2025.4 du groupe de détails attaché existant (point critique API).
+- [ ] Vérifier l'association des cotes aux petites lignes de détail.
+- [ ] Valider les collisions et les re-lancements dans des vues métier réelles.
+- [x] Corriger le rejet de toutes les cotes : accepter un placement partiel sans superposition, moteur Plans de vente inchangé.
+- [ ] Rejouer la cotation sur niveaux 0/1 après l'étiquetage déjà validé.
+- [x] Supprimer dans l'adaptateur les cotes de secours par longueur de mur, filtrer les deux plus grandes portées entre faces opposées (sans angle droit imposé).
+- [ ] Valider en Revit la géométrie de cotation principale après nettoyage des 57 cotes incorrectes du test bêta.
+- [x] Favoriser l'alignement des lignes de cote de même orientation dans les pièces voisines sans déplacer les références.
+- [ ] Valider l'alignement, les pièces biaisées et la priorité à l'absence de collisions dans Revit 2025.4.
+- [x] Autoriser le croisement ponctuel des traits sans superposer les textes et témoins.
+- [x] Permettre de compléter une pièce partiellement cotée et identifier les doublons via références stables.
+- [ ] Vérifier les 2 cotations par pièce sur copie Revit, le placement des textes et la seconde exécution.
+- [x] Prévoir un repli de texte partiellement hors Room pour WC/celliers étroits, sans overlap d'étiquettes/cotes.
+- [x] Revenir à la seule recherche d'arêtes de dalle PDV après crash Revit ; parcours élargi des niveaux voisins suspendu.
+- [ ] Diagnostiquer le crash Revit depuis les journaux natifs et le traceur TAA.
+- [x] Premier essai de reprise : pièce 1170 sur `Collectifs A_Niveau 0`, 2 annotations créées dans 1 vue sans crash signalé.
+- [ ] Contrôler capture et journal persistant de la pièce 1170, puis essayer un second cas isolé avant toute réactivation du traitement en masse.
+- [ ] Recetter un WC/cellier sur copie en mode diagnostique 1 vue / 1 pièce.
+- [ ] Valider visuellement balcons, WC et celliers du niveau 1 et les références natives de dalle avant réouverture du traitement en masse.
+- [x] Extraire une politique commune pure de sélection des planchers avec modes `legacy` (PDV inchangé) et `local` (Annotations borné par bbox, budget, cache pièce).
+- [x] Ajouter un niveau de référence garde-corps natif, avec contrôles géométriques et budget strict, entre dalle et repère 2D.
+- [x] Corriger les faux positifs de garde-corps voisins : filtrage par chemin `Railing.GetPath()` sur les seules limites sélectionnées, avant extraction des arêtes natives (BUG-COMMON-013).
+- [x] Réduire le parcours géométrique aux composants TopRail / HandRail au lieu de la géométrie complète du garde-corps (BUG-COMMON-014), en conservant le budget de 120 arêtes.
+- [x] Inspecter aussi les GeometryInstance des rails filants avec GetSymbolGeometry() sans transformation, application des transforms aux points et budget 64 objets/rail (BUG-COMMON-015).
+- [x] Appliquer aux annexes extérieures la priorité de référence **murs → garde-corps → détail 2D** ; exclure la substitution par dalle dans Cotation automatique seulement.
+- [x] Autoriser un rattrapage borné à 50 mm entre séparation et garde-corps pour les annexes ; journaliser la valeur réelle de l'écart, exiger contrôle du nu au-delà de 20 mm (BUG-COMMON-016).
+- [x] Corriger le filtre de garde-corps par limite (BUG-COMMON-017), sans rejet global lorsqu'un troisième ouvrage est présent ; ajouter diagnostics de sélection et ambiguïté.
+- [x] Gérer une limite constituée de **deux garde-corps contigus**, chacun proche de 50 % : accepter la paire si elle couvre >=90 %, sans affaiblir le seuil de 60 % d'un rail isolé (BUG-COMMON-018).
+- [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
+- [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
+- [ ] Fusionner seulement après recette Revit et non-régression.
+
+Voir `docs/21_Annotations_Automatiques.md`.
+
 ## Phase 5 — Industrialisation
 
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.

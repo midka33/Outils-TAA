@@ -18,8 +18,8 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
 | **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |
-| **Cotation automatique** | 📋 Planifié — cotation des vues sélectionnées, type de cote au choix, prévention des chevauchements et groupes de détails attachés |
-| **Étiquetage automatique** | 📋 Planifié — étiquetage des pièces dans les vues sélectionnées, type d'étiquette au choix, prévention des chevauchements et groupes de détails attachés |
+| **Cotation automatique** | ⚠️ Bêta suspendue en masse après crash Revit — diagnostic limité à une vue / une pièce hors groupe ; aucune validation de stabilité |
+| **Étiquetage automatique** | 🧪 Bêta sur branche de test — vues multiples, types choisis, groupes de détails attachés à valider dans Revit |
 | **Légendes automatiques** | 📋 Planifié — génération de légendes depuis le gabarit d’une vue ou les couleurs des pièces, avec légende partagée entre plusieurs vues et échelle identique à la vue de référence |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
@@ -46,6 +46,21 @@ cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure le
 
 Voir `docs/20_Plans_de_Vente.md` et la recette de release
 `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+
+## Modules d'annotations automatiques (bêta)
+
+Une première version non validée dans Revit est préparée sur la branche
+[`feature/annotations-automatiques-beta`](https://github.com/midka33/Outils-TAA/tree/feature/annotations-automatiques-beta).
+Elle réutilise les moteurs Plans de vente sans modifier leur comportement.
+La recette et les limitations figurent dans [`docs/21_Annotations_Automatiques.md`](docs/21_Annotations_Automatiques.md).
+
+**Moteur commun (bêta) :** sélection des dalles centralisée dans `lib/common/floor_reference_policy.py`, mode historique conservé pour Plans de vente et recherche locale limitée à six dalles pour Cotation automatique. L'extraction géométrique native reste partagée, et la stabilité doit être vérifiée dans Revit.
+
+**Références des annexes extérieures (bêta) :** loggias, balcons, terrasses, jardins : murs finis, garde-corps natif si sa vraie arête correspond à la limite (rattrapage de modélisation jusqu'à 50 mm et avertissement dès 20 mm), puis petite ligne 2D non associative ; **aucune substitution par arête de dalle dans Cotation automatique pour ces espaces**. La cote mesure la géométrie réelle, sans reproduire artificiellement la valeur de la séparation. Une arête seule doit conserver au moins 60 % de couverture ; **deux garde-corps successifs** peuvent être vérifiés ensemble si leur continuité couvre au moins 90 % de la limite, sans référence fictive. La cote est associée à une seule arête native et l'autre garde-corps doit être vérifié après modification. Le garde-corps doit rester visible et le nu mesuré vérifié. Recherche bornée en mode diagnostic : garde-corps présélectionnés par leur chemin Revit sur les limites cotées, puis géométrie native des seuls rails filants TopRail / HandRail (Solid direct ou GeometryInstance via GetSymbolGeometry sans transformation, sans les poteaux ni barreaux du parent), avant le fallback 2D. Maximum 64 objets par rail et 120 arêtes inspectées ; moteur PDV historique préservé.
+
+**Loggias (bêta) :** en cas de séparation de pièce sans arête de dalle exploitable, Cotation automatique tente maintenant des repères 2D de 5 mm, dans un style visible au choix de l'utilisateur. Cette substitution est non associative, doit être testée dans Revit et ne modifie pas le moteur Plans de vente. Les anciennes cotes sur séparations doivent être recréées manuellement sur copie pour cet essai.
+
+**Sécurité (22/10/2026) :** après une fermeture brutale de Revit, la cotation en masse est désactivée dans la bêta. Ne tester que sur une copie de projet ; le bouton Cotation exige une seule pièce et conserve un journal dans `%TEMP%\OutilsTAA_Annotations_crashtrace.log`. Les groupes attachés et l'exploration des dalles de niveaux voisins sont temporairement suspendus. **Ne pas fusionner dans `main` avant diagnostic et recette.**
 
 ## Guide utilisateur
 

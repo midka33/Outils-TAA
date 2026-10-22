@@ -827,6 +827,15 @@ class DimensionService(object):
             return None
         return (best[1], best[2])
 
+    def _floor_cache_key(self, room, room_level_key):
+        """Cle historique pour Plans de vente ; surchargeable sans copie API."""
+        return room_level_key
+
+    def _floor_candidates(self, room, same_level, nearby_level):
+        """Politique centrale : comportement historique conserve pour PDV."""
+        from common.floor_reference_policy import select_floor_candidates
+        return select_floor_candidates(same_level, nearby_level, mode="legacy")
+
     def _floor_edges_for_room(self, room):
         from Autodesk.Revit.DB import (
             FilteredElementCollector,
@@ -846,8 +855,9 @@ class DimensionService(object):
             else -1
         )
 
-        if room_level_key in self._floor_edge_cache:
-            return self._floor_edge_cache[room_level_key]
+        cache_key = self._floor_cache_key(room, room_level_key)
+        if cache_key in self._floor_edge_cache:
+            return self._floor_edge_cache[cache_key]
 
         room_level_z = float(
             getattr(room_level, "Elevation", 0.0) or 0.0
@@ -889,7 +899,7 @@ class DimensionService(object):
             if abs(floor_level_z - room_level_z) <= level_tolerance:
                 nearby_level.append(floor)
 
-        candidate_floors = same_level if same_level else nearby_level
+        candidate_floors = self._floor_candidates(room, same_level, nearby_level)
 
         options = Options()
         options.ComputeReferences = True
@@ -993,7 +1003,7 @@ class DimensionService(object):
                         )
                     )
 
-        self._floor_edge_cache[room_level_key] = edges
+        self._floor_edge_cache[cache_key] = edges
         return edges
 
     def _room_separator_reference(self, element):

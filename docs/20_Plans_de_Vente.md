@@ -296,3 +296,42 @@ tests/plans_vente/
 - Références UI : `docs/references/plans-vente/`
 - Registre des bugs : `docs/11_BUGS_Prevention_Registry.md`
 - Historique détaillé : `docs/archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`
+
+
+### Note d'architecture bêta — recherche des arêtes de dalle partagée
+
+Sur la branche `feature/annotations-automatiques-beta` uniquement, le
+service de cotation de Plans de vente délègue la **sélection des planchers**
+à `lib/common/floor_reference_policy.py`. Son mode par défaut
+(`legacy`) et la clé de cache par niveau reproduisent exactement
+la sélection d'avant refactorisation : tous les planchers du même niveau,
+ou ceux de niveaux proches uniquement lorsqu'aucun plancher du même
+niveau n'existe. L'extraction native des arêtes, les critères
+d'appariement, la priorité des références, le fallback et la
+création des cotes sont **inchangés**.
+
+Le module Cotation automatique hérite du même collecteur d'arêtes mais
+active une politique distincte `local` : recherche par emprise XY
+de la pièce (marge 300 mm), support des planchers de niveaux voisins
+déjà filtrés en altitude, six planchers maximum et cache par pièce.
+
+Cette abstraction ne constitue **pas** une nouvelle validation Revit
+du moteur commun ; aucun changement du moteur stable de la branche
+`main` n'est effectué. Référence : BUG-COMMON-011 et
+`tests/annotations/test_floor_reference_policy.py`.
+
+
+### Références complémentaires des loggias : garde-corps (bêta)
+
+Dans `feature/annotations-automatiques-beta`, le **module Cotation
+automatique** seul cherche une référence native de garde-corps
+(`Railing`) après l'échec de la recherche de référence mur/dalle,
+et avant ses petites lignes 2D. Le service Plans de vente conserve
+exactement son comportement historique : **aucune nouvelle extraction
+de garde-corps** n'est activée dans le moteur PDV stable.
+
+La validation géométrique de l'arête est encapsulée dans
+`lib/common/guardrail_reference_policy.py`. Aucune tentative de
+cotation native ne doit se fonder sur le seul axe du garde-corps.
+La disponibilité des arêtes de garde-corps et leur validité en cotation
+sont à vérifier dans Revit 2025.4. Voir BUG-COMMON-012.
