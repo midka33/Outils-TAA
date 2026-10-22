@@ -631,7 +631,7 @@ def test_guardrail_reference_prioritaire_sur_reperes_2d(monkeypatch):
     service = mod.GenericDimensions(object())
     edge_reference = object()
     edge_id = types.SimpleNamespace(Value=2450)
-    service._nearby_guardrail_edges = lambda room: [
+    service._nearby_guardrail_edges = lambda room, boundaries: [
         ((0., .005, 3.12, .005), edge_reference, edge_id, 3.7)
     ]
     service.FLOOR_EDGE_TOLERANCE_MM = 20.
@@ -666,7 +666,7 @@ def test_guardrail_non_superpose_ne_remplace_pas_separation(monkeypatch):
     library = HERE / "OutilsTAA.extension" / "lib"
     monkeypatch.syspath_prepend(str(library))
     service = mod.GenericDimensions(object())
-    service._nearby_guardrail_edges = lambda room: [
+    service._nearby_guardrail_edges = lambda room, boundaries: [
         ((0., .35, 3.12, .35), object(),
          types.SimpleNamespace(Value=2450), 3.7)
     ]
@@ -730,7 +730,7 @@ def test_guardrail_native_reference_reconnue_au_second_lancement(monkeypatch):
     service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
     service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
     railing_id = types.SimpleNamespace(Value=2002)
-    service._nearby_guardrail_edges = lambda room: [
+    service._nearby_guardrail_edges = lambda room, boundaries: [
         ((0., 3.62, 0., 0.), Ref("garde-corps"), railing_id, 3.)]
     service._existing_proxy_dimensions = lambda: []
     service._existing_dimension_reference_pairs = lambda: {
