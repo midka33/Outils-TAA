@@ -341,3 +341,80 @@ def test_wc_small_room_plan_graphics_selects_fallback_without_texte_inside(monke
     assert len(placements) == 1
     assert not isinstance(placements[0], SkippedPlacement)
     assert any("hors piece" in message for message in placements[0].warnings)
+
+
+def test_balcon_recherche_reelle_aretes_niveaux_voisins_et_cache(monkeypatch):
+    """Exerce _nearby_floor_edges, pas seulement son resultat mocke."""
+    mod = load_annotation_module(monkeypatch)
+    class FakeFloor(object):
+        def __init__(self, level_id, floor_id):
+            self.LevelId, self.Id = level_id, floor_id
+            self.calls = 0
+
+        def get_Geometry(self, options):
+            self.calls += 1
+            return ["solid_geom"]
+
+    class FakeLine(object):
+        def __init__(self, a, b):
+            self.a, self.b = a, b
+
+        def GetEndPoint(self, index):
+            return self.a if index == 0 else self.b
+
+    def point(x, y, z):
+        return types.SimpleNamespace(X=x, Y=y, Z=z)
+
+    class FakeEdge(object):
+        Reference = "native_revit_reference"
+
+        def AsCurve(self):
+            return FakeLine(point(0., 0., 3.1), point(4., 0., 3.1))
+
+    class Collector(object):
+        def __init__(self, doc):
+            self.doc = doc
+
+        def OfClass(self, cls):
+            return self
+
+        def WhereElementIsNotElementType(self):
+            return self
+
+        def ToElements(self):
+            return self.doc.floors
+
+    level_room = types.SimpleNamespace(Value=11)
+    level_near = types.SimpleNamespace(Value=12)
+    level_far = types.SimpleNamespace(Value=13)
+    near = FakeFloor(level_near, "near-floor")
+    far = FakeFloor(level_far, "far-floor")
+    same = FakeFloor(level_room, "same-floor")
+    doc = types.SimpleNamespace(
+        floors=[near, far, same],
+        GetElement=lambda level_id: types.SimpleNamespace(
+            Elevation=3.2 if level_id is level_near else 4.2),
+    )
+    mod.DB.Floor = FakeFloor
+    mod.DB.FilteredElementCollector = Collector
+    mod.DB.Options = type("Options", (object,), {})
+    mod.DB.ViewDetailLevel = types.SimpleNamespace(Fine="Fine")
+    mod.DB.Line = FakeLine
+    mod.DB.Solid = type("Solid", (object,), {})
+    mod.DB.GeometryInstance = type("GeometryInstance", (object,), {})
+    service = mod.GenericDimensions(doc)
+    service._millimeters_to_internal = lambda value: value / 1000.
+    service._geometry_solids = lambda geometry, solid_type, instance_type: [
+        types.SimpleNamespace(Edges=[FakeEdge()])]
+    room = types.SimpleNamespace(
+        Level=types.SimpleNamespace(Elevation=3.),
+        LevelId=level_room)
+    edges = service._nearby_floor_edges(room)
+    assert len(edges) == 1
+    assert edges[0][1] == "native_revit_reference"
+    assert edges[0][2] == "near-floor"
+    assert near.calls == 1
+    assert far.calls == 0
+    assert same.calls == 0
+    assert service._nearby_floor_edges(room) == edges
+    assert near.calls == 1
