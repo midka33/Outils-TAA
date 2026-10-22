@@ -146,3 +146,35 @@ def aligned_candidates(line, room_points, rails, contains, settings,
         candidate.rank = 10 + len(result)
         result.append(candidate)
     return result
+
+
+def collinear_line_overlap(line, rails, angle_degrees=3.0,
+                           offset_tolerance=.02):
+    """Teste les chevauchements de lignes, sans interdire un croisement.
+
+    Les portees sont dans le plan XY (pieds internes Revit). Deux lignes
+    de cotes alignees sans partie commune ne sont pas en conflit.
+    """
+    axis = _axis(line)
+    if axis is None:
+        return False
+    normal = (-axis[1], axis[0])
+    ref_offset = _dot(line[0], normal)
+    ref_interval = _projection_interval(line, axis)
+    cos_limit = math.cos(math.radians(angle_degrees))
+    for rail in rails or ():
+        other_axis = _axis(rail)
+        if other_axis is None:
+            continue
+        if abs(_dot(axis, other_axis)) < cos_limit:
+            continue
+        interval = _projection_interval(rail, axis)
+        if _interval_gap(ref_interval, interval) > 1e-8:
+            continue
+        if min(ref_interval[1], interval[1]) - max(
+                ref_interval[0], interval[0]) < 1e-6:
+            continue
+        offsets = [_dot(point, normal) for point in rail]
+        if max(abs(value - ref_offset) for value in offsets) <= offset_tolerance:
+            return True
+    return False
