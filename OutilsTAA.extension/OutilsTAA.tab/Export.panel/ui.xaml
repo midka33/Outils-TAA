@@ -16,10 +16,35 @@
     </DockPanel>
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="1*" />
-        <ColumnDefinition Width="1.25*" />
+        <ColumnDefinition x:Name="SheetExplorerColumn" Width="310" MinWidth="0" />
+        <ColumnDefinition x:Name="SheetExplorerSplitterColumn" Width="5" />
+        <ColumnDefinition Width="1*" MinWidth="260" />
+        <ColumnDefinition Width="1.25*" MinWidth="340" />
       </Grid.ColumnDefinitions>
-      <Border Grid.Column="0" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="10" Margin="0,0,8,0" Style="{DynamicResource TaaCard}">
+      <Border x:Name="SheetExplorerPanel" Grid.Column="0" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="9" Margin="0,0,5,0" Style="{DynamicResource TaaCard}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <TextBlock Grid.Row="0" Text="Mises en page Revit" FontSize="16" FontWeight="Bold" Margin="0,0,0,8"/>
+          <TextBox x:Name="SheetExplorerSearch" Grid.Row="1" MinHeight="29" Padding="6,3" Margin="0,0,0,6" TextChanged="SheetExplorerSearch_Changed" ToolTip="Rechercher par numéro ou nom de feuille"/>
+          <StackPanel Grid.Row="2" Margin="0,0,0,6">
+            <ComboBox x:Name="SheetExplorerGrouping" MinHeight="27" SelectionChanged="SheetExplorerGrouping_Changed"/>
+            <CheckBox x:Name="SheetExplorerUnused" Content="Non ajoutées uniquement" Margin="0,5,0,0" Checked="SheetExplorerFilter_Changed" Unchecked="SheetExplorerFilter_Changed"/>
+          </StackPanel>
+          <ListBox x:Name="SheetExplorerList" Grid.Row="3" SelectionMode="Extended" SelectionChanged="SheetExplorerSelection_Changed" PreviewMouseLeftButtonDown="SheetExplorerMouseDown" PreviewMouseMove="SheetExplorerMouseMove" MouseDoubleClick="SheetExplorerDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+          <StackPanel Grid.Row="4" Margin="0,8,0,0">
+            <TextBlock x:Name="SheetExplorerSelectionInfo" Text="0 feuille sélectionnée" Margin="0,0,0,5"/>
+            <Button x:Name="SheetExplorerAddButton" Content="Ajouter (0)" Click="SheetExplorerAdd_Click" IsEnabled="False" MinHeight="30"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+      <GridSplitter x:Name="SheetExplorerSplitter" Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Background="{DynamicResource TaaBorder}" />
+      <Border Grid.Column="2" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="10" Margin="0,0,8,0" Style="{DynamicResource TaaCard}">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -32,6 +57,7 @@
               <TextBlock Text="Comme dans l'Explorateur : Ctrl/Maj pour sélectionner, glisser pour déplacer ou réordonner." Margin="0,3,0,0" TextWrapping="Wrap" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
+              <Button x:Name="SheetExplorerToggle" Content="Masquer les feuilles" Click="SheetExplorerToggle_Click" Margin="4,0" MinWidth="110" />
               <Button Content="Nouveau dossier" Click="NewFolder_Click" MinWidth="110" Margin="4,0" ToolTip="Nouveau dossier" />
               <Button Content="Ajouter des mises en page…" Click="OpenCarnetManager_Click" MinWidth="170" Margin="4,0" ToolTip="Créer un ou plusieurs dossiers de publication à partir de mises en page Revit" />
             </StackPanel>
@@ -42,7 +68,7 @@
           </StackPanel>
         </Grid>
       </Border>
-      <Border Grid.Column="1" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="10" Margin="8,0,0,0" Style="{DynamicResource TaaCard}">
+      <Border Grid.Column="3" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" Padding="10" Margin="8,0,0,0" Style="{DynamicResource TaaCard}">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
