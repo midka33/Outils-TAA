@@ -46,7 +46,7 @@ Les lignes de référence candidates sont limitées aux principales directions r
 - Pas de pièces issues des fichiers Revit liés dans cette première recette, même si Plans de vente les prend en charge.
 - Types de cotes linéaires et types d'étiquettes de pièces chargés dans le document hôte.
 - Pas de déplacement des annotations manuelles existantes.
-- Les cotes existantes proches d'une pièce entraînent une exclusion prudente de cette pièce plutôt qu'une nouvelle cotation.
+- La détection des doublons compare les paires de références de cotation déjà présentes ; une pièce partiellement cotée reste traitable.
 - Les bounding boxes Revit et l'estimation des lignes de cote peuvent être conservatrices.
 - Le placement des détails réutilisés entre occurrences n'est pas réoptimisé : aucun contrôle de géométrie inter-occurrences, conformément à la décision métier.
 - Pas de test réel Revit 2025.4 à ce stade ; ne pas déclarer les groupes validés.
@@ -226,3 +226,50 @@ valides peut rester a 1 ou 0 cote plutot que recevoir un chevauchement.
 - [ ] REV-ANN-23 : supprimer uniquement la deuxieme cote d'une piece, puis relancer : seule celle-ci est recreee.
 - [ ] REV-ANN-24 : garder les cotes existantes et les etiquettes, verifier leurs textes non chevauches.
 - [ ] REV-ANN-25 : verifier pour une piece biaisee qu'aucune direction artificiellement orthogonale n'est forcee.
+
+
+## Correctif après essai du niveau 1 — 22 octobre 2026
+
+**Retour :** 63 cotes créées sur 44 pièces dans `Collectifs A_Niveau 1`.
+Les WC et celliers ont des cotes manquantes ; les balcons et loggias
+avec séparation de pièce indiquent parfois `aucune arête de sol superposée
+fiable` (2237 à 2240). Plusieurs petites pièces (2249, 2251, 2252)
+indiquent `0 texte(s) dans piece` malgré une recherche complète.
+
+**WC, celliers et petites pièces :** le texte de cote est placé dans la
+pièce en priorité. Si cette position est impossible, une cote native
+entre les mêmes faces finies peut être créée avec son texte
+**partiellement hors de la Room**, à condition que sa représentation
+estimée ne chevauche pas une étiquette ou une autre cote.
+Le rapport indique `texte de cote partiellement hors piece faute de place`
+et demande une vérification graphique.
+
+**Balcons/loggias :** toujours utiliser la méthode de Plans de vente :
+limite de la Room en `Finish` -> recherche d'arête réelle de dalle
+superposée à la séparation -> référence native de l'arête Revit.
+Si cette recherche échoue et qu'une dalle est rattachée à un autre
+niveau proche (+/- 500 mm), rechercher dans ces dalles avec les **mêmes
+seuils géométriques** du module Plans de vente. Un diagnostic mentionne
+la référence retrouvée. Si aucune arête valide n'existe, la séparation
+reste le dernier recours historique (avec avertissement de visibilité),
+et aucune fausse mesure n'est générée.
+
+**Aucun changement dans le moteur Plans de vente validé.** L'adaptateur
+des boutons Annotations est seul enrichi.
+
+### Recette complémentaire (copie de maquette)
+
+- [ ] REV-ANN-26 : WC/cellier de largeur inférieure au gabarit de texte ;
+      placer les deux dimensions si leurs textes ne chevauchent rien.
+- [ ] REV-ANN-27 : garder une étiquette ou une cote voisine qui interdit
+      un placement de repli : ne jamais forcer le chevauchement.
+- [ ] REV-ANN-28 : balcon dont la dalle est au même niveau : référence
+      d'arête PDV inchangée.
+- [ ] REV-ANN-29 : balcon dont la dalle est sur niveau proche : référence
+      native d'arête retrouvée et cotation toujours visible avec les
+      séparations de pièces masquées dans la vue.
+- [ ] REV-ANN-30 : absence d'arête réelle dans le modèle : avertissement
+      de séparation, ne pas inventer de référence ou cote fictive.
+- [ ] REV-ANN-31 : vérifier que les cotes existantes ne sont pas dupliquées
+      après relancement et que les groupes de détails attachés restent
+      hors de la validation tant que la recette dédiée n'est pas faite.
