@@ -291,3 +291,61 @@ journaux Revit du crash et valider sur **copie de maquette**.
 **Recette utilisateur post-correctif (22 octobre 2026) :** lancement en mode diagnostique sur une seule pièce hors groupe, numéro **1170**, vue **Collectifs A_Niveau 0** : **2 annotations créées**, rapport pyRevit terminé sans fermeture signalée. Un avertissement de *proximité avec un équipement* demande une vérification visuelle ; ce n'est pas la preuve d'un chevauchement. Ce résultat confirme un essai unitaire réussi, mais ne prouve ni les bonnes valeurs/positions des deux cotes, ni la stabilité multi-pièces. Journal `OutilsTAA_Annotations_crashtrace.log` et capture du résultat encore à examiner.
 
 Statut : crash natif **non reproduit lors de ce premier essai isolé** ; cause précise du crash initial à déterminer.
+
+
+---
+
+### BUG-COMMON-010 — Les deux cotes de la loggia 2238 disparaissent en masquant les séparations
+
+**Symptôme réel Revit (22/10/2026) :** dans \`Collectifs A_Niveau 1\`,
+les cotes de la loggia **2238** (3,12 m et 3,62 m) sont visibles tant
+que les lignes de séparation sont visibles. Lorsque l'utilisateur
+masque la catégorie \`Séparations de pièces\` dans la vue, **les deux
+cotes disparaissent**. Les deux cotes existaient réellement avant ce test.
+
+**Cause racine confirmée :** faute d'une arête native de dalle validée,
+le moteur de cotation utilisait comme référence géométrique native
+\`GeometryCurve.Reference\` de la séparation de pièce. Dans Revit,
+la visibilité de la cote dépend alors de celle de l'élément référencé.
+Le contrôle précédent détectait ce cas et l'avertissait mais l'acceptait.
+
+**Correction de la bêta Annotations uniquement :** pour les cotes des
+pièces hors groupe dont une face sélectionnée a \`source_kind="separator"\`,
+créer en transaction des \`DetailCurve\` 2D très courtes (5 mm)
+exactement sur le segment concerné, avec le style de ligne choisi par
+l'utilisateur, et remplacer la référence de cotation par
+\`detail.GeometryCurve.Reference\`. Les références natives de murs ou
+de dalles qui ont été trouvées restent prioritaires et inchangées.
+Une seule pièce par lancement reste imposée après le crash précédent.
+Les lignes de substitution ne sont **pas associatives** avec les dalles
+ou séparations réelles ; elles doivent être contrôlées après modification
+du plan. Les détails 2D doivent rester visibles dans cette vue même
+si les séparations sont masquées.
+
+**Atomicité / anti-doublon :** si aucune cote ne référence les détails
+créés, annuler l'ensemble dans la \`TransactionGroup\` plutôt que laisser
+des objets orphelins. Si une seule cote est créée, supprimer les détails
+de substitution inutilisés. Au second lancement, vérifier aussi
+la position du petit détail + la portée de la cote déjà existante :
+une référence de substitution n'est pas identique à la référence
+de séparation d'origine.
+
+**Règle préventive :** lorsqu'un élément de construction peut être
+masqué mais qu'une cote doit rester visible, ne jamais accepter
+silencieusement une référence géométrique de séparation de pièce
+comme référence définitive. Privilégier murs/dalles natifs, puis
+références de détail indépendantes avec style visible, suivi explicite
+et contrôle graphique Revit. Ne pas ajouter un parcours de solides
+supplémentaire après un crash non élucidé.
+
+**Tests anti-régression :**
+\`test_balcon_proxies_2d_reference_native_sans_solides_et_cleanup\`,
+\`test_balcon_deux_proxies_et_seulement_une_cote_nettoie_reste\`,
+\`test_balcon_aucune_dimension_references_proxies_provoque_rollback\`,
+\`test_balcon_second_lancement_reconnait_cote_existante_avec_proxy\`,
+suites complètes Annotations, Plans de vente et Export. **La
+validation réelle indispensable** consiste à supprimer manuellement
+les anciennes cotes de 2238 sur une copie, relancer la commande,
+masquer les lignes de séparation et vérifier la persistance des cotes
+sans masquer le style des lignes 2D. Pas de validation Revit de cette
+correction tant que le nouvel essai n'a pas été fait.
