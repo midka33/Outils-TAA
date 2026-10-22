@@ -59,6 +59,11 @@ class CarnetController(object):
             return False
         return self.repository.delete_folder(folder_id)
 
+    def add_sheets_to_folder(self, items, folder_id):
+        if self.repository is None:
+            raise RuntimeError("Le dépôt de publication n’est pas configuré.")
+        return self.repository.add_sheets_to_folder(items, folder_id)
+
     def move_sheets_into_folder(self, sheet_refs, folder_id):
         if not self.repository:
             return False
