@@ -1064,3 +1064,64 @@ def test_interieur_garde_corps_ecarte_35mm_ne_remplace_pas_separation(monkeypatc
     assert candidate.source_kind == "separator"
     assert candidate.reference is original
     assert any("35.0 mm" in text for text in service._guardrail_warnings)
+
+
+def test_2238_deux_rails_couvrant_moitie_chacun_remplacent_separation(monkeypatch):
+    """Une Reference de rail natif est retenue, l'autre certifie la suite."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .60
+    ref_a, ref_b = object(), object()
+    id_a = types.SimpleNamespace(Value=1002)
+    id_b = types.SimpleNamespace(Value=1003)
+    length = 3.62
+    service._nearby_guardrail_edges = lambda room, boundaries: [
+        ((.015, 0., .015, length*.52), ref_a, id_a, 3.2),
+        ((.018, length*.52, .018, length), ref_b, id_b, 3.2)]
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda key: FakeParameter(
+            "Loggia" if key == "ROOM_NAME" else "2238"),
+        LookupParameter=lambda name: FakeParameter("Ext"))
+    candidate = types.SimpleNamespace(
+        source_kind="separator", segment=(0., 0., 0., length),
+        reference=object(), element_id_value=0, length_references=None)
+    service._upgrade_separator_guardrail(room, [candidate])
+    assert candidate.source_kind == "guardrail_edge"
+    assert candidate.reference is ref_a
+    assert candidate.element_id_value == 1002
+    notices = "\n".join(service._guardrail_warnings)
+    assert "DEUX garde-corps contigus" in notices
+    assert "couverture commune 100%" in notices
+    assert "Une seule Reference Revit" in notices
+
+
+def test_annexe_rail_seul_52pct_nest_pas_choisi(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .60
+    service._nearby_guardrail_edges = lambda room, boundaries: [
+        ((.015, 0., .015, 3.62*.52), object(),
+         types.SimpleNamespace(Value=1002), 3.2)]
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda key: FakeParameter(
+            "Loggia" if key == "ROOM_NAME" else "2238"),
+        LookupParameter=lambda name: FakeParameter("Ext"))
+    candidate = types.SimpleNamespace(
+        source_kind="separator", segment=(0., 0., 0., 3.62),
+        reference=object(), element_id_value=0, length_references=None)
+    service._upgrade_separator_guardrail(room, [candidate])
+    assert candidate.source_kind == "separator"
+    assert not any("DEUX garde-corps contigus" in msg
+                   for msg in service._guardrail_warnings)
