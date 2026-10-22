@@ -482,14 +482,18 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         return edges
 
     def _upgrade_separator_guardrail(self, room, candidates):
-        """Dalle d'abord (service PDV), puis garde-corps, enfin 2D."""
+        """Pour les separations : arete de garde-corps, sinon repere 2D.
+
+        Les faces finies de murs sont conservees ; les annexes exterieures
+        ne remplacent pas une separation par une arête de dalle.
+        """
         remaining = [item for item in candidates
                      if getattr(item, "source_kind", "") == "separator"]
         if not remaining:
             return candidates
         from common.guardrail_reference_policy import (
             select_guardrail_edge, guardrail_tolerance_mm,
-            diagnose_guardrail_candidates)
+            guardrail_minimum_overlap, diagnose_guardrail_candidates)
         edges = self._nearby_guardrail_edges(
             room, [item.segment for item in remaining])
         if not edges:
@@ -499,6 +503,9 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             exterior, ordinary_mm=self.FLOOR_EDGE_TOLERANCE_MM,
             recovery_mm=50.)
         tolerance = self._millimeters_to_internal(tolerance_mm)
+        minimum_overlap = guardrail_minimum_overlap(
+            exterior, ordinary=self.FLOOR_EDGE_MIN_OVERLAP_RATIO,
+            exterior=.50)
         unit_mm = self._millimeters_to_internal(1.0)
         room_num = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")
         for candidate in remaining:
@@ -506,7 +513,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 candidate.segment, edges,
                 tolerance=tolerance,
                 angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
-                minimum_overlap=self.FLOOR_EDGE_MIN_OVERLAP_RATIO,
+                minimum_overlap=minimum_overlap,
                 include_metrics=True)
             if match is None:
                 # Diagnostiquer les distances reelles, sans decaler les
@@ -514,7 +521,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 records = diagnose_guardrail_candidates(
                     candidate.segment, edges, tolerance,
                     angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
-                    minimum_overlap=self.FLOOR_EDGE_MIN_OVERLAP_RATIO)
+                    minimum_overlap=minimum_overlap)
                 if records and unit_mm > 0:
                     near = records[0]
                     self._guardrail_warnings.append(
@@ -539,6 +546,12 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 "verifier son nu interieur et sa visibilite.".format(
                     room_num, distance_mm,
                     metrics["overlap_ratio"]*100.))
+            if exterior and metrics["overlap_ratio"] < self.FLOOR_EDGE_MIN_OVERLAP_RATIO:
+                self._guardrail_warnings.append(
+                    "{} : recouvrement partiel de {:.0f}% accepte "
+                    "pour annexe exterieure (minimum 50%) ; "
+                    "controle visuel de la reference du garde-corps."
+                    .format(room_num, metrics["overlap_ratio"]*100.))
             if exterior and distance_mm > self.FLOOR_EDGE_TOLERANCE_MM:
                 self._guardrail_warnings.append(
                     "{} : ecart superieur a {:.0f} mm : "
