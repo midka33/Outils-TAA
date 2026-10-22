@@ -987,3 +987,80 @@ def test_budget_objets_et_profondeur_limites_avant_extraction_lourde(monkeypatch
         assert "Budget" in str(error)
     else:
         raise AssertionError("Le plafond des objets doit interrompre.")
+
+
+
+def test_loggia_2238_ne_parcourt_pas_les_dalles_avant_garde_corps(monkeypatch):
+    """Ordre métier extérieur : mur, garde-corps, 2D, et NON dalle."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda key: FakeParameter(
+            "Loggia" if key == "ROOM_NAME" else "2238"),
+        LookupParameter=lambda name: FakeParameter("Ext"))
+    same = [object()]
+    nearby = [object()]
+    assert service._is_exterior_annex(room)
+    assert service._floor_candidates(room, same, nearby) == []
+
+
+def test_loggia_2238_garde_corps_ecarte_35mm_devient_reference_native(monkeypatch):
+    """Tolérance métier 50mm, avertissement explicite si écart >20mm."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
+    reference = object()
+    rail_id = types.SimpleNamespace(Value=10023)
+    service._nearby_guardrail_edges = lambda room, boundaries: [
+        ((0., .035, 3.12, .035), reference, rail_id, 4.0)]
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda key: FakeParameter(
+            "Loggia" if key == "ROOM_NAME" else "2238"),
+        LookupParameter=lambda name: FakeParameter("Ext"))
+    candidate = types.SimpleNamespace(
+        source_kind="separator", segment=(0., 0., 3.12, 0.),
+        reference=object(), element_id_value=9, length_references=None)
+    service._upgrade_separator_guardrail(room, [candidate])
+    assert candidate.source_kind == "guardrail_edge"
+    assert candidate.reference is reference
+    assert candidate.element_id_value == 10023
+    warnings = "\n".join(service._guardrail_warnings)
+    assert "35.0 mm" in warnings
+    assert "controle manuel" in warnings
+
+
+def test_interieur_garde_corps_ecarte_35mm_ne_remplace_pas_separation(monkeypatch):
+    """Tolérance élargie interdite en pièce intérieure."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
+    service._nearby_guardrail_edges = lambda room, boundaries: [
+        ((0., .035, 3.12, .035), object(),
+         types.SimpleNamespace(Value=10023), 4.)]
+    room = types.SimpleNamespace(
+        UniqueId="A101",
+        get_Parameter=lambda key: FakeParameter(
+            "Chambre" if key == "ROOM_NAME" else "A101"),
+        LookupParameter=lambda name: FakeParameter("Int"))
+    original = object()
+    candidate = types.SimpleNamespace(
+        source_kind="separator", segment=(0., 0., 3.12, 0.),
+        reference=original, element_id_value=9, length_references=None)
+    service._upgrade_separator_guardrail(room, [candidate])
+    assert candidate.source_kind == "separator"
+    assert candidate.reference is original
+    assert any("35.0 mm" in text for text in service._guardrail_warnings)
