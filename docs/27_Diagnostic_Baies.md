@@ -79,7 +79,7 @@ Analyse des trois exports du projet du 22 octobre 2026 (`Diagnostic_Baies_202610
 - Sur 153 portes-fenêtres ordinaires `PORFEN-EXT`, `Largeur brute` excède `Largeur` de 4 cm et `Hauteur brute` excède `Hauteur` de 20 à 30 cm : les surfaces brutes sont environ 11 à 17 % plus élevées, selon les types.
 - Les types `170x140` de la famille `FEN-EXT-GEN-2V_VR_ITI` ont pourtant `Hauteur = 1,28 m` dans le relevé : **le nom du type ne doit pas être considéré comme une mesure**.
 
-La colonne `facade_status` est maintenant ajoutée aux exports occurrences et types ainsi qu'à la grille WPF. Les classifications possibles : `FACADE_PRESUMEE_A_VALIDER`, `CAS_SPECIAL_LANTERNEAU`, `CAS_SPECIAL_MRX_A_EXCLURE`, `HOTE_NON_MUR_A_VERIFIER`, `EXTERIORITE_A_VERIFIER` et `HORS_PREFIXES`.
+Les colonnes `facade_status` et `rule_16_status` sont accessibles dans les exports et la grille WPF (la seconde matérialise les exclusions persistantes du calcul). Les classifications possibles : `FACADE_PRESUMEE_A_VALIDER`, `CAS_SPECIAL_LANTERNEAU`, `CAS_SPECIAL_MRX_A_EXCLURE`, `HOTE_NON_MUR_A_VERIFIER`, `EXTERIORITE_A_VERIFIER` et `HORS_PREFIXES`.
 
 Ces classements sont **strictement indicatifs** : le préfixe ne démontre pas la présence de vitrage ni la dimension effective du tableau. Il faudra vérifier une famille témoin par configuration, notamment les écartements entre `Largeur brute` et `Largeur`.
 
@@ -98,7 +98,7 @@ Capture transmise depuis le module **Outils TAA — Diagnostic des baies**, avec
 
 ## Exclusions configurables — lanterneaux et MRX (22 octobre 2026)
 
-Deux nouvelles cases sont **cochées par défaut** dans le diagnostic :
+Deux nouvelles cases **Masquer les lanterneaux** / **Masquer les MRX** sont **cochées par défaut** dans le diagnostic :
 - **Exclure les lanterneaux** : recherche dans le nom de famille ou de type (`Lanterneau`, `Désenfumage`) ; exclut aussi les familles hébergées sur une toiture (`Toits`, `Toitures`, `Roofs`).
 - **Exclure les MRX (murs-rideaux)** : détecte le code métier indépendant `MRX` dans le nom de famille **ou** du type (notamment `FEN-EXT-GEN-1V_MRX`), ainsi que les variantes textuelles « mur-rideau » ou « métal perforé ».
 
@@ -114,3 +114,7 @@ Quatre fichiers CSV sont désormais exportés : `occurrences`, `_types`, `_alert
 **Familles réelles fournies pour la vérification dimensionnelle :** `FEN-EXT-GEN-1V_ITI.rfa` et `PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel.rfa`. Les fichiers sont au format natif Autodesk Revit ; leur géométrie, leurs vides de découpe et les références paramétriques ne peuvent pas être validés à partir du seul nom de fichier ou du rapport CSV. Une inspection dans l'éditeur de familles Revit 2025.4 est nécessaire avant de conclure sur `Largeur`, `Hauteur`, `Largeur brute` et `Hauteur brute`.
 
 **Recette restante :** extraire 396 occurrences / 20 exclusions sur le projet témoin, vérifier l'export des quatre CSV, puis décocher individuellement chacune des cases pour retrouver 407 ou 405 occurrences, sans jamais transformer les lignes spéciales en surfaces réglementaires. La PR #38 reste en brouillon.
+
+### Clarification des cases de visibilité
+
+Les cases permettent seulement de masquer les occurrences dans la **liste de diagnostic** ; elles ne donnent jamais le droit de les comptabiliser dans la règle des 1/6. La grille des types affiche le statut `rule_16_status` pour contrôler ce point. En décochant `Masquer les MRX`, une occurrence MRX s'affiche avec `EXCLU_MRX` ; idem pour un lanterneau avec `EXCLU_LANTERNEAU`. Le futur moteur réglementaire devra respecter ces exclusions quel que soit l'état des cases.

@@ -22,9 +22,9 @@
     <CheckBox x:Name="FacadeOnly" IsChecked="True" Margin="0,0,0,6"
      Content="Limiter aux familles commençant par FEN-EXT ou PORFEN-EXT"/>
     <CheckBox x:Name="ExcludeLanterns" IsChecked="True" Margin="0,0,0,6"
-     Content="Exclure les lanterneaux du diagnostic et du périmètre candidat"/>
+     Content="Masquer les lanterneaux (toujours exclus du calcul)"/>
     <CheckBox x:Name="ExcludeMRX" IsChecked="True" Margin="0,0,0,6"
-     Content="Exclure les MRX (murs-rideaux) du diagnostic et du périmètre candidat"/>
+     Content="Masquer les MRX / murs-rideaux (toujours exclus du calcul)"/>
     <CheckBox x:Name="IncludeLinks" Margin="0,0,0,10"
      Content="Inclure les fichiers Revit liés directs chargés"/>
     <StackPanel Orientation="Horizontal">
@@ -49,6 +49,7 @@
     <DataGridTextColumn Header="Méthode" Binding="{Binding methods}" Width="145"/>
     <DataGridTextColumn Header="Dimensions" Binding="{Binding status}" Width="195"/>
     <DataGridTextColumn Header="Façade" Binding="{Binding facade_status}" Width="220"/>
+    <DataGridTextColumn Header="Règle 1/6" Binding="{Binding rule_16_status}" Width="210"/>
    </DataGrid.Columns>
   </DataGrid>
   <TextBlock Grid.Row="4" TextWrapping="Wrap" Margin="0,10,0,0" Foreground="#666666"

@@ -51,7 +51,7 @@ def test_loading_explicit_common_assembly(monkeypatch):
     refs = install_mocks(monkeypatch)
     table = build_type_table([dict(source="Projet", family="Fenêtre à soufflet", type="120 × 135", count=2, methods="TABLEAU", status="À vérifier")])
     assert refs == ["System.Data.Common"]
-    assert list(table.Columns) == ["source", "family", "type", "count", "methods", "status", "facade_status"]
+    assert list(table.Columns) == ["source", "family", "type", "count", "methods", "status", "facade_status", "rule_16_status"]
     assert table.Rows[0]["family"] == "Fenêtre à soufflet"
     assert table.Rows[0]["count"] == "2"
 

@@ -34,6 +34,16 @@ def test_ordinary_window_not_excluded():
     assert rule_16_status("FEN-EXT-GEN-1V_ITI", host_category="Murs", wall_function="Exterior") == "CANDIDAT_A_CONTROLER"
 
 
+def test_aggregated_candidate_flags_remain_excluded():
+    from baies_diagnostic.evaluator import aggregate_by_type
+    rows=[dict(source="HOST",source_id="HOST",family="FEN-EXT-GEN-1V_MRX",
+               type="Mur-rideau",method="NOMINALE",area_m2=2.0,
+               status="NOMINAL_A_CONFIRMER",facade_status="CAS_SPECIAL_MRX_A_EXCLURE",
+               rule_16_status="EXCLU_MRX",element_id="101")]
+    summary=aggregate_by_type(rows)
+    assert summary[0]["rule_16_status"] == "EXCLU_MRX"
+
+
 def test_original_classification_compatibility():
     assert facade_status("FEN-EXT-GEN-1V_MRX", "Murs", "Exterior") == "CAS_SPECIAL_MRX_A_EXCLURE"
     assert facade_status("FEN-EXT-GEN-1V_Lanterneau", "Toits", "") == "CAS_SPECIAL_LANTERNEAU"

@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 """Adaptateur WPF : synthèse de types dans une DataTable .NET."""
 
-SUMMARY_COLUMNS = ("source", "family", "type", "count", "methods", "status", "facade_status")
+SUMMARY_COLUMNS = ("source", "family", "type", "count", "methods", "status", "facade_status", "rule_16_status")
 
 
 def display_text(value):
