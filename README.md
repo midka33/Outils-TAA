@@ -18,8 +18,8 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
 | **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |
-| **Cotation automatique** | 📋 Planifié — cotation des vues sélectionnées, type de cote au choix, prévention des chevauchements et groupes de détails attachés |
-| **Étiquetage automatique** | 📋 Planifié — étiquetage des pièces dans les vues sélectionnées, type d'étiquette au choix, prévention des chevauchements et groupes de détails attachés |
+| **Cotation automatique** | 🧪 Bêta sur branche de test — vues multiples, types choisis, groupes de détails attachés à valider dans Revit |
+| **Étiquetage automatique** | 🧪 Bêta sur branche de test — vues multiples, types choisis, groupes de détails attachés à valider dans Revit |
 | **Légendes automatiques** | 📋 Planifié — génération de légendes depuis le gabarit d’une vue ou les couleurs des pièces, avec légende partagée entre plusieurs vues et échelle identique à la vue de référence |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
@@ -46,6 +46,13 @@ cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure le
 
 Voir `docs/20_Plans_de_Vente.md` et la recette de release
 `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+
+## Modules d'annotations automatiques (bêta)
+
+Une première version non validée dans Revit est préparée sur la branche
+[`feature/annotations-automatiques-beta`](https://github.com/midka33/Outils-TAA/tree/feature/annotations-automatiques-beta).
+Elle réutilise les moteurs Plans de vente sans modifier leur comportement.
+La recette et les limitations figurent dans [`docs/21_Annotations_Automatiques.md`](docs/21_Annotations_Automatiques.md).
 
 ## Guide utilisateur
 
