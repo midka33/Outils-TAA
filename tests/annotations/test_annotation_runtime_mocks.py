@@ -687,7 +687,8 @@ def test_guardrail_reference_non_native_no_scan_when_view_absent(monkeypatch):
     mod = load_annotation_module(monkeypatch)
     service = mod.GenericDimensions(object())
     assert service._nearby_guardrail_edges(
-        types.SimpleNamespace(UniqueId="2238")) == []
+        types.SimpleNamespace(UniqueId="2238"),
+        [(0., 0., 3.12, 0.)]) == []
 
 
 
