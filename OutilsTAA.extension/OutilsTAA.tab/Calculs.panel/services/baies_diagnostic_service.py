@@ -5,6 +5,7 @@ Ni boîte englobante ni cote nominale ne prouve la surface en tableau.
 """
 import json
 from baies_diagnostic.evaluator import evaluate, aggregate_by_type
+from baies_diagnostic.facade_scope import is_facade_family, facade_status
 
 def _text(value):
     try:
@@ -131,13 +132,16 @@ class BaiesDiagnosticService(object):
                    abs(bbox.Max.Z-bbox.Min.Z)*0.3048)
         except Exception:
             pass
+        host_category=_text(host.Category.Name) if host and host.Category else u""
+        classification=facade_status(family_name, host_category, function)
         return dict(source=source,source_id=source_id,document=_text(dbdoc.Title),
                     category=category,family=family_name,
                     type=type_name,element_id=_eid(instance),
                     unique_id=_text(instance.UniqueId),
                     host_id=_eid(host) if host else u"",
-                    host_category=_text(host.Category.Name) if host and host.Category else u"",
+                    host_category=host_category,
                     wall_function=function,from_room=room_from,to_room=room_to,
+                    facade_status=classification,
                     method=selected.get("method",u""),
                     width_m=selected.get("width_m",u""),
                     height_m=selected.get("height_m",u""),
@@ -152,7 +156,7 @@ class BaiesDiagnosticService(object):
                     candidates_json=json.dumps(outcome["candidates"],ensure_ascii=False,sort_keys=True),
                     reglementaire_valide=u"NON : vérification de la baie et du contexte nécessaire")
 
-    def _collect(self, document, source, source_id, rows, alerts):
+    def _collect(self, document, source, source_id, rows, alerts, facade_only=False):
         DB=self._db()
         for bic, category in ((DB.BuiltInCategory.OST_Windows,u"Fenêtre"),
                               (DB.BuiltInCategory.OST_Doors,u"Porte")):
@@ -160,6 +164,11 @@ class BaiesDiagnosticService(object):
                 for element in DB.FilteredElementCollector(document).OfCategory(bic).WhereElementIsNotElementType():
                     try:
                         if isinstance(element,DB.FamilyInstance):
+                            if facade_only:
+                                symbol=element.Symbol
+                                family=symbol.Family if symbol else None
+                                if not is_facade_family(_element_name(family, DB)):
+                                    continue
                             rows.append(self._snapshot(document,element,source,source_id,category))
                     except Exception as error:
                         alerts.append(dict(source=source,element_id=_eid(element),
@@ -168,10 +177,10 @@ class BaiesDiagnosticService(object):
                 alerts.append(dict(source=source,element_id=u"",
                                    message=u"Collecte {} impossible : {}".format(category,_text(error))))
 
-    def analyze(self, include_links=False):
+    def analyze(self, include_links=False, facade_only=False):
         DB=self._db()
         rows, alerts=[],[]
-        self._collect(self.document,u"Projet hôte",u"HOST",rows,alerts)
+        self._collect(self.document,u"Projet hôte",u"HOST",rows,alerts,facade_only=facade_only)
         if include_links:
             try:
                 for link in DB.FilteredElementCollector(self.document).OfClass(DB.RevitLinkInstance):
@@ -182,7 +191,7 @@ class BaiesDiagnosticService(object):
                             alerts.append(dict(source=source,element_id=_eid(link),
                                                message=u"Lien non chargé : ignoré"))
                         else:
-                            self._collect(linked,source,_text(link.UniqueId),rows,alerts)
+                            self._collect(linked,source,_text(link.UniqueId),rows,alerts,facade_only=facade_only)
                     except Exception as error:
                         alerts.append(dict(source=source,element_id=_eid(link),
                                            message=u"Lien ignoré : {}".format(_text(error))))
