@@ -2,8 +2,8 @@
 
 **État : bêta de recette, non validée dans Revit.**
 **Compatibilité visée : Revit 2025.4 / pyRevit 5.x.**
-**Branche :** \`feature/annotations-automatiques-beta\`.
-Ne pas fusionner dans \`main\` avant validation d'un projet de test.
+**Branche :** `feature/annotations-automatiques-beta`.
+Ne pas fusionner dans `main` avant validation d'un projet de test.
 
 ## Objet
 
@@ -12,7 +12,7 @@ Deux boutons dans le panneau **Annotations** du ruban Outils TAA :
 - **Cotation auto** : cotes natives par pièce (jusqu'à deux orientations principales) ;
 - **Étiquetage auto** : étiquettes de pièces natives, avec sélection du type.
 
-Les moteurs \`dimension_service.py\`, \`room_tag_service.py\` et la bibliothèque géométrique \`lib/plans_vente/\` sont importés depuis Plans de vente. Les contrôles spécifiques aux vues \`PDV PROTO\` sont adaptés uniquement par sous-classes. Aucun service Plan de vente existant n'a été modifié par cette bêta.
+Les moteurs `dimension_service.py`, `room_tag_service.py` et la bibliothèque géométrique `lib/plans_vente/` sont importés depuis Plans de vente. Les contrôles spécifiques aux vues `PDV PROTO` sont adaptés uniquement par sous-classes. Aucun service Plan de vente existant n'a été modifié par cette bêta.
 
 ## Fonctionnement
 
@@ -68,7 +68,7 @@ Les lignes de référence candidates sont limitées aux principales directions r
 
 ## Architecture
 
-\`\`\`text
+```text
 OutilsTAA.extension/
   OutilsTAA.tab/
     Annotations.panel/
@@ -80,7 +80,7 @@ OutilsTAA.extension/
     PlansDeVente.panel/
       services/ dimension_service.py, room_tag_service.py (inchangés)
   lib/plans_vente/ (inchangé)
-\`\`\`
+```
 
 Les nouveaux adaptateurs sont le premier pas vers un moteur de référence
 commun ; l'extraction définitive dans une bibliothèque d'annotation autonome
