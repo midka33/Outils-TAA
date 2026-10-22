@@ -12,8 +12,8 @@ FIELDS_OCCURRENCES=("source","source_id","document","category","family","type",
     "element_id","unique_id","host_id","host_category","wall_function",
     "from_room","to_room","method","width_m","height_m","area_m2",
     "width_parameter","height_parameter","width_origin","height_origin",
-    "status","reason","bounding_box_xyz_m","parameters_json","candidates_json","reglementaire_valide")
-FIELDS_TYPES=("source","source_id","family","type","count","status","methods","areas_m2","examples")
+    "status","facade_status","reason","bounding_box_xyz_m","parameters_json","candidates_json","reglementaire_valide")
+FIELDS_TYPES=("source","source_id","family","type","count","status","facade_status","methods","areas_m2","examples")
 FIELDS_ALERTS=("source","element_id","message")
 
 class BaiesDiagnosticWindow(forms.WPFWindow):
@@ -30,7 +30,7 @@ class BaiesDiagnosticWindow(forms.WPFWindow):
         self.ExportButton.IsEnabled=False
         self.StatusText.Text="Analyse en cours..."
         try:
-            self.rows,self.types,self.warnings=self.service.analyze(bool(self.IncludeLinks.IsChecked))
+            self.rows,self.types,self.warnings=self.service.analyze(bool(self.IncludeLinks.IsChecked), facade_only=bool(self.FacadeOnly.IsChecked))
             table=build_type_table(self.types)
             self.TypesGrid.ItemsSource=table.DefaultView
             counter={}
