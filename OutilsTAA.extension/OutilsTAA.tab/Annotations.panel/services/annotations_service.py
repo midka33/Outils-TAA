@@ -10,6 +10,7 @@ uniquement dans ces sous-classes. Revit 2025.4 / pyRevit 5.x.
 from Autodesk.Revit import DB
 from System.Collections.Generic import List
 import traceback
+from crash_trace import trace
 
 from plans_vente.housing import Housing, RoomSnapshot
 from dimension_service import DimensionService
@@ -554,6 +555,8 @@ class AnnotationService(object):
             return 0, ["{} : annotations deja presentes ou vues non cotables.".format(
                 safe_name(group.GroupType, "Groupe") if group else safe_name(view))]
         name = safe_name(group.GroupType, "Groupe") if group else "hors groupe"
+        room_id = room_value(room_set[0], DB.BuiltInParameter.ROOM_NUMBER, "?")
+        trace("ROOM_START", safe_name(view), room_id, kind)
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
@@ -575,8 +578,12 @@ class AnnotationService(object):
                     housing, str(view.UniqueId), annotation_type_id,
                     exclusion_boxes=dims)
             else:
+                trace("BEFORE_DIMENSION_ENGINE", safe_name(view), room_id,
+                      "references/geometry/transactions")
                 result = self.dims.create_dimensions(
                     housing, str(view.UniqueId), annotation_type_id)
+                trace("AFTER_DIMENSION_ENGINE", safe_name(view), room_id,
+                      "created={}".format(result.created_count))
             new_ids = self._ids(view, kind) - before
             if group and new_ids:
                 self._attach(group, view,
@@ -586,8 +593,12 @@ class AnnotationService(object):
             elif group and proxy_ids:
                 raise RuntimeError("Aucune cote native produite : references annulees.")
             scope.Assimilate()
+            trace("ROOM_COMMITTED", safe_name(view), room_id,
+                  "created={}".format(len(new_ids)))
             return len(new_ids), list(result.warnings)
         except Exception as exc:
+            trace("ROOM_EXCEPTION", safe_name(view), room_id,
+                  "{}: {}".format(type(exc).__name__, exc))
             scope.RollBack()
             return 0, ["{} / {} : annule sans annotation isolee ({}: {}).\n{}".format(
                 safe_name(view, "Vue"), name, type(exc).__name__, exc,
@@ -596,8 +607,16 @@ class AnnotationService(object):
             self.dims.proxy_candidates = {}
             self.dims.target_view = None
 
-    def run(self, kind, views, annotation_type_id, line_style=None):
+    def run(self, kind, views, annotation_type_id, line_style=None,
+            diagnostic_room_uid=None):
         report, total = [], 0
+        if kind == "dims":
+            # Crash 2026-10-22 : le traitement de masse est suspendu.
+            if not diagnostic_room_uid or len(views) != 1:
+                raise ValueError(
+                    "Mode diagnostic obligatoire : une vue et une piece."
+                )
+        trace("RUN_START", "", "", kind)
         for view in views:
             if not plan_compatible(view):
                 report.append("{} : vue incompatible.".format(safe_name(view, "Vue")))
@@ -608,6 +627,14 @@ class AnnotationService(object):
                 report.append("{} : lecture pieces impossible : {}: {}\n{}".format(
                     safe_name(view, "Vue"), type(exc).__name__, exc, traceback.format_exc()))
                 continue
+            if kind == "dims":
+                rooms = [room for room in rooms
+                         if str(room.UniqueId) == diagnostic_room_uid]
+                if len(rooms) != 1:
+                    raise ValueError("Piece choisie introuvable dans la vue.")
+                if rooms[0].GroupId != DB.ElementId.InvalidElementId:
+                    raise ValueError(
+                        "Groupes attaches suspendus en diagnostic apres crash.")
             grouped, singles = {}, []
             for room in rooms:
                 gid = room.GroupId
@@ -644,4 +671,5 @@ class AnnotationService(object):
                     view, room_set, kind, annotation_type_id, group, line_style)
                 total += count
                 report.extend(warnings)
+        trace("RUN_END", "", "", "created={}".format(total))
         return total, report
