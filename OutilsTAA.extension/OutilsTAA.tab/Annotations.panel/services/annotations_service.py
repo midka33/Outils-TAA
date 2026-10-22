@@ -113,16 +113,43 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 if index in indexes]
 
     def _fallback_length_indexes(self, boundary_candidates, pairs):
-        # SPECIFIQUE aux deux boutons Annotations : une longueur de mur
-        # (fallback 06E) n'est PAS une dimension entre faces opposees.
-        # Les deux axes principaux suffisent ; on n'invente pas de secours.
+        # Aucune longueur de mur en remplacement des portees opposees.
         return []
+
+    def _alignment_rails(self, view):
+        """Segments des cotes Revit deja creees dans la vue.
+
+        Chaque cote precedente peut servir de guide aux pieces voisines.
+        Aucune modification de ces cotes n'est effectuee.
+        """
+        rails = []
+        try:
+            dimensions = (DB.FilteredElementCollector(self.document, view.Id)
+                          .OfCategory(DB.BuiltInCategory.OST_Dimensions)
+                          .WhereElementIsNotElementType().ToElements())
+            for dim in dimensions:
+                try:
+                    if dim.IsHidden(view):
+                        continue
+                    curve = dim.Curve
+                    if not isinstance(curve, DB.Line):
+                        continue
+                    p0 = curve.GetEndPoint(0)
+                    p1 = curve.GetEndPoint(1)
+                    rails.append(((float(p0.X), float(p0.Y)),
+                                  (float(p1.X), float(p1.Y))))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return rails
 
     def _plan_graphics(self, room, view, lines, anchors, tags, dimensions,
                        equipment, warnings, placement_regions=None):
         # Reprendre les memes generateurs de positions que Plans de vente.
         # Le seul changement est la selection partielle sans collision.
         from plans_vente.dimension_positioning import placement_candidates
+        from annotations.dimension_alignment import aligned_candidates
         from annotations.strict_dimension_positioning import (
             SkippedPlacement, select_collision_free_placements)
 
@@ -151,6 +178,11 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
 
             text_axis = (float(view.RightDirection.X),
                          float(view.RightDirection.Y))
+            rails = self._alignment_rails(view)
+            # Un voisin au-dela de 25 mm papier n'est pas un rail de
+            # cotation local ; tol. de coincidence 0,25 mm papier.
+            near_gap = paper(25.)
+            snap_tolerance = paper(.25)
             regions = placement_regions or [None] * len(lines)
             groups = []
             for line, anchor, region in zip(lines, anchors, regions):
@@ -163,9 +195,16 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     candidate.text_inside = all(
                         contains(point) for polygon in candidate.text_polygons
                         for point in polygon)
+                group.extend(aligned_candidates(
+                    line, region or points, rails, contains, settings,
+                    tag_boxes=tags, dimension_boxes=dimensions,
+                    equipment_boxes=equipment, witness_anchors=anchor,
+                    text_axis=text_axis, max_neighbor_gap=near_gap))
                 groups.append(group)
 
-            chosen = select_collision_free_placements(groups)
+            chosen = select_collision_free_placements(
+                groups, rails=rails, max_neighbor_gap=near_gap,
+                snap_tolerance=snap_tolerance)
             for i, choice in enumerate(chosen):
                 if isinstance(choice, SkippedPlacement):
                     group = groups[i]
