@@ -119,3 +119,49 @@ de recette séparé.
 - [ ] REV-ANN-16 : vérifier qu'une seconde exécution ne duplique pas les cotes.
 
 **Statut :** code et tests hors Revit ; validation visuelle et API Revit 2025.4 à effectuer.
+
+
+## Correctif « deux grandes dimensions » — 22 octobre 2026
+
+**Retour en Revit :** 57 cotes sur `Collectifs A_Niveau 0`, mais des cotes
+paralleles et des longueurs de petits troncons de mur a la place des
+deux dimensions principales de chaque piece.
+
+**Cause :** les cotes de secours par longueur de mur de Plans de vente
+etaient utilisees lorsque les cotes de faces opposees echouaient.
+C'est un comportement distinct du besoin des boutons Annotations.
+
+**Regle metier obligatoire pour Cotation automatique :**
+
+1. Identifier les faces finies de la piece en reutilisant le service PDV.
+2. Retenir la meilleure paire de faces opposees (mesure interieure).
+3. Retenir la meilleure paire de faces opposees perpendiculaire a la premiere
+   (tolerance de 15 degres), si une telle paire existe.
+4. Garder les deux emprises et references d'origine, avec placement adaptatif
+   sans collision avec etiquette/cote et sans texte hors piece.
+5. Si aucune position fiable n'existe pour un axe, n'ajouter aucune cote
+   sur cet axe, et signaler le motif. **Ne jamais basculer vers la
+   longueur d'un mur ou d'un autre segment en guise de remplacement.**
+6. Creer une seule cote si un seul axe exploitable reste, plutot que
+   deux cotes paralleles ou approximatives.
+
+**Perimetre :** modification seulement de l'adaptateur
+`GenericDimensions` et du helper pur
+`lib/annotations/principal_dimension_axes.py` ; pas de modification
+de `dimension_service.py` ou de la geometrie Plans de vente.
+
+**IMPORTANT POUR LES TESTS :** les 57 cotes deja creees par la version
+precedente ne sont pas identifiees comme provenant de TAA. Elles doivent
+etre supprimees manuellement / annulees **sur une copie du projet** avant
+nouveau test. Ne jamais les supprimer automatiquement, pour ne pas
+effacer des cotes manuelles existantes. Le module reste prudent en
+presence de cotes preexistantes.
+
+- [ ] REV-ANN-17 : apres nettoyage de la copie, une piece rectangulaire
+  recoit deux mesures interieures entre faces opposees orthogonales.
+- [ ] REV-ANN-18 : aucune cote de longueur de mur / petit troncon,
+  meme quand la seconde direction ne peut pas etre placee.
+- [ ] REV-ANN-19 : une piece avec une seule paire opposable ne recoit
+  au maximum qu'une cote.
+- [ ] REV-ANN-20 : aucune collision sur les 40 etiquettes deja validees ;
+  les pieces complexes produisent un diagnostic plutot qu'une fausse cote.
