@@ -525,3 +525,18 @@ après masquage des séparations. **Non validé dans Revit après correction.**
 **Prevention :** reduire les objets analyses plutot qu'augmenter le budget d'API Revit apres un crash ; ne pas utiliser les references issues de GetInstanceGeometry pour creer des cotes.
 
 **Test anti-regression :** test_2238_quatre_gc_dans_bbox_un_seul_garde_corps_sonde controle que seule la geometrie du TopRail est interrogee ; suites CI et validation dans Revit 2025.4.
+
+
+---
+
+### BUG-COMMON-015 — Rail filant trouve, mais aucune arete examinee sur la loggia 2238
+
+**Symptome observe dans Revit (22/10/2026) :** deux annotations creees ; deux garde-corps retenus par leur chemin ; un rail filant trouve, puis `0 aretes inspectees, 0 references candidates`. Les cotes utilisent encore des reperes 2D.
+
+**Cause technique du blocage (code) :** la recherche ne parcourait que les objets `DB.Solid` directement retournes par `get_Geometry()`. Tout objet `DB.GeometryInstance` etait ignore. La sortie `0 aretes` est compatible avec une geometrie encapsulee, mais la structure reelle du rail 2238 n'est pas encore confirmee par un diagnostic Revit.
+
+**Correction :** traiter les `GeometryInstance` des seuls TopRail/HandRail retenus via `GetSymbolGeometry()` **sans transformation** pour preserver les references de geometrie originales. Appliquer `GeometryInstance.Transform.OfPoint` aux seuls points de comparaison dans la maquette, sans substituer les References. Profondeur maximale de deux instances, 64 objets geometriques par rail et 120 aretes examinees au total ; option de detail Medium. Ne jamais employer `GetInstanceGeometry()` ou `GetSymbolGeometry(Transform)` pour les references de cotation, puisque ces surcharges retournent des copies.
+
+**Prevention :** verifier les niveaux de geometrie Revit (Solid direct / GeometryInstance) avant de conclure a l'absence d'aretes. Pour une cote Revit, conserver les references issues de la geometrie originale ; faire les transformations sur des points de calcul uniquement. Limiter l'exploration et conserver le fallback non associatif en cas d'incertitude.
+
+**Tests anti-regression :** `test_symbole_rail_geometrie_native_transformee_et_reference_preservee`, `test_symboles_imbriques_appliquent_transformations_dans_bon_ordre`, `test_budget_objets_et_profondeur_limites_avant_extraction_lourde`, plus les suites Annotations, Plans de vente, Export et Calculs. La validation native de Revit 2025.4 reste obligatoire et doit confirmer les geometries symboliques et l'acceptation des references de cote.
