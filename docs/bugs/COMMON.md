@@ -540,3 +540,60 @@ après masquage des séparations. **Non validé dans Revit après correction.**
 **Prevention :** verifier les niveaux de geometrie Revit (Solid direct / GeometryInstance) avant de conclure a l'absence d'aretes. Pour une cote Revit, conserver les references issues de la geometrie originale ; faire les transformations sur des points de calcul uniquement. Limiter l'exploration et conserver le fallback non associatif en cas d'incertitude.
 
 **Tests anti-regression :** `test_symbole_rail_geometrie_native_transformee_et_reference_preservee`, `test_symboles_imbriques_appliquent_transformations_dans_bon_ordre`, `test_budget_objets_et_profondeur_limites_avant_extraction_lourde`, plus les suites Annotations, Plans de vente, Export et Calculs. La validation native de Revit 2025.4 reste obligatoire et doit confirmer les geometries symboliques et l'acceptation des references de cote.
+
+
+---
+
+### BUG-COMMON-016 — Une loggia décotée de 35 mm par rapport au garde-corps retombe en 2D
+
+**Symptôme et exemple :** sur la loggia 2238 du niveau 1, quatre arêtes
+natives de rail filant sont désormais détectées, mais aucune n'est
+associée aux cotes. L'utilisateur signale une différence réelle de
+**35 mm entre la séparation de pièce et le garde-corps**, liée à une
+approximation de modélisation. Le test strict historique rejetait toute
+arête distante de plus de 20 mm. Le fait que les quatre arêtes soient
+rejetées pour cette raison précise reste à confirmer avec le nouveau
+diagnostic par arête.
+
+**Cause racine démontrée par le code :** le seuil fixe
+`FLOOR_EDGE_TOLERANCE_MM = 20` était aussi appliqué aux garde-corps
+des annexes extérieures, sans tolérance distincte pour la divergence
+entre la Room et un ouvrage réellement construit. De plus, les
+arêtes de dalle étaient essayées avant les garde-corps dans le
+fallback des séparations, alors que la règle métier demandée pour
+les annexes est **mur → garde-corps → 2D**.
+
+**Correction (bêta Cotation automatique uniquement) :**
+- reconnaître les loggias, balcons, terrasses et jardins par
+  `ROOM_NAME`, ou la valeur `Ext` du paramètre projet `Int/Ext` ;
+- sur ces espaces uniquement, ignorer les arêtes de dalle comme
+  substitution des limites extérieures : garder les faces finies des
+  murs en priorité, les arêtes natives de garde-corps ensuite, puis
+  les repères 2D non associatifs en dernier recours ;
+- autoriser un **rattrapage maximal de 50 mm** pour l'appariement du
+  garde-corps à une séparation, sous réserve que l'angle reste <=3°
+  et le recouvrement >=60 %. Pour les pièces intérieures, rester à
+  **20 mm** ;
+- quand une référence est sélectionnée, indiquer dans le rapport
+  l'écart effectivement mesuré ; au-delà de 20 mm, imposer une
+  vérification manuelle du nu réel et de la **valeur native Revit**.
+  Ne jamais remplacer la valeur vraie de la cote par la valeur
+  calculée à partir de la séparation décalée ;
+- quand aucun candidat n'est retenu, rapporter l'écart, l'angle,
+  le recouvrement et les motifs du rejet à partir des références
+  déjà examinées, sans parcours géométrique supplémentaire.
+
+**Règle préventive :** distinguer tolérance de correspondance entre
+géométries et valeur de la cote réelle. Un rattrapage de modélisation
+ne doit pas modifier artificiellement une cote et ne doit jamais
+s'étendre aux pièces intérieures ou à des ouvrages éloignés ;
+ne pas relâcher les contraintes d'orientation/recouvrement.
+
+**Tests anti-régression :** `test_tolérance_extérieure_rattrape_35mm_sans_relacher_les_angles`,
+`test_decalage_de_65mm_reste_interdit_sur_annexe`,
+`test_loggia_2238_ne_parcourt_pas_les_dalles_avant_garde_corps`,
+`test_loggia_2238_garde_corps_ecarte_35mm_devient_reference_native`,
+`test_interieur_garde_corps_ecarte_35mm_ne_remplace_pas_separation`.
+Les suites Annotations, Plans de vente, Export et Calculs doivent
+rester au vert ; **la référence Revit native et les nouvelles valeurs
+réelles n'ont pas encore été vérifiées dans Revit 2025.4**.
