@@ -266,7 +266,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             self._nearby_floor_diagnostics.append(
                 "{} : reference de dalle du niveau voisin exploitee (plancher {}).".format(
                     room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
-                    id_value(best[2])))
+                    best[2])))
             return (best[1], best[2])
         return None
 
