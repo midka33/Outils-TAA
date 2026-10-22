@@ -181,3 +181,48 @@ presence de cotes preexistantes.
 **Parametres internes beta :** proximite maximale du guide : 25 mm sur papier a l'echelle de la vue ; tolerance de coincidence : 0,25 mm papier ; parallelisme pour le calage exact : 0,05 degre (des cotes seulement approximativement paralleles ne sont pas forcees sur un meme rail). Les nouvelles positions sont colineaires exactement avec le guide, dans les limites de precision numerique. Ces valeurs sont ajustables apres recette Revit.
 
 **Tests Revit a faire sur une copie propre** : piece rectangulaire, piece biaise, deux pieces voisines avec cotes paralleles et guides d'alignement, variante avec etiquette bloquant le guide, et second lancement sans doublons. Retirer *manuellement* les anciennes cotes incorrectes des essais beta avant de tester, sans suppression automatique des cotes utilisateur.
+
+
+## Correctif apres essai des 34 cotations — 22 octobre 2026
+
+**Constat de recette :** sur 40 pieces de la vue `Collectifs A_Niveau 0`,
+34 cotes seulement ; la plupart des pieces ne recoivent qu'une
+dimension. Les messages indiquent qu'aucune position sans conflit
+n'a ete trouvee, souvent avec zero collision etiquette/cote indiquee.
+
+**Causes trouvees dans l'adaptateur :**
+- Le refus general des croisements de traits de cote rend impossible
+  deux portees completes dans de nombreuses pieces rectangulaires.
+- Une seconde execution rejetait toute piece touchee par une bbox
+  de cote existante, y compris si l'autre direction restait a coter.
+
+**Comportement beta corrige :**
+1. Autoriser le **seul croisement ponctuel de lignes** entre cotes de
+   directions distinctes. Aucune superposition de textes, temoins ou
+   lignes de cote colineaires n'est autorisee. Ne pas deplacer les
+   references natives ni la longueur mesuree.
+2. En presence d'une cote existante, bloquer son texte (position
+   `Dimension.TextPosition` estimee avec marge) et bloquer les
+   lignes colineaires superposees. Quand la position de texte
+   native n'est pas disponible, conserver l'emprise Revit complete.
+3. Detecter les paires de references deja cotees par leur representation
+   stable : seules ces paires sont exclues. L'axe manquant peut etre
+   ajoute lors d'un second lancement sans multiplier les doublons.
+4. Conserver pour le module **Etiquetage** les obstacles de cote
+   complets : les etiquettes ne passent pas sur les traits de cote.
+5. Retenir au plus deux plus grandes portees de directions distinctes
+   (15 degres d'ecart minimal par defaut), sans perpendicularite
+   obligatoire et sans longueur de mur en secours.
+
+**Limites / validations :** `Dimension.TextPosition` et les
+references stables Revit doivent etre controles sur des cotations
+reelles dans Revit 2025.4. Une bbox reste un fallback conservateur.
+L'objectif est 2 cotes par piece, mais une piece sans deux placements
+valides peut rester a 1 ou 0 cote plutot que recevoir un chevauchement.
+
+**Scenario de recette** :
+- [ ] REV-ANN-21 : rectangle simple non cote, apres etiquetage : obtenir les deux grandes portees, avec simple croisement de traits hors textes.
+- [ ] REV-ANN-22 : lancer une seconde fois sur la meme vue : aucune cote en double.
+- [ ] REV-ANN-23 : supprimer uniquement la deuxieme cote d'une piece, puis relancer : seule celle-ci est recreee.
+- [ ] REV-ANN-24 : garder les cotes existantes et les etiquettes, verifier leurs textes non chevauches.
+- [ ] REV-ANN-25 : verifier pour une piece biaisee qu'aucune direction artificiellement orthogonale n'est forcee.
