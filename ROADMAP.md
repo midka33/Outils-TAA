@@ -224,6 +224,34 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [ ] Extension éventuelle à plus de deux vues principales sur une même feuille.
 
 
+## Modules futurs — Production documentaire
+
+### Carnets de menuiseries extérieures
+
+**Statut : préparation.**
+
+Objectif : préparer un module dédié à la production automatisée des carnets de
+mise en page des menuiseries extérieures.
+
+- [ ] Définir le périmètre métier et les données sources.
+- [ ] Définir le principe de regroupement des menuiseries et la structure des carnets.
+- [ ] Définir les vues, annotations, nomenclatures et informations à placer sur les feuilles.
+- [ ] Définir le modèle de feuille / cartouche et les règles de nommage.
+- [ ] Préparer le workflow de génération, mise à jour et contrôle avant développement.
+
+### Plans de repérage
+
+**Statut : préparation.**
+
+Objectif : préparer un module de génération automatisée des plans de repérage et
+de leurs mises en page.
+
+- [ ] Définir les usages de repérage à couvrir et les éléments concernés.
+- [ ] Définir les règles de génération des vues et du graphisme de repérage.
+- [ ] Définir les annotations, légendes, nomenclatures et informations associées.
+- [ ] Définir le modèle de mise en page et les règles de nommage.
+- [ ] Préparer le workflow de génération, mise à jour et contrôle avant développement.
+
 ## Phase 5 — Industrialisation
 
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.
