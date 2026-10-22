@@ -10,7 +10,7 @@ if str(LIB) not in sys.path:
     sys.path.insert(0, str(LIB))
 
 from annotations.dimension_alignment import (
-    matching_rails, aligned_candidates, alignment_penalty)
+    matching_rails, aligned_candidates, alignment_penalty, collinear_line_overlap)
 from annotations.strict_dimension_positioning import (
     select_collision_free_placements, SkippedPlacement)
 from plans_vente.dimension_positioning import placement_candidates
@@ -94,3 +94,14 @@ def test_alignement_naccroche_pas_directions_seulement_presque_paralleles():
     rail = ((6.2, 1.), (10.2, 1.2))
     # 2,86 degres : deux cotes d'orientations differentes.
     assert not matching_rails(line, [rail], max_neighbor_gap=1.)
+
+
+
+def test_collinear_rails_overlap_blocked_but_crossing_allowed():
+    line = ((0., 1.), (6., 1.))
+    overlapping = ((2., 1.), (5., 1.))
+    transverse = ((3., -1.), (3., 3.))
+    neighbor_aligned = ((6.2, 1.), (9., 1.))
+    assert collinear_line_overlap(line, [overlapping])
+    assert not collinear_line_overlap(line, [transverse])
+    assert not collinear_line_overlap(line, [neighbor_aligned])
