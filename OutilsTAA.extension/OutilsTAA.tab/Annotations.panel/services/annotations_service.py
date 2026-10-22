@@ -198,6 +198,54 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     return True
         return False
 
+    def _native_rail_solids(self, geometry, max_objects=64, max_depth=2):
+        """Solides natifs, y compris les SymbolGeometry non copiees.
+
+        Les objets sous GeometryInstance sont dans le repere du symbole :
+        on applique les transforms seulement aux POINTS pour l'appariement.
+        La Reference vient exclusivement de GetSymbolGeometry() SANS
+        argument, jamais de GetInstanceGeometry() (copies non cotables).
+        Les limites d'objets/profondeur bloquent tout parcours anormal.
+        """
+        counters = {"objects": 0, "instances": 0, "symbols": 0,
+                    "direct_solids": 0, "symbol_solids": 0}
+        def visit(items, transforms, depth):
+            for obj in items:
+                counters["objects"] += 1
+                if counters["objects"] > max_objects:
+                    raise ValueError("Budget des objets de rail depasse.")
+                if isinstance(obj, DB.Solid):
+                    try:
+                        if obj.Volume <= 1e-12:
+                            continue
+                    except Exception:
+                        pass
+                    if transforms:
+                        counters["symbol_solids"] += 1
+                    else:
+                        counters["direct_solids"] += 1
+                    yield obj, transforms
+                elif isinstance(obj, DB.GeometryInstance):
+                    counters["instances"] += 1
+                    if depth >= max_depth:
+                        continue
+                    # Récupération de la véritable géométrie symbolique ;
+                    # GetSymbolGeometry(Transform) fournit une COPIE.
+                    symbol = obj.GetSymbolGeometry()
+                    if symbol is None:
+                        continue
+                    counters["symbols"] += 1
+                    next_transforms = (obj.Transform,) + transforms
+                    for nested in visit(symbol, next_transforms, depth+1):
+                        yield nested
+        return visit(geometry, (), 0), counters
+
+    @staticmethod
+    def _rail_model_point(point, transforms):
+        for transform in transforms:
+            point = transform.OfPoint(point)
+        return point
+
     def _nearby_guardrail_edges(self, room, boundary_segments):
         """Arêtes NATIVES de deux garde-corps au plus, sans parcours global.
 
@@ -301,7 +349,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         options.ComputeReferences = True
         options.IncludeNonVisibleObjects = False
         try:
-            options.DetailLevel = DB.ViewDetailLevel.Coarse
+            options.DetailLevel = DB.ViewDetailLevel.Medium
         except Exception:
             pass
         # N'examiner QUE les composants filants distincts : TopRail et
@@ -360,45 +408,51 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                       "id={}".format(id_value(rail_id)))
                 if geometry is None:
                     continue
-                for obj in geometry:
-                    if not isinstance(obj, DB.Solid):
-                        # Les sous-instances pourraient porter des references
-                        # non cotables : ne pas les injecter artificiellement.
-                        continue
-                    try:
-                        if obj.Volume <= 1e-12:
-                            continue
-                    except Exception:
-                        pass
-                    for edge in obj.Edges:
-                        inspected += 1
-                        if inspected > max_edges:
-                            self._guardrail_warnings.append(
-                                "{} : plus de {} aretes de rails filants ; "
-                                "repli 2D par securite.".format(
-                                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
-                                    max_edges))
-                            return []
-                        try:
-                            reference = edge.Reference
-                            if reference is None:
+                native_solids, shape_stats = self._native_rail_solids(
+                    geometry, max_objects=64, max_depth=2)
+                try:
+                    for solid, transforms in native_solids:
+                        for edge in solid.Edges:
+                            inspected += 1
+                            if inspected > max_edges:
+                                self._guardrail_warnings.append(
+                                    "{} : plus de {} aretes des rails filants ; "
+                                    "repli 2D par securite.".format(
+                                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                                        max_edges))
+                                return []
+                            try:
+                                reference = edge.Reference
+                                if reference is None:
+                                    continue
+                                curve = edge.AsCurve()
+                                if not isinstance(curve, DB.Line):
+                                    continue
+                                if float(curve.Length) < min_length:
+                                    continue
+                                p0 = self._rail_model_point(
+                                    curve.GetEndPoint(0), transforms)
+                                p1 = self._rail_model_point(
+                                    curve.GetEndPoint(1), transforms)
+                                if abs(p1.Z-p0.Z) > min_length*.1:
+                                    continue
+                                reference.ConvertToStableRepresentation(self.document)
+                                edges.append((
+                                    (float(p0.X), float(p0.Y),
+                                     float(p1.X), float(p1.Y)),
+                                    reference, rail_id,
+                                    (float(p0.Z)+float(p1.Z))*.5))
+                            except Exception:
                                 continue
-                            curve = edge.AsCurve()
-                            if not isinstance(curve, DB.Line):
-                                continue
-                            if float(curve.Length) < min_length:
-                                continue
-                            p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
-                            if abs(p1.Z-p0.Z) > min_length*.1:
-                                continue
-                            reference.ConvertToStableRepresentation(self.document)
-                            edges.append((
-                                (float(p0.X), float(p0.Y),
-                                 float(p1.X), float(p1.Y)),
-                                reference, rail_id,
-                                (float(p0.Z)+float(p1.Z))*.5))
-                        except Exception:
-                            continue
+                finally:
+                    self._guardrail_warnings.append(
+                        "{} : rail filant {} : {} instance(s), "
+                        "{} symbole(s), {} solide(s) direct(s), "
+                        "{} solide(s) symbolique(s).".format(
+                            room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                            id_value(rail_id), shape_stats["instances"],
+                            shape_stats["symbols"], shape_stats["direct_solids"],
+                            shape_stats["symbol_solids"]))
             except Exception as error:
                 self._guardrail_warnings.append(
                     "{} : composant filant non exploitable : {}".format(
