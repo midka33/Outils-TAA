@@ -11,7 +11,7 @@ les nouvelles cotations. Il peut retenir une seule cote si necessaire.
 
 from itertools import product
 
-from plans_vente.dimension_positioning import placement_conflicts
+from plans_vente.dimension_positioning import placement_conflicts, _overlap
 from annotations.dimension_alignment import alignment_penalty
 
 
@@ -32,9 +32,44 @@ def _is_eligible(candidate):
             and bool(getattr(candidate, "text_inside", True)))
 
 
+def _same_line_direction(left, right, tolerance_degrees=15.0):
+    """Deux lignes quasiment paralleles ne doivent pas se superposer."""
+    import math
+    a = (left.line_end[0] - left.line_start[0],
+         left.line_end[1] - left.line_start[1])
+    b = (right.line_end[0] - right.line_start[0],
+         right.line_end[1] - right.line_start[1])
+    na = math.hypot(*a)
+    nb = math.hypot(*b)
+    if na < 1e-9 or nb < 1e-9:
+        return True
+    dot = abs((a[0] * b[0] + a[1] * b[1]) / (na * nb))
+    return dot >= math.cos(math.radians(tolerance_degrees))
+
+
 def _compatible(left, right):
+    """Autorise uniquement le croisement simple de deux traits de cote.
+
+    Deux cotes completes traversant une piece rectangulaire se croisent
+    necessairement. Ce croisement ponctuel des traits est acceptable en
+    dessin architectural ; les chiffres, textes et temoins doivent rester
+    sans superposition. Les segments colineaires restent interdits.
+    """
     text_hits, graphic_hits = placement_conflicts(left, right)
-    return not text_hits and not graphic_hits
+    if text_hits:
+        return False
+    if not graphic_hits:
+        return True
+    if not left.polygons or not right.polygons:
+        return False
+    for i, poly_a in enumerate(left.polygons):
+        for j, poly_b in enumerate(right.polygons):
+            if not _overlap(poly_a, poly_b):
+                continue
+            if i == 0 and j == 0 and not _same_line_direction(left, right):
+                continue
+            return False
+    return True
 
 
 def select_collision_free_placements(candidate_groups, rails=(),
