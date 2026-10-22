@@ -100,9 +100,13 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
 
     def _plan_graphics(self, room, view, lines, anchors, tags, dimensions,
                        equipment, warnings, placement_regions=None):
+        warning_count = len(warnings)
         result = super(GenericDimensions, self)._plan_graphics(
             room, view, lines, anchors, tags, dimensions, equipment, warnings,
             placement_regions=placement_regions)
+        if any("placement 06F indisponible" in str(msg)
+               for msg in warnings[warning_count:]):
+            raise ValueError("Positionnement fiable indisponible : cotation omise.")
         if any((placement.outside_count or placement.tag_hits or
                 placement.dimension_hits or any(
                     "collision" in message.lower() or
@@ -250,9 +254,8 @@ class AnnotationService(object):
                     detail = self.doc.Create.NewDetailCurve(view, line)
                     detail.LineStyle = line_style
                     self.doc.Regenerate()
-                    ref = DB.Reference(detail)
-                    if ref is None:
-                        ref = detail.GeometryCurve.Reference
+                    # Une cote native doit pointer vers la geometrie de la ligne.
+                    ref = detail.GeometryCurve.Reference
                     if ref is None:
                         raise ValueError("Reference de ligne 2D indisponible.")
                     c.reference = ref
