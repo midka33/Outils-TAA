@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 """Régression : une cote en conflit ne doit pas interdire la cote valide."""
 
+import sys
+from pathlib import Path
+
+# Export lance egalement tests/ ; ne pas dependre de son PYTHONPATH.
+LIB = Path(__file__).resolve().parents[2] / "OutilsTAA.extension" / "lib"
+if str(LIB) not in sys.path:
+    sys.path.insert(0, str(LIB))
+
 from annotations.strict_dimension_positioning import (
     SkippedPlacement,
     select_collision_free_placements,
