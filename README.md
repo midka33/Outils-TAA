@@ -18,7 +18,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
 | **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |
-| **Cotation automatique** | 🧪 Bêta sur branche de test — vues multiples, types choisis, groupes de détails attachés à valider dans Revit |
+| **Cotation automatique** | ⚠️ Bêta suspendue en masse après crash Revit — diagnostic limité à une vue / une pièce hors groupe ; aucune validation de stabilité |
 | **Étiquetage automatique** | 🧪 Bêta sur branche de test — vues multiples, types choisis, groupes de détails attachés à valider dans Revit |
 | **Légendes automatiques** | 📋 Planifié — génération de légendes depuis le gabarit d’une vue ou les couleurs des pièces, avec légende partagée entre plusieurs vues et échelle identique à la vue de référence |
 | **Contrôle** | 📋 Planifié |
@@ -53,6 +53,8 @@ Une première version non validée dans Revit est préparée sur la branche
 [`feature/annotations-automatiques-beta`](https://github.com/midka33/Outils-TAA/tree/feature/annotations-automatiques-beta).
 Elle réutilise les moteurs Plans de vente sans modifier leur comportement.
 La recette et les limitations figurent dans [`docs/21_Annotations_Automatiques.md`](docs/21_Annotations_Automatiques.md).
+
+**Sécurité (22/10/2026) :** après une fermeture brutale de Revit, la cotation en masse est désactivée dans la bêta. Ne tester que sur une copie de projet ; le bouton Cotation exige une seule pièce et conserve un journal dans `%TEMP%\OutilsTAA_Annotations_crashtrace.log`. Les groupes attachés et l'exploration des dalles de niveaux voisins sont temporairement suspendus. **Ne pas fusionner dans `main` avant diagnostic et recette.**
 
 ## Guide utilisateur
 
