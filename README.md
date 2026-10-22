@@ -53,12 +53,12 @@ Périmètre fonctionnel prévu :
 
 - Collecter les pièces du projet actif et, si sélectionnés, des liens Revit directs chargés ; regrouper par bâtiment et numéro de logement.
 - Lire les surfaces habitables pertinentes, en contrôlant leur périmètre et en évitant d'assimiler systématiquement la surface brute des pièces Revit à la SHAB.
-- Inventorier les fenêtres, portes vitrées et panneaux de mur-rideau admissibles ; distinguer surface de baie mesurée en tableau, estimation géométrique et donnée manquante.
+- Le diagnostic existant inventoriera par défaut les familles `FEN-EXT` et `PORFEN-EXT` (option désactivable), classera les cas atypiques et distinguera cotes nominales, brutes et tableau. L'éligibilité du vitrage et les murs-rideaux relèvent encore du futur moteur réglementaire.
 - Éviter le double comptage des ouvertures et signaler les baies à vérifier (local desservi, paroi extérieure, doublons, identifiant de logement, lien).
 - Produire un bilan des surfaces exigées, recensées et manquantes, ainsi qu'un rapport exportable avec avertissements.
 - Prévoir un fonctionnement **en lecture seule** lors du diagnostic ; toute écriture future dans des paramètres Revit sera optionnelle et explicitement confirmée.
 
-**État au 22 octobre 2026 :** le diagnostic V0.1 (bouton, analyse, CSV et tests) est intégré à cette branche ; il n'est pas encore validé dans Revit. La branche de travail [`feature/calculs-regle-1-6-baies`](https://github.com/midka33/Outils-TAA/tree/feature/calculs-regle-1-6-baies) sert aux essais, corrections et à la revue. Aucun test de validation en situation dans Revit 2025.4 n'a encore été effectué pour ce nouveau module. Voir `docs/27_Diagnostic_Baies.md`.
+**État au 22 octobre 2026 :** le diagnostic V0.1 (bouton, analyse, CSV et tests) est intégré à cette branche ; il n'est pas encore validé dans Revit. La branche de travail [`feature/calculs-regle-1-6-baies`](https://github.com/midka33/Outils-TAA/tree/feature/calculs-regle-1-6-baies) sert aux essais, corrections et à la revue. Le diagnostic a été exécuté en Revit 2025.4 : après correction des accès WPF et des noms de familles, une extraction de 1 349 éléments sans alerte a été obtenue le 22 octobre 2026. **Le nouveau filtre par préfixe et les statuts de façade demandent encore une recette Revit**. Voir `docs/27_Diagnostic_Baies.md`.
 
 ## Guide utilisateur
 
