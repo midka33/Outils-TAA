@@ -77,6 +77,7 @@ def aggregate_by_type(rows):
         output.append(dict(source=items[0].get("source",""),source_id=key[0],
                            family=key[1],type=key[2],count=len(items),
                            status=items[0].get("status","") if len(distinct)==1 else "VARIABLE_SELON_OCCURRENCE",
+                           facade_status=" | ".join(sorted(set(x.get("facade_status","") for x in items))),
                            methods=" | ".join(sorted(set(x.get("method","") for x in items))),
                            areas_m2=" | ".join(sorted(set(str(x.get("area_m2","")) for x in items))),
                            examples=" | ".join(str(x.get("element_id","")) for x in items[:5])))
