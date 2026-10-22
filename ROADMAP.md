@@ -264,8 +264,10 @@ de leurs mises en page.
 - [ ] Valider les collisions et les re-lancements dans des vues métier réelles.
 - [x] Corriger le rejet de toutes les cotes : accepter un placement partiel sans superposition, moteur Plans de vente inchangé.
 - [ ] Rejouer la cotation sur niveaux 0/1 après l'étiquetage déjà validé.
-- [x] Supprimer dans l'adaptateur les cotes de secours par longueur de mur, filtrer les deux portées principales orthogonales.
+- [x] Supprimer dans l'adaptateur les cotes de secours par longueur de mur, filtrer les deux plus grandes portées entre faces opposées (sans angle droit imposé).
 - [ ] Valider en Revit la géométrie de cotation principale après nettoyage des 57 cotes incorrectes du test bêta.
+- [x] Favoriser l'alignement des lignes de cote de même orientation dans les pièces voisines sans déplacer les références.
+- [ ] Valider l'alignement, les pièces biaisées et la priorité à l'absence de collisions dans Revit 2025.4.
 - [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
