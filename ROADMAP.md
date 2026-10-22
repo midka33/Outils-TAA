@@ -262,6 +262,8 @@ de leurs mises en page.
 - [ ] Exécuter la recette Revit 2025.4 du groupe de détails attaché existant (point critique API).
 - [ ] Vérifier l'association des cotes aux petites lignes de détail.
 - [ ] Valider les collisions et les re-lancements dans des vues métier réelles.
+- [x] Corriger le rejet de toutes les cotes : accepter un placement partiel sans superposition, moteur Plans de vente inchangé.
+- [ ] Rejouer la cotation sur niveaux 0/1 après l'étiquetage déjà validé.
 - [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
