@@ -1948,5 +1948,5 @@ Statut : tests hors Revit uniquement ; validation utilisateur Revit 2025.4 atten
 - Selection Ctrl/Maj/Ctrl+A, selection conservee entre filtres, ajout par bouton, double-clic, menu contextuel et glisser-deposer vers un dossier.
 - L'ajout est une **copie de reference de feuille**, pas un deplacement depuis les dossiers existants. Le repository conserve les sources et les sous-dossiers lors de la promotion d'un dossier ordinaire en dossier de publication ; doublons ignores dans un meme dossier, feuille autorisee dans plusieurs dossiers.
 - Le drag-and-drop interne de publication reste independant. L'explorateur emploie un format de donnees WPF distinct.
-- Les tests `tests/test_export_sheet_explorer_add.py` couvrent le service de persistance ; leur execution reelle reste a effectuer avant validation.
+- Les tests `tests/test_export_sheet_explorer_add.py` couvrent le service de persistance ; execution realisee dans GitHub Actions : 321 tests Export et contrats passes (22 octobre 2026). La validation WPF/Revit reste a effectuer.
 - **A verifier dans Revit :** ouverture WPF/XAML, largeur, selection multiple et filtrage, glisser-deposer, survol, menus, persistence, performances, export PDF/DWG et affichage 1920x1080.
