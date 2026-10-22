@@ -227,6 +227,47 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         return [candidate for index, candidate in enumerate(candidates)
                 if index in indexes]
 
+    def _floor_cache_key(self, room, room_level_key):
+        """Les planchers sont recherches localement PAR piece, pas par niveau."""
+        return (room_level_key, str(room.UniqueId))
+
+    @staticmethod
+    def _bbox_xy(bbox):
+        if bbox is None:
+            return None
+        try:
+            return (float(bbox.Min.X), float(bbox.Min.Y),
+                    float(bbox.Max.X), float(bbox.Max.Y))
+        except Exception:
+            return None
+
+    def _floor_candidates(self, room, same_level, nearby_level):
+        """Recherche locale bornee ; extraction geometrique reste dans PDV.
+
+        Les deux classes appellent la meme politique de selection et le
+        meme moteur natif d'arêtes. Ici seules les boites englobantes sont
+        lues avant la recherche ; jamais de second passage des solides.
+        """
+        from common.floor_reference_policy import select_floor_candidates
+        try:
+            room_xy = self._bbox_xy(room.get_BoundingBox(None))
+        except Exception:
+            room_xy = None
+
+        def floor_xy(floor):
+            return self._bbox_xy(floor.get_BoundingBox(None))
+
+        result = select_floor_candidates(
+            same_level, nearby_level, mode="local",
+            room_xy=room_xy, get_floor_xy=floor_xy,
+            padding=self._millimeters_to_internal(300.0),
+            max_floors=6)
+        trace("FLOOR_CANDIDATES", "",
+              room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+              "local={} same={} nearby={} max=6".format(
+                  len(result), len(same_level), len(nearby_level)))
+        return result
+
     def _fallback_length_indexes(self, boundary_candidates, pairs):
         # Aucune longueur de mur en remplacement des portees opposees.
         return []
