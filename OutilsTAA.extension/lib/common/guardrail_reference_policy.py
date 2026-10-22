@@ -90,3 +90,68 @@ def select_guardrails_by_path(items, target_segments, tolerance,
             return []
     matches.sort(key=lambda item: item[0])
     return [element for _score, element in matches]
+
+
+def diagnose_guardrail_candidates(boundary, edges, tolerance,
+                                  angle_degrees=3., minimum_overlap=.60,
+                                  max_edges=120):
+    """Mesures brutes de correspondance, SANS relacher les seuils.
+
+    Une entree par arete native candidate, meme si le test strict echoue.
+    Le resultat informe sur la cause du rejet sans proposer une Reference
+    trompeuse. Unites : pieds Revit ; angle en degres.
+    """
+    import math
+
+    edges = list(edges or [])
+    if len(edges) > int(max_edges):
+        return []
+    ax, ay, bx, by = [float(x) for x in boundary]
+    vx, vy = bx-ax, by-ay
+    length = math.sqrt(vx*vx + vy*vy)
+    if length < 1.e-9:
+        return []
+    ux, uy = vx/length, vy/length
+    nx, ny = -uy, ux
+    result = []
+    for segment, reference, element_id, z in edges:
+        if reference is None:
+            continue
+        cx, cy, dx, dy = [float(x) for x in segment]
+        wx, wy = dx-cx, dy-cy
+        other_len = math.sqrt(wx*wx + wy*wy)
+        if other_len < 1.e-9:
+            continue
+        dot = min(1., max(0., abs(ux*wx/other_len + uy*wy/other_len)))
+        angle = math.degrees(math.acos(dot))
+        midpoint_dx = (cx+dx-ax-bx)*.5
+        midpoint_dy = (cy+dy-ay-by)*.5
+        distance = abs(midpoint_dx*nx + midpoint_dy*ny)
+        c0 = (cx-ax)*ux + (cy-ay)*uy
+        c1 = (dx-ax)*ux + (dy-ay)*uy
+        overlap = max(0., min(length, max(c0, c1)) -
+                      max(0., min(c0, c1))) / length
+        reasons = []
+        if angle > angle_degrees + 1.e-8:
+            reasons.append("angle")
+        if distance > tolerance + 1.e-10:
+            reasons.append("ecart")
+        if overlap + 1.e-12 < minimum_overlap:
+            reasons.append("recouvrement")
+        result.append({
+            "element_id": element_id,
+            "z": z,
+            "distance": distance,
+            "angle": angle,
+            "overlap": overlap,
+            "reasons": reasons,
+            "eligible": not reasons,
+        })
+    # Commencer par les segments dont la direction et la couverture
+    # correspondent, meme s'ils sont decales lateralement. Les autres
+    # sont conserves dans le retour pour le diagnostic complet.
+    result.sort(key=lambda record: (
+        "angle" in record["reasons"],
+        "recouvrement" in record["reasons"],
+        record["distance"], record["angle"]))
+    return result
