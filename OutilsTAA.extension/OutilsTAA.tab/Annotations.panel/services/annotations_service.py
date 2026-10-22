@@ -339,7 +339,6 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         # Choisir les deux plus grandes portees de directions distinctes,
         # puis exclure les seules portees deja cotees dans cette vue.
         candidates = super(GenericDimensions, self)._room_boundary_candidates(room)
-        candidates = self._upgrade_separator_guardrail(room, candidates)
         from annotations.principal_dimension_axes import principal_pairs
         pairs = principal_pairs(
             [item.segment for item in candidates],
@@ -347,6 +346,16 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
             placement_fraction=self.PLACEMENT_FRACTION,
         )
+        # Ne sonder le garde-corps que lorsque la direction retenue
+        # pour une vraie dimension comporte une séparation non résolue.
+        selected_indexes = set(
+            index for pair in pairs
+            for index in (pair.first_index, pair.second_index))
+        self._upgrade_separator_guardrail(
+            room, [candidates[index] for index in sorted(selected_indexes)])
+        # Calculer les références DEJA cotées après substitution :
+        # une cote fondée sur une vraie arête de garde-corps doit être
+        # reconnue à la relance plutôt que dupliquée.
         existing = self._existing_dimension_reference_pairs()
         existing_proxy = self._existing_proxy_dimensions()
         indexes = set()
