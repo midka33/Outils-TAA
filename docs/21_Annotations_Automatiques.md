@@ -311,3 +311,15 @@ cause du crash n'est pas confirmée.
 
 **Ne pas annoncer de correction de crash confirmée ni fusionner dans
 `main` avant enquête et recette réelle.**
+
+
+### Premier essai après le retrait du parcours risqué des planchers
+
+**Retour réel Revit 2025.4 (22 octobre 2026) :** une pièce hors groupe sélectionnée dans `Collectifs A_Niveau 0`, numéro **1170** ; **2 annotations créées** dans une vue, sans crash signalé. Le rapport contient `1170 : proximite avec un equipement (controle recommande)`.
+
+- [x] REV-ANN-32 — Une pièce, traitement de cotation terminé sans crash signalé ; deux annotations natives annoncées par pyRevit.
+- [ ] REV-ANN-33 — Vérifier sur capture que les deux cotes mesurent les deux plus grandes dimensions de la pièce, dans deux directions distinctes, sans collision avec étiquette ou équipement.
+- [ ] REV-ANN-34 — Examiner `%TEMP%\OutilsTAA_Annotations_crashtrace.log` : présence de `BEFORE_DIMENSION_ENGINE`, `AFTER_DIMENSION_ENGINE`, `ROOM_COMMITTED`, `RUN_END` pour la pièce 1170.
+- [ ] REV-ANN-35 — Avant retour au mode multi-pièces, réessayer un autre profil de pièce sur une copie, avec la même surveillance du journal ; ne pas réactiver automatiquement la cotation multi-vues.
+
+**Portée du résultat :** succès fonctionnel du lancement d'une pièce, non validation de la qualité graphique, de l'absence de collision, des balcons, des groupes attachés ou de la stabilité à grande échelle.
