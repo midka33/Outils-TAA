@@ -255,8 +255,9 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             pass
         min_length = self._millimeters_to_internal(100.)
         edges = []
+        inspected = 0
         # Garde-fou fort apres le crash Revit : 2 garde-corps / 120
-        # arêtes de référence ; jamais d'extraction sur toute la maquette.
+        # arêtes inspectées ; jamais d'extraction sur toute la maquette.
         for railing in railings:
             try:
                 geometry = railing.get_Geometry(options)
@@ -265,7 +266,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 for solid in self._geometry_solids(
                         geometry, DB.Solid, DB.GeometryInstance):
                     for edge in solid.Edges:
-                        if len(edges) >= 120:
+                        inspected += 1
+                        if inspected > 120:
                             self._guardrail_warnings.append(
                                 "{} : budget 120 aretes atteint ; "
                                 "repli 2D prefere.".format(key))
