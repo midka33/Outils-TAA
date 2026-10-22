@@ -278,7 +278,9 @@ de leurs mises en page.
 - [ ] Contrôler capture et journal persistant de la pièce 1170, puis essayer un second cas isolé avant toute réactivation du traitement en masse.
 - [ ] Recetter un WC/cellier sur copie en mode diagnostique 1 vue / 1 pièce.
 - [ ] Valider visuellement balcons, WC et celliers du niveau 1 et les références natives de dalle avant réouverture du traitement en masse.
-- [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
+- [x] Extraire une politique commune pure de sélection des planchers avec modes `legacy` (PDV inchangé) et `local` (Annotations borné par bbox, budget, cache pièce).
+- [ ] Recetter le moteur commun sur la loggia 2238, vérifier l'origine des références et le masquage des séparations.
+- [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
 Voir `docs/21_Annotations_Automatiques.md`.
