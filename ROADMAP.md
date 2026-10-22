@@ -281,7 +281,8 @@ de leurs mises en page.
 - [x] Extraire une politique commune pure de sélection des planchers avec modes `legacy` (PDV inchangé) et `local` (Annotations borné par bbox, budget, cache pièce).
 - [x] Ajouter un niveau de référence garde-corps natif, avec contrôles géométriques et budget strict, entre dalle et repère 2D.
 - [x] Corriger les faux positifs de garde-corps voisins : filtrage par chemin `Railing.GetPath()` sur les seules limites sélectionnées, avant extraction des arêtes natives (BUG-COMMON-013).
-- [ ] Recetter le garde-corps réel de 2238 : vérifier le rapport après filtrage, le nu retenu, les références acceptées par Revit, le masquage des séparations et l'absence de doublons avant réactivation en masse.
+- [x] Réduire le parcours géométrique aux composants TopRail / HandRail au lieu de la géométrie complète du garde-corps (BUG-COMMON-014), en conservant le budget de 120 arêtes.
+- [ ] Recetter le garde-corps réel de 2238 : vérifier la disponibilité des rails filants, l'acceptation de leurs références, le nu retenu, le masquage des séparations et l'absence de doublons avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
