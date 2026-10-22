@@ -337,8 +337,62 @@ cause du crash n'est pas confirmée.
 **Analyse :** le moteur canonique Plans de vente n'a pas trouvé de référence native d'arête de plancher fiable pour une limite de 2238 et a utilisé une séparation de pièce. La dimension peut alors dépendre de la visibilité de cette catégorie. La proximité d'équipement est un avertissement conservateur, pas une collision prouvée.
 
 - [x] REV-ANN-36 — Lancement unitaire de 2238 : 2 cotes créées, aucun crash signalé.
-- [ ] REV-ANN-37 — Sur **copie de maquette**, masquer temporairement l'affichage des séparations de pièces dans la vue du niveau 1 et vérifier que les cotes de 2238 restent visibles et que leurs références restent valides ; rétablir la visibilité après essai.
+- [x] REV-ANN-37 — **ÉCHEC confirmé par l'utilisateur :** les deux cotes de 2238 disparaissent lorsque la catégorie des séparations de pièces est masquée. Référence native de séparation incompatible avec l'objectif.
 - [x] REV-ANN-38 — Capture rapprochée de 2238 examinée : 3,12 m × 3,62 m, directions distinctes, sans chevauchement évident du texte ; références de séparation à valider.
 - [ ] REV-ANN-39 — Vérifier le traceur `%TEMP%\\OutilsTAA_Annotations_crashtrace.log` pour les deux essais : `ROOM_COMMITTED` et `RUN_END`, puis évaluer s'il est prudent d'élargir le diagnostic à un WC ou cellier.
 
 **Décision :** ne pas restaurer la recherche expérimentale des solides des planchers ni le traitement multi-pièces sur la seule base de ces deux essais isolés. Le service Plans de vente stable demeure inchangé.
+
+
+### Correction de la référence des loggias — test à effectuer
+
+La disparition de **3,12 m** et **3,62 m** lors du masquage des
+séparations de pièces a été reproduite par l'utilisateur sur la loggia
+2238. Le problème est lié à la **référence native choisie** et pas au
+positionnement graphique des cotes.
+
+**Nouvelle stratégie bêta, sans modification de Plans de vente :**
+lorsque le service canonique ne trouve ni mur ni arête de dalle
+fiable et retourne une référence \`separator\`, l'adaptateur crée de
+très courtes lignes de détail 2D de 5 mm au droit des limites
+sélectionnées. La cotation porte alors sur
+\`DetailCurve.GeometryCurve.Reference\`, pas sur
+\`RoomSeparation.GeometryCurve.Reference\`. Le style graphique reste
+celui choisi au lancement. Les murs et véritables arêtes de dalle
+restent les références prioritaires. Aucun parcours additionnel des
+solides de dalle n'est réactivé après le crash.
+
+**Limites :** ces repères de 5 mm sont des annotations 2D de la
+vue, **non associatives** à la dalle ou au mur, et doivent rester
+visibles pour que la cote demeure visible. Il ne faut donc pas
+masquer leur style/catégorie avec les séparations. Une correction
+manuelle peut être nécessaire après changement de géométrie.
+Les lignes inutilisées sont supprimées ; échec global si aucun
+repère ne peut servir. Les anciennes cotes déjà placées sur des
+séparations **ne sont pas automatiquement réassociées**.
+
+**Essai ciblé sur une copie du projet :**
+1. Rendre à nouveau visibles les séparations de pièces.
+2. Supprimer **manuellement les deux anciennes cotes de 2238**
+   (ne pas supprimer les séparations ni les étiquettes).
+3. Mettre à jour la branche \`feature/annotations-automatiques-beta\`,
+   redémarrer Revit, et choisir le mode diagnostic **une vue / une pièce**.
+4. Refaire la cotation de 2238 avec un style de ligne 2D **visible**
+   dans la vue.
+5. Masquer uniquement la catégorie **Séparations de pièces**, en
+   conservant visible le style de détail 2D, puis vérifier que
+   les cotes **3,12 m et 3,62 m** restent toutes deux visibles.
+6. Réafficher les séparations ; relancer une seconde fois pour
+   contrôler l'absence de cotes en double.
+7. Transmettre le rapport et le journal
+   \`%TEMP%\OutilsTAA_Annotations_crashtrace.log\`.
+
+- [ ] REV-ANN-40 — La création de cotation par référence 2D fonctionne
+      dans Revit 2025.4, sans erreur ni crash.
+- [ ] REV-ANN-41 — Les deux cotes de la loggia 2238 restent
+      visibles lorsque les séparations de pièces sont masquées
+      (et les lignes de détail visibles).
+- [ ] REV-ANN-42 — La seconde exécution ne duplique pas les cotes
+      déjà référencées à des lignes de détail.
+- [ ] REV-ANN-43 — Une seule dimension possible ne laisse
+      pas de détail 2D orphelin.
