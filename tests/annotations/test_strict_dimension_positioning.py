@@ -78,12 +78,33 @@ def test_existing_tag_and_dimension_obstacles_are_absolute():
     assert all(isinstance(x, SkippedPlacement) for x in result)
 
 
-def test_candidate_with_text_outside_room_is_skipped():
+def test_petite_piece_autorise_texte_partiellement_dehors_sans_collision():
     a = fake_candidate(1., text_inside=False)
     b = fake_candidate(3.)
     result = select_collision_free_placements([[a], [b]])
-    assert isinstance(result[0], SkippedPlacement)
-    assert result[1] is b
+    assert result == [a, b]
+    assert any("hors piece" in message for message in a.warnings)
+
+
+def test_texte_interieur_reste_prioritaire_sur_le_repli_exterieur():
+    outside = fake_candidate(1., text_inside=False)
+    inside = fake_candidate(2., text_inside=True)
+    result = select_collision_free_placements([[outside, inside]])
+    assert result == [inside]
+
+
+def test_repli_texte_exterieur_nignore_jamais_collision_etiquette():
+    blocked = fake_candidate(1., text_inside=False, tag_hits=1)
+    valid = fake_candidate(2., text_inside=False)
+    result = select_collision_free_placements([[blocked, valid]])
+    assert result == [valid]
+
+
+def test_wc_sans_place_pour_texte_interieur_garde_deux_axes_non_concurrents():
+    first = fake_candidate(1., text_inside=False)
+    second = fake_candidate(3., text_inside=False)
+    result = select_collision_free_placements([[first], [second]])
+    assert result == [first, second]
 
 
 def test_real_pdv_candidate_generation_can_reuse_strict_selection():
