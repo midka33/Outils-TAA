@@ -126,3 +126,34 @@ def test_room_housing_does_not_read_room_name_property(monkeypatch):
 def test_group_type_names_use_revit_element_get_value(monkeypatch):
     mod = load_annotation_module(monkeypatch)
     assert mod.safe_name(FakeLevel()) == "R+1"
+
+
+def test_annotation_adapter_uses_only_orthogonal_opposing_faces(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    # Le moteur original donne ses references au nouvel adaptateur.
+    # Il ne doit plus produire deux cotes paralleles le long des murs.
+    segments = [
+        (0., 0., 7., 0.),
+        (7., 0., 7., 3.),
+        (7., 3., 0., 3.),
+        (0., 3., 0., 0.),
+        (0., 0., 1., 1.),
+    ]
+    class Boundary(object):
+        def __init__(self, segment):
+            self.segment = segment
+            self.reference = object()
+    raw = [Boundary(segment) for segment in segments]
+    monkeypatch.setattr(
+        mod.DimensionService, "_room_boundary_candidates",
+        lambda self, room: raw, raising=False)
+
+    service = mod.GenericDimensions(None)
+    room = types.SimpleNamespace(UniqueId="room-test")
+    selected = service._room_boundary_candidates(room)
+    assert len(selected) == 4
+    assert all(item in raw[:4] for item in selected)
+    assert service._fallback_length_indexes(selected, []) == []
+    assert service._fallback_length_indexes(selected, [object()]) == []
