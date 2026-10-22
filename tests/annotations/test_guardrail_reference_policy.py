@@ -9,7 +9,8 @@ if str(LIB) not in sys.path:
     sys.path.insert(0, str(LIB))
 
 from common.guardrail_reference_policy import (
-    matches_guardrail_edge, select_guardrail_edge)
+    matches_guardrail_edge, select_guardrail_edge,
+    select_guardrails_by_path)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -77,3 +78,66 @@ def test_test_non_regression_ordre_references():
         "existing = self._existing_dimension_reference_pairs()")
     assert 'candidate.source_kind = "guardrail_edge"' in source
     assert 'if getattr(candidate, "source_kind", None) != "separator":' in source
+
+
+def test_trois_garde_corps_dans_piece_un_seul_proche_de_separation():
+    """Le faux positif bbox de la loggia 2238 ne doit plus bloquer le GC."""
+    selected_boundary = [(0., 0., 0., 3.62)]
+    target = object()
+    others = [object(), object(), object()]
+    paths = [
+        (others[0], [(1., 0., 1., 3.62)]),
+        (target, [(-.06, 0., -.06, 3.62)]),
+        (others[1], [(3.12, 0., 3.12, 3.62)]),
+        (others[2], [(0., 6., 3.12, 6.)]),
+    ]
+    assert select_guardrails_by_path(
+        paths, selected_boundary, tolerance=.50) == [target]
+
+
+def test_deux_garde_corps_pertinents_sont_acceptes():
+    a, b = object(), object()
+    paths = [
+        (a, [(-.04, 0., -.04, 3.62)]),
+        (b, [(3.1, 0., 3.1, 3.62)]),
+        (object(), [(1.2, 0., 1.2, 3.62)]),
+    ]
+    result = select_guardrails_by_path(
+        paths, [(0., 0., 0., 3.62), (3.12, 0., 3.12, 3.62)],
+        tolerance=.50)
+    assert result == [a, b]
+
+
+def test_trois_garde_corps_reellement_sur_la_limite_restent_refuses():
+    result = select_guardrails_by_path(
+        [(i, [(0., 0., 0., 3.62)]) for i in range(3)],
+        [(0., 0., 0., 3.62)], tolerance=.50)
+    assert result == []
+
+
+def test_ni_chemin_lointain_ni_angle_incompatible():
+    result = select_guardrails_by_path(
+        [(1, [(1.5, 0., 1.5, 3.62)]),
+         (2, [(0., 0., 3.12, 0.)])],
+        [(0., 0., 0., 3.62)], tolerance=.50)
+    assert result == []
+
+
+def test_budget_de_chemins_interrompt_avant_les_solides():
+    paths = [(i, [(0., 0., 1., 0.)]) for i in range(81)]
+    assert select_guardrails_by_path(
+        paths, [(0., 0., 3.12, 0.)],
+        tolerance=.50, max_segments=80) == []
+
+
+def test_preselection_ne_peut_pas_remplacer_reference_native():
+    """Un chemin de garde-corps ne porte jamais de Reference de cote."""
+    candidate = object()
+    chosen = select_guardrails_by_path(
+        [(candidate, [(0., .05, 3.12, .05)])],
+        [(0., 0., 3.12, 0.)], tolerance=.50)
+    assert chosen == [candidate]
+    assert select_guardrail_edge(
+        (0., 0., 3.12, 0.),
+        [((0., .05, 3.12, .05), object(), candidate, 3.7)],
+        tolerance=.02) is None
