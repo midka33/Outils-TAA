@@ -93,6 +93,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self.proxy_candidates = {}
         self.target_view = None
         self._nearby_floor_edges_cache = {}
+        self._nearby_floor_diagnostics = []
 
     def _stable_reference(self, reference):
         if reference is None:
@@ -261,7 +262,13 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             score = metrics["score"] + abs(edge_z-z_room)*.02
             if best is None or score < best[0]:
                 best = (score, reference, floor_id)
-        return (best[1], best[2]) if best else None
+        if best:
+            self._nearby_floor_diagnostics.append(
+                "{} : reference de dalle du niveau voisin exploitee (plancher {}).".format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                    id_value(best[2])))
+            return (best[1], best[2])
+        return None
 
     def _fallback_length_indexes(self, boundary_candidates, pairs):
         # Aucune longueur de mur en remplacement des portees opposees.
@@ -663,6 +670,7 @@ class AnnotationService(object):
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
+        self.dims._nearby_floor_diagnostics = []
         self.dims.target_view = view
         try:
             before = self._ids(view, kind)
@@ -692,7 +700,8 @@ class AnnotationService(object):
             elif group and proxy_ids:
                 raise RuntimeError("Aucune cote native produite : references annulees.")
             scope.Assimilate()
-            return len(new_ids), list(result.warnings)
+            return (len(new_ids), list(result.warnings) +
+                    list(self.dims._nearby_floor_diagnostics))
         except Exception as exc:
             scope.RollBack()
             return 0, ["{} / {} : annule sans annotation isolee ({}: {}).\n{}".format(
@@ -704,6 +713,7 @@ class AnnotationService(object):
 
     def run(self, kind, views, annotation_type_id, line_style=None):
         report, total = [], 0
+        self.dims._nearby_floor_edges_cache = {}
         for view in views:
             if not plan_compatible(view):
                 report.append("{} : vue incompatible.".format(safe_name(view, "Vue")))
