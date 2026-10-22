@@ -118,3 +118,24 @@ Quatre fichiers CSV sont désormais exportés : `occurrences`, `_types`, `_alert
 ### Clarification des cases de visibilité
 
 Les cases permettent seulement de masquer les occurrences dans la **liste de diagnostic** ; elles ne donnent jamais le droit de les comptabiliser dans la règle des 1/6. La grille des types affiche le statut `rule_16_status` pour contrôler ce point. En décochant `Masquer les MRX`, une occurrence MRX s'affiche avec `EXCLU_MRX` ; idem pour un lanterneau avec `EXCLU_LANTERNEAU`. Le futur moteur réglementaire devra respecter ces exclusions quel que soit l'état des cases.
+
+## Recette CSV — exclusions réelles validées à 17 h 43 (22 octobre 2026)
+
+Quatre exports du projet hôte `Diagnostic_Baies_20261022_174334*.csv` ont été contrôlés après lancement du nouveau diagnostic dans Revit 2025.4 :
+
+| Contrôle | Valeur observée |
+|---|---:|
+| Occurrences conservées (`Diagnostic_Baies_20261022_174334.csv`) | **396** |
+| Types conservés (`_types.csv`) | **14** |
+| Lanterneaux exclus (`_exclusions.csv`) | **11** |
+| MRX exclus (`_exclusions.csv`) | **9** |
+| Total exclusions | **20** |
+| Alertes (`_alertes.csv`) | **0** |
+| Occurrences nominales à confirmer | **243** |
+| Occurrences avec ouverture brute candidate | **153** |
+| Doublons source + élément entre inclus et exclus | **0** |
+| Somme des effectifs par type | **396** |
+
+Les 396 lignes du rapport conservé portent toutes `facade_status=FACADE_PRESUMEE_A_VALIDER`, `rule_16_status=CANDIDAT_A_CONTROLER`, `host_category=Murs` et `wall_function=Exterior`. Les 20 exclusions ont chacune un motif explicite `LANTERNEAU` ou `MRX`. Toutes les lignes proviennent de `Projet hôte`.
+
+**Recette validée :** filtrage hôte, exclusions par défaut, classement, quantités, traçabilité et export des quatre CSV. **Restent à tester :** basculement individuel des deux cases, lecture de liens Revit directs, classification des familles atypiques, justesse des cotes en tableau et moteur réglementaire SHAB/1⁄6. Les valeurs nominales ou brutes ne constituent pas encore des surfaces en tableau certifiées. La PR #38 reste en brouillon.
