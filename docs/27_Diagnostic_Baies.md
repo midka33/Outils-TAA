@@ -84,3 +84,14 @@ La colonne `facade_status` est maintenant ajoutée aux exports occurrences et ty
 Ces classements sont **strictement indicatifs** : le préfixe ne démontre pas la présence de vitrage ni la dimension effective du tableau. Il faudra vérifier une famille témoin par configuration, notamment les écartements entre `Largeur brute` et `Largeur`.
 
 Tests ajoutés : `tests/baies_diagnostic/test_facade_scope.py`. Recette restant à effectuer dans Revit 2025.4 : sur le modèle source, obtenir les **416** éléments ciblés en cochant le filtre, puis les 1 349 en le décochant, sous réserve d'absence de changements du modèle entre essais.
+
+## Recette utilisateur — filtre façade dans Revit 2025.4 (22 octobre 2026)
+
+Capture transmise depuis le module **Outils TAA — Diagnostic des baies**, avec la case `Limiter aux familles commençant par FEN-EXT ou PORFEN-EXT` cochée et la case liens Revit décochée :
+
+- **416 occurrences, 18 types et 0 alerte**, correspondant au total attendu d'après les CSV antérieurs.
+- **250** occurrences `NOMINAL_A_CONFIRMER`, **159** `CANDIDAT_OUVERTURE` et **7** `A_VERIFIER`.
+- La grille affiche les familles, types, quantités, méthode dimensionnelle, statut dimensionnel et statut façade.
+- Les exceptions `CAS_SPECIAL_LANTERNEAU` et `CAS_SPECIAL_NON_VITRE_A_VERIFIER` apparaissent dans la synthèse.
+
+**Validation limitée :** l'utilisateur a confirmé par capture le fonctionnement du **filtre hôte + collecte + affichage WPF + comptage sans erreur**. L'export CSV du *nouveau filtre* n'a pas été montré, les liens directs n'étaient pas cochés, et aucune surface en tableau ni conformité RE2020 n'a été validée. Les contrôles manquants restent à réaliser avant fusion dans `main`.
