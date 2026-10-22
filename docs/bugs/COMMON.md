@@ -241,9 +241,21 @@ confirmation indique **deux vues** ; le journal s'interrompt à
 fermeture de Revit. Les journaux `0279` et `0280` sont des
 sessions parallèles encore actives à 14:26:38 et ne montrent pas
 cette commande. Ce journal désigne la session de crash, **pas le
-site exact de l'exception native**. À investiguer : traitement
-multi-vues, état après rechargement, coût mémoire et extraction
-d'arêtes, sans attribuer prématurément la faute à la géométrie.
+site exact de l'exception native**. Relecture contradictoire des trois journaux : dans cette session,
+à 11:12 et 11:31, deux commandes sur **deux vues** ont retourné
+normalement un bilan de **0 annotation créée**, sans crash. Cela démontre
+que le simple passage de deux vues au lanceur ne provoque pas
+systématiquement de fermeture. L'utilisateur confirme également avoir
+déjà réussi à coter deux vues en une seule commande lors d'essais
+antérieurs. Les sessions avec 65 puis 63 cotes créées à 13:57 et 13:58
+portaient sur **une vue** chacune. La dernière tentative à 14:15
+s'interrompt à la **fenêtre de confirmation** : le journal ne démontre
+pas si la création de cotes a commencé. La corrélation « deux vues »
+ne suffit donc pas à établir la cause. À investiguer en priorité :
+changement de version rechargée entre essais, état de la maquette,
+transaction/références de cote, géométrie des balcons et éventuel
+crash natif. Le mode une pièce est un **garde-fou temporaire** et non
+la validation d'une cause liée au multi-vues.
 
 **Cause suspectée (non prouvée) :** le nouveau chemin
 `GenericDimensions._nearby_floor_edges` introduisait un second
