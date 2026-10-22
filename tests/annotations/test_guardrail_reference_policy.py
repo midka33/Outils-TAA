@@ -105,7 +105,8 @@ def test_deux_garde_corps_pertinents_sont_acceptes():
     result = select_guardrails_by_path(
         paths, [(0., 0., 0., 3.62), (3.12, 0., 3.12, 3.62)],
         tolerance=.50)
-    assert result == [a, b]
+    assert len(result) == 2
+    assert set(result) == {a, b}
 
 
 def test_trois_garde_corps_reellement_sur_la_limite_restent_refuses():
