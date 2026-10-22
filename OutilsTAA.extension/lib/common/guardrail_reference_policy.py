@@ -213,3 +213,12 @@ def is_exterior_annex(room_name, interior_exterior=""):
 def guardrail_tolerance_mm(is_exterior, ordinary_mm=20., recovery_mm=50.):
     """Marge supplementaire UNIQUEMENT pour les annexes exterieures."""
     return float(recovery_mm if is_exterior else ordinary_mm)
+
+
+def guardrail_minimum_overlap(is_exterior, ordinary=.60, exterior=.50):
+    """Une arete filante couvrant la moitie de la limite peut etre cotee.
+
+    Uniquement pour les annexes exterieures ; orientation, ecart et
+    references Revit restent soumis aux controles existants.
+    """
+    return float(exterior if is_exterior else ordinary)
