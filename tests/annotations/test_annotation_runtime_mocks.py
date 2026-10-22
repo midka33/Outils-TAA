@@ -92,6 +92,8 @@ def load_annotation_module(monkeypatch):
         "ANGLE_TOLERANCE_DEGREES": 5.0,
         "MINIMUM_RELATIVE_LENGTH": 0.25,
         "PLACEMENT_FRACTION": 0.25,
+        "FLOOR_LEVEL_TOLERANCE_MM": 500.,
+        "FLOOR_EDGE_MIN_LENGTH_MM": 100.,
     })
     tags = types.ModuleType("room_tag_service")
     tags.RoomTagService = type("RoomTagService", (object,), {
