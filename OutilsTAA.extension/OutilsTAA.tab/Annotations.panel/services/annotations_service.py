@@ -705,7 +705,14 @@ class AnnotationService(object):
             scope.Assimilate()
             trace("ROOM_COMMITTED", safe_name(view), room_id,
                   "created={}".format(len(new_ids)))
-            return len(new_ids), list(result.warnings)
+            messages = list(result.warnings)
+            if separator_proxy_ids:
+                messages.append(
+                    "{} : reperes 2D utilises a la place des separations "
+                    "de piece ; garder leur style visible dans la vue. "
+                    "Cotes non associatives : verification apres "
+                    "modification de la loggia.".format(room_id))
+            return len(new_ids), messages
         except Exception as exc:
             trace("ROOM_EXCEPTION", safe_name(view), room_id,
                   "{}: {}".format(type(exc).__name__, exc))
