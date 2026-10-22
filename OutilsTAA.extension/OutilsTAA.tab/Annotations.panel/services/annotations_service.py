@@ -63,10 +63,10 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self.proxy_candidates = {}
 
     def _room_boundary_candidates(self, room):
-        return self.proxy_candidates.get(
-            str(room.UniqueId),
-            super(GenericDimensions, self)._room_boundary_candidates(room),
-        )
+        cached = self.proxy_candidates.get(str(room.UniqueId))
+        if cached is not None:
+            return cached
+        return super(GenericDimensions, self)._room_boundary_candidates(room)
 
     def _plan_graphics(self, room, view, lines, anchors, tags, dimensions,
                        equipment, warnings, placement_regions=None):
@@ -74,7 +74,10 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             room, view, lines, anchors, tags, dimensions, equipment, warnings,
             placement_regions=placement_regions)
         if any((placement.outside_count or placement.tag_hits or
-                placement.dimension_hits) for placement in result):
+                placement.dimension_hits or any(
+                    "collision" in message.lower() or
+                    "croisement" in message.lower()
+                    for message in placement.warnings)) for placement in result):
             raise ValueError("Aucune position de cote sans collision.")
         return result
 
@@ -181,9 +184,25 @@ class AnnotationService(object):
         tx.Start()
         try:
             for room in rooms:
-                candidates = super(GenericDimensions, self.dims)._room_boundary_candidates(room)
-                for c in candidates:
-                    if c.element_id_value in member_ids:
+                candidates = self.dims._room_boundary_candidates(room)
+                from plans_vente.dimension_geometry import dominant_dimension_pairs
+                segments = [c.segment for c in candidates]
+                pairs = dominant_dimension_pairs(
+                    segments,
+                    angle_tolerance_degrees=self.dims.ANGLE_TOLERANCE_DEGREES,
+                    minimum_relative_length=self.dims.MINIMUM_RELATIVE_LENGTH,
+                    placement_fraction=self.dims.PLACEMENT_FRACTION,
+                    max_results=2)
+                required = set()
+                for pair in pairs:
+                    required.add(pair.first_index)
+                    required.add(pair.second_index)
+                # Interdire les references de longueur de murs hors groupe.
+                for index, c in enumerate(candidates):
+                    if c.element_id_value not in member_ids:
+                        c.length_references = None
+                for index, c in enumerate(candidates):
+                    if index not in required or c.element_id_value in member_ids:
                         continue
                     x0, y0, x1, y1 = c.segment
                     dx, dy = x1-x0, y1-y0
@@ -235,11 +254,18 @@ class AnnotationService(object):
         tx = DB.Transaction(self.doc, "TAA - Groupe de details attaches")
         tx.Start()
         try:
+            original_members = set(id_value(x) for x in group.GetMemberIds())
+            original_type = id_value(group.GetTypeId())
             created = self.doc.Create.NewGroup(ids)
             self.doc.Regenerate()
             available = set(id_value(x) for x in
                             group.GetAvailableAttachedDetailGroupTypeIds())
             new_ids = available - previous
+            if (not group.IsValidObject or
+                    id_value(group.GetTypeId()) != original_type or
+                    set(id_value(x) for x in group.GetMemberIds()) != original_members):
+                raise RuntimeError(
+                    "Le groupe initial serait modifie : annulation de securite.")
             if not new_ids:
                 raise RuntimeError(
                     "L'API n'a pas cree de groupe de details attache au groupe initial.")
