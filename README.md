@@ -20,6 +20,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |
 | **Cotation automatique** | 📋 Planifié — cotation des vues sélectionnées, type de cote au choix, prévention des chevauchements et groupes de détails attachés |
 | **Étiquetage automatique** | 📋 Planifié — étiquetage des pièces dans les vues sélectionnées, type d'étiquette au choix, prévention des chevauchements et groupes de détails attachés |
+| **Légendes automatiques** | 📋 Planifié — génération de légendes depuis le gabarit d’une vue ou les couleurs des pièces, avec légende partagée entre plusieurs vues et échelle identique à la vue de référence |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
