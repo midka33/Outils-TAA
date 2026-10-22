@@ -14,6 +14,7 @@ from annotations.strict_dimension_positioning import (
     select_collision_free_placements,
 )
 from plans_vente.dimension_positioning import (
+    DimensionPlacement,
     placement_candidates,
     placement_conflicts,
 )
@@ -102,3 +103,34 @@ def test_real_pdv_candidate_generation_can_reuse_strict_selection():
     assert all(c.tag_hits == 0 and c.dimension_hits == 0 for c in active)
     if len(active) == 2:
         assert placement_conflicts(active[0], active[1]) == (0, 0)
+
+
+
+def test_two_complete_room_spans_can_cross_without_text_or_witness_overlap():
+    """Deux mesures completes rectangulaires se croisent inevitablement."""
+    horiz = DimensionPlacement((.2, 1.), (5.8, 1.),
+                               .55, .07, .005, .02)
+    vert = DimensionPlacement((1.4, .2), (1.4, 3.8),
+                              .55, .07, .005, .02)
+    assert placement_conflicts(horiz, vert) == (0, 1)
+    chosen = select_collision_free_placements([[horiz], [vert]])
+    assert chosen == [horiz, vert]
+
+
+def test_intersection_au_niveau_du_texte_reste_interdite():
+    horiz = DimensionPlacement((.2, 2.), (5.8, 2.),
+                               .55, .07, .005, .02)
+    vert = DimensionPlacement((3., .2), (3., 3.8),
+                              .55, .07, .005, .02)
+    assert placement_conflicts(horiz, vert)[0] == 1
+    chosen = select_collision_free_placements([[horiz], [vert]])
+    assert sum(not isinstance(c, SkippedPlacement) for c in chosen) == 1
+
+
+def test_intersection_parallele_parfaite_et_chevauchement_restent_interdits():
+    first = DimensionPlacement((.2, 2.), (5.8, 2.),
+                               .55, .07, .005, .02)
+    second = DimensionPlacement((1., 2.), (5., 2.),
+                                .55, .07, .005, .02)
+    chosen = select_collision_free_placements([[first], [second]])
+    assert sum(not isinstance(c, SkippedPlacement) for c in chosen) == 1
