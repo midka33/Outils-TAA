@@ -280,7 +280,8 @@ de leurs mises en page.
 - [ ] Valider visuellement balcons, WC et celliers du niveau 1 et les références natives de dalle avant réouverture du traitement en masse.
 - [x] Extraire une politique commune pure de sélection des planchers avec modes `legacy` (PDV inchangé) et `local` (Annotations borné par bbox, budget, cache pièce).
 - [x] Ajouter un niveau de référence garde-corps natif, avec contrôles géométriques et budget strict, entre dalle et repère 2D.
-- [ ] Recetter le garde-corps réel de 2238, le nu retenu, la validité API native et le masquage des séparations avant réactivation en masse.
+- [x] Corriger les faux positifs de garde-corps voisins : filtrage par chemin `Railing.GetPath()` sur les seules limites sélectionnées, avant extraction des arêtes natives (BUG-COMMON-013).
+- [ ] Recetter le garde-corps réel de 2238 : vérifier le rapport après filtrage, le nu retenu, les références acceptées par Revit, le masquage des séparations et l'absence de doublons avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
