@@ -183,3 +183,84 @@ def test_annexe_rejette_guardrail_35mm_si_orienté_incorrectement():
     limit = (0., 0., 3.12, 0.)
     diagonal = [(0., .035, 3.12, .60), "R", 5, 0.]
     assert select_guardrail_edge(limit, [diagonal], tolerance=.050) is None
+
+
+
+def test_trois_garde_corps_proches_mais_un_seul_nu_clairement_meilleur():
+    """Régression 2238 : ne pas écarter 3 candidats par simple comptage."""
+    boundary = [(0., 0., 0., 3.62)]
+    inner, neighbor, outer = object(), object(), object()
+    paths = [
+        (inner, [(.040, 0., .040, 3.62)]),
+        (neighbor, [(.210, 0., .210, 3.62)]),
+        (outer, [(.380, 0., .380, 3.62)]),
+    ]
+    result, info = select_guardrails_by_path(
+        paths, boundary, tolerance=.5, max_railings=2,
+        ambiguity_gap=.025, with_diagnostics=True)
+    assert result == [inner]
+    assert info["path_matches"] == 3
+    assert info["ambiguous"] == 0
+    assert info["selected"] == 1
+    assert info["reason"] == "selected"
+    assert abs(info["closest_distance"] - .04) < 1e-9
+
+
+def test_ex_aquo_sur_la_meme_limite_est_refuse_avec_diagnostic():
+    """Deux nus très proches ne doivent jamais etre départagés au hasard."""
+    boundary = [(0., 0., 0., 3.62)]
+    a, b, c = object(), object(), object()
+    result, info = select_guardrails_by_path(
+        [(a, [(.040, 0., .040, 3.62)]),
+         (b, [(.046, 0., .046, 3.62)]),
+         (c, [(.3, 0., .3, 3.62)])],
+        boundary, tolerance=.5, ambiguity_gap=.025,
+        with_diagnostics=True)
+    assert result == []
+    assert info["ambiguous"] == 1
+    assert info["reason"] == "ambiguous"
+
+
+def test_deux_limites_et_plus_de_deux_gc_seuls_les_meilleurs_sont_examines():
+    """Un GC par limite de cote, sans lever le budget natif à deux objets."""
+    left, right, other = object(), object(), object()
+    targets = [(0., 0., 0., 3.62), (3.12, 0., 3.12, 3.62)]
+    paths = [
+        (left, [(.04, 0., .04, 3.62)]),
+        (right, [(3.08, 0., 3.08, 3.62)]),
+        (other, [(1.5, 0., 1.5, 3.62)]),
+    ]
+    result, info = select_guardrails_by_path(
+        paths, targets, tolerance=.5,
+        max_railings=2, ambiguity_gap=.025,
+        with_diagnostics=True)
+    assert result == [left, right]
+    assert info["selected"] == 2
+
+
+def test_garde_corps_une_limite_ambigue_autre_claire_autorisee():
+    left_a, left_b, right = object(), object(), object()
+    targets = [(0., 0., 0., 3.62), (3.12, 0., 3.12, 3.62)]
+    paths = [
+        (left_a, [(.04, 0., .04, 3.62)]),
+        (left_b, [(.045, 0., .045, 3.62)]),
+        (right, [(3.08, 0., 3.08, 3.62)]),
+    ]
+    result, info = select_guardrails_by_path(
+        paths, targets, tolerance=.5,
+        max_railings=2, ambiguity_gap=.025,
+        with_diagnostics=True)
+    assert result == [right]
+    assert info["ambiguous"] == 1
+    assert info["reason"] == "partial_ambiguity"
+
+
+def test_filtrage_ne_relit_pas_les_solides_pour_diagnostiquer():
+    # Le filtre opere sur les seules courbes de chemin mises en cache.
+    a = object()
+    result, info = select_guardrails_by_path(
+        [(a, [(0., .04, 3.12, .04)])],
+        [(0., 0., 3.12, 0.)], .5,
+        with_diagnostics=True)
+    assert result == [a]
+    assert info["inspected"] == 1
