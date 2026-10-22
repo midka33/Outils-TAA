@@ -279,7 +279,8 @@ de leurs mises en page.
 - [ ] Recetter un WC/cellier sur copie en mode diagnostique 1 vue / 1 pièce.
 - [ ] Valider visuellement balcons, WC et celliers du niveau 1 et les références natives de dalle avant réouverture du traitement en masse.
 - [x] Extraire une politique commune pure de sélection des planchers avec modes `legacy` (PDV inchangé) et `local` (Annotations borné par bbox, budget, cache pièce).
-- [ ] Recetter le moteur commun sur la loggia 2238, vérifier l'origine des références et le masquage des séparations.
+- [x] Ajouter un niveau de référence garde-corps natif, avec contrôles géométriques et budget strict, entre dalle et repère 2D.
+- [ ] Recetter le garde-corps réel de 2238, le nu retenu, la validité API native et le masquage des séparations avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
