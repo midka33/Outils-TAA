@@ -230,6 +230,21 @@ l'utilisateur signale une fermeture brutale de Revit 2025.4 au
 lancement de Cotation automatique. Pas de journal Revit analysé à ce
 stade ; il ne faut donc pas affirmer que la cause exacte est confirmée.
 
+**Journal du crash identifie :** `journal.0278.txt` (session ouverte
+le 22/10/2026 à 08:13:22). À 13:57, le journal affiche
+`65 annotation(s) creee(s)` après une cotation sur **une** vue ;
+à 13:58, `63 annotation(s) creee(s)` sur **une** vue. Après
+rechargement de pyRevit à 14:14:25, le dernier lancement de
+`OutilsTAA / Annotations / Cotation` intervient à 14:14:42. La
+confirmation indique **deux vues** ; le journal s'interrompt à
+14:15:00, sans rapport final de la commande ni séquence normale de
+fermeture de Revit. Les journaux `0279` et `0280` sont des
+sessions parallèles encore actives à 14:26:38 et ne montrent pas
+cette commande. Ce journal désigne la session de crash, **pas le
+site exact de l'exception native**. À investiguer : traitement
+multi-vues, état après rechargement, coût mémoire et extraction
+d'arêtes, sans attribuer prématurément la faute à la géométrie.
+
 **Cause suspectée (non prouvée) :** le nouveau chemin
 `GenericDimensions._nearby_floor_edges` introduisait un second
 parcours des dalles du document, des solides natifs et de leurs arêtes.
