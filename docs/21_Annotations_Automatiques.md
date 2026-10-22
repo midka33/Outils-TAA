@@ -102,3 +102,20 @@ global de tout l'étage.
 **État :** tests de régression hors Revit préparés ; corrections à revalider
 sur les mêmes deux vues. Le rattachement des groupes attachés reste un point
 de recette séparé.
+
+## Correctif de cotation — essai du 22 octobre 2026
+
+**Résultat de recette :** Étiquetage auto a créé 40 étiquettes au niveau 0. Cotation auto a créé 0 cote sur les 40 pièces du niveau 0 et 44 du niveau 1, avec `Aucune position de cote sans collision` pour chaque pièce.
+
+**Racine :** dans l'adaptateur de la bêta, un conflit détecté pour l'une des deux cotations entraînait le rejet complet du calcul par pièce, alors que Plans de vente conserve historiquement les deux cotes avec avertissement. Le nouveau module doit garantir l'absence de collision sans supprimer toute cotation réalisable.
+
+**Comportement corrigé :** calcul des positions candidates via `plans_vente.dimension_positioning.placement_candidates`, sélection d'une ou deux cotes avec `annotations.strict_dimension_positioning.select_collision_free_placements`. Les cotes conflictuelles sont ignorées individuellement et expliquées dans le rapport ; les cotes restantes sont conservées. Le moteur Plans de vente reste identique.
+
+**Contrôles pour la prochaine recette :**
+
+- [ ] REV-ANN-13 : relancer la cotation après les 40 étiquettes du niveau 0 ; au moins certaines pièces doivent être cotées, sans chevauchement.
+- [ ] REV-ANN-14 : relancer sur le niveau 1 ; vérifier qu'une cote peut être créée même si la seconde ne trouve pas de place.
+- [ ] REV-ANN-15 : pièces 1123 et 2213 : comparer visuellement les deux directions et le rapport par orientation.
+- [ ] REV-ANN-16 : vérifier qu'une seconde exécution ne duplique pas les cotes.
+
+**Statut :** code et tests hors Revit ; validation visuelle et API Revit 2025.4 à effectuer.
