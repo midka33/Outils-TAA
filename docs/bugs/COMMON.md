@@ -597,3 +597,59 @@ ne pas relâcher les contraintes d'orientation/recouvrement.
 Les suites Annotations, Plans de vente, Export et Calculs doivent
 rester au vert ; **la référence Revit native et les nouvelles valeurs
 réelles n'ont pas encore été vérifiées dans Revit 2025.4**.
+
+
+---
+
+### BUG-COMMON-017 — Le filtrage de garde-corps revient en 2D après passage aux annexes sans dalle
+
+**Symptôme dans Revit 2025.4 :** loggia 2238, deux cotes créées, mais le
+rapport indique `aucun garde-corps avec chemin suffisamment proche des
+limites a coter (ou recherche ambigue)`, suivi du fallback 2D. Une
+cote manuelle utilisateur montre environ **0,04 m** de décalage entre la
+séparation de pièce et l'ouvrage. Le précédent lancement avait trouvé
+deux garde-corps proches, douze arêtes et quatre références natives
+candidates. L'ancien message ne permettait pas de distinguer manque
+de correspondance, ambiguïté ou dépassement du budget.
+
+**Cause racine du filtrage, démontrée par le code :** la sélection
+`select_guardrails_by_path` annulait **toute** la recherche dès que
+plus de deux garde-corps avaient un chemin colinéaire à **n'importe
+laquelle** des séparations candidates. La nouvelle règle de priorité
+des annexes (mur / garde-corps / 2D) examine davantage de séparations
+qu'avant ; elle peut donc accroître les correspondances et provoquer
+un abandon même lorsqu'un garde-corps clairement meilleur suit une
+limite donnée. La raison exacte observée sur 2238 sera confirmée
+par les compteurs du prochain rapport.
+
+**Correction bêta :** sélectionner au plus **un garde-corps par
+limite de cotation**, classé par le score géométrique du moteur PDV,
+sans dépasser **deux garde-corps** à extraire au total. Si deux
+garde-corps ont des scores quasi identiques (écart de score <=25 mm),
+rejeter **cette limite** comme ambiguë plutôt que de choisir un nu
+arbitraire. L'autre limite, si non ambiguë, peut encore être étudiée ;
+celle rejetée garde son fallback 2D. Conserver la marge de
+présélection sur chemins de 500 mm sans l'employer comme
+tolérance des **arêtes natives**, limitée à 50 mm sur annexe.
+Les budgets 24 garde-corps bbox / 80 segments de chemin / 2 garde-corps
+retenus / 120 arêtes restent identiques.
+
+**Diagnostic :** afficher dans le rapport le nombre de chemins
+explorés, de limites, de correspondances, de limites ambiguës,
+l'écart du chemin le plus proche et le statut distinct
+`selected`, `no_match`, `ambiguous`, `path_budget`,
+`rail_budget` ou `partial_ambiguity`. Ne parcourir aucun
+solide de plus pour émettre ces métriques.
+
+**Règle préventive :** ne jamais imposer un plafond global de
+candidats avant de les classer **par cible**. Distinguer la
+présélection des ouvrages de la validation des arêtes et donner
+un motif de refus explicite, plutôt qu'un avertissement ambigu.
+
+**Tests anti-régression :** `test_trois_garde_corps_proches_mais_un_seul_nu_clairement_meilleur`,
+`test_ex_aquo_sur_la_meme_limite_est_refuse_avec_diagnostic`,
+`test_deux_limites_et_plus_de_deux_gc_seuls_les_meilleurs_sont_examines`,
+`test_garde_corps_une_limite_ambigue_autre_claire_autorisee` et les
+suites CI Annotations, PDV, Export, Calculs. Validation sur une
+copie de maquette Revit 2025.4, pièce 2238, impérative avant levée
+du mode diagnostic.
