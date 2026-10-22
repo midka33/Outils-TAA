@@ -92,6 +92,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         super(GenericDimensions, self).__init__(document)
         self.proxy_candidates = {}
         self.target_view = None
+        self._nearby_floor_edges_cache = {}
 
     def _stable_reference(self, reference):
         if reference is None:
@@ -156,6 +157,111 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             indexes.add(pair.second_index)
         return [candidate for index, candidate in enumerate(candidates)
                 if index in indexes]
+
+    def _nearby_floor_edges(self, room):
+        """Complement du moteur PDV pour des dalles de balcon sur autre niveau.
+
+        Le moteur PDV privilegie les planchers affectes au meme niveau
+        lorsqu'il en trouve. Certains balcons ont pourtant leur dalle
+        rattachee a un autre niveau proche : on interroge alors aussi
+        ces planchers, avec les memes references d'aretes Revit.
+        """
+        level = getattr(room, "Level", None)
+        level_id = getattr(room, "LevelId", None)
+        if level is None or level_id is None:
+            return []
+        key = id_value(level_id)
+        if key in self._nearby_floor_edges_cache:
+            return self._nearby_floor_edges_cache[key]
+
+        tolerance = self._millimeters_to_internal(
+            self.FLOOR_LEVEL_TOLERANCE_MM)
+        min_length = self._millimeters_to_internal(
+            self.FLOOR_EDGE_MIN_LENGTH_MM)
+        z_room = float(level.Elevation)
+        options = DB.Options()
+        options.ComputeReferences = True
+        options.IncludeNonVisibleObjects = False
+        try:
+            options.DetailLevel = DB.ViewDetailLevel.Fine
+        except Exception:
+            pass
+        result = []
+        floors = (DB.FilteredElementCollector(self.document)
+                  .OfClass(DB.Floor).WhereElementIsNotElementType()
+                  .ToElements())
+        for floor in floors:
+            try:
+                if floor.LevelId == level_id:
+                    continue
+                floor_level = self.document.GetElement(floor.LevelId)
+                if floor_level is None:
+                    continue
+                if abs(float(floor_level.Elevation) - z_room) > tolerance:
+                    continue
+                geometry = floor.get_Geometry(options)
+                if geometry is None:
+                    continue
+            except Exception:
+                continue
+            for solid in self._geometry_solids(
+                    geometry, DB.Solid, DB.GeometryInstance):
+                for edge in solid.Edges:
+                    try:
+                        if edge.Reference is None:
+                            continue
+                        curve = edge.AsCurve()
+                        if not isinstance(curve, DB.Line):
+                            continue
+                        p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
+                        dx, dy = p1.X-p0.X, p1.Y-p0.Y
+                        dz = abs(p1.Z-p0.Z)
+                        xy_length = (dx*dx + dy*dy)**.5
+                        if xy_length < min_length or dz > max(
+                                self._millimeters_to_internal(100.0),
+                                xy_length * 0.15):
+                            continue
+                        result.append((
+                            (float(p0.X), float(p0.Y),
+                             float(p1.X), float(p1.Y)),
+                            edge.Reference, floor.Id,
+                            (float(p0.Z) + float(p1.Z)) * .5))
+                    except Exception:
+                        continue
+        self._nearby_floor_edges_cache[key] = result
+        return result
+
+    def _matching_floor_edge_reference(self, room, boundary_curve):
+        """Priorite absolue au raccordement d'arete de sol de Plans de vente.
+
+        Ne chercher des planchers sur d'autres niveaux proches que si la
+        recherche native de PDV n'a renvoye aucune arete de confiance.
+        """
+        original = super(GenericDimensions, self)._matching_floor_edge_reference(
+            room, boundary_curve)
+        if original is not None:
+            return original
+        from plans_vente.dimension_geometry import segment_match_metrics
+        p0, p1 = boundary_curve.GetEndPoint(0), boundary_curve.GetEndPoint(1)
+        segment = (float(p0.X), float(p0.Y),
+                   float(p1.X), float(p1.Y))
+        z_room = float(room.Level.Elevation)
+        tolerance = self._millimeters_to_internal(
+            self.FLOOR_EDGE_TOLERANCE_MM)
+        best = None
+        for floor_segment, reference, floor_id, edge_z in (
+                self._nearby_floor_edges(room)):
+            metrics = segment_match_metrics(
+                segment, floor_segment,
+                angle_tolerance_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                distance_tolerance=tolerance,
+                minimum_overlap_ratio=self.FLOOR_EDGE_MIN_OVERLAP_RATIO)
+            if metrics is None:
+                continue
+            score = metrics["score"] + abs(edge_z-z_room)*.02
+            if best is None or score < best[0]:
+                best = (score, reference, floor_id)
+        return (best[1], best[2]) if best else None
 
     def _fallback_length_indexes(self, boundary_candidates, pairs):
         # Aucune longueur de mur en remplacement des portees opposees.
