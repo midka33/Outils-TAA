@@ -493,7 +493,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             return candidates
         from common.guardrail_reference_policy import (
             select_guardrail_edge, guardrail_tolerance_mm,
-            guardrail_minimum_overlap, diagnose_guardrail_candidates)
+            guardrail_minimum_overlap, diagnose_guardrail_candidates,
+            select_contiguous_guardrail_pair)
         edges = self._nearby_guardrail_edges(
             room, [item.segment for item in remaining])
         if not edges:
@@ -505,7 +506,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         tolerance = self._millimeters_to_internal(tolerance_mm)
         minimum_overlap = guardrail_minimum_overlap(
             exterior, ordinary=self.FLOOR_EDGE_MIN_OVERLAP_RATIO,
-            exterior=.50)
+            exterior=self.FLOOR_EDGE_MIN_OVERLAP_RATIO)
         unit_mm = self._millimeters_to_internal(1.0)
         room_num = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")
         for candidate in remaining:
@@ -515,6 +516,18 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
                 minimum_overlap=minimum_overlap,
                 include_metrics=True)
+            if match is None and exterior:
+                # Deux garde-corps distincts peuvent former une seule
+                # limite, chacun couvrant moins de 60%. Ne valider que
+                # leur continuite, et conserver une Reference Revit native.
+                match = select_contiguous_guardrail_pair(
+                    candidate.segment, edges, tolerance,
+                    angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                    min_combined_overlap=.90,
+                    min_part_overlap=.25,
+                    max_gap=self._millimeters_to_internal(100.),
+                    max_lateral_mismatch=self._millimeters_to_internal(20.),
+                    max_elevation_difference=self._millimeters_to_internal(150.))
             if match is None:
                 # Diagnostiquer les distances reelles, sans decaler les
                 # references ni abaisser arbitrairement le recouvrement.
@@ -546,12 +559,17 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 "verifier son nu interieur et sa visibilite.".format(
                     room_num, distance_mm,
                     metrics["overlap_ratio"]*100.))
-            if exterior and metrics["overlap_ratio"] < self.FLOOR_EDGE_MIN_OVERLAP_RATIO:
+            if metrics.get("support_count") == 2:
                 self._guardrail_warnings.append(
-                    "{} : recouvrement partiel de {:.0f}% accepte "
-                    "pour annexe exterieure (minimum 50%) ; "
-                    "controle visuel de la reference du garde-corps."
-                    .format(room_num, metrics["overlap_ratio"]*100.))
+                    "{} : DEUX garde-corps contigus identifies : "
+                    "couverture commune {:.0f}%, jeu {:.0f} mm, "
+                    "decalage entre rails {:.0f} mm. Une seule "
+                    "Reference Revit est utilisee pour la cote ; "
+                    "surveiller les deux ouvrages apres modification."
+                    .format(room_num,
+                            metrics["combined_overlap_ratio"]*100.,
+                            metrics["gap"]/unit_mm,
+                            metrics["lateral_mismatch"]/unit_mm))
             if exterior and distance_mm > self.FLOOR_EDGE_TOLERANCE_MM:
                 self._guardrail_warnings.append(
                     "{} : ecart superieur a {:.0f} mm : "
