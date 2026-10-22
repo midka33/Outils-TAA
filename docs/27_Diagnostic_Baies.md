@@ -53,3 +53,9 @@ Les paramètres d'occurrence priment sur les paramètres de type ; toute contrad
 Commande : `python -m pytest tests/baies_diagnostic -q`.
 
 **Avant fusion main :** tester réellement dans Revit 2025.4 : fenêtre standard, porte-fenêtre, porte pleine, famille fabricant avec cotes différentes, lien chargé et déchargé, deux instances du même lien, export CSV accentué, absence de famille, sensibilité aux paramètres de type/occurrence. Aucune validation Revit réelle n'est revendiquée à ce stade.
+
+## Correctif de compatibilité IronPython — 22 octobre 2026
+
+L'erreur rencontrée lors du premier essai dans Revit 2025.4 était `ImportError: No module named Data` pendant la création du tableau de synthèse WPF, **après** la collecte initiale. Le composant `baies_diagnostic/ui_table.py` charge désormais explicitement l'assembly `System.Data.Common` (avec repli `System.Data`), puis remplit des `DataRow` typés avec des chaînes Unicode.
+
+Les 4 tests de l'adaptateur exécutés hors Revit utilisent des simulations CLR et **ne valident pas** la présence ou le fonctionnement de cet assembly dans le vrai moteur pyRevit. Rejouer le diagnostic dans Revit puis exporter les trois CSV pour confirmer. Voir `BUG-CALCULS-007`.

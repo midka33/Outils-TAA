@@ -9,7 +9,7 @@ que les règles correspondant au module sur lequel il travaille.
 ## Fichiers actifs
 
 - [Export](EXPORT.md) — 52 fiches.
-- [Calculs des pièces](CALCULS.md) — 6 fiches.
+- [Calculs des pièces](CALCULS.md) — 7 fiches.
 - [Plans de vente](PLANS_DE_VENTE.md) — 27 fiches.
 - [Commun](COMMON.md) — 1 fiche(s) transversale(s).
 - [Tests et livraison](TESTS.md) — 5 fiches.

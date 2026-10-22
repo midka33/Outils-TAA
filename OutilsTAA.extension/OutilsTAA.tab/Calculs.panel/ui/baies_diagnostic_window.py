@@ -6,6 +6,7 @@ from datetime import datetime
 from pyrevit import forms
 from common.wpf_resources import load_resource_dictionary
 from baies_diagnostic.evaluator import csv_content
+from baies_diagnostic.ui_table import build_type_table
 
 FIELDS_OCCURRENCES=("source","source_id","document","category","family","type",
     "element_id","unique_id","host_id","host_category","wall_function",
@@ -30,13 +31,7 @@ class BaiesDiagnosticWindow(forms.WPFWindow):
         self.StatusText.Text="Analyse en cours..."
         try:
             self.rows,self.types,self.warnings=self.service.analyze(bool(self.IncludeLinks.IsChecked))
-            from System.Data import DataTable
-            table=DataTable("Types")
-            cols=("source","family","type","count","methods","status")
-            for col in cols:
-                table.Columns.Add(col)
-            for item in self.types:
-                table.Rows.Add(*[str(item.get(k,"")) for k in cols])
+            table=build_type_table(self.types)
             self.TypesGrid.ItemsSource=table.DefaultView
             counter={}
             for item in self.rows:

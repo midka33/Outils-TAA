@@ -72,3 +72,15 @@ Collecter une fois, dériver ensuite en mémoire.
 contexte n'appelle `get_parameter_descriptors()` qu'une seule fois ; un second test
 vérifie que deux occurrences partageant le même `Parameter.Id` ne relisent les
 métadonnées Revit qu'une seule fois.
+ 
+### BUG-CALCULS-007 — Import de `System.Data` échoue dans IronPython (Diagnostic des baies)
+
+**Symptôme :** dans Revit 2025.4 / pyRevit 5.1, au clic sur **Analyser** du diagnostic des baies, erreur `ImportError: No module named Data` à l'instruction `from System.Data import DataTable` (trace écran du 22 octobre 2026, `baies_diagnostic_window.py`, ligne 33).
+
+**Cause racine :** le code utilisait un espace de noms .NET sans charger explicitement son assembly CLR. La collecte pouvait s'exécuter, mais le tableau WPF échouait avant affichage des résultats.
+
+**Correction :** chargement explicite par `clr.AddReference("System.Data.Common")` (Revit 2025 / .NET 8), avec repli `System.Data` si nécessaire ; affichage déplacé dans `baies_diagnostic/ui_table.py`. Utilisation de `DataTable.NewRow()` + `Rows.Add(DataRow)` et conversion Unicode pour éviter les ambiguïtés de surcharge et les erreurs sur les accents.
+
+**Règle préventive :** tout type issu d'un assembly .NET non automatiquement chargé doit être importé **après** `clr.AddReference`; les appels à des collections `.NET` avec surcharges doivent privilégier des objets fortement typés. Ne pas assimiler la réussite de tests CPython à une validation IronPython/WPF dans Revit.
+
+**Anti-régression :** `tests/baies_diagnostic/test_ui_table.py` vérifie le chargement explicite, le repli, les lignes de synthèse et les accents sous mocks CLR (4 tests). **À rejouer impérativement dans Revit 2025.4 / pyRevit 5.1** : ouvrir Diagnostic des baies, lancer Analyser, vérifier le tableau et exporter les 3 CSV (projet simple et familles accentuées).
