@@ -88,6 +88,9 @@ def load_annotation_module(monkeypatch):
     dims = types.ModuleType("dimension_service")
     dims.DimensionService = type("DimensionService", (object,), {
         "__init__": lambda self, document: None,
+        "ANGLE_TOLERANCE_DEGREES": 5.0,
+        "MINIMUM_RELATIVE_LENGTH": 0.25,
+        "PLACEMENT_FRACTION": 0.25,
     })
     tags = types.ModuleType("room_tag_service")
     tags.RoomTagService = type("RoomTagService", (object,), {
