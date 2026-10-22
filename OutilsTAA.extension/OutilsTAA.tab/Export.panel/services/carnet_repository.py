@@ -484,6 +484,66 @@ class CarnetRepository(object):
         self._write(data)
         return True
 
+    def add_sheets_to_folder(self, items, folder_id):
+        """Ajoute sans déplacer les feuilles sources ; une écriture atomique.
+
+        Un dossier d'organisation non racine est promu en dossier publiable,
+        avec son ID, sa place dans l'arbre et ses réglages conservés.
+        Retourne (nombre_ajoute, nombre_ignore).
+        """
+        items = list(items or [])
+        if not items:
+            return (0, 0)
+        data = self._ensure_structure(self._read())
+        target = next((value for value in data["sets"]
+                       if str(value.get("id")) == str(folder_id)), None)
+        if target is None:
+            folder = next((value for value in data["folders"]
+                           if str(value.get("id")) == str(folder_id)), None)
+            if folder is None or str(folder_id) == self.DEFAULT_FOLDER_ID:
+                raise ValueError("Selectionnez un dossier de publication valide.")
+            target = {
+                "id": folder["id"],
+                "name": folder.get("name", ""),
+                "persistent": True,
+                "folder_id": folder.get("parent_id"),
+                "sort_order": folder.get("sort_order", 0),
+                "tree_order": folder.get("tree_order"),
+                "output_directory": None,
+                "filename_template_id": None,
+                "publication_settings": folder.get("publication_settings"),
+                "source": {"mode": PublicationSource.MANUAL,
+                           "parameter_name": None, "parameter_value": None},
+                "items": [],
+            }
+            data["folders"] = [
+                value for value in data["folders"]
+                if str(value.get("id")) != str(folder_id)
+            ]
+            data["sets"].append(target)
+
+        existing = set(str(value.get("unique_id"))
+                       for value in target.get("items", []))
+        added = 0
+        for item in items:
+            uid = str(getattr(item, "unique_id", "") or "")
+            if not uid or uid in existing:
+                continue
+            target["items"].append({
+                "unique_id": item.unique_id,
+                "sheet_id": item.sheet_id,
+                "item_type": item.item_type,
+                "sheet_number": item.sheet_number,
+                "sheet_name": item.sheet_name,
+                "parameter_value": item.parameter_value,
+            })
+            existing.add(uid)
+            added += 1
+        if added:
+            self._normalize_tree_order(data)
+            self._write(data)
+        return (added, len(items) - added)
+
     def move_sheets_into_folder(self, sheet_refs, folder_id):
         """Move ordered (set_id, sheet_unique_id) pairs into an ordinary folder.
 
