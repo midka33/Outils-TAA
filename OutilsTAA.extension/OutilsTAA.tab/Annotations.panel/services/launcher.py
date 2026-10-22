@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 from pyrevit import forms, revit, script
 from Autodesk.Revit import DB
 
-from annotations_service import AnnotationService
+from annotations_service import AnnotationService, safe_name
 
 
 class Choice(object):
@@ -37,7 +37,7 @@ def _select_views(service):
 
     active = revit.active_view
     options = [Choice(view, "{} — 1:{} ({})".format(
-        view.Name, view.Scale, view.GenLevel.Name)) for view in candidates]
+        safe_name(view, "Vue"), view.Scale, safe_name(view.GenLevel, "Niveau"))) for view in candidates]
     defaults = [choice for choice in options
                 if active and choice.value.Id == active.Id]
     chosen = forms.SelectFromList.show(
@@ -73,7 +73,7 @@ def run(kind):
     if kind == "dims":
         styles = service.line_styles()
         picked_style = _choose_one(
-            [(x.UniqueId, x.Name) for x in styles],
+            [(x.UniqueId, safe_name(x, "Ligne")) for x in styles],
             "Style des petites lignes de reference 2D")
         if picked_style is None:
             return
