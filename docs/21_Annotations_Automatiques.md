@@ -247,10 +247,7 @@ et demande une vérification graphique.
 **Balcons/loggias :** toujours utiliser la méthode de Plans de vente :
 limite de la Room en `Finish` -> recherche d'arête réelle de dalle
 superposée à la séparation -> référence native de l'arête Revit.
-Si cette recherche échoue et qu'une dalle est rattachée à un autre
-niveau proche (+/- 500 mm), rechercher dans ces dalles avec les **mêmes
-seuils géométriques** du module Plans de vente. Un diagnostic mentionne
-la référence retrouvée. Si aucune arête valide n'existe, la séparation
+Le parcours expérimental de dalles sur des niveaux voisins est **désactivé** après un crash natif signalé dans Revit ; la recherche reste limitée au moteur canonique de Plans de vente. Si aucune arête valide n'existe, la séparation
 reste le dernier recours historique (avec avertissement de visibilité),
 et aucune fausse mesure n'est générée.
 
@@ -273,3 +270,44 @@ des boutons Annotations est seul enrichi.
 - [ ] REV-ANN-31 : vérifier que les cotes existantes ne sont pas dupliquées
       après relancement et que les groupes de détails attachés restent
       hors de la validation tant que la recette dédiée n'est pas faite.
+
+
+## Arrêt de sécurité après crash Revit — 22 octobre 2026
+
+**Incident :** Revit 2025.4 se ferme brutalement au lancement du
+bouton Cotation après le correctif balcons/WC. Aucun journal de crash
+n'a encore été analysé. L'extraction supplémentaire de géométrie
+`_nearby_floor_edges` constitue un **suspect prioritaire**, mais la
+cause du crash n'est pas confirmée.
+
+**Mesures appliquées dans cette bêta :**
+
+1. Retrait complet de la recherche expérimentale des solides des
+   planchers rattachés à un niveau voisin. La méthode de Plans de vente
+   est de nouveau l'unique propriétaire des références d'arêtes de dalle.
+2. **Mode diagnostic obligatoire** : une vue et une seule pièce **hors groupe**
+   explicitement sélectionnées. Les traitements de masse, multi-vues
+   et les groupes de détails attachés sont bloqués pour la cotation.
+   Ce garde-fou sera levé uniquement après validation réelle.
+3. Avant chaque traitement de cotation, écriture d'un journal persistant
+   dans `%TEMP%\OutilsTAA_Annotations_crashtrace.log`, avec l'étape,
+   la vue et le numéro de la pièce. Il est flushé et fermé avant l'API
+   susceptible de faire tomber le processus Revit.
+4. Le repli de positionnement du texte pour les petites pièces
+   reste présent dans les fonctions géométriques Python, mais doit
+   être revalidé progressivement sur une copie.
+
+**Procédure de recette à suivre :**
+- [ ] Récupérer le journal Revit du crash initial
+  (`%LOCALAPPDATA%\Autodesk\Revit\Autodesk Revit 2025\Journals`,
+  chemin à vérifier sur le poste).
+- [ ] Choisir une copie de projet, une vue et une petite pièce simple.
+- [ ] Tester une seule pièce, puis transmettre le rapport pyRevit et
+  le fichier `%TEMP%\OutilsTAA_Annotations_crashtrace.log`.
+- [ ] Identifier la phase exacte si le processus se ferme encore.
+- [ ] Recetter les balcons avec la méthode PDV sans recherche élargie.
+- [ ] Revenir à un mode multi-pièces uniquement après validation et
+  contrôle des risques en Revit 2025.4.
+
+**Ne pas annoncer de correction de crash confirmée ni fusionner dans
+`main` avant enquête et recette réelle.**
