@@ -99,7 +99,11 @@ def load_annotation_module(monkeypatch):
     tags.RoomTagService = type("RoomTagService", (object,), {
         "__init__": lambda self, document: None,
     })
+    crash_trace = types.ModuleType("crash_trace")
+    crash_trace.trace = lambda *args, **kwargs: None
+    crash_trace.TRACE_PATH = "temporary-test-log"
     for name, module in (
+        ("crash_trace", crash_trace),
         ("Autodesk", autodesk),
         ("Autodesk.Revit", revit),
         ("Autodesk.Revit.DB", db),
@@ -277,41 +281,18 @@ def test_reference_identique_evite_doublon_mais_garde_l_autre_axe(monkeypatch):
     assert service._room_boundary_candidates(room) == []
 
 
-def test_balcon_priorite_reference_arrete_de_plancher_pdv(monkeypatch):
+def test_balcon_utilise_uniquement_moteur_pdv_apres_crash(monkeypatch):
     mod = load_annotation_module(monkeypatch)
     service = mod.GenericDimensions(object())
-    expected = (object(), "floor-id")
+    expected = ("reference_pdv", "floor-id")
     monkeypatch.setattr(
         mod.DimensionService, "_matching_floor_edge_reference",
         lambda self, room, curve: expected, raising=False)
-    monkeypatch.setattr(service, "_nearby_floor_edges",
-                        lambda room: 1 / 0)
     assert service._matching_floor_edge_reference(object(), object()) == expected
 
-
-def test_balcon_niveau_de_plancher_voisin_reutilise_match_pdv(monkeypatch):
-    mod = load_annotation_module(monkeypatch)
-    service = mod.GenericDimensions(object())
-    monkeypatch.setattr(
-        mod.DimensionService, "_matching_floor_edge_reference",
-        lambda self, room, curve: None, raising=False)
-    service.FLOOR_EDGE_TOLERANCE_MM = 20.
-    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
-    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
-    service._millimeters_to_internal = lambda mm: mm / 1000.
-    true_reference = object()
-    monkeypatch.setattr(service, "_nearby_floor_edges",
-                        lambda room: [
-                            ((0., .3, 4., .3), object(), "too-far", 3.0),
-                            ((0., .009, 4., .009), true_reference, "balcon", 3.0)])
-    def point(x, y):
-        return types.SimpleNamespace(X=x, Y=y)
-    curve = types.SimpleNamespace(
-        GetEndPoint=lambda i: point(0., 0.) if i == 0 else point(4., 0.))
-    room = types.SimpleNamespace(
-        Level=types.SimpleNamespace(Elevation=3.))
-    result = service._matching_floor_edge_reference(room, curve)
-    assert result == (true_reference, "balcon")
+    # Aucun second parcours des solides Revit n'est autorise ici.
+    assert "_nearby_floor_edges" not in mod.GenericDimensions.__dict__
+    assert "_matching_floor_edge_reference" not in mod.GenericDimensions.__dict__
 
 
 def test_wc_small_room_plan_graphics_selects_fallback_without_texte_inside(monkeypatch):
@@ -345,78 +326,35 @@ def test_wc_small_room_plan_graphics_selects_fallback_without_texte_inside(monke
     assert any("hors piece" in message for message in placements[0].warnings)
 
 
-def test_balcon_recherche_reelle_aretes_niveaux_voisins_et_cache(monkeypatch):
-    """Exerce _nearby_floor_edges, pas seulement son resultat mocke."""
+
+def test_crash_safety_refuse_dimension_batch_et_groupe_sans_selection(monkeypatch):
     mod = load_annotation_module(monkeypatch)
-    class FakeFloor(object):
-        def __init__(self, level_id, floor_id):
-            self.LevelId, self.Id = level_id, floor_id
-            self.calls = 0
+    service = mod.AnnotationService(object())
+    try:
+        service.run("dims", [], "type")
+    except ValueError as error:
+        assert "une vue et une piece" in str(error)
+    else:
+        raise AssertionError("Le diagnostic doit interdire cotations en masse.")
 
-        def get_Geometry(self, options):
-            self.calls += 1
-            return ["solid_geom"]
 
-    class FakeLine(object):
-        def __init__(self, a, b):
-            self.a, self.b = a, b
-
-        def GetEndPoint(self, index):
-            return self.a if index == 0 else self.b
-
-    def point(x, y, z):
-        return types.SimpleNamespace(X=x, Y=y, Z=z)
-
-    class FakeEdge(object):
-        Reference = "native_revit_reference"
-
-        def AsCurve(self):
-            return FakeLine(point(0., 0., 3.1), point(4., 0., 3.1))
-
-    class Collector(object):
-        def __init__(self, doc):
-            self.doc = doc
-
-        def OfClass(self, cls):
-            return self
-
-        def WhereElementIsNotElementType(self):
-            return self
-
-        def ToElements(self):
-            return self.doc.floors
-
-    level_room = types.SimpleNamespace(Value=11)
-    level_near = types.SimpleNamespace(Value=12)
-    level_far = types.SimpleNamespace(Value=13)
-    near = FakeFloor(level_near, "near-floor")
-    far = FakeFloor(level_far, "far-floor")
-    same = FakeFloor(level_room, "same-floor")
-    doc = types.SimpleNamespace(
-        floors=[near, far, same],
-        GetElement=lambda level_id: types.SimpleNamespace(
-            Elevation=3.2 if level_id is level_near else 4.2),
-    )
-    mod.DB.Floor = FakeFloor
-    mod.DB.FilteredElementCollector = Collector
-    mod.DB.Options = type("Options", (object,), {})
-    mod.DB.ViewDetailLevel = types.SimpleNamespace(Fine="Fine")
-    mod.DB.Line = FakeLine
-    mod.DB.Solid = type("Solid", (object,), {})
-    mod.DB.GeometryInstance = type("GeometryInstance", (object,), {})
-    service = mod.GenericDimensions(doc)
-    service._millimeters_to_internal = lambda value: value / 1000.
-    service._geometry_solids = lambda geometry, solid_type, instance_type: [
-        types.SimpleNamespace(Edges=[FakeEdge()])]
-    room = types.SimpleNamespace(
-        Level=types.SimpleNamespace(Elevation=3.),
-        LevelId=level_room)
-    edges = service._nearby_floor_edges(room)
-    assert len(edges) == 1
-    assert edges[0][1] == "native_revit_reference"
-    assert edges[0][2] == "near-floor"
-    assert near.calls == 1
-    assert far.calls == 0
-    assert same.calls == 0
-    assert service._nearby_floor_edges(room) == edges
-    assert near.calls == 1
+def test_mode_diagnostic_seule_la_piece_cible_est_examinee(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    class FakeRoomId(object):
+        def __init__(self, uid):
+            self.UniqueId = uid
+            self.GroupId = "invalid-group"
+            self.Number = uid
+    view = types.SimpleNamespace(
+        ViewType="FloorPlan", IsTemplate=False, Name="Vue test",
+        Id="view-id")
+    mod.DB.ElementId = types.SimpleNamespace(InvalidElementId="invalid-group")
+    service = mod.AnnotationService(object())
+    service._rooms = lambda v: [FakeRoomId("A"), FakeRoomId("B")]
+    processed = []
+    service._run_unit = lambda view, rooms, kind, atype, group, style: (
+        processed.append(rooms[0].UniqueId) or 0, [])
+    count, report = service.run(
+        "dims", [view], "type", diagnostic_room_uid="B")
+    assert processed == ["B"]
+    assert count == 0
