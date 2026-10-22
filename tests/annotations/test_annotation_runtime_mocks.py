@@ -742,3 +742,94 @@ def test_guardrail_native_reference_reconnue_au_second_lancement(monkeypatch):
     # Le sens horizontal est déjà coté ; la paire haut/bas reste éligible.
     assert pending == [original[0], original[2]]
     assert original[3].source_kind == "guardrail_edge"
+
+
+def test_2238_quatre_gc_dans_bbox_un_seul_garde_corps_sonde(monkeypatch):
+    """Régression du rapport : plus de 2 proches ne doit pas bloquer le bon."""
+    mod = load_annotation_module(monkeypatch)
+    lib = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(lib))
+    architecture = types.ModuleType("Autodesk.Revit.DB.Architecture")
+    calls = []
+
+    class P(object):
+        def __init__(self, x, y, z=3.):
+            self.X, self.Y, self.Z = x, y, z
+
+    class Box(object):
+        def __init__(self):
+            self.Min, self.Max = P(-.2, -.2), P(3.3, 3.9)
+
+    class FakeLine(object):
+        def __init__(self, x0, y0, x1, y1):
+            self.start, self.end = P(x0, y0), P(x1, y1)
+            self.Length = ((x1-x0)**2+(y1-y0)**2)**.5
+        def GetEndPoint(self, index):
+            return self.start if index == 0 else self.end
+
+    class Edge(object):
+        def __init__(self):
+            self.Reference = types.SimpleNamespace(
+                ConvertToStableRepresentation=lambda doc: "edge-native")
+        def AsCurve(self):
+            return FakeLine(0.0, 0., 0.0, 3.62)
+
+    class Railing(object):
+        def __init__(self, number, line):
+            self.number = number
+            self.Id = types.SimpleNamespace(Value=number)
+            self.line = line
+        def get_BoundingBox(self, view):
+            return Box()
+        def GetPath(self):
+            return [self.line]
+        def get_Geometry(self, options):
+            calls.append(self.number)
+            return [object()]
+
+    railings = [
+        Railing(1, FakeLine(1.5, 0., 1.5, 3.62)),
+        Railing(2, FakeLine(2.8, 0., 2.8, 3.62)),
+        Railing(3, FakeLine(.04, 0., .04, 3.62)),
+        Railing(4, FakeLine(0., 3., 3.12, 3.)),
+    ]
+
+    class Collector(object):
+        def __init__(self, document, viewid):
+            pass
+        def OfClass(self, cls):
+            return self
+        def WhereElementIsNotElementType(self):
+            return self
+        def ToElements(self):
+            return list(railings)
+
+    class Options(object):
+        pass
+
+    architecture.Railing = Railing
+    monkeypatch.setitem(sys.modules, "Autodesk.Revit.DB.Architecture",
+                        architecture)
+    db = mod.DB
+    db.FilteredElementCollector = Collector
+    db.Line = FakeLine
+    db.Options = Options
+    db.ViewDetailLevel = types.SimpleNamespace(Coarse="coarse")
+    db.Solid = object
+    db.GeometryInstance = object
+    service = mod.GenericDimensions(object())
+    service.target_view = types.SimpleNamespace(Id="view2238")
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service._geometry_solids = lambda geom, solidcls, instancecls: [
+        types.SimpleNamespace(Edges=[Edge()])]
+    room = types.SimpleNamespace(
+        UniqueId="uuid2238",
+        get_BoundingBox=lambda v: Box(),
+        get_Parameter=lambda p: FakeParameter("2238"))
+    edges = service._nearby_guardrail_edges(
+        room, [(0., 0., 0., 3.62)])
+    assert calls == [3]
+    assert len(edges) == 1
+    assert edges[0][2].Value == 3
+    assert not any("plus de deux garde-corps proches" in w
+                   for w in service._guardrail_warnings)
