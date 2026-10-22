@@ -273,3 +273,71 @@ def test_reference_identique_evite_doublon_mais_garde_l_autre_axe(monkeypatch):
         References=[Ref("face-droite"), Ref("face-gauche")],
         IsHidden=lambda view: False))
     assert service._room_boundary_candidates(room) == []
+
+
+def test_balcon_priorite_reference_arrete_de_plancher_pdv(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    service = mod.GenericDimensions(object())
+    expected = (object(), "floor-id")
+    monkeypatch.setattr(
+        mod.DimensionService, "_matching_floor_edge_reference",
+        lambda self, room, curve: expected, raising=False)
+    monkeypatch.setattr(service, "_nearby_floor_edges",
+                        lambda room: 1 / 0)
+    assert service._matching_floor_edge_reference(object(), object()) == expected
+
+
+def test_balcon_niveau_de_plancher_voisin_reutilise_match_pdv(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    service = mod.GenericDimensions(object())
+    monkeypatch.setattr(
+        mod.DimensionService, "_matching_floor_edge_reference",
+        lambda self, room, curve: None, raising=False)
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    true_reference = object()
+    monkeypatch.setattr(service, "_nearby_floor_edges",
+                        lambda room: [
+                            ((0., .3, 4., .3), object(), "too-far", 3.0),
+                            ((0., .009, 4., .009), true_reference, "balcon", 3.0)])
+    def point(x, y):
+        return types.SimpleNamespace(X=x, Y=y)
+    curve = types.SimpleNamespace(
+        GetEndPoint=lambda i: point(0., 0.) if i == 0 else point(4., 0.))
+    room = types.SimpleNamespace(
+        Level=types.SimpleNamespace(Elevation=3.))
+    result = service._matching_floor_edge_reference(room, curve)
+    assert result == (true_reference, "balcon")
+
+
+def test_wc_small_room_plan_graphics_selects_fallback_without_texte_inside(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service.PAPER_CLEARANCE_MM = 6.
+    service.PAPER_TEXT_WIDTH_MM = 12.
+    service.PAPER_TEXT_HEIGHT_MM = 3.
+    service.PAPER_PADDING_MM = .3
+    service.PAPER_WITNESS_MM = 1.5
+    service._millimeters_to_internal = lambda value: value / 1000.
+    service._placement_room_points = lambda room: [
+        (0., 0.), (1.2, 0.), (1.2, .8), (0., .8)]
+    service._probe_z = lambda room: 1.
+    service._xyz = lambda x, y, z: types.SimpleNamespace(X=x, Y=y, Z=z)
+    service._room_label = lambda room: "WC"
+    service._alignment_rails = lambda view: []
+    room = types.SimpleNamespace(IsPointInRoom=lambda p: (
+        0. < p.X < 1.2 and 0. < p.Y < .8))
+    view = types.SimpleNamespace(
+        Scale=100, RightDirection=types.SimpleNamespace(X=1., Y=0.))
+    warnings = []
+    placements = service._plan_graphics(
+        room, view, [((.6, 0.), (.6, .8))], [None],
+        [], [], [], warnings)
+    from annotations.strict_dimension_positioning import SkippedPlacement
+    assert len(placements) == 1
+    assert not isinstance(placements[0], SkippedPlacement)
+    assert any("hors piece" in message for message in placements[0].warnings)
