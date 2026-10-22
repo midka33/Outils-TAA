@@ -47,23 +47,36 @@ def test_piece_rectangulaire_tournee_conserve_deux_dimensions():
     assert sorted(round(p.distance, 5) for p in pairs) == [4., 9.]
 
 
-def test_direction_non_perpendiculaire_ne_devient_pas_seconde_cote(monkeypatch):
+def test_deux_plus_grandes_cotes_pas_necessairement_perpendiculaires(monkeypatch):
     class Pair(object):
-        def __init__(self, tangent, score, i, j):
+        def __init__(self, tangent, distance, score, i, j):
             self.tangent = tangent
+            self.distance = distance
             self.score = score
             self.first_index = i
             self.second_index = j
     offered = [
-        Pair((1., 0.), 50., 0, 1),
-        Pair((math.cos(math.radians(25.)), math.sin(math.radians(25.))), 45., 2, 3),
-        Pair((0., 1.), 30., 4, 5),
+        Pair((1., 0.), 6., 50., 0, 1),
+        Pair((math.cos(math.radians(25.)), math.sin(math.radians(25.))),
+             9., 45., 2, 3),
+        Pair((0., 1.), 4., 90., 4, 5),
     ]
     monkeypatch.setattr(axes, "dominant_dimension_pairs",
-                        lambda segments, **kwargs: offered)
+                        lambda segments, **kwargs: list(offered))
     chosen = axes.principal_pairs(rectangle(8., 4.))
-    assert chosen == [offered[0], offered[2]]
-    assert axes.principal_reference_indexes(rectangle(8., 4.)) == {0, 1, 4, 5}
+    assert chosen == [offered[1], offered[0]]
+    assert axes.principal_reference_indexes(rectangle(8., 4.)) == {0, 1, 2, 3}
+
+
+def test_parallelogramme_reel_deux_cotes_obliques_non_orthogonales():
+    points = [(0., 0.), (8., 0.), (10., 3.), (2., 3.)]
+    segments = [a + b for a, b in zip(points, points[1:] + points[:1])]
+    chosen = axes.principal_pairs(segments)
+    assert len(chosen) == 2
+    dot = (chosen[0].tangent[0] * chosen[1].tangent[0] +
+           chosen[0].tangent[1] * chosen[1].tangent[1])
+    assert 0.1 < abs(dot) < .99
+    assert chosen[0].distance >= chosen[1].distance
 
 
 def test_une_seule_famille_de_faces_opposees_ne_genere_pas_une_cote_parallele():
