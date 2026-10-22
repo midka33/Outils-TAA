@@ -495,6 +495,106 @@ class AnnotationService(object):
             tx.RollBack()
             raise
 
+    def _create_separator_proxies(self, view, rooms, line_style):
+        """References 2D uniquement si la limite de piece est une separation.
+
+        On conserve la geometrie des faces opposees choisies par PDV.
+        Une petite DetailLine est creee sur chaque separation necessaire ;
+        la cote pointe sur sa Reference native, jamais sur la separation.
+        Ces lignes ne sont pas liees au mur ou a la dalle : en cas de
+        modification architecturale, les cotes doivent etre revues.
+        """
+        if line_style is None:
+            raise ValueError("Choisir un style visible pour les reperes 2D.")
+
+        created = []
+        tx = DB.Transaction(self.doc, "TAA - Reperes 2D separations")
+        tx.Start()
+        try:
+            for room in rooms:
+                candidates = list(self.dims._room_boundary_candidates(room))
+                pending = []
+                for candidate in candidates:
+                    if getattr(candidate, "source_kind", None) != "separator":
+                        continue
+                    x0, y0, x1, y1 = candidate.segment
+                    dx, dy = x1-x0, y1-y0
+                    length = (dx*dx + dy*dy)**.5
+                    if length < 1e-7:
+                        raise ValueError("Separation de longueur nulle.")
+                    # Segment court de 5 mm, centre sur la limite finie.
+                    half = min(length * .25,
+                               DB.UnitUtils.ConvertToInternalUnits(
+                                   2.5, DB.UnitTypeId.Millimeters))
+                    mx, my = (x0+x1)*.5, (y0+y1)*.5
+                    ux, uy = dx/length, dy/length
+                    z = float(room.Level.Elevation)
+                    curve = DB.Line.CreateBound(
+                        DB.XYZ(mx-ux*half, my-uy*half, z),
+                        DB.XYZ(mx+ux*half, my+uy*half, z))
+                    detail = self.doc.Create.NewDetailCurve(view, curve)
+                    if detail is None:
+                        raise ValueError("Creation du repere 2D impossible.")
+                    detail.LineStyle = line_style
+                    pending.append((candidate, detail))
+                    created.append(detail.Id)
+
+                if pending:
+                    self.doc.Regenerate()
+                    for candidate, detail in pending:
+                        reference = detail.GeometryCurve.Reference
+                        if reference is None:
+                            raise ValueError(
+                                "Reference native de repere 2D indisponible.")
+                        candidate.reference = reference
+                        candidate.element_id_value = id_value(detail.Id)
+                        candidate.length_references = None
+                        candidate.source_kind = "proxy"
+                    self.dims.proxy_candidates[str(room.UniqueId)] = candidates
+
+            tx.Commit()
+            return created
+        except Exception:
+            tx.RollBack()
+            raise
+
+    def _cleanup_unused_separator_proxies(self, view, proxy_ids, dimension_ids):
+        """Ne pas laisser de lignes 2D non utilisees apres cotation partielle.
+
+        Si les references de cotes ne peuvent pas etre relues, lever une
+        erreur : la TransactionGroup appelante annule tout sans residu.
+        """
+        if not proxy_ids:
+            return
+        used = set()
+        for dimension in self._elements(view, "dims"):
+            if id_value(dimension.Id) not in dimension_ids:
+                continue
+            references = dimension.References
+            if references is None:
+                raise RuntimeError("References de cote non verifiables.")
+            for reference in references:
+                used.add(id_value(reference.ElementId))
+
+        unused = [element_id for element_id in proxy_ids
+                  if id_value(element_id) not in used]
+        if not dimension_ids:
+            raise RuntimeError(
+                "Aucune cote creee : annulation des reperes 2D.")
+        if len(unused) == len(proxy_ids):
+            raise RuntimeError(
+                "Aucune cote n'utilise les reperes 2D : annulation de securite.")
+        if unused:
+            tx = DB.Transaction(self.doc, "TAA - Nettoyer reperes 2D inutilises")
+            tx.Start()
+            try:
+                for element_id in unused:
+                    self.doc.Delete(element_id)
+                tx.Commit()
+            except Exception:
+                tx.RollBack()
+                raise
+
     def _available_type(self, group, kind):
         prefix = "TAA - Etiquettes" if kind == "tags" else "TAA - Cotations"
         for tid in group.GetAvailableAttachedDetailGroupTypeIds():
@@ -567,8 +667,15 @@ class AnnotationService(object):
                 set(id_value(x) for x in group.GetAvailableAttachedDetailGroupTypeIds())
                 if group else set())
             proxy_ids = []
+            separator_proxy_ids = []
             if kind == "dims" and group:
                 proxy_ids = self._create_proxies(view, room_set, group, line_style)
+            elif kind == "dims":
+                trace("BEFORE_SEPARATOR_PROXY", safe_name(view), room_id)
+                separator_proxy_ids = self._create_separator_proxies(
+                    view, room_set, line_style)
+                trace("AFTER_SEPARATOR_PROXY", safe_name(view), room_id,
+                      "count={}".format(len(separator_proxy_ids)))
             housing = room_housing(room_set, name)
             if kind == "tags":
                 # Les etiquettes evitent toute l'emprise des cotes ;
@@ -592,6 +699,9 @@ class AnnotationService(object):
                              proxy_ids, kind, existing_attached)
             elif group and proxy_ids:
                 raise RuntimeError("Aucune cote native produite : references annulees.")
+            if separator_proxy_ids:
+                self._cleanup_unused_separator_proxies(
+                    view, separator_proxy_ids, new_ids)
             scope.Assimilate()
             trace("ROOM_COMMITTED", safe_name(view), room_id,
                   "created={}".format(len(new_ids)))
