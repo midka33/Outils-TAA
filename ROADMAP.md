@@ -277,3 +277,18 @@ de leurs mises en page.
 - [ ] Reutiliser le comportement de survol, ouverture automatique, scroll et insertion de l'arborescence existante ; eviter les doublons dans un dossier, autoriser la reutilisation inter-dossiers.
 - [ ] Preserver le modele a dossiers uniques, les parametres PDF/DWG, le stockage, les profils et les publications existantes.
 - [ ] Ajouter tests automatises et recette Revit 2025.4 / pyRevit 5.x : clavier, DPI, Full HD, interactions, persistance et non-regression.
+
+
+### Export — explorateur escamotable (developpement en cours, 2026-10-22)
+
+Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du panneau WPF, des filtres, des regroupements, de la selection et de l'ajout sans deplacement des feuilles est proposee.
+
+- [x] Integrer le panneau escamotable, redimensionnable et les preferences de largeur/visibilite.
+- [x] Recherche, filtre des non ajoutees, regroupements repliables et indicateurs d'utilisation.
+- [x] Selection multiple et ajout par bouton, double-clic, menu et drag-and-drop distinct du deplacement interne.
+- [x] Ajouter une operation de persistance atomique preservant les sources et evitant les doublons par dossier.
+- [x] Ecrire les tests unitaires de l'ajout dans un dossier.
+- [ ] Executer effectivement les pytest et corriger les eventuels echecs.
+- [ ] Valider la fenetre et les interactions sous Revit 2025.4 / pyRevit 5.x.
+- [ ] Rejouer les recettes de non-regression de l'arborescence et des publications PDF/DWG.
+- [ ] Fusionner uniquement apres validation utilisateur.
