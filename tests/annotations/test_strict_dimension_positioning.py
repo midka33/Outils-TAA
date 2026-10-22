@@ -102,7 +102,8 @@ def test_real_pdv_candidate_generation_can_reuse_strict_selection():
     assert len(active) >= 1
     assert all(c.tag_hits == 0 and c.dimension_hits == 0 for c in active)
     if len(active) == 2:
-        assert placement_conflicts(active[0], active[1]) == (0, 0)
+        # Un simple croisement ponctuel des traits est maintenant autorise.
+        assert placement_conflicts(active[0], active[1])[0] == 0
 
 
 
