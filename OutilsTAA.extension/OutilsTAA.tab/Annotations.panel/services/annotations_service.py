@@ -189,12 +189,71 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             pass
         return rails
 
+    def _view_obstacles(self, view, warnings):
+        """Pour les cotes, bloquer les textes, pas tout le trait graphique.
+
+        Une cote entre deux faces opposees doit pouvoir croiser la ligne
+        d'une autre dimension. Les lignes superposees sont testees a part.
+        Si la position du texte est inconnue, garder la bbox native Revit.
+        """
+        tags, original_dimensions, equipment = super(
+            GenericDimensions, self)._view_obstacles(view, warnings)
+        dimension_texts = []
+        try:
+            dimensions = (DB.FilteredElementCollector(self.document, view.Id)
+                          .OfCategory(DB.BuiltInCategory.OST_Dimensions)
+                          .WhereElementIsNotElementType().ToElements())
+        except Exception:
+            return tags, original_dimensions, equipment
+        paper = lambda mm: self._millimeters_to_internal(
+            mm * max(1, int(view.Scale)))
+        width = paper(self.PAPER_TEXT_WIDTH_MM * 1.5)
+        height = paper(self.PAPER_TEXT_HEIGHT_MM * 1.5)
+        for dim in dimensions:
+            try:
+                if dim.IsHidden(view):
+                    continue
+                position = dim.TextPosition
+                if position is None:
+                    raise ValueError("Texte inaccessible")
+                # La cote peut afficher un texte horizontal ou parallele
+                # a la ligne : reserver l'enveloppe des deux orientations.
+                axis = (float(view.RightDirection.X),
+                        float(view.RightDirection.Y))
+                curve = dim.Curve
+                if isinstance(curve, DB.Line):
+                    direction = curve.Direction
+                    other = (float(direction.X), float(direction.Y))
+                else:
+                    other = axis
+                for dx, dy in (axis, other):
+                    length = (dx * dx + dy * dy) ** .5
+                    if length < 1e-9:
+                        continue
+                    dx, dy = dx / length, dy / length
+                    nx, ny = -dy, dx
+                    corners = [
+                        (position.X + dx * sx * width * .5 + nx * sy * height,
+                         position.Y + dy * sx * width * .5 + ny * sy * height)
+                        for sx in (-1., 1.) for sy in (-1., 1.)]
+                    dimension_texts.append((
+                        min(p[0] for p in corners),
+                        min(p[1] for p in corners),
+                        max(p[0] for p in corners),
+                        max(p[1] for p in corners)))
+            except Exception:
+                fallback = self._graphic_box(dim, view)
+                if fallback is not None:
+                    dimension_texts.append(fallback)
+        return tags, dimension_texts, equipment
+
     def _plan_graphics(self, room, view, lines, anchors, tags, dimensions,
                        equipment, warnings, placement_regions=None):
         # Reprendre les memes generateurs de positions que Plans de vente.
         # Le seul changement est la selection partielle sans collision.
         from plans_vente.dimension_positioning import placement_candidates
-        from annotations.dimension_alignment import aligned_candidates
+        from annotations.dimension_alignment import (
+            aligned_candidates, collinear_line_overlap)
         from annotations.strict_dimension_positioning import (
             SkippedPlacement, select_collision_free_placements)
 
@@ -245,6 +304,13 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     tag_boxes=tags, dimension_boxes=dimensions,
                     equipment_boxes=equipment, witness_anchors=anchor,
                     text_axis=text_axis, max_neighbor_gap=near_gap))
+                # Bloquer un vrai recouvrement colineaire avec une cote
+                # deja presente, mais autoriser le croisement ponctuel.
+                for candidate in group:
+                    if collinear_line_overlap(
+                            (candidate.line_start, candidate.line_end),
+                            rails, offset_tolerance=paper(.5)):
+                        candidate.dimension_hits += 1
                 groups.append(group)
 
             chosen = select_collision_free_placements(
@@ -502,7 +568,9 @@ class AnnotationService(object):
                 proxy_ids = self._create_proxies(view, room_set, group, line_style)
             housing = room_housing(room_set, name)
             if kind == "tags":
-                dims = self.dims._view_obstacles(view, [])[1]
+                # Les etiquettes evitent toute l'emprise des cotes ;
+                # seule la cotation autorise les croisements de traits.
+                dims = DimensionService._view_obstacles(self.dims, view, [])[1]
                 result = self.tags.create_tags(
                     housing, str(view.UniqueId), annotation_type_id,
                     exclusion_boxes=dims)
