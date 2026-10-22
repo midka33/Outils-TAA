@@ -328,23 +328,37 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 # l'aveugle apres le crash Revit deja rencontre.
                 continue
 
-        railings = select_guardrails_by_path(
+        railings, selection = select_guardrails_by_path(
             paths, boundary_segments,
             tolerance=self._millimeters_to_internal(500.),
             max_railings=2, max_segments=80,
-            angle_degrees=12., minimum_overlap=.30)
+            angle_degrees=12., minimum_overlap=.30,
+            ambiguity_gap=self._millimeters_to_internal(25.),
+            with_diagnostics=True)
+        label = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)
+        reason = selection["reason"]
+        closest = selection["closest_distance"]
+        distance_text = (
+            "{:.0f} mm".format(
+                closest / self._millimeters_to_internal(1.0))
+            if closest is not None else "aucune")
+        self._guardrail_warnings.append(
+            "{} : filtrage GC : {} chemin(s) dans la piece, "
+            "{} limite(s), {} correspondance(s), {} ambigue(s), "
+            "plus proche {}, statut {}.".format(
+                label, len(paths), selection["target_count"],
+                selection["path_matches"], selection["ambiguous"],
+                distance_text, reason))
         if not railings:
             self._guardrail_warnings.append(
-                "{} : aucun garde-corps avec chemin suffisamment proche "
-                "des limites a coter (ou recherche ambigue) ; "
-                "reperes 2D conserves.".format(
-                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)))
+                "{} : aucune reference GC selectionnable sur les limites "
+                "(statut {}) ; reperes 2D conserves.".format(
+                    label, reason))
             return []
         self._guardrail_warnings.append(
             "{} : {} garde-corps retenu(s) par leur chemin "
             "pour examen des aretes natives.".format(
-                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
-                len(railings)))
+                label, len(railings)))
         options = DB.Options()
         options.ComputeReferences = True
         options.IncludeNonVisibleObjects = False
