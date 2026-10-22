@@ -274,6 +274,8 @@ de leurs mises en page.
 - [x] Prévoir un repli de texte partiellement hors Room pour WC/celliers étroits, sans overlap d'étiquettes/cotes.
 - [x] Revenir à la seule recherche d'arêtes de dalle PDV après crash Revit ; parcours élargi des niveaux voisins suspendu.
 - [ ] Diagnostiquer le crash Revit depuis les journaux natifs et le traceur TAA.
+- [x] Premier essai de reprise : pièce 1170 sur `Collectifs A_Niveau 0`, 2 annotations créées dans 1 vue sans crash signalé.
+- [ ] Contrôler capture et journal persistant de la pièce 1170, puis essayer un second cas isolé avant toute réactivation du traitement en masse.
 - [ ] Recetter un WC/cellier sur copie en mode diagnostique 1 vue / 1 pièce.
 - [ ] Valider visuellement balcons, WC et celliers du niveau 1 et les références natives de dalle avant réouverture du traitement en masse.
 - [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
