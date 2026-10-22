@@ -319,3 +319,19 @@ Cette abstraction ne constitue **pas** une nouvelle validation Revit
 du moteur commun ; aucun changement du moteur stable de la branche
 `main` n'est effectué. Référence : BUG-COMMON-011 et
 `tests/annotations/test_floor_reference_policy.py`.
+
+
+### Références complémentaires des loggias : garde-corps (bêta)
+
+Dans `feature/annotations-automatiques-beta`, le **module Cotation
+automatique** seul cherche une référence native de garde-corps
+(`Railing`) après l'échec de la recherche de référence mur/dalle,
+et avant ses petites lignes 2D. Le service Plans de vente conserve
+exactement son comportement historique : **aucune nouvelle extraction
+de garde-corps** n'est activée dans le moteur PDV stable.
+
+La validation géométrique de l'arête est encapsulée dans
+`lib/common/guardrail_reference_policy.py`. Aucune tentative de
+cotation native ne doit se fonder sur le seul axe du garde-corps.
+La disponibilité des arêtes de garde-corps et leur validité en cotation
+sont à vérifier dans Revit 2025.4. Voir BUG-COMMON-012.
