@@ -50,3 +50,42 @@ def test_csv_quotes():
 
 def test_glazing_dimensions_not_tableau():
     assert evaluate([p("Largeur vitrage",1),p("Hauteur vitrage",2)])["selected"] is None
+
+
+def test_taa_prefers_nominal_over_rough():
+    r=evaluate([p("Largeur",2.7),p("Hauteur",2.0),
+                p("Largeur brute",2.74),p("Hauteur brute",2.30)],
+               prefer_nominal=True)
+    assert r["selected"]["method"]=="NOMINALE"
+    assert r["status"]=="NOMINAL_A_CONFIRMER"
+    assert abs(r["selected"]["area_m2"]-5.4)<1e-10
+    assert len(r["candidates"])==2
+    assert "Convention TAA" in r["reason"]
+
+
+def test_taa_prioritizes_named_tableau_if_defined():
+    r=evaluate([p("Largeur",2.7),p("Hauteur",2.0),
+                p("Largeur tableau",2.65),p("Hauteur tableau",1.98),
+                p("Largeur brute",2.74),p("Hauteur brute",2.30)],
+               prefer_nominal=True)
+    assert r["selected"]["method"]=="TABLEAU"
+
+
+def test_taa_rejects_only_brute_dimensions():
+    r=evaluate([p("Largeur brute",2.74),p("Hauteur brute",2.30)],
+               prefer_nominal=True)
+    assert r["selected"] is None
+    assert r["status"]=="A_VERIFIER"
+    assert len(r["candidates"])==1
+
+
+def test_regular_diagnostic_keeps_rough_default():
+    r=evaluate([p("Largeur brute",2.74),p("Hauteur brute",2.30),
+                p("Largeur",2.7),p("Hauteur",2.0)])
+    assert r["selected"]["method"]=="OUVERTURE_BRUTE"
+
+
+def test_taa_window_with_no_volet_has_height_nominale():
+    r=evaluate([p("Largeur",1.10),p("Hauteur",1.40)], prefer_nominal=True)
+    assert r["selected"]["method"]=="NOMINALE"
+    assert abs(r["selected"]["area_m2"]-1.54)<1e-10

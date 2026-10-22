@@ -245,6 +245,8 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [x] Ajouter deux exclusions indépendantes, activées par défaut : lanterneaux et familles/types `MRX`, avec export des éléments exclus et exclusion permanente du futur calcul.
 - [x] Contrôler les 4 CSV du 22 octobre 2026 à 17 h 43 : **396 occurrences, 14 types, 11 lanterneaux et 9 MRX exclus, 0 alerte**, sans chevauchement ni écart de quantités.
 - [x] Documenter la réservation du coffre tunnel (hauteur brute +30 cm sur le type 270×218) ; marquer ces cotes comme **à vérifier** avant usage réglementaire, sans assimilation de la réservation au tableau.
+- [x] Valider la convention de paramètres TAA sur captures (type 270×200) : `Hauteur brute = Hauteur + Volet roulant_Dim`, `Largeur brute = Largeur + 2×Tapees_Ep` ; privilégier `Largeur×Hauteur` pour les surfaces diagnostiques.
+- [ ] Tester dans Revit la nouvelle préférence des cotes nominales et vérifier la répartition des 396 occurrences.
 - [ ] Examiner dans Revit les familles `FEN-EXT-GEN-1V_ITI.rfa` et `PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel.rfa` pour déterminer les dimensions réellement mesurées en tableau.
 - [ ] Vérifier l'export CSV filtré, les liens Revit et les cas de familles réelles atypiques ; contrôler ensuite les surfaces en tableau.
 - [ ] Valider les parcours réels sous Revit 2025.4 / pyRevit 5.x avant toute fusion dans `main`.

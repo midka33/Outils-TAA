@@ -45,3 +45,8 @@ docs/18_Calculs_Pieces_Tests_Revit.md
 ## Diagnostic des baies (V0.1, en développement)
 
 Bouton séparé **Diagnostic des baies** : inventaire en lecture seule des paramètres dimensionnels des fenêtres/portes, possibilité d'inclure les fichiers Revit liés directs chargés et export de quatre CSV (occurrences, synthèse types, alertes, exclusions). **Aucune conformité réglementaire n'est calculée.** La collecte et le filtre préfixe ont été validés dans Revit 2025.4 ; les exclusions par défaut et leurs quatre CSV ont été validés sur un projet hôte (396 conservées, 20 exclues, 0 alerte). Les liens et la mesure en tableau restent à valider. Voir `docs/27_Diagnostic_Baies.md`.
+
+
+### Règle de mesure candidate (capture 22/10/2026)
+
+Pour les familles `FEN-EXT` / `PORFEN-EXT`, le diagnostic privilégie `Largeur × Hauteur` par rapport aux dimensions brutes (`Hauteur brute` peut inclure le coffre tunnel, `Largeur brute` les tapées). Les paramètres explicitement nommés `Largeur/Hauteur tableau` conservent la priorité. En absence de paire nominale ou en tableau, les dimensions brutes restent visibles pour analyse mais **ne sont pas comptées automatiquement**. La surface diagnostique est indicative, sans validation réglementaire. Voir `docs/27_Diagnostic_Baies.md`.

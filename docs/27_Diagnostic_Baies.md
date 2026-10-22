@@ -151,3 +151,40 @@ Le diagnostic signale désormais les familles/types portant `VR tunnel`, `volet 
 **Source réglementaire :** [article 23 de l'arrêté du 4 août 2021, version applicable](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000045581703/2022-04-15). Il exige une surface totale mesurée **en tableau**, sans décrire explicitement dans cet article tous les cas de coffres intégrés. La [FAQ officielle RE2020 016](https://rt-re-batiment.developpement-durable.gouv.fr/faq-re2020-016-quels-sont-les-types-de-baies-a-a580.html) précise les liaisons entre locaux pris en compte, non les hauteurs de réservation de coffre.
 
 **Tests hors Revit :** ajout de trois scénarios dans `tests/baies_diagnostic/test_exclusions.py`. **Validation Revit et examen de la famille RFA encore nécessaires** avant d'utiliser cette surface pour une attestation réglementaire.
+
+## Mise à jour méthode de surface candidate TAA — 22 octobre 2026
+
+Les captures de l'éditeur de familles fournies par l'utilisateur confirment, pour une porte-fenêtre **`PORFEN-EXT-GEN-2V_1F_ITI` avec coffre tunnel**, les formules de type :
+
+- `Hauteur brute = Hauteur + Volet roulant_Dim` ;
+- `Largeur brute = Largeur + (2 × Tapees_Ep)`.
+
+Sur le **type 270×200 visible dans la capture**, `Largeur=2,700 m`, `Hauteur=2,000 m`, `Volet roulant_Dim=0,300 m` et `Tapees_Ep=0,020 m` ; `Largeur brute=2,740 m`, `Hauteur brute=2,300 m`.
+
+| Exemple 270×200 | Formule | Surface indicative |
+|---|---|---:|
+| Dimensions nominales | `2,700 × 2,000` | **5,400 m²** |
+| Réservation brute | `2,740 × 2,300` | **6,302 m²** |
+| Écart de réservation | Brute - nominale | **0,902 m²** |
+
+La capture d'une **fenêtre FEN-EXT** montre également que la dimension `Hauteur` est cotée sans la réservation du coffre. La règle métier TAA est donc d'utiliser **`Largeur × Hauteur` comme surface diagnostique candidate** sur les familles préfixées `FEN-EXT` et `PORFEN-EXT`, lorsqu'une paire complète et valide existe.
+
+### Ordre de priorité mis en œuvre
+
+Pour le diagnostic ciblant ces familles :
+1. `Largeur tableau × Hauteur tableau` si deux paramètres explicites existent (à confirmer géométriquement).
+2. **`Largeur × Hauteur`**, sans les éventuelles tapées ni la réservation du coffre.
+3. Si seule la paire brute existe, elle est **conservée dans `candidates_json` mais non retenue** comme surface automatique ; statut `A_VERIFIER`.
+
+Pour les familles hors préfixes lorsque le filtre est désactivé, l'ordre précédent du diagnostic est conservé (`TABLEAU` puis `OUVERTURE_BRUTE` puis `NOMINALE`). Cela évite de modifier silencieusement un comportement non lié à la convention TAA.
+
+Les cas `VR tunnel` conservent `A_VERIFIER_COFFRE_TUNNEL` dans le contrôle réglementaire malgré le remplacement de la surface candidate : cette alerte porte désormais sur **la validation réglementaire des dimensions**, pas sur la capacité à calculer une surface indicative. L'export CSV contient la nouvelle méthode `NOMINALE`, la surface et l'écart avec la cote brute dans la colonne des motifs.
+
+### Limites réglementaires
+
+L'article 23 de l'arrêté du 4 août 2021 exige une surface **mesurée en tableau** ; il ne suffit pas à garantir que les cotes nominales de chaque famille TAA sont exactement les cotes de tableau. Les configurations de coffre intégrées dans le tableau ou placées derrière le linteau sont à distinguer avant de certifier une surface.
+
+- Texte officiel : [Légifrance — arrêté du 4 août 2021, article 23](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000045581703/2022-04-15)
+- Le manuel technique réglementaire traite séparément les coffres qui s'inscrivent dans la surface du tableau et ceux disposés derrière le linteau : [Règles Th-Bat 2020, §3.2.5.1](https://rt-re-batiment.developpement-durable.gouv.fr/IMG/pdf/annexeiv_arrete_4_aout_2021.pdf).
+
+**Tests :** `test_evaluator.py` couvre 5 nouveaux scénarios et `test_service_names.py` vérifie la remontée de `Largeur×Hauteur` à la lecture d'un élément `PORFEN-EXT` avec coffre. Validation réelle dans Revit après pull restant nécessaire ; les quatre CSV précédents représentent l'ancienne préférence de calcul (153 surfaces de réservation brute) et ne doivent pas être réutilisés comme rapport de référence après cette mise à jour.

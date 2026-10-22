@@ -88,7 +88,7 @@ class BaiesDiagnosticService(object):
                 name=_text(p.Definition.Name)
                 lower=name.lower()
                 if not any(part in lower for part in
-                    (u"largeur",u"hauteur",u"width",u"height",u"rough",u"tableau",u"baie",u"ouverture",u"vitrage",u"hors tout",u"hors-tout")):
+                    (u"largeur",u"hauteur",u"width",u"height",u"rough",u"tableau",u"baie",u"ouverture",u"vitrage",u"hors tout",u"hors-tout",u"volet",u"tapees",u"tapées")):
                     continue
                 value=float(DB.UnitUtils.ConvertFromInternalUnits(p.AsDouble(), DB.UnitTypeId.Meters))
                 if 0 < value < 100:
@@ -106,7 +106,7 @@ class BaiesDiagnosticService(object):
         family_name=_element_name(family, self._db(), u"Famille inconnue #{}".format(_eid(family)))
         type_name=_element_name(symbol, self._db(), u"Type inconnu #{}".format(_eid(symbol)))
         params=self._parameters(instance,"occurrence")+self._parameters(symbol,"type")
-        outcome=evaluate(params)
+        outcome=evaluate(params, prefer_nominal=is_facade_family(family_name))
         selected=outcome["selected"] or {}
         try:
             host=instance.Host

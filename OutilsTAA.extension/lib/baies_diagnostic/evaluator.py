@@ -35,7 +35,15 @@ def _pick(params, aliases):
             return same[0], None
     return None, None
 
-def evaluate(params):
+def evaluate(params, prefer_nominal=False):
+    """Calcule une surface diagnostique, non une surface réglementaire.
+
+    Pour les conventions TAA FEN-EXT/PORFEN-EXT, les cotes nominales
+    Largeur x Hauteur priment sur la réservation brute de gros œuvre.
+    Un paramètre explicitement nommé 'tableau' conserve la priorité.
+    Si seules les cotes brutes existent, elles sont archivées dans candidates
+    sans constituer une surface candidate automatique.
+    """
     found, warnings = [], []
     for method, widths, heights in PAIRS:
         w, werr = _pick(params, widths)
@@ -47,18 +55,31 @@ def evaluate(params):
                               area_m2=float(w["value_m"])*float(h["value_m"]),
                               width_parameter=w["name"], height_parameter=h["name"],
                               width_origin=w["origin"], height_origin=h["origin"]))
-    selected = next((x for x in found if x["method"] in ("TABLEAU","OUVERTURE_BRUTE")), None)
+    methods = dict((item["method"], item) for item in found)
+    if prefer_nominal:
+        # La cote 'brute' peut inclure coffre tunnel et tapées d'isolation.
+        selected = methods.get("TABLEAU") or methods.get("NOMINALE")
+    else:
+        selected = (methods.get("TABLEAU") or methods.get("OUVERTURE_BRUTE")
+                    or methods.get("NOMINALE"))
     if selected is None:
-        selected = next((x for x in found if x["method"]=="NOMINALE"), None)
-    if selected is None:
+        comment = "Aucune paire de dimensions exploitable"
+        if prefer_nominal and "OUVERTURE_BRUTE" in methods:
+            comment = ("Convention TAA : largeur/hauteur nominales absentes ; "
+                       "ne pas assimiler la réservation brute à la baie en tableau")
         return dict(selected=None, candidates=found, status="A_VERIFIER",
-                    reason=" ; ".join(warnings) or "Aucune paire de dimensions exploitable")
-    nominal = next((x for x in found if x["method"]=="NOMINALE"), None)
-    reason = ["Correspondance avec l'ouverture en tableau non démontrée"] + warnings
+                    reason=" ; ".join(warnings + [comment]))
+    reason = ["Correspondance avec l'ouverture en tableau non démontrée"]
+    if prefer_nominal and selected["method"] == "NOMINALE":
+        reason.append("Convention TAA : Largeur x Hauteur sans coffre tunnel ni tapées")
+    reason += warnings
     if selected["width_origin"] != selected["height_origin"]:
         reason.append("Largeur et hauteur de portées différentes (type/occurrence)")
-    if nominal and nominal is not selected and abs(selected["area_m2"]-nominal["area_m2"])>0.01:
-        reason.append("Écart nominal/tableau ou brut : {:.3f} m²".format(abs(selected["area_m2"]-nominal["area_m2"])))
+    for candidate in found:
+        if candidate is not selected and abs(selected["area_m2"]-candidate["area_m2"]) > 0.01:
+            reason.append("Ecart {} / {} : {:.3f} m²".format(
+                selected["method"], candidate["method"],
+                abs(selected["area_m2"]-candidate["area_m2"])))
     status={"TABLEAU":"CANDIDAT_TABLEAU", "OUVERTURE_BRUTE":"CANDIDAT_OUVERTURE",
             "NOMINALE":"NOMINAL_A_CONFIRMER"}[selected["method"]]
     if warnings:

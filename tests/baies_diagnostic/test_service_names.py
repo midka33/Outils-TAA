@@ -128,3 +128,45 @@ def test_snapshot_processes_broken_family_and_type_names(monkeypatch):
     assert row["type"] == "120x135"
     assert row["status"] == "NOMINAL_A_CONFIRMER"
     assert row["area_m2"] == 1.62
+
+
+def test_snapshot_taa_door_prefers_nominal_not_reservation(monkeypatch):
+    m = _load()
+
+    class Family(BrokenName):
+        pass
+
+    class Symbol(BrokenName):
+        Family = Family("PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel", 55)
+
+    class Instance(object):
+        Symbol = Symbol("270x200", 56)
+        Host = None
+        FromRoom = None
+        ToRoom = None
+        Id = FakeId(57)
+        UniqueId = "57-uid"
+
+        def get_BoundingBox(self, view):
+            return None
+
+    class Document(object):
+        Title = "Test Revit"
+
+    params = [
+        dict(name="Largeur", value_m=2.7, origin="type"),
+        dict(name="Hauteur", value_m=2.0, origin="type"),
+        dict(name="Largeur brute", value_m=2.74, origin="type"),
+        dict(name="Hauteur brute", value_m=2.3, origin="type"),
+    ]
+    monkeypatch.setattr(m.BaiesDiagnosticService, "_db", staticmethod(lambda: db(BrokenDescriptor())))
+    monkeypatch.setattr(m.BaiesDiagnosticService, "_parameters",
+                        lambda self, item, origin: params if origin == "type" else [])
+    service = m.BaiesDiagnosticService(Document())
+    row = service._snapshot(Document(), Instance(), "Projet hôte", "HOST", "Fenêtre")
+    assert row["method"] == "NOMINALE"
+    assert row["area_m2"] == 5.4
+    assert row["height_m"] == 2.0
+    assert row["width_m"] == 2.7
+    assert row["rule_16_status"] == "A_VERIFIER_COFFRE_TUNNEL"
+    assert "OUVERTURE_BRUTE" in row["candidates_json"]
