@@ -586,3 +586,61 @@ Les protections sont conservees : maximum deux garde-corps, maximum 64 objets ge
 - [ ] REV-ANN-57 — Rapport 2238 indiquant la nature effective de la geometrie du rail filant (Solid / GeometryInstance).
 - [ ] REV-ANN-58 — Cote appuyee sur une reference symbolique native effectivement acceptee par Revit, si disponible.
 - [ ] REV-ANN-59 — Validation de la stabilite Revit et des cotes masquees / remises visibles sur copie de maquette.
+
+
+### Nouvelle règle métier des annexes extérieures — tolérance de modèle (22/10/2026)
+
+**Décision métier :** pour une pièce désignée `loggia`, `balcon`,
+`terrasse` ou `jardin`, ou classée `Int/Ext = Ext`, les références
+de cotation doivent être sélectionnées dans l'ordre suivant :
+
+1. **Faces finies de murs existants** qui délimitent l'annexe.
+2. **Arêtes géométriques natives des garde-corps Revit**, sur les
+   limites sans mur, si orientation et couverture correspondent
+   réellement à la limite extérieure. Ne jamais coter sur l'axe
+   théorique du chemin de garde-corps.
+3. **Petite ligne de détail 2D de 5 mm**, dernier recours indépendant
+   des séparations de pièces, non associatif.
+
+Pour ces annexes, les arêtes de dalle **ne sont plus utilisées
+comme référence de substitution**, contrairement au comportement
+de Plans de vente conservé sur la branche `main`. Cette règle
+spécifique de Cotation automatique remplace la hiérarchie
+`mur / dalle / garde-corps / 2D` décrite dans les chapitres
+antérieurs pour **les annexes extérieures seulement**. Les pièces
+intérieures gardent leurs règles précédentes.
+
+**Tolérance de rattrapage géométrique :** une séparation de pièce peut
+être décalée de 35 mm par rapport au vrai garde-corps du projet 2238.
+Au lieu d'imposer partout la tolérance stricte de 20 mm, Cotation
+automatique accepte pour les annexes extérieures un **écart maximal de
+50 mm**, tout en conservant l'écart angulaire maximal de **3°** et le
+recouvrement minimal de **60 %**. L'écart mesuré est indiqué dans
+le rapport ; au-delà de 20 mm, le rapport demande explicitement un
+**contrôle manuel** du nu et de la valeur. La cote doit suivre
+**la vraie référence Revit**, pas reproduire artificiellement la
+largeur calculée entre les séparations ; sa valeur peut donc différer
+de 3,12 m ou 3,62 m dans une loggia dont les limites sont décalées.
+
+**Protection :** ce relâchement de tolérance n'est jamais appliqué
+aux pièces intérieures. Les garde-corps lointains, biaisés, trop courts
+ou non cotables restent refusés. Les limites de sélection et de
+géométrie des garde-corps, le journal de crash et le mode diagnostic
+**une seule pièce hors groupe par essai** restent actifs.
+
+**Nouveau diagnostic :** quand aucune arête n'est admissible, le
+rapport indique le meilleur écart réel, l'angle, le pourcentage de
+recouvrement et les motifs du rejet. Aucun objet géométrique
+supplémentaire n'est analysé pour ce diagnostic.
+
+**Recette Revit sur copie de maquette :**
+- [ ] REV-ANN-60 : loggia 2238, supprimer les deux anciennes cotes et
+      relancer sur une pièce après mise à jour de la branche.
+- [ ] REV-ANN-61 : constater si une arête native de garde-corps est
+      retenue avec un écart environ 35 mm et identifier le **nu réellement
+      coté**. Si la valeur diffère de l'ancienne cote, vérifier la
+      mesure réelle et ne pas imposer l'ancienne valeur.
+- [ ] REV-ANN-62 : masquer les séparations tout en gardant visible
+      le garde-corps ou le repère de détail : les cotes doivent rester.
+- [ ] REV-ANN-63 : relancer sans créer de doublon ; vérifier le fichier
+      `%TEMP%\\OutilsTAA_Annotations_crashtrace.log` si incident.
