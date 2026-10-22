@@ -264,6 +264,8 @@ de leurs mises en page.
 - [ ] Valider les collisions et les re-lancements dans des vues métier réelles.
 - [x] Corriger le rejet de toutes les cotes : accepter un placement partiel sans superposition, moteur Plans de vente inchangé.
 - [ ] Rejouer la cotation sur niveaux 0/1 après l'étiquetage déjà validé.
+- [x] Supprimer dans l'adaptateur les cotes de secours par longueur de mur, filtrer les deux portées principales orthogonales.
+- [ ] Valider en Revit la géométrie de cotation principale après nettoyage des 57 cotes incorrectes du test bêta.
 - [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
