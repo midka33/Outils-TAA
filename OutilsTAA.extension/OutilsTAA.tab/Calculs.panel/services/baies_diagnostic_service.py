@@ -5,7 +5,7 @@ Ni boîte englobante ni cote nominale ne prouve la surface en tableau.
 """
 import json
 from baies_diagnostic.evaluator import evaluate, aggregate_by_type
-from baies_diagnostic.facade_scope import is_facade_family, facade_status
+from baies_diagnostic.facade_scope import is_facade_family, facade_status, exclusion_reason, rule_16_status
 
 def _text(value):
     try:
@@ -133,7 +133,7 @@ class BaiesDiagnosticService(object):
         except Exception:
             pass
         host_category=_text(host.Category.Name) if host and host.Category else u""
-        classification=facade_status(family_name, host_category, function)
+        classification=facade_status(family_name, host_category, function, type_name)
         return dict(source=source,source_id=source_id,document=_text(dbdoc.Title),
                     category=category,family=family_name,
                     type=type_name,element_id=_eid(instance),
@@ -142,6 +142,7 @@ class BaiesDiagnosticService(object):
                     host_category=host_category,
                     wall_function=function,from_room=room_from,to_room=room_to,
                     facade_status=classification,
+                    rule_16_status=rule_16_status(family_name,type_name,host_category,function),
                     method=selected.get("method",u""),
                     width_m=selected.get("width_m",u""),
                     height_m=selected.get("height_m",u""),
@@ -156,7 +157,8 @@ class BaiesDiagnosticService(object):
                     candidates_json=json.dumps(outcome["candidates"],ensure_ascii=False,sort_keys=True),
                     reglementaire_valide=u"NON : vérification de la baie et du contexte nécessaire")
 
-    def _collect(self, document, source, source_id, rows, alerts, facade_only=False):
+    def _collect(self, document, source, source_id, rows, alerts, excluded,
+                 facade_only=False, exclude_lanterns=True, exclude_mrx=True):
         DB=self._db()
         for bic, category in ((DB.BuiltInCategory.OST_Windows,u"Fenêtre"),
                               (DB.BuiltInCategory.OST_Doors,u"Porte")):
@@ -169,6 +171,24 @@ class BaiesDiagnosticService(object):
                                 family=symbol.Family if symbol else None
                                 if not is_facade_family(_element_name(family, DB)):
                                     continue
+                            symbol=element.Symbol
+                            family=symbol.Family if symbol else None
+                            name=_element_name(family, DB)
+                            type_name=_element_name(symbol, DB)
+                            try:
+                                host=element.Host
+                                host_category=_text(host.Category.Name) if host and host.Category else u""
+                            except Exception:
+                                host_category=u""
+                            reason=exclusion_reason(name, type_name, host_category)
+                            should_hide=((reason=="LANTERNEAU" and exclude_lanterns)
+                                         or (reason=="MRX" and exclude_mrx))
+                            if should_hide:
+                                excluded.append(dict(source=source,source_id=source_id,
+                                    category=category, family=name, type=type_name,
+                                    element_id=_eid(element),unique_id=_text(element.UniqueId),
+                                    reason=reason))
+                                continue
                             rows.append(self._snapshot(document,element,source,source_id,category))
                     except Exception as error:
                         alerts.append(dict(source=source,element_id=_eid(element),
@@ -177,10 +197,13 @@ class BaiesDiagnosticService(object):
                 alerts.append(dict(source=source,element_id=u"",
                                    message=u"Collecte {} impossible : {}".format(category,_text(error))))
 
-    def analyze(self, include_links=False, facade_only=False):
+    def analyze(self, include_links=False, facade_only=False,
+                exclude_lanterns=True, exclude_mrx=True):
         DB=self._db()
-        rows, alerts=[],[]
-        self._collect(self.document,u"Projet hôte",u"HOST",rows,alerts,facade_only=facade_only)
+        rows, alerts, excluded=[], [], []
+        self._collect(self.document,u"Projet hôte",u"HOST",rows,alerts,excluded,
+                      facade_only=facade_only,exclude_lanterns=exclude_lanterns,
+                      exclude_mrx=exclude_mrx)
         if include_links:
             try:
                 for link in DB.FilteredElementCollector(self.document).OfClass(DB.RevitLinkInstance):
@@ -191,11 +214,13 @@ class BaiesDiagnosticService(object):
                             alerts.append(dict(source=source,element_id=_eid(link),
                                                message=u"Lien non chargé : ignoré"))
                         else:
-                            self._collect(linked,source,_text(link.UniqueId),rows,alerts,facade_only=facade_only)
+                            self._collect(linked,source,_text(link.UniqueId),rows,alerts,excluded,
+                                          facade_only=facade_only,exclude_lanterns=exclude_lanterns,
+                                          exclude_mrx=exclude_mrx)
                     except Exception as error:
                         alerts.append(dict(source=source,element_id=_eid(link),
                                            message=u"Lien ignoré : {}".format(_text(error))))
             except Exception as error:
                 alerts.append(dict(source=u"Projet hôte",element_id=u"",
                                    message=u"Collecte des liens impossible : {}".format(_text(error))))
-        return rows,aggregate_by_type(rows),alerts
+        return rows,aggregate_by_type(rows),alerts,excluded

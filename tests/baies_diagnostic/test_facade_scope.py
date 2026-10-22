@@ -20,7 +20,7 @@ def test_exterior_wall_presumed_not_certified():
 
 
 def test_perforated_metal_flagged():
-    assert facade_status("FEN-EXT-GEN-1V_MRX", "Murs", "Exterior") == "CAS_SPECIAL_NON_VITRE_A_VERIFIER"
+    assert facade_status("FEN-EXT-GEN-1V_MRX", "Murs", "Exterior") == "CAS_SPECIAL_MRX_A_EXCLURE"
 
 
 def test_skylight_flagged():

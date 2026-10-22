@@ -242,6 +242,9 @@ Recette finale : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 - [x] Corriger le premier blocage du diagnostic WPF (`System.Data` non chargé), enregistrer BUG-CALCULS-007 et ajouter quatre tests unitaires simulant l'assembly.
 - [x] Corriger BUG-CALCULS-008 : accès `Name` des familles/types et ajouter des tests anti-régression.
 - [x] Valider sur capture Revit 2025.4 le filtre hôte `FEN-EXT` / `PORFEN-EXT` : **416 occurrences / 18 types / 0 alerte**, grille et classifications visibles.
+- [x] Ajouter deux exclusions indépendantes, activées par défaut : lanterneaux et familles/types `MRX`, avec export des éléments exclus et exclusion permanente du futur calcul.
+- [ ] Revalider la nouvelle interface et les 4 CSV : 396 occurrences et 20 exclusions attendues sur le projet témoin.
+- [ ] Examiner dans Revit les familles `FEN-EXT-GEN-1V_ITI.rfa` et `PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel.rfa` pour déterminer les dimensions réellement mesurées en tableau.
 - [ ] Vérifier l'export CSV filtré, les liens Revit et les cas de familles réelles atypiques ; contrôler ensuite les surfaces en tableau.
 - [ ] Valider les parcours réels sous Revit 2025.4 / pyRevit 5.x avant toute fusion dans `main`.
 

@@ -79,7 +79,7 @@ Analyse des trois exports du projet du 22 octobre 2026 (`Diagnostic_Baies_202610
 - Sur 153 portes-fenêtres ordinaires `PORFEN-EXT`, `Largeur brute` excède `Largeur` de 4 cm et `Hauteur brute` excède `Hauteur` de 20 à 30 cm : les surfaces brutes sont environ 11 à 17 % plus élevées, selon les types.
 - Les types `170x140` de la famille `FEN-EXT-GEN-2V_VR_ITI` ont pourtant `Hauteur = 1,28 m` dans le relevé : **le nom du type ne doit pas être considéré comme une mesure**.
 
-La colonne `facade_status` est maintenant ajoutée aux exports occurrences et types ainsi qu'à la grille WPF. Les classifications possibles : `FACADE_PRESUMEE_A_VALIDER`, `CAS_SPECIAL_LANTERNEAU`, `CAS_SPECIAL_NON_VITRE_A_VERIFIER`, `HOTE_NON_MUR_A_VERIFIER`, `EXTERIORITE_A_VERIFIER` et `HORS_PREFIXES`.
+La colonne `facade_status` est maintenant ajoutée aux exports occurrences et types ainsi qu'à la grille WPF. Les classifications possibles : `FACADE_PRESUMEE_A_VALIDER`, `CAS_SPECIAL_LANTERNEAU`, `CAS_SPECIAL_MRX_A_EXCLURE`, `HOTE_NON_MUR_A_VERIFIER`, `EXTERIORITE_A_VERIFIER` et `HORS_PREFIXES`.
 
 Ces classements sont **strictement indicatifs** : le préfixe ne démontre pas la présence de vitrage ni la dimension effective du tableau. Il faudra vérifier une famille témoin par configuration, notamment les écartements entre `Largeur brute` et `Largeur`.
 
@@ -92,6 +92,25 @@ Capture transmise depuis le module **Outils TAA — Diagnostic des baies**, avec
 - **416 occurrences, 18 types et 0 alerte**, correspondant au total attendu d'après les CSV antérieurs.
 - **250** occurrences `NOMINAL_A_CONFIRMER`, **159** `CANDIDAT_OUVERTURE` et **7** `A_VERIFIER`.
 - La grille affiche les familles, types, quantités, méthode dimensionnelle, statut dimensionnel et statut façade.
-- Les exceptions `CAS_SPECIAL_LANTERNEAU` et `CAS_SPECIAL_NON_VITRE_A_VERIFIER` apparaissent dans la synthèse.
+- Les exceptions `CAS_SPECIAL_LANTERNEAU` et `CAS_SPECIAL_MRX_A_EXCLURE` apparaissent dans la synthèse.
 
 **Validation limitée :** l'utilisateur a confirmé par capture le fonctionnement du **filtre hôte + collecte + affichage WPF + comptage sans erreur**. L'export CSV du *nouveau filtre* n'a pas été montré, les liens directs n'étaient pas cochés, et aucune surface en tableau ni conformité RE2020 n'a été validée. Les contrôles manquants restent à réaliser avant fusion dans `main`.
+
+## Exclusions configurables — lanterneaux et MRX (22 octobre 2026)
+
+Deux nouvelles cases sont **cochées par défaut** dans le diagnostic :
+- **Exclure les lanterneaux** : recherche dans le nom de famille ou de type (`Lanterneau`, `Désenfumage`) ; exclut aussi les familles hébergées sur une toiture (`Toits`, `Toitures`, `Roofs`).
+- **Exclure les MRX (murs-rideaux)** : détecte le code métier indépendant `MRX` dans le nom de famille **ou** du type (notamment `FEN-EXT-GEN-1V_MRX`), ainsi que les variantes textuelles « mur-rideau » ou « métal perforé ».
+
+Le filtre `FEN-EXT / PORFEN-EXT` reste indépendant. **Avec les trois cases activées**, le résultat attendu sur le projet de référence inchangé est **396 occurrences visibles** : 416 familles de façade trouvées moins **11 lanterneaux** et **9 MRX**. Le compteur d'exclusions doit afficher 20 et les alertes rester à 0.
+
+Les deux exclusions ont un comportement distinct de la détection :
+- Case **cochée** : les éléments correspondants sont absents du tableau et du CSV principal. Ils sont conservés dans le quatrième fichier `_exclusions.csv` (source, famille, type, identifiant et motif), pour audit.
+- Case **décochée** : ils réapparaissent dans le diagnostic afin de pouvoir inspecter leurs dimensions, mais leur colonne `rule_16_status` indique toujours `EXCLU_LANTERNEAU` ou `EXCLU_MRX`. **Décocher ne signifie jamais qu'ils participent au calcul réglementaire**.
+- Les baies classiques restent seulement `CANDIDAT_A_CONTROLER`. **Aucune somme réglementaire n'est encore exécutée** ; dimensions, éligibilité et SHAB exigent une validation indépendante.
+
+Quatre fichiers CSV sont désormais exportés : `occurrences`, `_types`, `_alertes`, `_exclusions`. Cette modification concerne uniquement le diagnostic, sans transaction Revit.
+
+**Familles réelles fournies pour la vérification dimensionnelle :** `FEN-EXT-GEN-1V_ITI.rfa` et `PORFEN-EXT-GEN-2V_1F_ITI_VR tunnel.rfa`. Les fichiers sont au format natif Autodesk Revit ; leur géométrie, leurs vides de découpe et les références paramétriques ne peuvent pas être validés à partir du seul nom de fichier ou du rapport CSV. Une inspection dans l'éditeur de familles Revit 2025.4 est nécessaire avant de conclure sur `Largeur`, `Hauteur`, `Largeur brute` et `Hauteur brute`.
+
+**Recette restante :** extraire 396 occurrences / 20 exclusions sur le projet témoin, vérifier l'export des quatre CSV, puis décocher individuellement chacune des cases pour retrouver 407 ou 405 occurrences, sans jamais transformer les lignes spéciales en surfaces réglementaires. La PR #38 reste en brouillon.

@@ -53,7 +53,7 @@ Périmètre fonctionnel prévu :
 
 - Collecter les pièces du projet actif et, si sélectionnés, des liens Revit directs chargés ; regrouper par bâtiment et numéro de logement.
 - Lire les surfaces habitables pertinentes, en contrôlant leur périmètre et en évitant d'assimiler systématiquement la surface brute des pièces Revit à la SHAB.
-- Le diagnostic existant inventoriera par défaut les familles `FEN-EXT` et `PORFEN-EXT` (option désactivable), classera les cas atypiques et distinguera cotes nominales, brutes et tableau. L'éligibilité du vitrage et les murs-rideaux relèvent encore du futur moteur réglementaire.
+- Le diagnostic inventorie les familles `FEN-EXT` et `PORFEN-EXT` et exclut **par défaut les lanterneaux et familles/types MRX (murs-rideaux)** ; ces exclusions sont configurables pour l'inspection, tracées dans un CSV séparé et restent systématiquement hors du futur calcul réglementaire. Les dimensions nominales, brutes et de tableau ne sont pas encore certifiées.
 - Éviter le double comptage des ouvertures et signaler les baies à vérifier (local desservi, paroi extérieure, doublons, identifiant de logement, lien).
 - Produire un bilan des surfaces exigées, recensées et manquantes, ainsi qu'un rapport exportable avec avertissements.
 - Prévoir un fonctionnement **en lecture seule** lors du diagnostic ; toute écriture future dans des paramètres Revit sera optionnelle et explicitement confirmée.
