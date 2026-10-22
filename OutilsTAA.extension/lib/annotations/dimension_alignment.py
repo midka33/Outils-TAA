@@ -39,7 +39,7 @@ def _interval_gap(a, b):
 
 
 def matching_rails(line, rails, max_neighbor_gap,
-                   max_angle_degrees=5.0):
+                   max_angle_degrees=0.05):
     """Rails de cotation voisins et paralleles ; aucune direction imposee."""
     axis = _axis(line)
     if axis is None:
@@ -60,7 +60,7 @@ def matching_rails(line, rails, max_neighbor_gap,
 
 
 def alignment_penalty(candidate, rails, max_neighbor_gap, snap_tolerance,
-                      angle_degrees=5.0):
+                      angle_degrees=0.05):
     """0 si candidat aligne sur un rail voisin ; 1 dans les autres cas."""
     line = candidate.line_start, candidate.line_end
     axis = _axis(line)
