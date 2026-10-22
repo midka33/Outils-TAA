@@ -350,8 +350,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         # originale de l'element natif. GetInstanceGeometry() renvoie des
         # copies dont les References ne sont pas cotables dans Revit.
         for rail_id, element in continuous:
+            trace("GUARDRAIL_COMPONENT_BEFORE", safe_name(view),
+                  room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                  "id={}".format(id_value(rail_id)))
             try:
                 geometry = element.get_Geometry(options)
+                trace("GUARDRAIL_COMPONENT_AFTER", safe_name(view),
+                      room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                      "id={}".format(id_value(rail_id)))
                 if geometry is None:
                     continue
                 for obj in geometry:
