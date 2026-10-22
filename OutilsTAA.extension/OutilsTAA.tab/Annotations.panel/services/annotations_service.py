@@ -9,6 +9,7 @@ uniquement dans ces sous-classes. Revit 2025.4 / pyRevit 5.x.
 
 from Autodesk.Revit import DB
 from System.Collections.Generic import List
+import traceback
 
 from plans_vente.housing import Housing, RoomSnapshot
 from dimension_service import DimensionService
@@ -20,19 +21,48 @@ def id_value(element_id):
     return int(value if value is not None else element_id.IntegerValue)
 
 
+def safe_name(element, fallback=""):
+    """Element.Name est souvent inaccessible avec IronPython (Room/GroupType)."""
+    if element is None:
+        return fallback
+    try:
+        return str(DB.Element.Name.GetValue(element))
+    except Exception:
+        try:
+            return str(element.Name)
+        except Exception:
+            return fallback
+
+
+def room_value(room, parameter_id, fallback=""):
+    """Les noms et numeros des pieces viennent des parametres Revit natifs."""
+    try:
+        parameter = room.get_Parameter(parameter_id)
+        if parameter is not None:
+            value = parameter.AsString()
+            if value is not None:
+                return str(value)
+    except Exception:
+        pass
+    return fallback
+
+
 def plan_compatible(view):
     return (view is not None and not view.IsTemplate and
             view.ViewType == DB.ViewType.FloorPlan)
 
 
 def room_housing(rooms, key):
-    return Housing(key, [
-        RoomSnapshot(str(room.UniqueId),
-                     name=str(room.Name or ""),
-                     number=str(room.Number or ""),
-                     level_name=str(room.Level.Name))
-        for room in rooms
-    ])
+    snapshots = []
+    for room in rooms:
+        level = getattr(room, "Level", None)
+        snapshots.append(RoomSnapshot(
+            str(room.UniqueId),
+            name=room_value(room, DB.BuiltInParameter.ROOM_NAME, ""),
+            number=room_value(room, DB.BuiltInParameter.ROOM_NUMBER, ""),
+            level_name=safe_name(level, ""),
+        ))
+    return Housing(key, snapshots)
 
 
 class _GenericViewMixin(object):
@@ -99,7 +129,7 @@ class AnnotationService(object):
             v for v in DB.FilteredElementCollector(self.doc).OfClass(
                 DB.ViewPlan).WhereElementIsNotElementType().ToElements()
             if plan_compatible(v)
-        ], key=lambda v: v.Name.lower())
+        ], key=lambda v: safe_name(v).lower())
 
     def list_types(self, kind):
         return (self.tags.list_tag_types() if kind == "tags"
@@ -116,7 +146,7 @@ class AnnotationService(object):
                     result.append(style)
             except Exception:
                 continue
-        return sorted(result, key=lambda x: x.Name.lower())
+        return sorted(result, key=lambda x: safe_name(x).lower())
 
     def _rooms(self, view):
         collector = (DB.FilteredElementCollector(self.doc, view.Id)
@@ -240,7 +270,7 @@ class AnnotationService(object):
         prefix = "TAA - Etiquettes" if kind == "tags" else "TAA - Cotations"
         for tid in group.GetAvailableAttachedDetailGroupTypeIds():
             typ = self.doc.GetElement(tid)
-            if typ and typ.Name.startswith(prefix):
+            if typ and safe_name(typ).startswith(prefix):
                 return tid
         return None
 
@@ -271,7 +301,7 @@ class AnnotationService(object):
                     "L'API n'a pas cree de groupe de details attache au groupe initial.")
             group_type_id = self.doc.GetElement(next(iter(new_ids))).Id
             name = ("TAA - Etiquettes" if kind == "tags" else "TAA - Cotations")
-            name += " - {}".format(group.GroupType.Name)
+            name += " - {}".format(safe_name(group.GroupType, "Groupe"))
             self.doc.GetElement(group_type_id).Name = name
             tx.Commit()
             return group_type_id
@@ -294,8 +324,8 @@ class AnnotationService(object):
                     else self._not_yet_dimensioned(view, rooms))
         if not room_set:
             return 0, ["{} : annotations deja presentes ou vues non cotables.".format(
-                group.GroupType.Name if group else view.Name)]
-        name = group.GroupType.Name if group else "hors groupe"
+                safe_name(group.GroupType, "Groupe") if group else safe_name(view))]
+        name = safe_name(group.GroupType, "Groupe") if group else "hors groupe"
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
@@ -328,8 +358,9 @@ class AnnotationService(object):
             return len(new_ids), list(result.warnings)
         except Exception as exc:
             scope.RollBack()
-            return 0, ["{} / {} : annule sans annotation isolee ({})".format(
-                view.Name, name, exc)]
+            return 0, ["{} / {} : annule sans annotation isolee ({}: {}).\n{}".format(
+                safe_name(view, "Vue"), name, type(exc).__name__, exc,
+                traceback.format_exc())]
         finally:
             self.dims.proxy_candidates = {}
 
@@ -337,12 +368,13 @@ class AnnotationService(object):
         report, total = [], 0
         for view in views:
             if not plan_compatible(view):
-                report.append("{} : vue incompatible.".format(view.Name))
+                report.append("{} : vue incompatible.".format(safe_name(view, "Vue")))
                 continue
             try:
                 rooms = self._rooms(view)
             except Exception as exc:
-                report.append("{} : lecture pieces impossible : {}".format(view.Name, exc))
+                report.append("{} : lecture pieces impossible : {}: {}\n{}".format(
+                    safe_name(view, "Vue"), type(exc).__name__, exc, traceback.format_exc()))
                 continue
             grouped, singles = {}, []
             for room in rooms:
@@ -355,10 +387,12 @@ class AnnotationService(object):
                         grouped.setdefault(id_value(grp.Id), (grp, []))[1].append(room)
                     else:
                         report.append("{} : groupe introuvable.".format(room.Number))
-            report.append("{} : {} piece(s) dans la vue.".format(view.Name, len(rooms)))
-            if singles:
+            report.append("{} : {} piece(s) dans la vue, {} dans un groupe, {} hors groupe.".format(
+                safe_name(view, "Vue"), len(rooms), len(rooms)-len(singles), len(singles)))
+            # Une piece impossible n'annule pas toutes les autres pieces du plan.
+            for room in singles:
                 count, warnings = self._run_unit(
-                    view, singles, kind, annotation_type_id, None, line_style)
+                    view, [room], kind, annotation_type_id, None, line_style)
                 total += count
                 report.extend(warnings)
             # Reutiliser le type de detail deja cree pour les autres occurrences.
@@ -369,10 +403,10 @@ class AnnotationService(object):
                     try:
                         self._show(group, view, existing)
                         report.append("{} : details attaches reutilises.".format(
-                            group.GroupType.Name))
+                            safe_name(group.GroupType, "Groupe")))
                     except Exception as exc:
                         report.append("{} : impossible d'afficher : {}".format(
-                            group.GroupType.Name, exc))
+                            safe_name(group.GroupType, "Groupe"), exc))
                     continue
                 count, warnings = self._run_unit(
                     view, room_set, kind, annotation_type_id, group, line_style)
