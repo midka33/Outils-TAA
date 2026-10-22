@@ -152,19 +152,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         maximum = self._millimeters_to_internal(10.0)
         for dim in dimensions:
             try:
-                if dim.IsHidden(view) or dim.NumberOfSegments != 1:
+                if dim.IsHidden(view):
                     continue
-            except Exception:
-                # Les cotes simples peuvent ne pas exposer NumberOfSegments.
-                try:
-                    if dim.IsHidden(view):
-                        continue
-                except Exception:
+                references = list(dim.References)
+                if len(references) != 2:
                     continue
-            try:
                 value = float(dim.Value)
                 points = []
-                for reference in dim.References:
+                for reference in references:
                     element = self.document.GetElement(reference.ElementId)
                     if not isinstance(element, DB.DetailCurve):
                         continue
