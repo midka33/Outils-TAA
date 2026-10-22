@@ -87,3 +87,10 @@ def test_pas_de_forcage_de_position_hors_de_la_piece():
     room = [(0., 0.), (6., 0.), (6., 4.), (0., 4.)]
     assert aligned_candidates(line, room, [rail], contains,
                               SETTINGS, max_neighbor_gap=1.) == []
+
+
+def test_alignement_naccroche_pas_directions_seulement_presque_paralleles():
+    line = ((0., 1.), (6., 1.))
+    rail = ((6.2, 1.), (10.2, 1.2))
+    # 2,86 degres : deux cotes d'orientations differentes.
+    assert not matching_rails(line, [rail], max_neighbor_gap=1.)
