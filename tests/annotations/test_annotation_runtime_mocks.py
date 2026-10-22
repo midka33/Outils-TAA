@@ -621,3 +621,70 @@ def test_revit_adapter_ninsiste_pas_si_trop_de_planchers_a_extraire(monkeypatch)
         get_BoundingBox=lambda view: bounds,
         get_Parameter=lambda param: FakeParameter("2238"))
     assert service._floor_candidates(room, floors, []) == []
+
+
+
+def test_guardrail_reference_prioritaire_sur_reperes_2d(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    edge_reference = object()
+    edge_id = types.SimpleNamespace(Value=2450)
+    service._nearby_guardrail_edges = lambda room: [
+        ((0., .005, 3.12, .005), edge_reference, edge_id, 3.7)
+    ]
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
+    class Candidate(object):
+        def __init__(self, source_kind, segment, reference):
+            self.source_kind = source_kind
+            self.segment = segment
+            self.reference = reference
+            self.element_id_value = 1000
+            self.length_references = None
+
+    separator = Candidate("separator", (0., 0., 3.12, 0.), object())
+    floor = Candidate("floor_edge", (0., 3.62, 3.12, 3.62), object())
+    original_floor = floor.reference
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda p: FakeParameter("2238"))
+    chosen = service._upgrade_separator_guardrail(room, [separator, floor])
+    assert chosen == [separator, floor]
+    assert separator.source_kind == "guardrail_edge"
+    assert separator.reference is edge_reference
+    assert separator.element_id_value == 2450
+    assert floor.reference is original_floor
+    assert floor.source_kind == "floor_edge"
+    assert any("garde-corps" in t for t in service._guardrail_warnings)
+
+
+def test_guardrail_non_superpose_ne_remplace_pas_separation(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service._nearby_guardrail_edges = lambda room: [
+        ((0., .35, 3.12, .35), object(),
+         types.SimpleNamespace(Value=2450), 3.7)
+    ]
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
+    marker = object()
+    candidate = types.SimpleNamespace(
+        source_kind="separator", segment=(0., 0., 3.12, 0.),
+        reference=marker)
+    room = types.SimpleNamespace(UniqueId="2238")
+    service._upgrade_separator_guardrail(room, [candidate])
+    assert candidate.source_kind == "separator"
+    assert candidate.reference is marker
+
+
+def test_guardrail_reference_non_native_no_scan_when_view_absent(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    service = mod.GenericDimensions(object())
+    assert service._nearby_guardrail_edges(
+        types.SimpleNamespace(UniqueId="2238")) == []
