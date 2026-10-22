@@ -458,3 +458,55 @@ Plans de vente, Export et Calculs. À recetter dans Revit sur une
 copie : loggia 2238, référence native garde-corps lorsque disponible,
 cotes visibles après masquage des séparations mais garde-corps visible,
 second lancement sans doublons, journal de diagnostic.
+
+
+---
+
+### BUG-COMMON-013 — Trop de garde-corps près de la Room 2238 : fallback 2D systématique
+
+**Symptôme de la recette Revit (22/10/2026) :** la loggia 2238 est cotée
+3,12 m et 3,62 m sans crash, mais le rapport indique :
+`plus de deux garde-corps proches ; recherche native ignoree par securite`
+suivi de `reperes 2D utilises a la place des separations de piece`.
+Le filtre n'a donc même pas tenté les références natives du garde-corps
+susceptible de délimiter la loggia.
+
+**Cause racine :** `_nearby_guardrail_edges` comptait les garde-corps
+dont la **bbox intersectait toute la pièce** (marge 150 mm) et annulait
+la recherche dès le troisième. Ce filtre large peut inclure des
+garde-corps de loggias voisines ou de côtés différents, sans indiquer
+s'ils suivent réellement **les deux limites à coter**.
+
+**Correction :** faire une présélection légère de garde-corps visibles
+par bbox, puis appeler `Railing.GetPath()` (API Revit 2025.4) et
+comparer leurs segments en XY **aux seules séparations retenues dans
+les deux dimensions principales**. Critères de présélection souples :
+tolérance de 500 mm autour de la limite, angle maximum 12°, overlap
+minimum 30 %. Jusqu'à 2 garde-corps réellement proches de ces
+limites passent ensuite à la recherche géométrique native, inchangée
+(écart maximum de 20 mm / angle 3° / recouvrement 60 %).
+Le **chemin de garde-corps n'est jamais utilisé comme référence de
+cote** ; seules les `Edge.Reference` du solide Revit sont candidates.
+
+**Règles de sécurité :** maximum 24 garde-corps au filtre bbox, 80
+segments de chemin et 2 garde-corps retenus ; ensuite maximum 120
+arêtes examinées. Chemin indisponible, limite ambiguë ou budget
+dépassé => aucun nouveau parcours de solides, fallback 2D
+non associatif inchangé. Mode diagnostic une vue / une pièce maintenu.
+
+**Règle préventive :** distinguer les objets dans l'emprise d'une
+pièce et les objets réellement **colinéaires à la limite mesurée**.
+Filtrer en plan avant d'extraire leurs solides et appliquer les
+budgets géométriques au nombre d'objets **examinés**. Ne jamais
+substituer la référence native par une courbe de chemin non
+côtable. Une sortie de test où le fallback est déclenché doit
+identifier si c'est par ambiguïté ou absence d'arête exploitable.
+
+**Anti-régression :** `tests/annotations/test_guardrail_reference_policy.py`
+(4 objets dans la bbox, 1 chemin pertinent ; 2 pertinents ;
+3 réellement pertinents => fallback ; angles et proximité
+rejetés ; budget chemin), doubles
+`test_annotation_runtime_mocks.py`, workflows Annotations, Plans de
+vente, Export et Calculs. Recette native à refaire pour la pièce
+2238 sur copie en confirmant le rapport et la visibilité des cotes
+après masquage des séparations. **Non validé dans Revit après correction.**
