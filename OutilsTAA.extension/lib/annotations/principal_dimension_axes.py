@@ -1,28 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Selection des deux dimensions principales entre faces opposees.
+"""Deux plus grandes dimensions entre faces finies opposees.
 
-Utilise le moteur pur de Plans de vente pour trouver les paires de faces
-finies, puis exige deux directions perpendiculaires, si elles existent.
-La mesure de la longueur d'un mur ne remplace jamais une cote principale.
+Aucun angle de perpendicularite impose : les pieces biaises peuvent avoir
+leurs deux plus grandes dimensions dans des directions obliques.
+Le moteur geometrique de Plans de vente reste la source des paires.
 """
-
-import math
 
 from plans_vente.dimension_geometry import dominant_dimension_pairs
 
 
-def principal_pairs(segments, perpendicular_tolerance_degrees=15.0,
-                    angle_tolerance_degrees=5.0,
+def principal_pairs(segments, angle_tolerance_degrees=5.0,
                     minimum_relative_length=0.25,
                     placement_fraction=0.25):
-    """Maximum deux paires, de directions voisines de 90 degres.
+    """Choisit les deux plus grandes distances mesurables sur deux axes utiles.
 
-    Retourne les objets natifs DimensionAxisCandidate de Plans de vente.
-    Les dimensions restent les distances entre les faces opposees, pas
-    des longueurs de murs. Une seule paire est acceptee si la seconde
-    direction principale n'existe pas.
+    Le moteur PDV fournit une paire dominante *par famille de directions*.
+    Tri prioritaire par distance entre faces (pas la longueur de leurs murs).
+    A distance egale, la longueur des faces et le score PDV departagent.
+    Aucune direction n'est exigee perpendiculaire a une autre.
     """
     segments = list(segments or [])
     if len(segments) < 2:
@@ -35,25 +32,14 @@ def principal_pairs(segments, perpendicular_tolerance_degrees=15.0,
         placement_fraction=placement_fraction,
         max_results=len(segments),
     )
-    if not available:
-        return []
-
-    result = [available[0]]
-    first = available[0].tangent
-    perpendicular_max_dot = math.sin(
-        math.radians(float(perpendicular_tolerance_degrees)))
-    for pair in available[1:]:
-        second = pair.tangent
-        if abs(first[0] * second[0] + first[1] * second[1]) <= perpendicular_max_dot:
-            result.append(pair)
-            break
-    return result
+    available.sort(key=lambda pair: (pair.distance, pair.score), reverse=True)
+    return available[:2]
 
 
 def principal_reference_indexes(segments, **settings):
-    """Indices des seules faces appartenant aux paires principales retenues.
+    """Indices des references exactes des deux paires retenues.
 
-    Le service Revit doit conserver les references et leur ordre d'origine.
+    Le service Revit conserve les References et leur ordre sans modification.
     """
     indexes = set()
     for pair in principal_pairs(segments, **settings):
