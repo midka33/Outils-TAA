@@ -53,45 +53,81 @@ def select_guardrail_edge(boundary, edges, tolerance,
 
 def select_guardrails_by_path(items, target_segments, tolerance,
                               max_railings=2, max_segments=80,
-                              angle_degrees=12.0, minimum_overlap=.30):
-    """Filtre léger AVANT extraction native des arêtes des garde-corps.
+                              angle_degrees=12.0, minimum_overlap=.30,
+                              ambiguity_gap=0.0, with_diagnostics=False):
+    """Présélectionner au plus un garde-corps par limite retenue.
 
-    items : (element, segments_xy_du_chemin_revit) ; le chemin ne sert
-    qu'au filtrage spatial, JAMAIS comme Reference pour la cote.
-    Un garde-corps est retenu si une portion de son chemin est
-    sensiblement parallèle et proche d'une limite de pièce sélectionnée.
-    Budget de chemins dépassé ou trop de garde-corps réellement pertinents
-    => liste vide, puis le module garde son repli 2D.
+    Le chemin Railing.GetPath sert UNIQUEMENT au classement spatial.
+    Ne jamais utiliser ce chemin comme Reference pour la cotation.
+
+    Contrairement au filtre historique, la présence de trois ouvrages
+    géométriquement proches d'une même Room n'annule pas d'office la
+    recherche : chaque limite est évaluée indépendamment.
+    Si deux ouvrages sont quasi ex aequo (marge ambiguity_gap), cette
+    limite est rejetée plutôt que d'imposer arbitrairement un nu.
     """
     targets = list(target_segments or [])
+    info = {"reason": "no_targets", "inspected": 0, "path_matches": 0,
+            "ambiguous": 0, "selected": 0, "closest_distance": None,
+            "target_count": len(targets)}
     if not targets:
-        return []
-    inspected = 0
-    matches = []
+        return ([], info) if with_diagnostics else []
+    # Préparer la matrice des scores sans géométrie de solides.
+    rows = [[] for _ in targets]
     for element, segments in items:
         for segment in segments:
-            inspected += 1
-            if inspected > int(max_segments):
-                return []
-            best = None
-            for target in targets:
+            info["inspected"] += 1
+            if info["inspected"] > int(max_segments):
+                info["reason"] = "path_budget"
+                return ([], info) if with_diagnostics else []
+            for i, target in enumerate(targets):
                 metrics = segment_match_metrics(
                     target, segment,
                     angle_tolerance_degrees=angle_degrees,
                     distance_tolerance=tolerance,
                     minimum_overlap_ratio=minimum_overlap)
-                if metrics is not None and (best is None or
-                                            metrics["score"] < best):
-                    best = metrics["score"]
-            if best is not None:
-                matches.append((best, element))
-                break
-        if len(matches) > int(max_railings):
-            # Pas de selection arbitraire lorsque plusieurs ouvrages sont
-            # vraiment sur la meme limite de pièce.
-            return []
-    matches.sort(key=lambda item: item[0])
-    return [element for _score, element in matches]
+                if metrics is None:
+                    continue
+                rows[i].append((metrics["score"],
+                                metrics["distance"], element))
+                info["path_matches"] += 1
+                if (info["closest_distance"] is None or
+                        metrics["distance"] < info["closest_distance"]):
+                    info["closest_distance"] = metrics["distance"]
+
+    selected = []
+    for matches in rows:
+        if not matches:
+            continue
+        # Agréger les scores par ouvrage ; deux segments du même garde-
+        # corps ne doivent pas provoquer une fausse ambiguïté.
+        unique = []
+        for score, distance, element in matches:
+            idx = next((i for i, entry in enumerate(unique)
+                        if entry[2] is element), -1)
+            if idx < 0:
+                unique.append((score, distance, element))
+            elif score < unique[idx][0]:
+                unique[idx] = (score, distance, element)
+        unique.sort(key=lambda row: (row[0], row[1]))
+        if (len(unique) > 1 and
+                unique[1][0] - unique[0][0] <= ambiguity_gap + 1e-10):
+            info["ambiguous"] += 1
+            continue
+        chosen = unique[0][2]
+        if all(existing is not chosen for existing in selected):
+            selected.append(chosen)
+    if len(selected) > int(max_railings):
+        info["reason"] = "rail_budget"
+        selected = []
+    elif not selected:
+        info["reason"] = ("ambiguous" if info["ambiguous"]
+                          else "no_match")
+    else:
+        info["reason"] = ("partial_ambiguity" if info["ambiguous"]
+                          else "selected")
+    info["selected"] = len(selected)
+    return (selected, info) if with_diagnostics else selected
 
 
 def diagnose_guardrail_candidates(boundary, edges, tolerance,
