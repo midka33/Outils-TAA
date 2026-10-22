@@ -86,7 +86,7 @@ class GenericRoomTags(_GenericViewMixin, RoomTagService):
 
 
 class GenericDimensions(_GenericViewMixin, DimensionService):
-    """Conserve les references et les regles de cotation de Plans de vente."""
+    """Adapte le placement 06F sans modifier le moteur Plans de vente."""
 
     def __init__(self, document):
         super(GenericDimensions, self).__init__(document)
@@ -100,20 +100,86 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
 
     def _plan_graphics(self, room, view, lines, anchors, tags, dimensions,
                        equipment, warnings, placement_regions=None):
-        warning_count = len(warnings)
-        result = super(GenericDimensions, self)._plan_graphics(
-            room, view, lines, anchors, tags, dimensions, equipment, warnings,
-            placement_regions=placement_regions)
-        if any("placement 06F indisponible" in str(msg)
-               for msg in warnings[warning_count:]):
-            raise ValueError("Positionnement fiable indisponible : cotation omise.")
-        if any((placement.outside_count or placement.tag_hits or
-                placement.dimension_hits or any(
-                    "collision" in message.lower() or
-                    "croisement" in message.lower()
-                    for message in placement.warnings)) for placement in result):
-            raise ValueError("Aucune position de cote sans collision.")
-        return result
+        # Reprendre les memes generateurs de positions que Plans de vente.
+        # Le seul changement est la selection partielle sans collision.
+        from plans_vente.dimension_positioning import placement_candidates
+        from annotations.strict_dimension_positioning import (
+            SkippedPlacement, select_collision_free_placements)
+
+        if not lines:
+            return []
+        scale = max(1, int(view.Scale))
+        paper = lambda mm: self._millimeters_to_internal(mm * scale)
+        settings = dict(
+            clearance=paper(self.PAPER_CLEARANCE_MM),
+            text_width=paper(self.PAPER_TEXT_WIDTH_MM),
+            text_height=paper(self.PAPER_TEXT_HEIGHT_MM),
+            padding=paper(self.PAPER_PADDING_MM),
+            witness_length=paper(self.PAPER_WITNESS_MM),
+        )
+        try:
+            points = self._placement_room_points(room)
+            probe_z = self._probe_z(room)
+            cache = {}
+
+            def contains(xy):
+                xy = (float(xy[0]), float(xy[1]))
+                if xy not in cache:
+                    cache[xy] = bool(room.IsPointInRoom(
+                        self._xyz(xy[0], xy[1], probe_z)))
+                return cache[xy]
+
+            text_axis = (float(view.RightDirection.X),
+                         float(view.RightDirection.Y))
+            regions = placement_regions or [None] * len(lines)
+            groups = []
+            for line, anchor, region in zip(lines, anchors, regions):
+                group = placement_candidates(
+                    line, region or points, contains,
+                    tag_boxes=tags, dimension_boxes=dimensions,
+                    equipment_boxes=equipment, witness_anchors=anchor,
+                    text_axis=text_axis, **settings)
+                for candidate in group:
+                    candidate.text_inside = all(
+                        contains(point) for polygon in candidate.text_polygons
+                        for point in polygon)
+                groups.append(group)
+
+            chosen = select_collision_free_placements(groups)
+            for i, choice in enumerate(chosen):
+                if isinstance(choice, SkippedPlacement):
+                    group = groups[i]
+                    if group:
+                        min_tags = min(c.tag_hits for c in group)
+                        min_dims = min(c.dimension_hits for c in group)
+                        inside = sum(int(c.text_inside) for c in group)
+                        detail = ("{} position(s), {} texte(s) dans piece,"
+                                  " minimum {} collision(s) etiquette,"
+                                  " {} cote(s)").format(
+                                      len(group), inside, min_tags, min_dims)
+                    else:
+                        detail = "aucun candidat de placement"
+                    warnings.append(
+                        "{} : orientation {} ignoree : {} ({})".format(
+                            self._room_label(room), i + 1, choice.reason,
+                            detail))
+            return chosen
+        except Exception as error:
+            # Ne jamais utiliser silencieusement la position 06E non verifiee
+            # pour ces commandes ayant promis l'absence de collision.
+            warnings.append(
+                "{} : cotations ignorees, calcul des positions impossible : {}".
+                format(self._room_label(room), error))
+            return [SkippedPlacement("calcul graphique indisponible")
+                    for _ in lines]
+
+    def _create_dimension(self, view, dimension_type, first_reference,
+                          second_reference, line_start, line_end, room):
+        if line_start is None or line_end is None:
+            raise ValueError("Orientation ignoree : aucun placement sans collision.")
+        return super(GenericDimensions, self)._create_dimension(
+            view, dimension_type, first_reference, second_reference,
+            line_start, line_end, room)
 
 
 class AnnotationService(object):
