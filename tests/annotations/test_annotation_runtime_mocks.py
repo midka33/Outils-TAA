@@ -160,3 +160,35 @@ def test_annotation_adapter_uses_only_orthogonal_opposing_faces(monkeypatch):
     assert all(item in raw[:4] for item in selected)
     assert service._fallback_length_indexes(selected, []) == []
     assert service._fallback_length_indexes(selected, [object()]) == []
+
+
+def test_adaptateur_positionne_sur_rail_voisin_sans_changer_references(monkeypatch):
+    """Appelle le vrai _plan_graphics de l'adaptateur, pas le helper seul."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(None)
+    service.PAPER_CLEARANCE_MM = 3.
+    service.PAPER_TEXT_WIDTH_MM = 6.
+    service.PAPER_TEXT_HEIGHT_MM = 1.5
+    service.PAPER_PADDING_MM = .15
+    service.PAPER_WITNESS_MM = .75
+    service._millimeters_to_internal = lambda value: value / 1000.
+    service._placement_room_points = lambda room: [
+        (0., 0.), (6., 0.), (6., 4.), (0., 4.)]
+    service._probe_z = lambda room: 1.
+    service._xyz = lambda x, y, z: types.SimpleNamespace(X=x, Y=y, Z=z)
+    service._room_label = lambda room: "piece-test"
+    service._alignment_rails = lambda view: [
+        ((6.2, 1.4), (9.8, 1.4))]
+    room = types.SimpleNamespace(
+        IsPointInRoom=lambda p: 0. < p.X < 6. and 0. < p.Y < 4.)
+    view = types.SimpleNamespace(
+        Scale=100, RightDirection=types.SimpleNamespace(X=1., Y=0.))
+    warnings = []
+    chosen = service._plan_graphics(
+        room, view, [((0., 1.7), (6., 1.7))], [None],
+        [], [], [], warnings)
+    assert len(chosen) == 1
+    assert abs(chosen[0].line_start[1] - 1.4) < 1e-8
+    assert not warnings
