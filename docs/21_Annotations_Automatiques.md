@@ -396,3 +396,45 @@ séparations **ne sont pas automatiquement réassociées**.
       déjà référencées à des lignes de détail.
 - [ ] REV-ANN-43 — Une seule dimension possible ne laisse
       pas de détail 2D orphelin.
+
+
+### Consolidation du moteur de références commun (bêta)
+
+La stratégie de sélection des dalles est désormais unique, hébergée
+dans `OutilsTAA.extension/lib/common/floor_reference_policy.py` et
+utilisée par le service natif de **Plans de vente** ainsi que par
+**Cotation automatique**. L'extraction des arêtes de solides et
+`segment_match_metrics` restent les mêmes méthodes natives : aucun
+second parcours indépendant des solides n'a été introduit.
+
+- **Plans de vente** reste en mode `legacy` : mêmes supports que
+  précédemment ; sa version stable sur `main` n'est pas modifiée.
+- **Cotation automatique**, en mode `local`, examine uniquement les
+  dalles dont les emprises XY croisent la pièce (avec 300 mm de marge),
+  sur le niveau de la pièce et sur les niveaux voisins déjà retenus
+  par l'altitude (tolérance de 500 mm). Maximum **6 dalles** ;
+  aucune extraction géométrique si le budget est dépassé ou si la
+  bbox de la pièce est indisponible. Cache distinct pour chaque Room.
+- La priorité demeure **arête native de dalle**, ensuite **repère
+  de détail 2D de 5 mm**, et jamais référence de séparation définitive
+  pour les nouveaux essais de Cotation automatique. Les repères 2D
+  sont non associatifs avec les éléments constructifs.
+
+**Recette sur copie du projet Revit 2025.4 :**
+
+- [ ] REV-ANN-44 : après suppression manuelle des deux anciennes cotes
+      de 2238, relancer Cotation automatique en mode diagnostic (une
+      seule vue, une seule pièce), sans masquer les séparations.
+- [ ] REV-ANN-45 : vérifier 3,12 m et 3,62 m, puis masquer
+      `Séparations de pièces` : les deux cotes doivent rester visibles.
+- [ ] REV-ANN-46 : relancer une seconde fois sans doublon ;
+      relever les étapes `FLOOR_CANDIDATES`, `ROOM_COMMITTED`
+      et `RUN_END` dans le journal TAA.
+- [ ] REV-ANN-47 : identifier si les références de 2238 sont des
+      **arêtes natives** ou des **repères 2D**, notamment si le
+      budget de six planchers déclenche le fallback.
+- [ ] REV-ANN-48 : ne pas rouvrir les traitements multi-vues,
+      multi-pièces ou groupes sans validation explicite de stabilité.
+
+Ce changement est **non validé dans Revit** ; les tests unitaires
+et CI ne remplacent pas la recette. Voir BUG-COMMON-011.
