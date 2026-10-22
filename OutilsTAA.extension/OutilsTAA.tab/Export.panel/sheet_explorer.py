@@ -25,8 +25,10 @@ class SheetExplorer(object):
             os.environ.get("APPDATA") or os.path.expanduser("~"),
             "OutilsTAA", "export_sheet_explorer.json")
         self._restore_settings()
+        self._parameters = list(window.controller.get_context().get("parameters") or [])
         window.SheetExplorerGrouping.ItemsSource = (
-            ["Liste simple", "Par numéro", "Par nom", "Par paramètre Revit"]
+            ["Liste simple", "Par numéro", "Par nom"] +
+            ["Paramètre : " + name for name in self._parameters]
         )
         window.SheetExplorerGrouping.SelectedIndex = 0
         window.SheetExplorerList.PreviewKeyDown += self._key_down
@@ -100,12 +102,11 @@ class SheetExplorer(object):
             return (sheet.SheetNumber or "")[:2].upper() or "Sans numéro"
         if mode == 2:
             return (sheet.Name or "")[:1].upper() or "Sans nom"
-        if mode == 3:
+        if mode >= 3 and mode - 3 < len(self._parameters):
             try:
-                # Paramètre standard de classement des feuilles, si disponible.
-                parameter = sheet.LookupParameter("Classement")
+                parameter = sheet.LookupParameter(self._parameters[mode - 3])
                 if parameter is not None:
-                    return parameter.AsString() or "Non renseigné"
+                    return parameter.AsString() or parameter.AsValueString() or "Non renseigné"
             except Exception:
                 pass
             return "Non renseigné"
@@ -138,14 +139,14 @@ class SheetExplorer(object):
                 rows.append((self._group(sheet, mode), sheet))
             if mode == 2:
                 rows.sort(key=lambda entry: (entry[0], (entry[1].Name or "").lower()))
-            elif mode == 3:
+            elif mode >= 3:
                 rows.sort(key=lambda entry: (entry[0], (entry[1].SheetNumber or "").lower()))
             group = None
             for heading, sheet in rows:
                 if mode and heading != group:
                     group = heading
                     header = ListBoxItem()
-                    header.Content = TextBlock(Text=heading, FontWeight=self.window.FindResource("TaaFontWeight") if self.window.TryFindResource("TaaFontWeight") else None)
+                    header.Content = TextBlock(Text=heading)
                     header.IsEnabled = False
                     w.SheetExplorerList.Items.Add(header)
                 uid = str(sheet.UniqueId)
