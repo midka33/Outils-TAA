@@ -87,7 +87,8 @@ def load_annotation_module(monkeypatch):
     housing.RoomSnapshot = FakeSnapshot
     dims = types.ModuleType("dimension_service")
     dims.DimensionService = type("DimensionService", (object,), {
-        "__init__": lambda self, document: None,
+        # Le vrai service conserve self.document ; le double aussi.
+        "__init__": lambda self, document: setattr(self, "document", document),
         "ANGLE_TOLERANCE_DEGREES": 5.0,
         "MINIMUM_RELATIVE_LENGTH": 0.25,
         "PLACEMENT_FRACTION": 0.25,
