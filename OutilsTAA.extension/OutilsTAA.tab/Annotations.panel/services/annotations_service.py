@@ -96,7 +96,27 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         cached = self.proxy_candidates.get(str(room.UniqueId))
         if cached is not None:
             return cached
-        return super(GenericDimensions, self)._room_boundary_candidates(room)
+
+        # Reutiliser les vraies references de faces finies du moteur PDV,
+        # mais ne conserver que les deux paires de faces opposees les plus
+        # representatives et perpendiculaires. Aucun mur adjacent n'est
+        # cote par sa simple longueur dans ce module.
+        candidates = super(GenericDimensions, self)._room_boundary_candidates(room)
+        from annotations.principal_dimension_axes import principal_reference_indexes
+        indexes = principal_reference_indexes(
+            [item.segment for item in candidates],
+            angle_tolerance_degrees=self.ANGLE_TOLERANCE_DEGREES,
+            minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
+            placement_fraction=self.PLACEMENT_FRACTION,
+        )
+        return [item for index, item in enumerate(candidates)
+                if index in indexes]
+
+    def _fallback_length_indexes(self, boundary_candidates, pairs):
+        # SPECIFIQUE aux deux boutons Annotations : une longueur de mur
+        # (fallback 06E) n'est PAS une dimension entre faces opposees.
+        # Les deux axes principaux suffisent ; on n'invente pas de secours.
+        return []
 
     def _plan_graphics(self, room, view, lines, anchors, tags, dimensions,
                        equipment, warnings, placement_regions=None):
