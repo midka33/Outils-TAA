@@ -653,3 +653,62 @@ un motif de refus explicite, plutôt qu'un avertissement ambigu.
 suites CI Annotations, PDV, Export, Calculs. Validation sur une
 copie de maquette Revit 2025.4, pièce 2238, impérative avant levée
 du mode diagnostic.
+
+
+---
+
+### BUG-COMMON-018 — Une limite d'annexe est partagée entre deux garde-corps d'environ 50 %
+
+**Retour réel Revit (loggia 2238, 22/10/2026) :** le diagnostic retrouve
+deux garde-corps, 24 arêtes et 8 références natives. Une limite
+accepte une arête à 100 % de couverture. Pour l'autre, la meilleure
+arête couvre **52 %**, décalée de **15 mm** et parfaitement parallèle,
+mais échouait au seuil de **60 %**. La capture utilisateur confirme
+deux garde-corps **successifs**, chacun occupant à peu près la moitié
+de cette limite. Le moteur jugeait à tort chaque garde-corps
+séparément, comme s'il devait couvrir toute la longueur.
+
+**Cause racine :** `select_guardrail_edge` calculait uniquement
+`overlap_ratio` de **chaque arête individuelle**. Un garde-corps
+parfaitement valide de 52 % était donc rejeté, sans rechercher le
+second ouvrage qui complète la limite. Un simple abaissement du
+seuil à 50 % pour toute annexe aurait permis de choisir un rail
+isolé non représentatif de la limite.
+
+**Correction bêta Annotations :**
+- Conserver **60 %** de recouvrement pour accepter une arête seule,
+  y compris à l'extérieur.
+- Lorsqu'aucune arête seule n'atteint ce seuil sur une annexe,
+  comparer **deux arêtes natives de garde-corps distincts** (pas
+  deux lignes du même élément) et vérifier :
+  projection sur la limite ; angle <=3° ; écart de chaque arête
+  <=50 mm ; chaque portion couvre >=25 % ; couverture **cumulée
+  continue >=90 %** ; vide éventuel <=100 mm ; superposition
+  mutuelle <=10 % ; décalage latéral mutuel <=20 mm ; différence
+  d'altitude <=150 mm. Tous les seuils restent à valider sur
+  maquette, sans augmenter le budget des solides Revit.
+- Si cette continuité est avérée, conserver comme référence de cote
+  **une vraie `Edge.Reference` Revit** (celle de l'une des deux
+  arêtes, la plus longue). La deuxième référence sert à
+  **confirmer la continuité**, mais n'est **pas associative** à la
+  cote ; tout changement de l'un ou l'autre garde-corps appelle un
+  contrôle manuel. Si les deux portions ne se complètent pas,
+  conserver le fallback 2D.
+- Signaler dans le rapport couverture cumulée, jeu, décalage entre
+  ouvrages et limite de l'associativité.
+
+**Règle préventive :** distinguer couverture d'une arête individuelle
+et **union de deux tronçons construits**. Ne jamais affaiblir
+globalement un seuil de sécurité à partir d'un cas composé.
+Ne pas fabriquer de référence virtuelle ou de cote de longueur
+à partir de la somme des rails : seule une référence native
+réellement admissible est transmise à Revit.
+
+**Anti-régression :** tests de la politique pure (52 %+48 % qui se
+raccordent ; portion isolée rejetée ; deux éléments identiques ou
+superposés rejetés ; trou de 150 mm, décalage de 30 mm, couverture
+incomplète ou altitude différente rejetés) et tests doubles du
+service de référence Revit. Suites Annotations, PDV, Export et
+Calculs à contrôler. Recette impérative dans Revit 2025.4,
+sur copie de la loggia 2238 ; aucun comportement natif n'est
+présumé validé par ces tests hors Revit.
