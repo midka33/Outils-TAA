@@ -510,3 +510,18 @@ rejetés ; budget chemin), doubles
 vente, Export et Calculs. Recette native à refaire pour la pièce
 2238 sur copie en confirmant le rapport et la visibilité des cotes
 après masquage des séparations. **Non validé dans Revit après correction.**
+
+
+---
+
+### BUG-COMMON-014 — 120 aretes de garde-corps examinees avant la reference utile
+
+**Symptome :** cotation 2238 : deux garde-corps retenus par leur chemin, puis budget de 120 aretes atteint et repli 2D.
+
+**Cause :** la geometrie complete du garde-corps comprend des composants repetitifs, notamment des poteaux et barreaux, qui consomment la limite d'analyse avant les rails filants.
+
+**Correction :** utiliser les elements natifs TopRail et GetHandRails uniquement, et leurs solides directs avec references Revit originales. Ne pas inspecter les solides de l'element Railing parent. Conserver la limite de 120 aretes et le repli 2D lorsqu'aucune reference fiable n'est disponible.
+
+**Prevention :** reduire les objets analyses plutot qu'augmenter le budget d'API Revit apres un crash ; ne pas utiliser les references issues de GetInstanceGeometry pour creer des cotes.
+
+**Test anti-regression :** test_2238_quatre_gc_dans_bbox_un_seul_garde_corps_sonde controle que seule la geometrie du TopRail est interrogee ; suites CI et validation dans Revit 2025.4.
