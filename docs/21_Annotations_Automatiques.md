@@ -531,3 +531,39 @@ supprimé manuellement ; relancer Cotation automatique après mise
 
 Cette correction n'a pas encore été exécutée dans Revit 2025.4.
 Voir BUG-COMMON-013.
+
+
+### Limitation du parcours des arêtes — correctif après l'essai de 2238
+
+**Retour réel Revit :** deux cotes créées pour 2238 ; deux garde-corps
+retenus par leur chemin, mais les 120 arêtes ont été examinées avant de
+trouver une référence admissible. Le module est donc resté sur ses
+repères 2D non associatifs.
+
+**Cause :** le garde-corps parent peut contenir de nombreux poteaux,
+barreaux et rails discontinus. L'exploration de ses solides épuise le
+budget avant les grandes arêtes utiles.
+
+**Nouvelle règle :** après filtrage par `Railing.GetPath()`, la recherche
+interroge les éléments filants natifs `Railing.TopRail` et
+`Railing.GetHandRails()`, et non la géométrie complète du parent.
+Seuls leurs solides directs et arêtes rectilignes horizontales pourvues
+d'une référence Revit originale peuvent être candidats. Pas de
+`GetInstanceGeometry()` susceptible de produire des références copiées
+impropres aux cotes natives. Le budget maximal reste fixé à **120
+arêtes examinées** ; si les composants filants sont absents ou non
+exploitables, le repère 2D demeure le secours sûr.
+
+**Attention :** ce nouveau chemin doit encore être testé dans Revit ;
+un garde-corps peut être modélisé sans rail supérieur ni main courante
+accessible. Une arête native existante n'est pas nécessairement admise
+comme référence de cote par Revit.
+
+- [ ] REV-ANN-53 — Sur une copie, relancer la seule loggia 2238 et vérifier
+      que le rapport indique `rail(s) filant(s), ... aretes inspectees`.
+- [ ] REV-ANN-54 — Vérifier si `arete native de garde-corps utilisee`
+      apparaît ; sinon confirmer que `reperes 2D utilises` reste valide.
+- [ ] REV-ANN-55 — Masquer les séparations de pièces sans masquer les
+      supports de cote ; contrôler la visibilité des deux cotes.
+- [ ] REV-ANN-56 — Aucun doublon au second lancement et aucune fermeture
+      de Revit ; conserver le diagnostic sur une seule pièce.
