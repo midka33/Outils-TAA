@@ -168,3 +168,54 @@ de colinearite dans `tests/annotations/test_dimension_alignment.py`,
 CI complete Annotations + Plans de vente + Export.
 Une recette Revit 2025.4 doit confirmer la position du texte et les
 references effectivement retrouvees sur 2 lancements successifs.
+
+
+---
+
+### BUG-COMMON-008 — WC/celliers non cotes et arêtes de plancher absentes sur les balcons
+
+**Symptôme :** sur `Collectifs A_Niveau 1`, l'outil crée 63 cotes pour
+44 pièces. Dans de nombreux WC et celliers, une ou deux cotes manquent ; les
+pièces 2249, 2251 et 2252 sont entièrement rejetées avec
+`0 texte(s) dans piece` malgré des positions candidates sans collision.
+Les pièces extérieures 2237–2240 signalent l'absence d'arête de plancher
+superposée fiable.
+
+**Causes racines :**
+1. Le sélecteur strict imposait que les coins de toutes les enveloppes de
+texte de cote (horizontal et aligné) restent dans la Room. À l'échelle
+1:100, le gabarit conservateur de texte mesure plusieurs dizaines de
+centimètres en modèle et ne tient pas dans certains WC. Cette exigence
+n'était pas une règle métier : seules les superpositions de cotes et
+d'étiquettes étaient interdites.
+2. Dans la recherche PDV, `_floor_edges_for_room` examine les planchers
+de niveau identique quand il en existe, au détriment des planchers d'un
+niveau voisin. Une dalle de balcon rattachée au niveau voisin peut donc
+être ignorée alors même que sa vraie arête est superposée à la limite.
+
+**Correction :** garder les tests de chevauchement impératifs ; privilégier
+le texte **entièrement intérieur**, mais autoriser le texte partiellement
+extérieur à une petite pièce en dernier recours, avec avertissement
+explicite. Rechercher en priorité la vraie arête de dalle via la méthode
+PDV, puis, seulement si cette recherche échoue, inspecter les arêtes
+natives des dalles rattachées à des niveaux situés dans la tolérance de
+500 mm. Utiliser **les mêmes** critères PDV de recouvrement, proximité XY,
+pente et niveau et les `Reference` Revit, sans remplacer une cote
+par une longueur de mur. Si aucune arête exploitable n'existe, conserver
+le fallback natif des séparations de pièces avec son avertissement.
+
+**Règle préventive :** ne pas transformer une préférence graphique
+(texte à l'intérieur de la pièce) en condition d'échec absolue si la
+demande garantit d'abord l'absence de collision. Lorsqu'une référence
+de bord de dalle est recherchée, vérifier aussi les dalles voisines
+par niveau uniquement après l'échec de la recherche canonique.
+
+**Anti-régression :** `test_petite_piece_autorise_texte_partiellement_dehors_sans_collision`,
+`test_texte_interieur_reste_prioritaire_sur_le_repli_exterieur`,
+`test_repli_texte_exterieur_nignore_jamais_collision_etiquette`,
+`test_wc_small_room_plan_graphics_selects_fallback_without_texte_inside`,
+`test_balcon_priorite_reference_arrete_de_plancher_pdv`,
+`test_balcon_niveau_de_plancher_voisin_reutilise_match_pdv` et
+`test_balcon_recherche_reelle_aretes_niveaux_voisins_et_cache`.
+Exécuter les tests Annotations, les tests Plans de vente et Export ;
+revalidation visuelle obligatoire dans Revit 2025.4.
