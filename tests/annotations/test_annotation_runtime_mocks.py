@@ -192,3 +192,81 @@ def test_adaptateur_positionne_sur_rail_voisin_sans_changer_references(monkeypat
     assert len(chosen) == 1
     assert abs(chosen[0].line_start[1] - 1.4) < 1e-8
     assert not warnings
+
+
+
+def test_room_partiellement_cotee_reste_eligible(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    service = mod.AnnotationService(None)
+    room = types.SimpleNamespace(get_BoundingBox=lambda view: object())
+    view = object()
+    # Un groupe de cotes existant ne suffit pas a disqualifier une piece.
+    # La comparaison des references decide de l'axe encore manquant.
+    assert service._not_yet_dimensioned(view, [room]) == [room]
+
+
+def test_reference_identique_evite_doublon_mais_garde_l_autre_axe(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+
+    class Ref(object):
+        def __init__(self, label):
+            self.label = label
+
+        def ConvertToStableRepresentation(self, doc):
+            return self.label
+
+    class Dim(object):
+        def __init__(self):
+            self.References = [Ref("face-bas"), Ref("face-haut")]
+
+        def IsHidden(self, view):
+            return False
+
+    class Collector(object):
+        def __init__(self, doc, view_id):
+            self.doc = doc
+
+        def OfCategory(self, category):
+            return self
+
+        def WhereElementIsNotElementType(self):
+            return self
+
+        def ToElements(self):
+            return self.doc.dimensions
+
+    mod.DB.FilteredElementCollector = Collector
+    mod.DB.BuiltInCategory = types.SimpleNamespace(OST_Dimensions=123)
+
+    segments = [(0., 0., 7., 0.),
+                (7., 0., 7., 3.),
+                (7., 3., 0., 3.),
+                (0., 3., 0., 0.)]
+    class Bound(object):
+        def __init__(self, segment, key):
+            self.segment = segment
+            self.reference = Ref(key)
+
+    raw = [Bound(segment, key) for segment, key in
+           zip(segments, ("face-bas", "face-droite",
+                          "face-haut", "face-gauche"))]
+    monkeypatch.setattr(mod.DimensionService, "_room_boundary_candidates",
+                        lambda self, room: list(raw), raising=False)
+
+    doc = types.SimpleNamespace(dimensions=[Dim()])
+    service = mod.GenericDimensions(doc)
+    service.target_view = types.SimpleNamespace(Id="vue-0")
+    service.ANGLE_TOLERANCE_DEGREES = 5.
+    service.MINIMUM_RELATIVE_LENGTH = .25
+    service.PLACEMENT_FRACTION = .25
+    room = types.SimpleNamespace(UniqueId="piece-A101")
+    pending = service._room_boundary_candidates(room)
+    assert [b.segment for b in pending] == [segments[1], segments[3]]
+
+    # Une fois l'axe restant cote, il ne faut rien ajouter au relancement.
+    doc.dimensions.append(types.SimpleNamespace(
+        References=[Ref("face-droite"), Ref("face-gauche")],
+        IsHidden=lambda view: False))
+    assert service._room_boundary_candidates(room) == []
