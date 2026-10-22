@@ -688,3 +688,57 @@ def test_guardrail_reference_non_native_no_scan_when_view_absent(monkeypatch):
     service = mod.GenericDimensions(object())
     assert service._nearby_guardrail_edges(
         types.SimpleNamespace(UniqueId="2238")) == []
+
+
+
+def test_guardrail_native_reference_reconnue_au_second_lancement(monkeypatch):
+    """Substitution AVANT la comparaison : pas de cote double sur 2238."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+
+    class Ref(object):
+        def __init__(self, value):
+            self.value = value
+        def ConvertToStableRepresentation(self, document):
+            return self.value
+
+    class Bound(object):
+        def __init__(self, segment, kind, name):
+            self.segment = segment
+            self.source_kind = kind
+            self.reference = Ref(name)
+            self.element_id_value = 25
+            self.length_references = None
+
+    segments = [(0., 0., 3.12, 0.),
+                (3.12, 0., 3.12, 3.62),
+                (3.12, 3.62, 0., 3.62),
+                (0., 3.62, 0., 0.)]
+    original = [
+        Bound(segment, kind, name)
+        for segment, kind, name in zip(
+            segments, ["wall", "wall", "wall", "separator"],
+            ["bas", "droite", "haut", "sep"])
+    ]
+    monkeypatch.setattr(
+        mod.DimensionService, "_room_boundary_candidates",
+        lambda self, room: list(original), raising=False)
+
+    service = mod.GenericDimensions(object())
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .6
+    railing_id = types.SimpleNamespace(Value=2002)
+    service._nearby_guardrail_edges = lambda room: [
+        ((0., 3.62, 0., 0.), Ref("garde-corps"), railing_id, 3.)]
+    service._existing_proxy_dimensions = lambda: []
+    service._existing_dimension_reference_pairs = lambda: {
+        frozenset(("droite", "garde-corps"))}
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda p: FakeParameter("2238"))
+    pending = service._room_boundary_candidates(room)
+    # Le sens horizontal est déjà coté ; la paire haut/bas reste éligible.
+    assert pending == [original[0], original[2]]
+    assert original[3].source_kind == "guardrail_edge"
