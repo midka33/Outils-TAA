@@ -6,7 +6,8 @@ from __future__ import unicode_literals
 from pyrevit import forms, revit, script
 from Autodesk.Revit import DB
 
-from annotations_service import AnnotationService, safe_name
+from annotations_service import AnnotationService, safe_name, room_value
+from crash_trace import TRACE_PATH
 
 
 class Choice(object):
@@ -63,6 +64,31 @@ def run(kind):
     if not views:
         return
 
+    diagnostic_room_uid = None
+    if kind == "dims":
+        # Apres crash complet : pas de traitement de masse ni groupe.
+        # Selectionner explicitement une seule vue et une seule piece.
+        if len(views) != 1:
+            chosen_view = _choose_one(
+                [(v, safe_name(v, "Vue")) for v in views],
+                "Diagnostic crash - choisir UNE vue")
+            if chosen_view is None:
+                return
+            views = [chosen_view.value]
+        test_rooms = [
+            room for room in service._rooms(views[0])
+            if room.GroupId == DB.ElementId.InvalidElementId
+        ]
+        chosen_room = _choose_one([
+            (str(room.UniqueId), "{} - {}".format(
+                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                room_value(room, DB.BuiltInParameter.ROOM_NAME, "Piece")))
+            for room in test_rooms
+        ], "Diagnostic securise : choisir UNE piece hors groupe")
+        if chosen_room is None:
+            return
+        diagnostic_room_uid = chosen_room.value
+
     types = service.list_types(kind)
     picked = _choose_one([(x.unique_id, x.label) for x in types],
                          "{} - type Revit".format(title))
@@ -82,15 +108,21 @@ def run(kind):
             forms.alert("Style de ligne indisponible.", title=title)
             return
 
-    question = ("Appliquer {} dans {} vue(s) ?\n"
-                "Les groupes existants seront conserves ; "
-                "les groupes de details attaches seront testes.\n"
-                "Une operation de groupe refusee par Revit sera annulee."
-                .format(title.lower(), len(views)))
+    if kind == "dims":
+        question = ("MODE DIAGNOSTIC APRES CRASH REVIT\n"
+                    "Une seule piece hors groupe sera traitee.\n"
+                    "Ne pas executer sur la maquette de production.\n"
+                    "Journal persistant : {}\n"
+                    "Lancer cet essai ?".format(TRACE_PATH))
+    else:
+        question = "Appliquer {} dans {} vue(s) ?".format(
+            title.lower(), len(views))
     if not forms.alert(question, title=title, yes=True, no=True):
         return
 
-    count, report = service.run(kind, views, picked.value, style)
+    count, report = service.run(
+        kind, views, picked.value, style,
+        diagnostic_room_uid=diagnostic_room_uid)
     out = script.get_output()
     out.print_md("## {} - version beta".format(title))
     out.print_md("**{} annotation(s) creee(s) dans {} vue(s).**".format(
