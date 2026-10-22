@@ -130,6 +130,77 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             pass
         return result
 
+    def _existing_proxy_dimensions(self):
+        """Cotes 2D TAA identifiables par repere de 5 mm dans la vue.
+
+        Les references natives des cotes de details ne correspondent pas
+        aux references des separations de piece. Le test historique par
+        paires de references ne suffit donc pas au second lancement.
+        Rechercher seulement les petites DetailCurve deja referencees
+        par les cotes, sans parcourir la geometrie des planchers.
+        """
+        view = self.target_view
+        if view is None:
+            return []
+        found = []
+        try:
+            dimensions = (DB.FilteredElementCollector(self.document, view.Id)
+                          .OfCategory(DB.BuiltInCategory.OST_Dimensions)
+                          .WhereElementIsNotElementType().ToElements())
+        except Exception:
+            return found
+        maximum = self._millimeters_to_internal(10.0)
+        for dim in dimensions:
+            try:
+                if dim.IsHidden(view) or dim.NumberOfSegments != 1:
+                    continue
+            except Exception:
+                # Les cotes simples peuvent ne pas exposer NumberOfSegments.
+                try:
+                    if dim.IsHidden(view):
+                        continue
+                except Exception:
+                    continue
+            try:
+                value = float(dim.Value)
+                points = []
+                for reference in dim.References:
+                    element = self.document.GetElement(reference.ElementId)
+                    if not isinstance(element, DB.DetailCurve):
+                        continue
+                    curve = element.GeometryCurve
+                    if not isinstance(curve, DB.Line):
+                        continue
+                    if curve.Length > maximum:
+                        continue
+                    p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
+                    points.append(((float(p0.X)+float(p1.X))*.5,
+                                   (float(p0.Y)+float(p1.Y))*.5))
+                if points:
+                    found.append((value, points))
+            except Exception:
+                continue
+        return found
+
+    def _pair_already_proxied(self, pair, candidates, records):
+        """Sauter la portee deja cotée via une DetailLine de substitution."""
+        tolerance = self._millimeters_to_internal(3.0)
+        separator_centers = []
+        for index in (pair.first_index, pair.second_index):
+            candidate = candidates[index]
+            if getattr(candidate, "source_kind", None) != "separator":
+                continue
+            x0, y0, x1, y1 = candidate.segment
+            separator_centers.append(((x0+x1)*.5, (y0+y1)*.5))
+        for measured, reference_points in records:
+            if abs(measured-pair.distance) > tolerance:
+                continue
+            for cx, cy in separator_centers:
+                if any((px-cx)**2 + (py-cy)**2 <= tolerance**2
+                       for px, py in reference_points):
+                    return True
+        return False
+
     def _room_boundary_candidates(self, room):
         cached = self.proxy_candidates.get(str(room.UniqueId))
         if cached is not None:
@@ -147,11 +218,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             placement_fraction=self.PLACEMENT_FRACTION,
         )
         existing = self._existing_dimension_reference_pairs()
+        existing_proxy = self._existing_proxy_dimensions()
         indexes = set()
         for pair in pairs:
             refs = [self._stable_reference(candidates[index].reference)
                     for index in (pair.first_index, pair.second_index)]
             if len(refs) == 2 and all(refs) and frozenset(refs) in existing:
+                continue
+            if self._pair_already_proxied(pair, candidates, existing_proxy):
                 continue
             indexes.add(pair.first_index)
             indexes.add(pair.second_index)
