@@ -271,6 +271,9 @@ de leurs mises en page.
 - [x] Autoriser le croisement ponctuel des traits sans superposer les textes et témoins.
 - [x] Permettre de compléter une pièce partiellement cotée et identifier les doublons via références stables.
 - [ ] Vérifier les 2 cotations par pièce sur copie Revit, le placement des textes et la seconde exécution.
+- [x] Prévoir un repli de texte partiellement hors Room pour WC/celliers étroits, sans overlap d'étiquettes/cotes.
+- [x] Réutiliser la recherche d'arêtes de dalle PDV pour les balcons, en complétant la recherche sur les niveaux voisins.
+- [ ] Valider visuellement balcons, WC et celliers du niveau 1 (rapport 63 cotes / 44 pièces) et les références natives de dalle.
 - [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
