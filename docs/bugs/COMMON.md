@@ -404,3 +404,57 @@ activation du traitement en masse.
 
 **Statut :** code partagé et suites Python testés ; comportement
 de 2238 dans Revit 2025.4 encore non validé.
+
+
+---
+
+### BUG-COMMON-012 — Garde-corps omis dans l'ordre des références d'une loggia
+
+**Symptôme :** sur la loggia 2238, Cotation automatique produit deux
+dimensions 3,12 m et 3,62 m mais recourt à de petites lignes de détail
+2D non associatives lorsque la dalle ne fournit pas d'arête fiable,
+sans examiner un éventuel garde-corps modélisé.
+
+**Cause racine :** la chaîne de références ne prévoyait que faces de
+murs, arêtes de dalles, puis séparations de pièces et repères 2D.
+La classe `DB.Architecture.Railing` n'était pas interrogée.
+
+**Correction bêta :** entre la recherche canonique des murs/dalles et
+le fallback 2D, tenter une **arête native** d'un garde-corps Revit
+visible dans la vue, dont la projection XY coïncide suffisamment avec
+la limite de la Room. Utiliser le même appariement géométrique que
+les arêtes de dalles : écart maximal de 20 mm, angle maximal 3 degrés,
+recouvrement minimal 60 %. La référence est
+`Edge.Reference`, jamais la seule courbe d'axe `Railing.GetPath`,
+ni une projection approximative. Si la référence native est absente
+ou non exploitable, conserver le repère 2D de 5 mm comme dernier recours.
+
+**Sécurité :** recherche sur **une seule pièce en mode diagnostic**,
+garde-corps visibles dans la vue et proches de la Room (150 mm XY),
+maximum 2 garde-corps et 120 arêtes examinées. Surplus ou géométrie
+inaccessible => aucun nouvel élément natif inspecté, fallback 2D.
+Les références proposées restent à confirmer dans Revit 2025.4 :
+une géométrie renvoyée par l'API ne garantit pas à elle seule que
+`NewDimension` acceptera la référence. Les cotes appuyées sur un
+garde-corps peuvent devenir masquées lorsque celui-ci est masqué.
+
+**Règle préventive :** avant d'accepter une référence non associative
+sur une annexe, rechercher les véritables ouvrages construits
+(corps de mur / arête de dalle / garde-corps) lorsqu'ils correspondent
+géométriquement à la limite de la pièce. Ne jamais interpréter le seul
+libellé « garde-corps » comme preuve qu'une face constitue la limite
+réglementaire de surface annexe : l'arrêté du 9 mai 1995 modifié
+inclut les loggias dans les surfaces annexes mais ne précise pas un
+nu de garde-corps universel. SHAB exclut les loggias
+(article R.156-1 CCH). Pour un mesurage jusqu'au nu intérieur,
+la définition de limite doit être vérifiée dans les pièces du projet.
+
+**Anti-régression :** `tests/annotations/test_guardrail_reference_policy.py`
+(refus garde-corps éloigné ou oblique, priorité à l'arête fiable et
+budget), `tests/annotations/test_annotation_runtime_mocks.py`
+(référence de dalle inchangée, transformation d'une séparation en
+arête de garde-corps, fallback sinon) et suites CI d'Annotations,
+Plans de vente, Export et Calculs. À recetter dans Revit sur une
+copie : loggia 2238, référence native garde-corps lorsque disponible,
+cotes visibles après masquage des séparations mais garde-corps visible,
+second lancement sans doublons, journal de diagnostic.
