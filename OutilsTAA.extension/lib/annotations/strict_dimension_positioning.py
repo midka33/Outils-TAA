@@ -12,6 +12,7 @@ les nouvelles cotations. Il peut retenir une seule cote si necessaire.
 from itertools import product
 
 from plans_vente.dimension_positioning import placement_conflicts
+from annotations.dimension_alignment import alignment_penalty
 
 
 class SkippedPlacement(object):
@@ -36,7 +37,8 @@ def _compatible(left, right):
     return not text_hits and not graphic_hits
 
 
-def select_collision_free_placements(candidate_groups):
+def select_collision_free_placements(candidate_groups, rails=(),
+                                    max_neighbor_gap=8., snap_tolerance=.05):
     """Retourne un placement ou une sentinelle par orientation initiale.
 
     Contrairement au choix conjoint historique, une orientation impossible
@@ -60,6 +62,9 @@ def select_collision_free_placements(candidate_groups):
             -len(chosen),
             sum(int(candidate.outside_count > 0) for candidate in chosen),
             sum(candidate.outside_count for candidate in chosen),
+            sum(alignment_penalty(candidate, rails, max_neighbor_gap,
+                                  snap_tolerance) for candidate in chosen)
+            if rails else 0,
             sum(candidate.equipment_hits for candidate in chosen),
             sum(candidate.clearance_penalty for candidate in chosen),
             sum(candidate.rank for candidate in chosen),
