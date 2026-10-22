@@ -54,7 +54,9 @@ Une première version non validée dans Revit est préparée sur la branche
 Elle réutilise les moteurs Plans de vente sans modifier leur comportement.
 La recette et les limitations figurent dans [`docs/21_Annotations_Automatiques.md`](docs/21_Annotations_Automatiques.md).
 
-**Moteur commun (bêta) :** sélection des dalles centralisée dans `lib/common/floor_reference_policy.py`, mode historique conservé pour Plans de vente et recherche locale limitée à six dalles pour Cotation automatique. L'extraction géométrique native reste partagée, et la stabilité doit être vérifiée dans Revit.\n\n**Références des loggias (bêta) :** murs, dalle native, garde-corps natif fiable puis petite ligne 2D ; le garde-corps doit rester visible et la limite de mesurage du projet doit être confirmée. Recherche bornée en mode diagnostic, moteur PDV historique préservé.
+**Moteur commun (bêta) :** sélection des dalles centralisée dans `lib/common/floor_reference_policy.py`, mode historique conservé pour Plans de vente et recherche locale limitée à six dalles pour Cotation automatique. L'extraction géométrique native reste partagée, et la stabilité doit être vérifiée dans Revit.
+
+**Références des loggias (bêta) :** murs, dalle native, garde-corps natif fiable puis petite ligne 2D ; le garde-corps doit rester visible et la limite de mesurage du projet doit être confirmée. Recherche bornée en mode diagnostic : garde-corps présélectionnés par leur chemin Revit sur les limites cotées (et non par la seule boîte englobante de la pièce), avant extraction de leurs arêtes. Moteur PDV historique préservé.
 
 **Loggias (bêta) :** en cas de séparation de pièce sans arête de dalle exploitable, Cotation automatique tente maintenant des repères 2D de 5 mm, dans un style visible au choix de l'utilisateur. Cette substitution est non associative, doit être testée dans Revit et ne modifie pas le moteur Plans de vente. Les anciennes cotes sur séparations doivent être recréées manuellement sur copie pour cet essai.
 
