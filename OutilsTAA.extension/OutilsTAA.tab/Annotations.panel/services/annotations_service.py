@@ -304,49 +304,106 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             options.DetailLevel = DB.ViewDetailLevel.Coarse
         except Exception:
             pass
+        # N'examiner QUE les composants filants distincts : TopRail et
+        # HandRail. La geometrie du Railing principal contient souvent
+        # dizaines de barreaux et poteaux : 120 aretes avant le rail utile.
+        # On ne parcourt plus le solide du Railing parent.
+        continuous = []
+        for railing in railings:
+            ids = []
+            try:
+                top_id = railing.TopRail
+                if (top_id is not None and
+                        top_id != DB.ElementId.InvalidElementId):
+                    ids.append(top_id)
+            except Exception:
+                pass
+            try:
+                for hand_id in railing.GetHandRails() or []:
+                    if (hand_id is not None and
+                            hand_id != DB.ElementId.InvalidElementId):
+                        ids.append(hand_id)
+            except Exception:
+                pass
+            for rail_id in ids[:5]:
+                if any(id_value(pair[0]) == id_value(rail_id)
+                       for pair in continuous):
+                    continue
+                try:
+                    element = self.document.GetElement(rail_id)
+                    if element is not None:
+                        continuous.append((rail_id, element))
+                except Exception:
+                    continue
+        if not continuous:
+            self._guardrail_warnings.append(
+                "{} : aucun rail filant (TopRail / HandRail) accessible ; "
+                "reperes 2D conserves.".format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)))
+            return []
+
         min_length = self._millimeters_to_internal(100.)
         edges = []
         inspected = 0
-        # Garde-fou fort apres le crash Revit : 2 garde-corps / 120
-        # arêtes inspectées ; jamais d'extraction sur toute la maquette.
-        for railing in railings:
+        max_edges = 120
+        # Conserver exclusivement les References provenant de la geometrie
+        # originale de l'element natif. GetInstanceGeometry() renvoie des
+        # copies dont les References ne sont pas cotables dans Revit.
+        for rail_id, element in continuous:
             try:
-                geometry = railing.get_Geometry(options)
+                geometry = element.get_Geometry(options)
                 if geometry is None:
                     continue
-                for solid in self._geometry_solids(
-                        geometry, DB.Solid, DB.GeometryInstance):
-                    for edge in solid.Edges:
+                for obj in geometry:
+                    if not isinstance(obj, DB.Solid):
+                        # Les sous-instances pourraient porter des references
+                        # non cotables : ne pas les injecter artificiellement.
+                        continue
+                    try:
+                        if obj.Volume <= 1e-12:
+                            continue
+                    except Exception:
+                        pass
+                    for edge in obj.Edges:
                         inspected += 1
-                        if inspected > 120:
+                        if inspected > max_edges:
                             self._guardrail_warnings.append(
-                                "{} : budget 120 aretes atteint ; "
-                                "repli 2D prefere.".format(key))
+                                "{} : plus de {} aretes de rails filants ; "
+                                "repli 2D par securite.".format(
+                                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                                    max_edges))
                             return []
                         try:
                             reference = edge.Reference
+                            if reference is None:
+                                continue
                             curve = edge.AsCurve()
-                            if reference is None or not isinstance(
-                                    curve, DB.Line):
+                            if not isinstance(curve, DB.Line):
+                                continue
+                            if float(curve.Length) < min_length:
                                 continue
                             p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
-                            if curve.Length < min_length:
+                            if abs(p1.Z-p0.Z) > min_length*.1:
                                 continue
-                            if abs(p1.Z-p0.Z) > min_length * .1:
-                                continue
-                            # Reference de geometrie native accessible.
                             reference.ConvertToStableRepresentation(self.document)
                             edges.append((
                                 (float(p0.X), float(p0.Y),
                                  float(p1.X), float(p1.Y)),
-                                reference, railing.Id,
+                                reference, rail_id,
                                 (float(p0.Z)+float(p1.Z))*.5))
                         except Exception:
                             continue
             except Exception as error:
                 self._guardrail_warnings.append(
-                    "{} : garde-corps non exploitable : {}".format(key, error))
+                    "{} : composant filant non exploitable : {}".format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                        error))
                 continue
+        self._guardrail_warnings.append(
+            "{} : {} rail(s) filant(s), {} aretes inspectees, "
+            "{} reference(s) candidate(s).".format(
+                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
+                len(continuous), inspected, len(edges)))
         self._guardrail_cache[key] = edges
         return edges
 
