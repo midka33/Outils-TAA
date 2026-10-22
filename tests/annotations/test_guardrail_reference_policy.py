@@ -10,7 +10,9 @@ if str(LIB) not in sys.path:
 
 from common.guardrail_reference_policy import (
     matches_guardrail_edge, select_guardrail_edge,
-    select_guardrails_by_path)
+    select_guardrails_by_path,
+    is_exterior_annex, guardrail_tolerance_mm,
+    diagnose_guardrail_candidates)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -142,3 +144,42 @@ def test_preselection_ne_peut_pas_remplacer_reference_native():
         (0., 0., 3.12, 0.),
         [((0., .05, 3.12, .05), object(), candidate, 3.7)],
         tolerance=.02) is None
+
+
+
+def test_exterior_annex_types_and_int_ext_parameter():
+    for label in ("Loggia", "Balcon B102", "Terrasse accessible", "Jardin privatif"):
+        assert is_exterior_annex(label)
+    assert is_exterior_annex("Cour A004", "Ext")
+    assert is_exterior_annex("Extérieur", "extérieur")
+    assert not is_exterior_annex("Chambre")
+    assert not is_exterior_annex("Salle de bains", "Int")
+
+
+def test_tolérance_extérieure_rattrape_35mm_sans_relacher_les_angles():
+    limite = (0., 0., 3.12, 0.)
+    guardrail = (0., .035, 3.12, .035)
+    edges = [(guardrail, "reference-native", "rail", 3.7)]
+    assert select_guardrail_edge(limite, edges, tolerance=.020) is None
+    reference = select_guardrail_edge(
+        limite, edges, tolerance=.050, include_metrics=True)
+    assert reference[0:2] == ("reference-native", "rail")
+    assert abs(reference[2]["distance"]-.035) < 1e-9
+    assert guardrail_tolerance_mm(True) == 50.
+    assert guardrail_tolerance_mm(False) == 20.
+
+
+def test_decalage_de_65mm_reste_interdit_sur_annexe():
+    limit = (0., 0., 3.12, 0.)
+    edges = [((0., .065, 3.12, .065), "R", 5, 0.)]
+    assert select_guardrail_edge(limit, edges, tolerance=.050) is None
+    diagnosis = diagnose_guardrail_candidates(limit, edges, tolerance=.050)
+    assert len(diagnosis) == 1
+    assert "ecart" in diagnosis[0]["reasons"]
+    assert abs(diagnosis[0]["distance"]-.065) < 1e-9
+
+
+def test_annexe_rejette_guardrail_35mm_si_orienté_incorrectement():
+    limit = (0., 0., 3.12, 0.)
+    diagonal = [(0., .035, 3.12, .60), "R", 5, 0.]
+    assert select_guardrail_edge(limit, [diagonal], tolerance=.050) is None
