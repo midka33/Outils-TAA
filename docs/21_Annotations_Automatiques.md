@@ -90,12 +90,12 @@ est reportée après validation de cette bêta dans Revit.
 ## Correctif après retour du 22 octobre 2026
 
 Les captures utilisateur montrent 40 pièces au niveau 0 et 44 au niveau 1,
-mais aucune cote ni étiquette créée, avec le message \`(Name)\`.
-Le premier adaptateur lisait directement \`room.Name\`, connu pour lever
-\`AttributeError: Name\` sous IronPython.
+mais aucune cote ni étiquette créée, avec le message `(Name)`.
+Le premier adaptateur lisait directement `room.Name`, connu pour lever
+`AttributeError: Name` sous IronPython.
 
-Correctifs : paramètres \`ROOM_NAME\` / \`ROOM_NUMBER\`, noms d'éléments
-via \`Element.Name.GetValue\`, validation de niveau fiable, traceback complet
+Correctifs : paramètres `ROOM_NAME` / `ROOM_NUMBER`, noms d'éléments
+via `Element.Name.GetValue`, validation de niveau fiable, traceback complet
 dans le rapport, isolation des pièces non groupées pour éviter un rollback
 global de tout l'étage.
 
