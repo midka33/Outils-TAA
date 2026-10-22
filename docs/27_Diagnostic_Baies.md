@@ -188,3 +188,27 @@ L'article 23 de l'arrêté du 4 août 2021 exige une surface **mesurée en table
 - Le manuel technique réglementaire traite séparément les coffres qui s'inscrivent dans la surface du tableau et ceux disposés derrière le linteau : [Règles Th-Bat 2020, §3.2.5.1](https://rt-re-batiment.developpement-durable.gouv.fr/IMG/pdf/annexeiv_arrete_4_aout_2021.pdf).
 
 **Tests :** `test_evaluator.py` couvre 5 nouveaux scénarios et `test_service_names.py` vérifie la remontée de `Largeur×Hauteur` à la lecture d'un élément `PORFEN-EXT` avec coffre. Validation réelle dans Revit après pull restant nécessaire ; les quatre CSV précédents représentent l'ancienne préférence de calcul (153 surfaces de réservation brute) et ne doivent pas être réutilisés comme rapport de référence après cette mise à jour.
+
+## Recette des dimensions nominales — exports du 22 octobre 2026 à 18 h 06
+
+Comparaison des rapports d'occurrences du projet témoin datés `17:43:34` et `18:06:04`. Le contrôle a été réalisé sur les 4 CSV envoyés par l'utilisateur et sur le CSV antérieur :
+
+| Indicateur | Avant (17:43) | Après (18:06) |
+|---|---:|---:|
+| Occurrences `FEN-EXT` / `PORFEN-EXT`, hors exclusions | 396 | 396 |
+| Types | 14 | 14 |
+| Méthode `NOMINALE` | 243 | 396 |
+| Méthode `OUVERTURE_BRUTE` | 153 | 0 |
+| Exclusions (11 `LANTERNEAU`, 9 `MRX`) | 20 | 20 |
+| Alertes techniques | 0 | 0 |
+| Somme des `area_m2` candidates | **1 131,9948 m²** | **1 047,5910 m²** |
+
+L'identité `source_id + element_id` a été contrôlée : **396 éléments identiques** dans les deux extractions, **153 changements de surface** et aucun ajout/perte d'occurrence. La différence est de **−84,4038 m²**, soit **−7,456 %** de l'ancien total. Les 243 fenêtres sont inchangées ; seules les 153 portes-fenêtres passent de la réservation brute au couple `Largeur × Hauteur`.
+
+Dans le rapport de 18 h 06, **toutes les 396 lignes** portent `method=NOMINALE`, `status=NOMINAL_A_CONFIRMER`, `facade_status=FACADE_PRESUMEE_A_VALIDER`, `host_category=Murs` et `wall_function=Exterior`. Les produits `width_m × height_m` correspondent à `area_m2` (à la précision des CSV). Les 14 quantités par type totalisent bien 396.
+
+**62 occurrences de portes-fenêtres avec coffre tunnel** portent `rule_16_status=A_VERIFIER_COFFRE_TUNNEL`, soit **322,9260 m² de surface candidate**. Les **334 autres occurrences** portent `CANDIDAT_A_CONTROLER`, soit **724,6650 m²**. Ces deux sommes sont purement diagnostiques et **ne sont pas des sous-totaux réglementaires validés**.
+
+**Validation acquise :** priorité de `Largeur × Hauteur` sur les cotes brutes, rapport de surface, exclusion des lanterneaux/MRX, conservation des coffres tunnels en vérification, cohérence des CSV et zéro erreur. **Non validés :** équivalence géométrique avec la mesure en tableau, qualification réglementaire des baies, affectation aux logements, SHAB, comparaison aux exigences des 1/6, fonctionnement des liens Revit et basculement des filtres.
+
+Ne pas utiliser la somme de **1 047,5910 m²** comme surface de baie certifiée en tableau. Elle peut comprendre plusieurs logements, y compris les 62 coffres tunnels sous réserve.

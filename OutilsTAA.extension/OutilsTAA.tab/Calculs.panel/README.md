@@ -50,3 +50,7 @@ Bouton séparé **Diagnostic des baies** : inventaire en lecture seule des param
 ### Règle de mesure candidate (capture 22/10/2026)
 
 Pour les familles `FEN-EXT` / `PORFEN-EXT`, le diagnostic privilégie `Largeur × Hauteur` par rapport aux dimensions brutes (`Hauteur brute` peut inclure le coffre tunnel, `Largeur brute` les tapées). Les paramètres explicitement nommés `Largeur/Hauteur tableau` conservent la priorité. En absence de paire nominale ou en tableau, les dimensions brutes restent visibles pour analyse mais **ne sont pas comptées automatiquement**. La surface diagnostique est indicative, sans validation réglementaire. Voir `docs/27_Diagnostic_Baies.md`.
+
+### Recette CSV réelle (22/10/2026 à 18 h 06)
+
+Validation sur modèle hôte : 396 occurrences et 14 types, 0 alerte, 20 exclusions. Les 153 portes-fenêtres auparavant sélectionnées en `OUVERTURE_BRUTE` sont passées en `NOMINALE` sans changement d'identifiants ; les 396 surfaces candidates totalisent **1 047,5910 m²** contre **1 131,9948 m²** précédemment. Les 62 portes-fenêtres à coffre tunnel restent marquées `A_VERIFIER_COFFRE_TUNNEL`. Il ne s'agit pas de surfaces réglementaires validées.
