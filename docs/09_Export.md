@@ -1905,3 +1905,35 @@ pour respecter la cible Full HD : les réglages courants doivent rester visibles
 défilement vertical obligatoire à 1920 × 1080 ; le ScrollViewer reste un secours.
 
 Statut : tests hors Revit uniquement ; validation utilisateur Revit 2025.4 attendue.
+
+
+## Evolution UX planifiee — explorateur escamotable des mises en page (2026-10-22)
+
+**Statut : a developper, non implemente.** Objectif : faciliter l'ajout des mises en page Revit dans les dossiers de publication, en s'inspirant de l'ergonomie a deux explorateurs d'ArchiCAD sans reintroduire les carnets dans l'interface.
+
+### Disposition et affichage
+- Ajouter a gauche un explorateur des mises en page Revit, escamotable par un bouton explicite « Afficher/Masquer les feuilles ».
+- Conserver au centre l'arborescence des dossiers de publication et a droite le panneau existant des parametres PDF/DWG, nommage et destination.
+- Panneau ouvert : largeur initiale indicative de 35 a 40 % de la zone de navigation, ajustable avec un separateur vertical ; panneau ferme : l'arborescence recupere l'espace libere.
+- Memoriser largeur, visibilite, recherche, selection et defilement lors des ouvertures/fermetures ; ne pas perdre l'etat des dossiers existants.
+- Preserver la lisibilite en Full HD 1920x1080 et le theme TAA existant ; prevoir un comportement de repli pour les fenetres plus etroites.
+
+### Source des feuilles et recherche
+- Lister les mises en page du document Revit actif avec numero et nom, en distinguant clairement cette source des dossiers de publication.
+- Recherche instantanee et insensible a la casse sur numero et nom ; filtre facultatif « Non ajoutees ».
+- Proposer liste simple et regroupements par numero, nom ou parametre de classement Revit disponible, sans inventer de valeur manquante.
+- Indiquer visuellement si une feuille est deja presente dans un ou plusieurs dossiers ; permettre la reutilisation de la meme feuille dans plusieurs dossiers.
+
+### Selection et ajout
+- Ctrl+clic : selection discontinue ; Maj+clic : plage ; Ctrl+A : toutes les feuilles visibles dans le filtre ; selection maintenue lors des recherches successives.
+- Glisser-deposer une ou plusieurs feuilles depuis le panneau source vers le dossier cible, en conservant l'ordre affiche ; surligner le dossier cible et indiquer le nombre de feuilles transportees.
+- Reutiliser les conventions de drop deja implementees dans l'arbre de publication : ouverture automatique apres environ 700 ms, defilement automatique et conservation des dossiers ouverts ; ne pas regresser le drag-and-drop interne existant.
+- Double-clic sur une feuille : ajout au dossier actif ; clic droit : « Ajouter au dossier » ; bouton « Ajouter (N) » : ajout au dossier selectionne.
+- Ne jamais creer de doublon involontaire d'une meme feuille dans un meme dossier ; permettre une meme feuille dans des dossiers differents. Si aucune destination valide n'est selectionnee, desactiver l'ajout ou demander explicitement la destination.
+- Apres ajout, actualiser immediatement l'arborescence et les indicateurs sans effacer recherche, selection ou position de defilement de facon inattendue ; fournir un retour discret du nombre d'elements ajoutes/ignores.
+
+### Contraintes et recette
+- Conserver le modele a dossiers uniques (dossiers + mises en page), le stockage existant, les reglages herites, les destinations, le nommage et les moteurs PDF/DWG ; aucune refonte fonctionnelle de publication.
+- Inspecter les vues WPF/XAML et les handlers d'ajout actuels avant implementation ; etendre/reutiliser les services plutot que dupliquer les logiques d'ajout, de persistance et de glisser-deposer.
+- Tester : panneau ouvert/ferme et largeur memorisee ; recherches successives et selection Ctrl/Maj ; ajout simple/multiple, double-clic, bouton, menu contextuel et drag-and-drop ; dossier ferme/survol/scroll ; doublon dans le meme dossier ; meme feuille dans deux dossiers ; mise a jour des indicateurs ; annulation et reouverture ; non-regression des deplacements internes et de l'export PDF/DWG.
+- Tests automatises des comportements isolables, puis recette WPF dans Revit 2025.4 / pyRevit 5.x avant toute validation finale.
