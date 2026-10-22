@@ -473,30 +473,64 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                      if getattr(item, "source_kind", "") == "separator"]
         if not remaining:
             return candidates
-        from common.guardrail_reference_policy import select_guardrail_edge
+        from common.guardrail_reference_policy import (
+            select_guardrail_edge, guardrail_tolerance_mm,
+            diagnose_guardrail_candidates)
         edges = self._nearby_guardrail_edges(
             room, [item.segment for item in remaining])
         if not edges:
             return candidates
-        tolerance = self._millimeters_to_internal(
-            self.FLOOR_EDGE_TOLERANCE_MM)
+        exterior = self._is_exterior_annex(room)
+        tolerance_mm = guardrail_tolerance_mm(
+            exterior, ordinary_mm=self.FLOOR_EDGE_TOLERANCE_MM,
+            recovery_mm=50.)
+        tolerance = self._millimeters_to_internal(tolerance_mm)
+        unit_mm = self._millimeters_to_internal(1.0)
+        room_num = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")
         for candidate in remaining:
             match = select_guardrail_edge(
                 candidate.segment, edges,
                 tolerance=tolerance,
                 angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
-                minimum_overlap=self.FLOOR_EDGE_MIN_OVERLAP_RATIO)
+                minimum_overlap=self.FLOOR_EDGE_MIN_OVERLAP_RATIO,
+                include_metrics=True)
             if match is None:
+                # Diagnostiquer les distances reelles, sans decaler les
+                # references ni abaisser arbitrairement le recouvrement.
+                records = diagnose_guardrail_candidates(
+                    candidate.segment, edges, tolerance,
+                    angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                    minimum_overlap=self.FLOOR_EDGE_MIN_OVERLAP_RATIO)
+                if records and unit_mm > 0:
+                    near = records[0]
+                    self._guardrail_warnings.append(
+                        "{} : aucune arete admissible ; meilleure arete "
+                        "ecart {:.1f} mm, angle {:.1f} deg, "
+                        "recouvrement {:.0f}% (motifs {}).".format(
+                            room_num, near["distance"]/unit_mm,
+                            near["angle"], near["overlap"]*100.,
+                            ",".join(near["reasons"]) or "aucun"))
                 continue
-            reference, railing_id = match
+            reference, railing_id, metrics = match
             candidate.reference = reference
             candidate.element_id_value = id_value(railing_id)
             candidate.length_references = None
             candidate.source_kind = "guardrail_edge"
+            distance_mm = (metrics["distance"] / unit_mm
+                           if unit_mm > 0 else 0.)
             self._guardrail_warnings.append(
-                "{} : arete native de garde-corps utilisee ; "
-                "verifier le nu interieur et la visibilite du garde-corps."
-                .format(room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")))
+                "{} : arete native de garde-corps utilisee, "
+                "ecart de modelisation {:.1f} mm, "
+                "recouvrement {:.0f}%. Cote mesuree sur l'ouvrage reel ; "
+                "verifier son nu interieur et sa visibilite.".format(
+                    room_num, distance_mm,
+                    metrics["overlap_ratio"]*100.))
+            if exterior and distance_mm > self.FLOOR_EDGE_TOLERANCE_MM:
+                self._guardrail_warnings.append(
+                    "{} : ecart superieur a {:.0f} mm : "
+                    "rattrapage exterieur (50 mm maximum), "
+                    "controle manuel de la valeur de cote obligatoire."
+                    .format(room_num, self.FLOOR_EDGE_TOLERANCE_MM))
         return candidates
 
     def _room_boundary_candidates(self, room):
@@ -540,6 +574,19 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         return [candidate for index, candidate in enumerate(candidates)
                 if index in indexes]
 
+    def _is_exterior_annex(self, room):
+        """Selection du mode murs / garde-corps / 2D pour les annexes."""
+        from common.guardrail_reference_policy import is_exterior_annex
+        name = room_value(room, DB.BuiltInParameter.ROOM_NAME, "")
+        flag = ""
+        try:
+            parameter = room.LookupParameter("Int/Ext")
+            if parameter is not None:
+                flag = parameter.AsString() or ""
+        except Exception:
+            pass
+        return is_exterior_annex(name, flag)
+
     def _floor_cache_key(self, room, room_level_key):
         """Les planchers sont recherches localement PAR piece, pas par niveau."""
         return (room_level_key, str(room.UniqueId))
@@ -569,6 +616,12 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
 
         def floor_xy(floor):
             return self._bbox_xy(floor.get_BoundingBox(None))
+
+        # Pour les annexes exterieures, la limite constructive cherchee
+        # est d'abord le mur, ensuite le garde-corps ; jamais l'arete de
+        # dalle en substitution silencieuse de cette limite.
+        if self._is_exterior_annex(room):
+            return []
 
         result = select_floor_candidates(
             same_level, nearby_level, mode="local",
