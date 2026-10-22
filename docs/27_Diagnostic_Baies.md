@@ -63,3 +63,24 @@ Les 4 tests de l'adaptateur exécutés hors Revit utilisent des simulations CLR 
 ## Correctif noms FamilySymbol / Family — 22 octobre 2026
 
 Le second essai utilisateur a montré **1 349 occurrences exclues** avec le même message `Name`. Les paramètres n'étaient pas en cause : l'appel direct de `symbol.Name` pouvait échouer sous IronPython. Les noms des familles et types sont désormais lus par `DB.Element.Name.GetValue` avec mécanismes de repli, afin de conserver l'occurrence même en cas de nom inaccessible. Voir `BUG-CALCULS-008`. La reprise de l'analyse dans le Revit réel reste à confirmer.
+
+## Périmètre métier des fenêtres de façade — 22 octobre 2026
+
+Selon les conventions TAA, **les familles dont le nom commence par `FEN-EXT` ou `PORFEN-EXT`** sont la cible privilégiée du diagnostic. Le contrôle est maintenant **coché par défaut** dans l'interface, et peut être désactivé pour conserver l'inventaire complet. Le tri se fait sur le **nom de famille** (pas le nom de type, ni uniquement la catégorie Revit). Les familles `PORFEN-EXT` présentes dans la catégorie Revit Fenêtres sont bien retenues.
+
+Analyse des trois exports du projet du 22 octobre 2026 (`Diagnostic_Baies_20261022_165459*.csv`) :
+
+- **1 349 occurrences** globales, **0 alerte**.
+- **416 occurrences** correspondant aux préfixes, **12 familles, 18 types**.
+- Parmi ces 416 : **250** surfaces candidates d'après `Largeur × Hauteur` nominaux, **159** d'après `Largeur brute × Hauteur brute`, **7** sans paire de dimensions exploitable.
+- **405 occurrences** hébergées par un mur déclaré `Exterior`, **11 lanterneaux en toiture**.
+- **9 occurrences** de `FEN-EXT-GEN-1V_MRX` (dont type `Métal perforé`) demandent vérification ; elles ne doivent pas être comptabilisées automatiquement comme vitrage.
+- Il reste ainsi **396 occurrences présumées correspondre à des menuiseries de façade usuelles**, avant vérification réelle du verre, du tableau et du périmètre réglementaire.
+- Sur 153 portes-fenêtres ordinaires `PORFEN-EXT`, `Largeur brute` excède `Largeur` de 4 cm et `Hauteur brute` excède `Hauteur` de 20 à 30 cm : les surfaces brutes sont environ 11 à 17 % plus élevées, selon les types.
+- Les types `170x140` de la famille `FEN-EXT-GEN-2V_VR_ITI` ont pourtant `Hauteur = 1,28 m` dans le relevé : **le nom du type ne doit pas être considéré comme une mesure**.
+
+La colonne `facade_status` est maintenant ajoutée aux exports occurrences et types ainsi qu'à la grille WPF. Les classifications possibles : `FACADE_PRESUMEE_A_VALIDER`, `CAS_SPECIAL_LANTERNEAU`, `CAS_SPECIAL_NON_VITRE_A_VERIFIER`, `HOTE_NON_MUR_A_VERIFIER`, `EXTERIORITE_A_VERIFIER` et `HORS_PREFIXES`.
+
+Ces classements sont **strictement indicatifs** : le préfixe ne démontre pas la présence de vitrage ni la dimension effective du tableau. Il faudra vérifier une famille témoin par configuration, notamment les écartements entre `Largeur brute` et `Largeur`.
+
+Tests ajoutés : `tests/baies_diagnostic/test_facade_scope.py`. Recette restant à effectuer dans Revit 2025.4 : sur le modèle source, obtenir les **416** éléments ciblés en cochant le filtre, puis les 1 349 en le décochant, sous réserve d'absence de changements du modèle entre essais.
