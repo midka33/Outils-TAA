@@ -1,0 +1,21 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+__title__ = "Cotation\nauto"
+__doc__ = "Cotation des pieces de plusieurs vues, avec groupes de details attaches."
+
+import os
+import sys
+
+button_dir = os.path.dirname(__file__)
+panel_dir = os.path.dirname(button_dir)
+tab_dir = os.path.dirname(panel_dir)
+extension_dir = os.path.dirname(tab_dir)
+for path in (os.path.join(extension_dir, "lib"),
+             os.path.join(tab_dir, "PlansDeVente.panel", "services"),
+             os.path.join(panel_dir, "services")):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+from launcher import run
+run("dims")
