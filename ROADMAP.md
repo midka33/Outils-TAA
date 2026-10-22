@@ -268,6 +268,9 @@ de leurs mises en page.
 - [ ] Valider en Revit la géométrie de cotation principale après nettoyage des 57 cotes incorrectes du test bêta.
 - [x] Favoriser l'alignement des lignes de cote de même orientation dans les pièces voisines sans déplacer les références.
 - [ ] Valider l'alignement, les pièces biaisées et la priorité à l'absence de collisions dans Revit 2025.4.
+- [x] Autoriser le croisement ponctuel des traits sans superposer les textes et témoins.
+- [x] Permettre de compléter une pièce partiellement cotée et identifier les doublons via références stables.
+- [ ] Vérifier les 2 cotations par pièce sur copie Revit, le placement des textes et la seconde exécution.
 - [ ] Extraire une bibliothèque commune autonome après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
