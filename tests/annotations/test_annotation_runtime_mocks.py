@@ -774,18 +774,39 @@ def test_2238_quatre_gc_dans_bbox_un_seul_garde_corps_sonde(monkeypatch):
         def AsCurve(self):
             return FakeLine(0.0, 0., 0.0, 3.62)
 
+    class ElementId(object):
+        def __init__(self, number):
+            self.Value = number
+        def __eq__(self, other):
+            return isinstance(other, ElementId) and self.Value == other.Value
+
+    class FakeSolid(object):
+        Volume = 1.
+        def __init__(self):
+            self.Edges = [Edge()]
+
+    class TopRailElement(object):
+        def __init__(self, number):
+            self.number = number
+        def get_Geometry(self, options):
+            calls.append(self.number)
+            return [FakeSolid()]
+
     class Railing(object):
         def __init__(self, number, line):
             self.number = number
-            self.Id = types.SimpleNamespace(Value=number)
+            self.Id = ElementId(number)
+            self.TopRail = ElementId(number+100)
             self.line = line
         def get_BoundingBox(self, view):
             return Box()
         def GetPath(self):
             return [self.line]
+        def GetHandRails(self):
+            return []
         def get_Geometry(self, options):
-            calls.append(self.number)
-            return [object()]
+            raise AssertionError(
+                "Il est interdit de parcourir les barreaux du garde-corps.")
 
     railings = [
         Railing(1, FakeLine(1.5, 0., 1.5, 3.62)),
@@ -815,21 +836,24 @@ def test_2238_quatre_gc_dans_bbox_un_seul_garde_corps_sonde(monkeypatch):
     db.Line = FakeLine
     db.Options = Options
     db.ViewDetailLevel = types.SimpleNamespace(Coarse="coarse")
-    db.Solid = object
-    db.GeometryInstance = object
-    service = mod.GenericDimensions(object())
+    db.ElementId = types.SimpleNamespace(InvalidElementId=ElementId(-1))
+    db.Solid = FakeSolid
+    doc = types.SimpleNamespace(
+        GetElement=lambda element_id:
+        TopRailElement(element_id.Value) if element_id.Value >= 100 else None)
+    service = mod.GenericDimensions(doc)
     service.target_view = types.SimpleNamespace(Id="view2238")
     service._millimeters_to_internal = lambda mm: mm / 1000.
-    service._geometry_solids = lambda geom, solidcls, instancecls: [
-        types.SimpleNamespace(Edges=[Edge()])]
     room = types.SimpleNamespace(
         UniqueId="uuid2238",
         get_BoundingBox=lambda v: Box(),
         get_Parameter=lambda p: FakeParameter("2238"))
     edges = service._nearby_guardrail_edges(
         room, [(0., 0., 0., 3.62)])
-    assert calls == [3]
+    assert calls == [103]
     assert len(edges) == 1
-    assert edges[0][2].Value == 3
+    assert edges[0][2].Value == 103
+    assert any("1 rail(s) filant(s), 1 aretes inspectees" in t
+               for t in service._guardrail_warnings)
     assert not any("plus de deux garde-corps proches" in w
                    for w in service._guardrail_warnings)
