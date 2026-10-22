@@ -693,3 +693,58 @@ produire ces compteurs.
       cote réelle et le décalage proche des 40 mm relevés manuellement.
 - [ ] REV-ANN-67 — Masquer les séparations et contrôler que les cotes
       restent visibles, puis relancer sans doublon ni crash.
+
+
+### Deux garde-corps jointifs pour une seule limite — loggia 2238
+
+**Observation Revit 2025.4 (22 octobre 2026) :** la loggia 2238 possède
+**deux garde-corps successifs**, occupant approximativement la moitié
+de la même limite extérieure. Le précédent rapport indiquait une
+meilleure arête de **52 % de recouvrement**, **15 mm d'écart** et
+**0° d'angle** ; ce tronçon était refusé car il couvrait moins que
+les 60 % demandés. Les autres arêtes n'avaient pas encore été
+considérées **collectivement** pour démontrer la continuité.
+
+**Règle corrigée pour les annexes extérieures :**
+
+1. Une référence native individuelle doit encore couvrir **60 %**
+   au minimum de la limite, conformément à la règle historique.
+   **Le seuil n'est pas abaissé à 50 % pour une arête isolée.**
+2. Si une arête seule ne suffit pas, deux garde-corps natifs distincts
+   peuvent être vérifiés ensemble : projection colinéaire à 3° près,
+   chaque arête à 50 mm maximum de la limite, chaque portion à
+   25 % minimum, recouvrement cumulé **90 % minimum**, raccordement
+   à 100 mm maximum, décalage entre les deux rails de 20 mm maximum,
+   altitude à 150 mm maximum, pas de deux arêtes quasi superposées.
+3. Si le raccordement est vérifié, la cote utilise **la référence Revit
+   d'un seul des deux rails**, jamais une ligne fictive calculée à
+   partir de leur somme. L'autre rail prouve la continuité du bord.
+   **La cote n'est pas liée aux deux rails** : le contrôle après
+   modification de l'un ou de l'autre reste obligatoire.
+4. Si la continuité ne peut pas être établie ou si la référence
+   native est refusée, utiliser le repère 2D non associatif déjà prévu.
+
+**Diagnostic attendu :**
+`2238 : DEUX garde-corps contigus identifies : couverture commune
+...%, jeu ... mm, decalage entre rails ... mm`, suivi de l'indication
+de référence native utilisée. Les faces finies de murs restent
+prioritaires ; la règle ne concerne que les annexes extérieures et
+ne modifie pas Plans de vente stable.
+
+**Recette sur copie de maquette :**
+- [ ] REV-ANN-68 : après suppression des cotes précédentes,
+      relancer sur la seule pièce 2238 ; confirmer les deux cotes et
+      la création d'une référence de garde-corps au lieu du
+      fallback 2D si la paire réelle satisfait les seuils.
+- [ ] REV-ANN-69 : vérifier le cumul des deux tronçons dans le
+      rapport (au moins 90 %, raccord de 100 mm maximum) ;
+      contrôler la position du nu et la valeur réelle mesurée.
+- [ ] REV-ANN-70 : masquer les séparations de pièces en conservant les
+      garde-corps et repères 2D visibles, puis relancer pour
+      vérifier l'absence de doublons.
+- [ ] REV-ANN-71 : conserver le journal
+      `%TEMP%\\OutilsTAA_Annotations_crashtrace.log` si un
+      nouvel incident Revit apparaît.
+
+**État :** correction et tests Python uniquement ; l'acceptation
+des références reste à vérifier dans Revit 2025.4.
