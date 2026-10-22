@@ -644,3 +644,52 @@ supplémentaire n'est analysé pour ce diagnostic.
       le garde-corps ou le repère de détail : les cotes doivent rester.
 - [ ] REV-ANN-63 : relancer sans créer de doublon ; vérifier le fichier
       `%TEMP%\\OutilsTAA_Annotations_crashtrace.log` si incident.
+
+
+### Correction du filtre amont des garde-corps de 2238 — 22 octobre 2026
+
+**Nouvel essai utilisateur :** deux dimensions produites, une cote
+manuelle supplémentaire indique un écart d'environ **0,04 m**
+entre séparation et garde-corps. Le rapport indique
+`aucun garde-corps avec chemin suffisamment proche des limites a coter
+(ou recherche ambigue)`. Cette sortie ne démontre pas qu'aucun ouvrage
+ne correspond ; l'ancien filtre ne distinguait pas une absence
+géométrique d'un excès de candidats.
+
+**Cause dans le moteur précédent :** il arrêtait tous les candidats
+dès que plus de **deux garde-corps** longeaient au moins une des
+limites sélectionnées. En supprimant la substitution par dalle
+pour les annexes extérieures, davantage de séparations ont été
+présentées au filtre ; un garde-corps pertinent pouvait alors être
+écarté avec tous les autres.
+
+**Modification bêta :** les chemins `Railing.GetPath()` sont désormais
+classés **indépendamment pour chaque limite** ; au maximum un garde-corps
+par limite et deux ouvrages au total accèdent aux géométries natives.
+Lorsque les deux meilleurs scores sur une même limite se suivent à
+moins de **25 mm**, cette limite est ambiguë et le repère 2D est
+conservé (l'autre limite peut encore être cotée nativement).
+La marge **500 mm** pour présélectionner le *chemin* ne doit pas
+être confondue avec la tolérance **50 mm maximum** pour sélectionner
+l'*arête native* d'une annexe extérieure. Cette dernière reste
+soumise au critère d'angle maximal 3° et au recouvrement d'au moins 60 %.
+
+**Nouveau rapport détaillé :** le module signale
+`filtrage GC : N chemin(s) dans la piece, M limite(s),
+P correspondance(s), A ambigue(s), plus proche D mm, statut S`.
+Les valeurs de `S` distinguent `selected`, `no_match`,
+`ambiguous`, `partial_ambiguity`, `path_budget` et
+`rail_budget`. Aucun solide supplémentaire n'est lu pour
+produire ces compteurs.
+
+**Recette ciblée Revit 2025.4 (sur copie uniquement)** :
+- [ ] REV-ANN-64 — Supprimer manuellement les deux anciennes cotes
+      de 2238, mettre à jour la branche puis relancer une fois
+      le mode une vue / une pièce.
+- [ ] REV-ANN-65 — Fournir la ligne `filtrage GC` et vérifier la
+      présence d'un garde-corps réellement retenu (ou l'ambiguïté
+      détaillée).
+- [ ] REV-ANN-66 — Si une arête est retenue, vérifier la valeur de
+      cote réelle et le décalage proche des 40 mm relevés manuellement.
+- [ ] REV-ANN-67 — Masquer les séparations et contrôler que les cotes
+      restent visibles, puis relancer sans doublon ni crash.
