@@ -288,7 +288,7 @@ Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du 
 - [x] Selection multiple et ajout par bouton, double-clic, menu et drag-and-drop distinct du deplacement interne.
 - [x] Ajouter une operation de persistance atomique preservant les sources et evitant les doublons par dossier.
 - [x] Ecrire les tests unitaires de l'ajout dans un dossier.
-- [ ] Executer effectivement les pytest et corriger les eventuels echecs.
+- [x] Executer effectivement les pytest : 321 tests passes via GitHub Actions (22 octobre 2026).
 - [ ] Valider la fenetre et les interactions sous Revit 2025.4 / pyRevit 5.x.
 - [ ] Rejouer les recettes de non-regression de l'arborescence et des publications PDF/DWG.
 - [ ] Fusionner uniquement apres validation utilisateur.
