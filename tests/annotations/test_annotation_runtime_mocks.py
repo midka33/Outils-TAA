@@ -262,6 +262,8 @@ def test_reference_identique_evite_doublon_mais_garde_l_autre_axe(monkeypatch):
     service.MINIMUM_RELATIVE_LENGTH = .25
     service.PLACEMENT_FRACTION = .25
     room = types.SimpleNamespace(UniqueId="piece-A101")
+    assert service._existing_dimension_reference_pairs() == {
+        frozenset(("face-bas", "face-haut"))}
     pending = service._room_boundary_candidates(room)
     assert [b.segment for b in pending] == [segments[1], segments[3]]
 
