@@ -125,3 +125,46 @@ des cotes erronees du test precedent avant relance.
 **Regle preventive :** ne pas ajouter de contrainte geometrique absente de la demande metier. Distinguer choix de la dimension (portee maximisee) et placement graphique (alignement privilegie, collisions prioritaires).
 
 **Anti-regression :** `tests/annotations/test_principal_dimension_axes.py` (piece biais, 2 grandes portees non orthogonales), `tests/annotations/test_dimension_alignment.py` (alignement, obstacle, voisin eloigne), `tests/annotations/test_annotation_runtime_mocks.py` (adaptateur reel simule), suite complete `tests/plans_vente` et tests Export sur GitHub Actions. Validation dans Revit 2025.4 obligatoire.
+
+
+---
+
+### BUG-COMMON-007 — Une seule cote par piece et impossibilite de completer
+
+**Symptome :** sur `Collectifs A_Niveau 0`, 34 cotes pour 40 pieces,
+la plupart n'ont qu'une des deux grandes dimensions. Le rapport indique
+repetitivement `orientation ignoree : aucune position sans chevauchement`,
+y compris quand `minimum 0 collision(s) etiquette, 0 cote(s)`.
+Un second lancement sautait les pieces deja partiellement cotees.
+
+**Cause racine :**
+1. Le selecteur strict rejetait tout `graphic_hit` entre les deux cotes.
+   Or deux lignes mesurant les portees completes d'une piece rectangulaire
+   se croisent necessairement, meme quand leurs textes ne se recouvrent pas.
+2. Une bbox de cote existante pouvait interdire tout le chemin de la seconde
+   cote ; la selection d'une piece se fondait aussi sur la simple
+   intersection des bboxes, et non sur les references effectivement cotees.
+
+**Correction :** autoriser uniquement le croisement ponctuel des deux
+traits de cotes dans le selecteur, en interdisant les chevauchements de
+textes, temoins, et lignes colineaires. Pour les anciennes dimensions de
+la vue, reserver leur texte (avec fallback bbox Revit si texte inaccessible)
+et tester explicitement le recouvrement colineaire des traits. Reprendre
+les pieces partiellement cotees et identifier les paires deja cotees par
+leurs deux references natives `ConvertToStableRepresentation`, sans
+considerer une bbox partagee comme une preuve de cotation. Le placement
+des **etiquettes** conserve la protection de toute la bbox des cotes.
+
+**Regle preventive :** les contraintes graphiques de cotation doivent
+distinguer croisement simple de traits, overlap de textes, recouvrement
+colineaire et doublon de references. Une piece partiellement annotee
+reste eligible aux annotations manquantes, sans duplications.
+
+**Anti-regression :** tests geometriques croisement/perpendicularite/texte
+dans `tests/annotations/test_strict_dimension_positioning.py`, tests
+de reference native + reprises dans
+`tests/annotations/test_annotation_runtime_mocks.py`, tests
+de colinearite dans `tests/annotations/test_dimension_alignment.py`,
+CI complete Annotations + Plans de vente + Export.
+Une recette Revit 2025.4 doit confirmer la position du texte et les
+references effectivement retrouvees sur 2 lancements successifs.
