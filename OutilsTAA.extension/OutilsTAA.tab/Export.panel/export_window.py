@@ -856,11 +856,15 @@ class ExportWindow(forms.WPFWindow):
             self._sheet_explorer.selection_changed(args)
 
     def SheetExplorerAdd_Click(self, sender, args):
-        self._sheet_explorer.add_to_current()
+        explorer = getattr(self, "_sheet_explorer", None)
+        if explorer is not None:
+            explorer.add_to_current()
 
     def SheetExplorerDoubleClick(self, sender, args):
-        self._sheet_explorer.add_to_current()
-        args.Handled = True
+        explorer = getattr(self, "_sheet_explorer", None)
+        if explorer is not None:
+            explorer.add_to_current()
+            args.Handled = True
 
     def SheetExplorerMouseDown(self, sender, args):
         if getattr(self, "_sheet_explorer", None):
@@ -869,3 +873,4 @@ class ExportWindow(forms.WPFWindow):
     def SheetExplorerMouseMove(self, sender, args):
         if getattr(self, "_sheet_explorer", None):
             self._sheet_explorer.mouse_move(args)
+

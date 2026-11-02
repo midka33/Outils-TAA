@@ -49,11 +49,20 @@ def test_duplicate_in_same_folder_ignored_other_folder_allowed(tmp_path):
 
 def test_invalid_destination_does_not_write(tmp_path):
     repo = _repo(tmp_path)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="valide"):
         repo.add_sheets_to_folder([_item("a", "A101")], "missing")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="racine"):
         repo.add_sheets_to_folder([_item("a", "A101")], "default")
     assert any(f.id == "plans" for f in repo.list_folders())
+
+
+def test_root_folder_message_names_the_real_cause(tmp_path):
+    # Le dossier racine est un identifiant connu : l'erreur doit nommer la
+    # règle métier, pas laisser croire à une cible inconnue.
+    repo = _repo(tmp_path)
+    with pytest.raises(ValueError) as excinfo:
+        repo.add_sheets_to_folder([_item("a", "A101")], "default")
+    assert "Général" in str(excinfo.value)
 
 
 def test_reopen_keeps_added_sheets_and_folder_children(tmp_path):
@@ -63,3 +72,4 @@ def test_reopen_keeps_added_sheets_and_folder_children(tmp_path):
     reopened = CarnetRepository(repo.storage_path)
     assert [i.unique_id for i in next(s for s in reopened.list_all() if s.id == "plans").items] == ["a"]
     assert next(f for f in reopened.list_folders() if f.id == "child").parent_id == "plans"
+

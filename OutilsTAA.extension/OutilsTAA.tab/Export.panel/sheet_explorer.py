@@ -12,6 +12,9 @@ from System.Windows.Media import VisualTreeHelper
 
 class SheetExplorer(object):
     DATA_FORMAT = "OutilsTAA.Export.AvailableSheets"
+    # Les en-têtes de groupe portent un Tag préfixé : ils ne doivent jamais
+    # entrer dans la sélection des feuilles (BUG-EXPORT-053).
+    GROUP_TAG_PREFIX = "GROUP:"
 
     def __init__(self, window, sheets):
         self.window = window
@@ -22,6 +25,14 @@ class SheetExplorer(object):
         self._rendering = False
         self._mouse_point = None
         self._last_width = 310.0
+        # Les feuilles sources ne changent pas pendant que la fenêtre est
+        # ouverte : l'ordre trié et les regroupements sont calculés une fois
+        # (BUG-EXPORT-055).
+        self._ordered_sheets = sorted(
+            self.sheets.values(),
+            key=lambda s: ((s.SheetNumber or "").lower(),
+                           (s.Name or "").lower()))
+        self._group_cache = {}
         self._settings_path = os.path.join(
             os.environ.get("APPDATA") or os.path.expanduser("~"),
             "OutilsTAA", "export_sheet_explorer.json")
@@ -39,15 +50,46 @@ class SheetExplorer(object):
         self._build_context_menu()
         self.refresh()
 
+    @staticmethod
+    def _logger():
+        try:
+            from pyrevit import script
+            return script.get_logger()
+        except Exception:
+            return None
+
+    def _log_warning(self, message):
+        # Règle BUG-EXPORT-025 : une erreur ne doit jamais être masquée
+        # sans laisser de trace, même quand l'interface reste utilisable.
+        logger = self._logger()
+        if logger is not None:
+            try:
+                logger.warning(message)
+            except Exception:
+                pass
+
+    @classmethod
+    def _group_from_tag(cls, tag):
+        """Nom de groupe porté par un tag d'en-tête, sinon None."""
+        value = str(tag) if tag else ""
+        if value.startswith(cls.GROUP_TAG_PREFIX):
+            return value[len(cls.GROUP_TAG_PREFIX):]
+        return None
+
     def _restore_settings(self):
         self._visible = True
-        try:
-            with open(self._settings_path, "r") as handle:
-                state = json.load(handle)
-            self._visible = bool(state.get("visible", True))
-            self._last_width = max(210.0, min(520.0, float(state.get("width", 310))))
-        except Exception:
-            pass
+        if os.path.isfile(self._settings_path):
+            try:
+                with open(self._settings_path, "r") as handle:
+                    state = json.load(handle)
+                self._visible = bool(state.get("visible", True))
+                self._last_width = max(210.0, min(520.0, float(state.get("width", 310))))
+            except Exception:
+                # Un premier lancement sans fichier est normal ; un fichier
+                # illisible doit laisser une trace, pas rester silencieux.
+                self._log_warning(
+                    "Preferences de l'explorateur illisibles ({0}) ; "
+                    "valeurs par defaut retenues.".format(self._settings_path))
         self._apply_visibility()
 
     def _apply_visibility(self):
@@ -74,7 +116,9 @@ class SheetExplorer(object):
             with open(self._settings_path, "w") as handle:
                 json.dump({"visible": self._visible, "width": self._last_width}, handle)
         except Exception:
-            pass
+            self._log_warning(
+                "Preferences de l'explorateur non enregistrees ({0}).".format(
+                    self._settings_path))
 
     def _used_paths(self):
         result = {}
@@ -99,6 +143,19 @@ class SheetExplorer(object):
         return result
 
     def _group(self, sheet, mode):
+        # BUG-EXPORT-055 : LookupParameter est un appel Revit coûteux et la
+        # recherche appelle refresh() à chaque frappe. Les valeurs de
+        # paramètres ne changent pas pendant que la fenêtre est ouverte :
+        # le regroupement est calculé une fois par (feuille, mode).
+        key = (str(sheet.UniqueId), mode)
+        cached = self._group_cache.get(key)
+        if cached is not None:
+            return cached
+        result = self._compute_group(sheet, mode)
+        self._group_cache[key] = result
+        return result
+
+    def _compute_group(self, sheet, mode):
         if mode == 1:
             return (sheet.SheetNumber or "")[:2].upper() or "Sans numéro"
         if mode == 2:
@@ -127,9 +184,10 @@ class SheetExplorer(object):
         self._rendering = True
         try:
             w.SheetExplorerList.Items.Clear()
-            ordered = sorted(self.sheets.values(),
-                             key=lambda s: ((s.SheetNumber or "").lower(),
-                                            (s.Name or "").lower()))
+            # Ordre trié calculé une fois à l'ouverture (BUG-EXPORT-055) ;
+            # seuls le filtre, le regroupement et les indicateurs sont
+            # réévalués ici.
+            ordered = self._ordered_sheets
             rows = []
             for sheet in ordered:
                 uid = str(sheet.UniqueId)
@@ -147,7 +205,7 @@ class SheetExplorer(object):
                 if mode and heading != group:
                     group = heading
                     header = ListBoxItem()
-                    header.Tag = "GROUP:" + heading
+                    header.Tag = self.GROUP_TAG_PREFIX + heading
                     header.Content = TextBlock(Text=("> " if heading in self._collapsed_groups else "v ") + heading)
                     w.SheetExplorerList.Items.Add(header)
                 if mode and heading in self._collapsed_groups:
@@ -196,13 +254,18 @@ class SheetExplorer(object):
         if self._rendering:
             return
         for item in args.RemovedItems:
-            uid = getattr(item, "Tag", None)
-            if uid:
-                self.selected_ids.discard(str(uid))
+            tag = getattr(item, "Tag", None)
+            if tag and self._group_from_tag(tag) is None:
+                self.selected_ids.discard(str(tag))
         for item in args.AddedItems:
-            uid = getattr(item, "Tag", None)
-            if uid:
-                self.selected_ids.add(str(uid))
+            tag = getattr(item, "Tag", None)
+            if tag and self._group_from_tag(tag) is None:
+                self.selected_ids.add(str(tag))
+            elif item is not None and getattr(item, "IsSelected", False):
+                # BUG-EXPORT-053 : un en-tête de groupe attrapé par une
+                # sélection Maj est désélectionné et ne compte jamais comme
+                # une feuille.
+                item.IsSelected = False
         self._update_count()
 
     def _key_down(self, sender, args):
@@ -210,9 +273,12 @@ class SheetExplorer(object):
             self._rendering = True
             try:
                 for item in self.window.SheetExplorerList.Items:
-                    if getattr(item, "Tag", None):
+                    tag = getattr(item, "Tag", None)
+                    # BUG-EXPORT-053 : Ctrl+A sélectionne les feuilles
+                    # visibles, jamais les en-têtes de groupe.
+                    if tag and self._group_from_tag(tag) is None:
                         item.IsSelected = True
-                        self.selected_ids.add(str(item.Tag))
+                        self.selected_ids.add(str(tag))
             finally:
                 self._rendering = False
             self._update_count()
@@ -245,8 +311,10 @@ class SheetExplorer(object):
         return None
 
     def _items(self):
-        ordered = sorted((self.sheets[uid] for uid in self.selected_ids if uid in self.sheets),
-                         key=lambda s: ((s.SheetNumber or "").lower(), (s.Name or "").lower()))
+        # L'ordre affiché fait foi : les feuilles sélectionnées suivent
+        # l'ordre trié calculé à l'ouverture (BUG-EXPORT-055).
+        ordered = [sheet for sheet in self._ordered_sheets
+                   if str(sheet.UniqueId) in self.selected_ids]
         return self.window.controller.export_service.build_publication_items(ordered)
 
     def add_to_current(self):
@@ -255,11 +323,26 @@ class SheetExplorer(object):
     def choose_destination(self):
         from pyrevit import forms
         folders = list(self.window._folders) + list(self.window._carnets)
-        options = dict(("{0} [{1}]".format(x.name, x.id), x.id) for x in folders
-                       if str(x.id) != "default" and getattr(x, "persistent", True))
-        selected = forms.SelectFromList.show(sorted(options), title="Dossier de destination")
-        if selected:
-            self.add_to(options[selected])
+        # Liste de couples plutôt qu'un dictionnaire : deux dossiers de même
+        # nom ne doivent pas se masquer silencieusement (l'identifiant
+        # désambiguïse l'étiquette).
+        options = sorted(
+            (x for x in folders
+             if str(x.id) != "default" and getattr(x, "persistent", True)),
+            key=lambda x: self._destination_label(x),
+        )
+        labels = [self._destination_label(x) for x in options]
+        selected = forms.SelectFromList.show(labels, title="Dossier de destination")
+        if not selected:
+            return
+        match = next((x for x in options
+                      if self._destination_label(x) == selected), None)
+        if match is not None:
+            self.add_to(match.id)
+
+    @staticmethod
+    def _destination_label(folder):
+        return "{0} [{1}]".format(folder.name, folder.id)
 
     def add_to(self, destination):
         from pyrevit import forms, script
@@ -290,8 +373,8 @@ class SheetExplorer(object):
             except Exception:
                 node = None
         tag = getattr(node, "Tag", None)
-        if tag and str(tag).startswith("GROUP:"):
-            group = str(tag)[6:]
+        group = self._group_from_tag(tag)
+        if group is not None:
             if group in self._collapsed_groups:
                 self._collapsed_groups.remove(group)
             else:
@@ -354,6 +437,17 @@ class SheetExplorer(object):
                 ids = set(json.loads(str(args.Data.GetData(self.DATA_FORMAT))))
                 self.selected_ids = ids.intersection(set(self.sheets))
                 self.add_to(destination)
-            except Exception:
-                pass
+            except Exception as exc:
+                # BUG-EXPORT-054 : un dépôt échoué doit être visible pour
+                # l'utilisateur, jamais silencieux (règle BUG-EXPORT-025).
+                logger = self._logger()
+                if logger is not None:
+                    try:
+                        logger.exception(
+                            "Depot de l'explorateur de feuilles impossible")
+                    except Exception:
+                        pass
+                from pyrevit import forms
+                forms.alert("Ajout impossible : {0}".format(exc), title="Export")
         args.Handled = True
+

@@ -500,8 +500,18 @@ class CarnetRepository(object):
         if target is None:
             folder = next((value for value in data["folders"]
                            if str(value.get("id")) == str(folder_id)), None)
-            if folder is None or str(folder_id) == self.DEFAULT_FOLDER_ID:
+            if folder is None:
                 raise ValueError("Selectionnez un dossier de publication valide.")
+            if str(folder_id) == self.DEFAULT_FOLDER_ID:
+                # Le dossier racine est un identifiant valide mais ne peut pas
+                # recevoir de mises en page directement : message distinct
+                # pour ne pas laisser croire que la cible est inconnue.
+                raise ValueError(
+                    "Le dossier racine « {0} » ne peut pas recevoir de mises en "
+                    "page ; choisissez un sous-dossier.".format(
+                        self.DEFAULT_FOLDER_NAME
+                    )
+                )
             target = {
                 "id": folder["id"],
                 "name": folder.get("name", ""),
@@ -526,7 +536,11 @@ class CarnetRepository(object):
                        for value in target.get("items", []))
         added = 0
         for item in items:
-            uid = str(getattr(item, "unique_id", "") or "")
+            # Contrat d'entrée : des PublicationItem complets, comme pour
+            # `_to_dict`. Un item vide ou sans identifiant est ignoré, pas ajouté.
+            if item is None:
+                continue
+            uid = str(item.unique_id or "")
             if not uid or uid in existing:
                 continue
             target["items"].append({
@@ -835,3 +849,4 @@ class CarnetRepository(object):
             value.get("sort_order", 0),
             value.get("tree_order"),
         )
+

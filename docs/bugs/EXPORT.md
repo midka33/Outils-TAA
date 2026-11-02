@@ -713,3 +713,72 @@ la ligne du nœud doit utiliser les dimensions du header, jamais
 **Anti-régression :** test avec un TreeViewItem simulé à 220 px et un header à
 20 px ; le centre du header doit rester `INSIDE`, indépendamment de la hauteur
 des enfants.
+
+### BUG-EXPORT-053 — Les en-têtes de groupe de l'explorateur entraient dans la sélection
+
+**Symptôme :** avec l'explorateur de feuilles regroupé, Ctrl+A sélectionnait
+aussi les en-têtes de groupe ; leur tag `GROUP:…` entrait dans `selected_ids`,
+le compteur « Ajouter (n) » était gonflé et une sélection Maj pouvait
+sélectionner un en-tête.
+
+**Cause racine :** les en-têtes sont des `ListBoxItem` avec un `Tag` truthy, tout
+comme les feuilles. `_key_down` et `selection_changed` filtraient uniquement sur
+l'existence du tag, pas sur son type.
+
+**Correction :** préfixe `GROUP_TAG_PREFIX` factorisé et helper `_group_from_tag` ;
+`_key_down` saute les en-têtes, `selection_changed` les désélectionne
+immédiatement s'ils sont attrapés par une plage.
+
+**Règle préventive :** dans un ItemsControl mixant plusieurs natures d'items, la
+nature d'un item doit être discriminée par une convention de tag explicite et
+vérifiée dans chaque chemin de sélection (clavier, souris, code).
+
+**Anti-régression :** recette Revit — Ctrl+A en mode groupé doit afficher un
+compteur égal aux feuilles visibles ; Maj+clic sur un en-tête ne doit pas le
+laisser sélectionné ; vérifier que les compteurs et l'ajout restent exacts.
+
+### BUG-EXPORT-054 — Un dépôt de l'explorateur échouait en silence
+
+**Symptôme :** un glisser-déposer depuis l'explorateur vers un dossier pouvait
+échouer sans aucun retour, alors que le bouton « Ajouter » affichait bien
+l'erreur.
+
+**Cause racine :** le handler `_drop` enveloppait l'ajout dans
+`except Exception: pass`, contrairement à `add_to` (journalisation + alerte).
+La lecture des préférences et la sauvegarde de fermeture avalaient aussi leurs
+erreurs sans trace.
+
+**Correction :** `_drop` journalise via `script.get_logger().exception(...)` et
+affiche la même alerte que `add_to` ; `_restore_settings` et `_closing`
+journalisent un avertissement (règle BUG-EXPORT-025).
+
+**Règle préventive :** aucun `except Exception` ne doit être vide dans le module
+Export : journaliser au minimum, et alerter l'utilisateur lorsque l'action
+initiée échoue.
+
+**Anti-régression :** recette Revit — provoquer un dépôt invalide (fichier de
+stockage en lecture seule) : une alerte doit apparaître et le logger doit
+contenir l'exception ; aucun échec muet.
+
+### BUG-EXPORT-055 — La recherche appelait l'API Revit à chaque frappe
+
+**Symptôme :** dans l'explorateur regroupé par paramètre Revit, chaque frappe
+dans la recherche re-traversait toutes les feuilles avec `LookupParameter`,
+rendant la saisie laggy sur les gros projets (centaines de feuilles).
+
+**Cause racine :** `refresh()` est appelé par `TextChanged` et recalculait le
+tri et le regroupement complets à chaque événement, y compris les appels Revit.
+
+**Correction :** l'ordre trié est calculé une fois à l'ouverture
+(`_ordered_sheets`) et chaque libellé de groupe est mémoïsé par
+`(unique_id, mode)` dans `_group_cache` ; les valeurs de paramètres ne peuvent
+pas changer pendant que la fenêtre modale est ouverte.
+
+**Règle préventive :** un handler appelé par frappe ne doit pas déclencher
+d'appel API Revit ni de recalcul complet non mémoïsé ; mesurer avant d'ajouter
+du travail dans un chemin `TextChanged`.
+
+**Anti-régression :** recette Revit — sur un projet de 300+ feuilles en mode
+« Paramètre », la frappe dans la recherche doit rester fluide (aucun délai
+perceptible) et les groupes rester exacts ; `_used_paths` reste réévalué pour
+les indicateurs d'utilisation.
