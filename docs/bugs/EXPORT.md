@@ -820,3 +820,18 @@ les indicateurs d'utilisation.
 **Règle préventive :** les noms de structures internes ne doivent pas transparaître dans les libellés métier. Un renommage de token utilisateur doit toujours conserver la compatibilité des modèles persistants existants, sans réécriture silencieuse.
 
 **Anti-régression :** `tests/test_naming_parameters.py` vérifie l'équivalence des noms de fichiers entre ancien/nouveau token et le catalogue de variables ; `tests/test_export_rename_ui_terminology.py` vérifie les libellés visibles. Dans Revit, vérifier une ancienne configuration `{carnet}` et une nouvelle `{nom_dossier}`, leurs aperçus et exports.
+
+
+### BUG-EXPORT-059 — La création des dossiers PDF/DWG est couplée à « Créer ce dossier dans la sortie »
+
+**Symptôme :** l'utilisateur ne peut pas choisir indépendamment la création du dossier de publication (`Plans`, `A2100_Façades_Collectif_A`…) et la séparation des livrables dans des sous-dossiers `PDF` et `DWG`. Actuellement, décocher « Créer ce dossier dans la sortie » empêche également la création des dossiers de formats.
+
+**Cause racine :** `publication_directory()` ajoutait le dossier du format à l'intérieur du même `if create_subfolder` que le dossier de publication. Les réglages ne disposaient que du champ historique `separate_carnet_subfolder`.
+
+**Correction :** ajouter le champ distinct, nullable et héritable `separate_format_subfolders`, et la case « Créer un sous-dossier par format (PDF et DWG) ». Calculer les deux composants du chemin indépendamment dans `publication_directory()`, fonction déjà partagée par l'aperçu et la publication réelle. La sélection du mode PDF combiné/séparé et le moteur DWG ne doivent pas modifier ces choix d'organisation. Les profils personnalisés peuvent mémoriser les deux options.
+
+**Compatibilité :** si `separate_format_subfolders` est absent ou `None` dans un ancien JSON, son comportement effectif reproduit celui de `separate_carnet_subfolder` après résolution de l'héritage : un ancien réglage activé crée `Dossier/PDF` et `Dossier/DWG`, un ancien réglage désactivé n'ajoute aucun de ces dossiers. En revanche, dès que l'utilisateur modifie « Créer ce dossier », l'option de format héritée de l'ancien fonctionnement est figée à sa valeur actuelle pour qu'une case ne modifie plus silencieusement l'autre. Une règle explicite de format déjà portée par un parent continue à être héritée.
+
+**Règle préventive :** une option « créer le dossier de publication » et une option « classer par format » expriment deux décisions métier différentes. Leurs paramètres doivent être distincts dans l'UI, le moteur, les profils et la persistance, et la compatibilité des anciens profils doit être définie avant la migration. Utiliser un calcul de chemin unique pour la prévisualisation et la publication ; ne jamais produire de sous-dossiers de format si l'option dédiée est désactivée.
+
+**Anti-régression :** `tests/test_publication_folder_paths.py` couvre l'ensemble des combinaisons PDF combiné/séparé, périmètres, option de dossier et option de format (y compris absent pour compatibilité), et contrôle la correspondance exacte entre aperçu et chemins livrés. `tests/test_export_format_subfolders.py` couvre les quatre combinaisons de chemins, l'héritage entre dossiers, les profils et les réglages JSON historiques, ainsi que le découplage immédiat des deux cases après modification. Recette Revit : vérifier les quatre combinaisons en sortie de test et le maintien des anciens chemins.
