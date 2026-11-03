@@ -64,7 +64,7 @@ class PublicationSettings(object):
         return cls(output_directory=None, pdf_enabled=True,
                    pdf_mode="COMBINED", dwg_enabled=True,
                    dwg_mode="SEPARATE", dwg_setup_name=None,
-                   dwg_true_color=True, dwg_merge_views=True, filename_template="{carnet}",
+                   dwg_true_color=True, dwg_merge_views=True, filename_template="{nom_dossier}",
                    dwg_filename_independent=False, dwg_filename_template="{numero} {nom}",
                    modified_only=False, pdf_quality=300,
                    separate_carnet_subfolder=True, **pdf_defaults())
