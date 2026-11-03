@@ -712,3 +712,54 @@ service de référence Revit. Suites Annotations, PDV, Export et
 Calculs à contrôler. Recette impérative dans Revit 2025.4,
 sur copie de la loggia 2238 ; aucun comportement natif n'est
 présumé validé par ces tests hors Revit.
+
+
+---
+
+### BUG-COMMON-019 — Deux cotes natives, quatre messages identiques sur la pièce 2240
+
+**Symptôme observé dans Revit 2025.4 (retour utilisateur) :**
+lancement de Cotation automatique sur **2240**, niveau 1, avec
+**2 annotations créées**, sans repli de détail 2D. Deux arêtes de
+garde-corps admissibles sont diagnostiquées :
+**0,0 mm / 100 %** et **19,3 mm / 63 %**. Pourtant chacune des
+deux lignes d'avertissement est répétée **deux fois**.
+La répétition du diagnostic ne prouve pas la présence de quatre
+dimensions. La vérification de l'absence de cotation préexistante
+superposée reste un contrôle visuel distinct.
+
+**Cause racine confirmée par lecture du code :**
+`AnnotationService._create_separator_proxies` lance
+`GenericDimensions._room_boundary_candidates` pour préparer
+les références, puis `DimensionService.create_dimensions` rappelle
+ce service. L'adaptateur renseignait `proxy_candidates` **seulement
+si une séparation nécessitait la création d'un repère 2D**.
+Pour 2240, dont les références sont toutes natives, aucun repère
+n'était créé, le cache restait vide et la résolution des garde-corps
+était exécutée deux fois. Les messages sont ajoutés à chaque
+résolution. Cette double exécution n'est pas nécessaire et rallonge
+les appels API Revit, même lorsque l'extraction des arêtes est cachée.
+
+**Correction limitée à la bêta :** mémoriser la liste de candidats
+et ses références natives dans `proxy_candidates[room.UniqueId]`
+**dans tous les cas**, qu'un repère 2D ait été créé ou non. Le moteur
+de cotation consomme exactement ces références sans nouvelle
+résolution. Le cache est limité à la TransactionGroup d'une pièce
+et vidé dans `_run_unit.finally`. Aucun seuil de garde-corps, aucune
+géométrie Revit, aucun service PDV et aucun mode multi-vues modifié.
+
+**Règle préventive :** dès qu'un adaptateur calcule des références
+Revit en pré-traitement, les transmettre au moteur suivant même
+si aucun objet supplémentaire n'a été créé. Une décision de
+mise en cache ne doit pas dépendre de la création d'un fallback
+2D. Ne pas supprimer simplement les avertissements en doublon
+sans corriger la double exécution.
+
+**Tests anti-régression :**
+`test_2240_cotes_natives_cachees_sans_doubler_diagnostics`
+(aucune ligne 2D, références natives mémorisées, un seul
+diagnostic par arête), `test_cache_references_vide_evite_une_nouvelle_recherche`
+et tests existants de références 2D. Suite Annotations + PDV et
+workflows transversaux à vérifier. **Dans Revit**, relancer 2240
+sur copie après retrait des cotes du précédent essai, contrôler
+deux cotes seulement et deux lignes de référence native seulement.
