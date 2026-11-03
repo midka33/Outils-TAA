@@ -246,7 +246,7 @@ def test_ctrl_shift_and_empty_selection_refresh_publish_scope():
     manager.window = SimpleNamespace(PublicationTree=SimpleNamespace(SelectedItem=nodes[0]),
         _publication_selection_changed=lambda: snapshots.append(manager.selected_tags()))
     for name in ('_select', 'selected_tags', '_mouse_down', '_key_down'):
-        ns['Key'] = SimpleNamespace(Up=10, Down=11, Left=12, Right=13, Home=14, End=15)
+        ns['Key'] = SimpleNamespace(Up=10, Down=11, Left=12, Right=13, Home=14, End=15, F2=16)
         setattr(manager, name, MethodType(method('services/publication_tree_drag_drop.py', 'PublicationTreeDragDrop', name, ns), manager))
     manager._mouse_down(None, SimpleNamespace(OriginalSource=nodes[0]))
     keyboard.Modifiers = 1
