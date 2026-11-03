@@ -507,6 +507,138 @@ def select_native_edge_with_path_continuity(
     return selected[2], selected[3], selected[4]
 
 
+
+def diagnose_guardrail_path_continuity(
+        boundary, railing_paths, path_tolerance,
+        angle_degrees=3., minimum_path_coverage=.90,
+        minimum_part_coverage=.25, maximum_gap=.32808399,
+        maximum_lateral_mismatch=.0656168,
+        max_railings=3, max_paths=80):
+    """Diagnostic pur de DEUX chemins de garde-corps, sans Reference fictive.
+
+    La decision reste prise par select_native_edge_with_path_continuity.
+    Cette fonction ne fait AUCUN appel Revit et ne modifie jamais les criteres :
+    elle explique les donnees geometriques de la meilleure paire examinee.
+    Distances en unites des chemins (pieds dans Revit).
+    """
+    import math
+
+    paths = list(railing_paths or [])
+    count = sum(len(segments) for _, segments in paths)
+    result = {"reason": "pas_de_paire", "pair_count": 0,
+              "evaluated": 0, "supported": False,
+              "path_count": len(paths), "segment_count": count,
+              "best": None}
+    if (len(paths) > int(max_railings) or count > int(max_paths)):
+        result["reason"] = "budget"
+        return result
+    if len(paths) < 2:
+        return result
+    x0, y0, x1, y1 = [float(v) for v in boundary]
+    dx, dy = x1-x0, y1-y0
+    length = math.hypot(dx, dy)
+    if length <= 1.e-9:
+        result["reason"] = "limite_invalide"
+        return result
+    ux, uy = dx/length, dy/length
+    nx, ny = -uy, ux
+
+    def key(element_id):
+        for name in ("Value", "IntegerValue"):
+            try:
+                return int(getattr(element_id, name))
+            except Exception:
+                pass
+        try:
+            return int(element_id)
+        except Exception:
+            return str(element_id)
+
+    def projection(segment):
+        a, b, c, d = [float(v) for v in segment]
+        vx, vy = c-a, d-b
+        segment_length = math.hypot(vx, vy)
+        if segment_length <= 1.e-9:
+            return None
+        cos_angle = abs((vx*ux+vy*uy)/segment_length)
+        angle = math.degrees(math.acos(min(1., max(0., cos_angle))))
+        lateral = ((a+c)*.5-x0)*nx+((b+d)*.5-y0)*ny
+        start = max(0., min(length, (a-x0)*ux+(b-y0)*uy))
+        end = max(0., min(length, (c-x0)*ux+(d-y0)*uy))
+        return {"left": min(start, end), "right": max(start, end),
+                "lateral": lateral, "angle": angle}
+
+    rows = []
+    for i, (parent_a, segs_a) in enumerate(paths):
+        for parent_b, segs_b in paths[i+1:]:
+            if key(parent_a) == key(parent_b):
+                continue
+            for sa in segs_a:
+                a = projection(sa)
+                if a is None:
+                    continue
+                for sb in segs_b:
+                    b = projection(sb)
+                    if b is None:
+                        continue
+                    result["evaluated"] += 1
+                    first, second = sorted((a,b), key=lambda z: z["left"])
+                    gap = max(0., second["left"]-first["right"])
+                    overlap = max(0., min(a["right"],b["right"]) -
+                                  max(a["left"],b["left"]))
+                    combined = ((a["right"]-a["left"]+
+                                 b["right"]-b["left"]-overlap)/length)
+                    part_a = (a["right"]-a["left"])/length
+                    part_b = (b["right"]-b["left"])/length
+                    lateral = abs(a["lateral"]-b["lateral"])
+                    tip = max(min(a["left"],b["left"]),
+                              length-max(a["right"],b["right"]))
+                    reasons = []
+                    if max(a["angle"], b["angle"]) > float(angle_degrees):
+                        reasons.append("angle")
+                    if max(abs(a["lateral"]), abs(b["lateral"])) > float(path_tolerance):
+                        reasons.append("distance_axe")
+                    if min(part_a, part_b) < float(minimum_part_coverage):
+                        reasons.append("portion_trop_courte")
+                    if lateral > float(maximum_lateral_mismatch):
+                        reasons.append("decalage_lateral")
+                    if gap > float(maximum_gap):
+                        reasons.append("raccord_trop_grand")
+                    if overlap > .10*length:
+                        reasons.append("chemins_superposes")
+                    if combined + 1.e-9 < float(minimum_path_coverage):
+                        reasons.append("couverture_insuffisante")
+                    if tip > float(maximum_gap):
+                        reasons.append("extremite_non_couverte")
+                    rows.append({
+                        "parent_ids": (parent_a, parent_b),
+                        "coverage": combined,
+                        "part_coverage": (part_a, part_b),
+                        "overlap": overlap/length,
+                        "gap": gap,
+                        "lateral": lateral,
+                        "max_boundary_offset": max(
+                            abs(a["lateral"]), abs(b["lateral"])),
+                        "reasons": reasons,
+                        "start_end": (
+                            (a["left"]/length, a["right"]/length),
+                            (b["left"]/length, b["right"]/length)),
+                    })
+    result["pair_count"] = len(rows)
+    if not rows:
+        return result
+    # Une paire admissible prime toujours ; sinon montrer le candidat le
+    # plus proche de satisfaire les regles sans cacher les contradictions.
+    best = min(rows, key=lambda x: (
+        bool(x["reasons"]), len(x["reasons"]),
+        -x["coverage"], x["overlap"], x["gap"], x["lateral"]))
+    result["best"] = best
+    result["supported"] = any(not x["reasons"] for x in rows)
+    result["reason"] = ("chemins_compatibles" if result["supported"]
+                        else ",".join(best["reasons"]))
+    return result
+
+
 def is_exterior_annex(room_name, interior_exterior=""):
     """Loggia, terrasse, balcon ou jardin ; ou classification projet Ext.
 
