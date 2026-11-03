@@ -1158,3 +1158,24 @@ lorsqu'on masque les séparations de pièces.
 **État :** code et tests hors Revit réalisés. **Validation Revit
 en attente**, et les axes `GetPath()` ne sont jamais pris pour
 une référence géométrique de cote.
+
+
+### Retour réel Revit après BUG-COMMON-025 — référence native récupérée (3 novembre 2026)
+
+**Rapport utilisateur reçu après la récupération bêta :** `Cotation automatique - version beta`, vue `Collectifs A_Niveau 1`, pièce **2238** seule, **2 annotations créées**. Trois GC préfiltrés ; deux rails filants inspectés, 24 arêtes analysées et huit références candidates.
+
+- **Première limite :** `arete native de garde-corps utilisee`, écart 0,0 mm et recouvrement **100 %**.
+- **Seconde limite :** `arete native de garde-corps utilisee`, écart 0,0 mm et recouvrement **52 %**.
+- **Récupération confirmée par Revit :** `RECUPERATION BETA du GC malgre axes decales de 33 mm`, décalage maximal 58 mm, union **100 %**, superposition **0 %**, arête native à 0 mm.
+- **Deux chemins reconnus :** couverture 100 %, jeu 0 mm ; la cote ne référence **que le GC 16141871**, qui possède le TopRail 16141873. Le garde-corps complémentaire **8951804** ne pilote pas cette cote.
+- **Aucune ligne de repli 2D signalée** dans ce rapport. Deux avertissements identiques de proximité d'équipement restent présents (probablement un par cote ; aucune preuve à ce stade d'un défaut du diagnostic).
+
+**Conclusion vérifiable :** **REV-ANN-99** (nouvel essai ciblé) et **le volet récupération native de REV-ANN-100** sont confirmés par le rapport. La récupération fonctionne dans Revit 2025.4 avec les seuils expérimentaux de BUG-COMMON-025. Le diagnostic n'apporte aucune preuve sur la **justesse de la longueur affichée**, l'alignement des **nus intérieurs réels**, la persistance de la cote après masquage des séparations, l'absence de doublons après une deuxième exécution ou l'absence d'incident sur 2240.
+
+**Vérifications restant obligatoires, sur copie de maquette :**
+- [ ] **REV-ANN-100 — complément :** relever les deux valeurs effectivement affichées ; les comparer aux dimensions intérieures finies du logement et confirmer l'absence réelle de repères 2D cachés ou résiduels.
+- [ ] **REV-ANN-101 :** contrôler en plan rapproché l'alignement des **nus intérieurs physiques** des GC 16141871 et 8951804, malgré les axes décalés de 33 mm. Si leurs nus sont différents, retirer ou revoir le contournement.
+- [ ] **REV-ANN-102 :** masquer `Séparations de pièces` dans cette vue ; vérifier les deux cotes, relancer une deuxième fois sans doublon/crash, puis recetter **2240** pour non-régression.
+- [ ] **REV-ANN-103 :** décider après ces contrôles si l'exception reste un comportement bêta, peut être durcie ou doit être abandonnée.
+
+**Décision :** conserver le **mode diagnostic une pièce/une vue** et **ne pas fusionner dans `main`** sur la seule base de ce rapport. L'associativité native identifie une référence réelle, mais ne garantit pas l'associativité à la totalité de deux ouvrages successifs.
