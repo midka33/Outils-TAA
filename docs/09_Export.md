@@ -1,11 +1,25 @@
 # Outils TAA – Outil Export
 
-**Version :** 4.4
+**Version :** 4.5 — code validé pour Outils TAA v1.4.0
 **Statut :** Spécification fonctionnelle de référence et cible d'évolution  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Année :** 2026
 
 ---
+
+## État actuel — Export validé pour Outils TAA v1.4.0 (3 novembre 2026)
+
+**Livraison cible : Outils TAA v1.4.0.** Le module Export de la **PR #39** est fusionné dans `main` (commit `5a37be83e3d5893156399b242b838f4a9805ef58`), après les six campagnes de recette **EXPORT-01 à EXPORT-06** validées par l'utilisateur sous Revit 2025.4 / pyRevit 5.x.
+
+La fenêtre courante comporte **trois zones** : explorateur des mises en page Revit (gauche, escamotable), arborescence de publication (centre) et réglages héritables (droite). Recherche, filtres, sélection multiple et glisser-déposer sont actifs ; le bouton de renommage est visible. Les dossiers parents sans feuille ne bloquent plus leurs sous-dossiers publiables. Le classement de sortie offre **deux options indépendantes** : créer le dossier publié ; créer les sous-dossiers PDF et DWG. Le jeton de nommage visible est `{nom_dossier}` (alias du jeton historique `{carnet}`).
+
+**Recette réelle :** 5 PDF combinés + 16 DWG, opérations sur dossiers/feuilles, héritage, persistance après redémarrage et séparation entre projets. **CI de PR :** 375 tests Export et contrat ruban réussis ; les vérifications de release doivent porter sur le commit finalement publié.
+
+Les développements V2 (feuilles modifiées uniquement, PDF asynchrone, moteur dynamique Stage 08) restent hors périmètre. Les passages plus bas décrivant l'explorateur comme « planifié » ou « en cours » doivent être lus comme historique de développement et non comme statut actuel.
+
+- [Notes de version](release/Notes_v1.4.0.md)
+- [Tutoriel utilisateur courant](release/Tutoriel_Export_v1.4.0.md)
+- [Matrice de tests et préparation](release/Preparation_Export_v1.4.0.md)
 
 ## Publisher à dossiers uniques — évolution du 2026-10-12
 

@@ -1,6 +1,6 @@
 # Index de la documentation Outils TAA
 
-**Version courante : Outils TAA v1.3.0**  
+**Version courante : Outils TAA v1.4.0**  
 **Cible : Autodesk Revit 2025.4 / pyRevit 5.x**
 
 Ce fichier indique quelles documentations décrivent le comportement **actuel**.
@@ -48,8 +48,8 @@ Les anciennes étapes, audits et recettes de campagne sont sous
 **Référence fonctionnelle principale :** `20_Plans_de_Vente.md`
 
 - `references/plans-vente/` — références visuelles.
-- `release/Preparation_Plans_de_Vente_V1.1_Liens.md` — recette de la V1.1 liée.
-- `release/Tutoriel_Plans_de_Vente_v1.3.0.md` — tutoriel utilisateur courant.
+- `archive/releases/v1.3.0/Preparation_Plans_de_Vente_V1.1_Liens.md` — recette historique de la V1.1 liée.
+- `release/Tutoriel_Plans_de_Vente_v1.4.0.md` — tutoriel utilisateur courant (comportement métier V1.1 inchangé).
 
 La spécification de développement détaillée des étapes 01 à 09 est archivée dans
 `archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`.
@@ -62,16 +62,19 @@ La spécification de développement détaillée des étapes 01 à 09 est archiv�
 
 ## Release courante
 
-Le dossier `release/` ne contient que les documents utiles à la release
-courante v1.3.0 :
+**Outils TAA v1.4.0 — Export** : explorateur de mises en page, publications PDF/DWG multi-dossiers et options de sortie séparées. La recette **EXPORT-01 à EXPORT-06** est validée par l'utilisateur dans Revit 2025.4 ; voir la [PR #39](https://github.com/midka33/Outils-TAA/pull/39).
 
-- `Notes_v1.3.0.md`
-- `Tutoriel_Export_v1.3.0.md`
-- `Tutoriel_Calculs_Pieces_v1.3.0.md`
-- `Tutoriel_Plans_de_Vente_v1.3.0.md`
-- `Preparation_Plans_de_Vente_V1.1_Liens.md`
+Le dossier `release/` contient uniquement les documents de cette version :
 
-Les documents des anciennes releases sont sous `archive/releases/`.
+- [`Notes_v1.4.0.md`](release/Notes_v1.4.0.md) — nouveautés, compatibilité, installation et limites ;
+- [`Preparation_Export_v1.4.0.md`](release/Preparation_Export_v1.4.0.md) — matrice de tests, CI et décisions de release ;
+- [`Tutoriel_Export_v1.4.0.md`](release/Tutoriel_Export_v1.4.0.md) — guide utilisateur actuel ;
+- [`Tutoriel_Calculs_Pieces_v1.4.0.md`](release/Tutoriel_Calculs_Pieces_v1.4.0.md) — guide utilisateur, module inchangé ;
+- [`Tutoriel_Plans_de_Vente_v1.4.0.md`](release/Tutoriel_Plans_de_Vente_v1.4.0.md) — guide utilisateur, module V1.1 inchangé.
+
+Les documents de la précédente release v1.3.0 sont archivés sous `archive/releases/v1.3.0/`. Ceux de v1.2.0 et des versions antérieures restent dans leurs archives respectives.
+
+**État de publication :** seule la présence effective du tag, des actifs et des contrôles de release sur [GitHub Releases v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) atteste de la release ; la documentation seule ne vaut pas publication.
 
 ## Archives
 
