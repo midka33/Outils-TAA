@@ -1801,3 +1801,18 @@ Les dossiers ordinaires et les dossiers publiables peuvent être renommés via F
 Retour utilisateur : l'aperçu de `A2000 Plan des façades`, contenant des sous-dossiers de façade, affichait 21 livrables mais bloquait avec « Aucune mise en page à publier dans le périmètre sélectionné. » Un dossier publiable utilisé uniquement comme parent était compté comme cible vide. Correctif `BUG-EXPORT-056` : les dossiers sans feuille restent dans la structure et participent à l'héritage des réglages, mais ne deviennent plus des cibles exportées ; un périmètre totalement vide reste non publiable.
 
 Le test automatisé reproduit 5 sous-dossiers non vides et 16 feuilles : mode PDF combiné et DWG actif = **5 PDF combinés distincts + 16 DWG** ; sans DWG, 5 PDF. La validation dans Revit 2025.4 reste nécessaire, en utilisant **Aperçu** avant toute publication réelle, puis une destination temporaire.
+
+
+
+### Ergonomie du renommage et vocabulaire utilisateur (2026-11-03)
+
+**Règle métier :** l'interface Export parle exclusivement de « dossier », « sous-dossier », « dossier de publication » et « mise en page ». Le terme « carnet » reste possible en interne pour la compatibilité du code, mais ne doit pas apparaître dans les textes destinés aux utilisateurs.
+
+- Le bouton **Renommer** est visible sous l'arborescence. Le menu contextuel appartient à chaque dossier ; un clic droit cible le dossier sous le pointeur, même si un autre était sélectionné. F2 reste disponible.
+- Renommer conserve ID, hiérarchie, ordre, feuilles, réglages de publication et stockage ; « Général » n'est pas renommable.
+- Dans l'aperçu, le tableau s'intitule « Dossier » et le PDF global s'affiche comme « PDF combiné du dossier ». Dans le rapport, la progression et le résumé, le terme « carnet » est remplacé par « dossier (de publication) ».
+- Le nouveau token **`{nom_dossier}`** représente le nom du dossier de publication (par exemple `A2100_Façades_Collectif_A`). Il est visible dans le sélecteur de variables et utilisé comme nommage PDF par défaut.
+- **Compatibilité :** `{carnet}` désigne historiquement la même valeur et reste accepté sans migration de stockage ; les champs d'interface affichent son alias `{nom_dossier}`. L'ancien token n'est plus proposé dans le sélecteur pour les nouveaux utilisateurs.
+- **Ne pas confondre :** `{dossier}` désigne le **dossier parent**, tandis que `{nom_dossier}` désigne le **dossier de publication courant**.
+
+Recette Revit 2025.4 : renommer un dossier ordinaire et un dossier publiable via le bouton, F2 et clic droit ; fermer/réouvrir pour contrôler la persistance, vérifier qu'aucune feuille ou réglage n'a changé. Contrôler les PDF combinés en aperçu avec les modèles `{carnet}` existants et `{nom_dossier}` nouveaux. Voir `BUG-EXPORT-057` et `BUG-EXPORT-058`.
