@@ -9,7 +9,7 @@ from dwg_ui_session import capture
 from taa_ui_theme import apply_theme
 from System import Guid
 from System.Windows import FontWeights, Thickness, VerticalAlignment, HorizontalAlignment, Visibility
-from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation, Grid
+from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation, Grid, ContextMenu, MenuItem
 from System.Windows.Media import Stretch
 from System.Windows.Shapes import Path as IconPath
 
@@ -55,6 +55,7 @@ class ExportWindow(forms.WPFWindow):
         apply_theme(self)
         self._load_context()
         self._drag_drop_manager = PublicationTreeDragDrop(self)
+        self._setup_publication_context_menu()
         self._sheet_explorer = SheetExplorer(self, self._available_sheets)
 
     def _load_context(self):
@@ -833,6 +834,62 @@ class ExportWindow(forms.WPFWindow):
                     else self._resolve_settings(node)
                 )
 
+
+    def _setup_publication_context_menu(self):
+        """Menu contextuel de l'arborescence, indépendant de l'explorateur source."""
+        menu = ContextMenu()
+        rename = MenuItem()
+        rename.Header = "Renommer (F2)"
+        rename.Click += self.RenameFolder_Click
+        menu.Items.Add(rename)
+        self.PublicationTree.ContextMenu = menu
+        self.PublicationTree.ContextMenuOpening += self._publication_context_opening
+
+    def _publication_context_opening(self, sender, args):
+        node = self._drag_drop_manager._item(args.OriginalSource)
+        tag = getattr(node, "Tag", None)
+        if not tag or tag[0] not in ("FOLDER", "CARNET"):
+            args.Handled = True
+            return
+        if str(tag[1].id) == "default":
+            args.Handled = True
+            return
+        self._drag_drop_manager._select(
+            [self._drag_drop_manager._key(tag)])
+        self._rename_context_tag = tag
+
+    def RenameFolder_Click(self, sender, args):
+        tags = self._publication_selection_tags()
+        if len(tags) != 1 or tags[0][0] not in ("FOLDER", "CARNET"):
+            forms.alert("Sélectionnez un seul dossier à renommer.", title="Export")
+            return
+        tag = tags[0]
+        folder = tag[1]
+        if str(folder.id) == "default":
+            forms.alert("Le dossier Général ne peut pas être renommé.",
+                        title="Export")
+            return
+        new_name = forms.ask_for_string(
+            default=folder.name, prompt="Nouveau nom du dossier :",
+            title="Renommer le dossier")
+        if new_name is None:
+            return
+        if not new_name.strip():
+            forms.alert("Le nom du dossier ne peut pas être vide.", title="Export")
+            return
+        try:
+            self.repository.rename_publication_folder(folder.id, new_name)
+        except Exception as exc:
+            forms.alert("Renommage impossible : {0}".format(exc), title="Export")
+            return
+        manager = self._drag_drop_manager
+        expanded = manager._expanded()
+        offset = manager._scroll_offset()
+        selected_key = manager._key(tag)
+        self._refresh_tree()
+        manager._restore_expanded(expanded)
+        manager._restore_scroll(offset)
+        manager._select([selected_key])
 
     def DeleteNode_Click(self, sender, args):
         """Suppression ciblée dans la publication, jamais dans le projet Revit."""
