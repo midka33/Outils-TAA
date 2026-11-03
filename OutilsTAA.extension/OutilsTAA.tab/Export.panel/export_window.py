@@ -494,7 +494,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgTrueColorCheckBox.IsChecked = effective.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = effective.dwg_merge_views
             self.OutputDirectoryTextBox.Text = effective.output_directory or ""
-            self.FilenameTemplateTextBox.Text = effective.filename_template or "{carnet}"
+            self.FilenameTemplateTextBox.Text = (effective.filename_template or "{nom_dossier}").replace("{carnet}", "{nom_dossier}")
             self._sync_dwg_naming(effective)
             self._select_dwg_setup(effective.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
@@ -523,7 +523,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
             self.OutputDirectoryTextBox.Text = settings.output_directory or ""
-            self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
+            self.FilenameTemplateTextBox.Text = (settings.filename_template or "{nom_dossier}").replace("{carnet}", "{nom_dossier}")
             self._sync_dwg_naming(settings)
             self._select_dwg_setup(settings.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
@@ -649,7 +649,7 @@ class ExportWindow(forms.WPFWindow):
                     or "{numero} {nom}"
                 )
             else:
-                template = settings.filename_template or "{carnet}"
+                template = (settings.filename_template or "{nom_dossier}").replace("{carnet}", "{nom_dossier}")
             self.DwgFilenameTemplateTextBox.Text = template
         finally:
             self._loading_settings = was_loading
@@ -665,7 +665,7 @@ class ExportWindow(forms.WPFWindow):
             "dwg_true_color": bool(self.DwgTrueColorCheckBox.IsChecked),
             "dwg_merge_views": bool(self.DwgMergeViewsCheckBox.IsChecked),
             "output_directory": (self.OutputDirectoryTextBox.Text or "").strip() or None,
-            "filename_template": self.FilenameTemplateTextBox.Text or "{carnet}",
+            "filename_template": self.FilenameTemplateTextBox.Text or "{nom_dossier}",
             "dwg_filename_independent": bool(self.DwgFilenameIndependentCheckBox.IsChecked),
             "dwg_filename_template": self.DwgFilenameTemplateTextBox.Text or "{numero} {nom}"
         }
@@ -740,7 +740,7 @@ class ExportWindow(forms.WPFWindow):
             folder = self._folder_for_set(self._selected_set)
             item = self._selected_item if self._selected_kind == "SHEET" else None
             preview, unknown = self.filename_service.resolve(
-                settings.filename_template or "{carnet}", self._selected_set,
+                settings.filename_template or "{nom_dossier}", self._selected_set,
                 item=item, folder_name=getattr(folder, "name", None))
             if unknown:
                 preview += " — Variables non résolues : " + ", ".join(unknown)
