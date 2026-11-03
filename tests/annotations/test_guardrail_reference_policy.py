@@ -112,11 +112,17 @@ def test_deux_garde_corps_pertinents_sont_acceptes():
     assert set(result) == {a, b}
 
 
-def test_trois_garde_corps_reellement_sur_la_limite_restent_refuses():
-    result = select_guardrails_by_path(
-        [(i, [(0., 0., 0., 3.62)]) for i in range(3)],
-        [(0., 0., 0., 3.62)], tolerance=.50)
-    assert result == []
+def test_trois_garde_corps_a_meme_distance_choisir_le_plus_long():
+    """Une egalite ne provoque plus de repli 2D arbitraire."""
+    short, long, medium = object(), object(), object()
+    result, info = select_guardrails_by_path(
+        [(short, [(0., 0., 0., 1.8)]),
+         (long, [(0., 0., 0., 3.62)]),
+         (medium, [(0., 0., 0., 2.8)])],
+        [(0., 0., 0., 3.62)], tolerance=.50,
+        with_diagnostics=True)
+    assert result == [long]
+    assert info["ties_by_length"] == 1
 
 
 def test_ni_chemin_lointain_ni_angle_incompatible():
@@ -207,19 +213,19 @@ def test_trois_garde_corps_proches_mais_un_seul_nu_clairement_meilleur():
     assert abs(info["closest_distance"] - .04) < 1e-9
 
 
-def test_ex_aquo_sur_la_meme_limite_est_refuse_avec_diagnostic():
-    """Deux nus très proches ne doivent jamais etre départagés au hasard."""
+def test_egalite_distance_choisit_le_plus_grand_avec_diagnostic():
+    """Tolérance d'égalité 1 mm : le plus grand rail prime."""
     boundary = [(0., 0., 0., 3.62)]
-    a, b, c = object(), object(), object()
+    short, long, other = object(), object(), object()
     result, info = select_guardrails_by_path(
-        [(a, [(.040, 0., .040, 3.62)]),
-         (b, [(.046, 0., .046, 3.62)]),
-         (c, [(.3, 0., .3, 3.62)])],
-        boundary, tolerance=.5, ambiguity_gap=.025,
+        [(short, [(.0400, 0., .0400, 2.5)]),
+         (long, [(.0406, 0., .0406, 3.62)]),
+         (other, [(.3, 0., .3, 3.62)])],
+        boundary, tolerance=.5, ambiguity_gap=.001,
         with_diagnostics=True)
-    assert result == []
-    assert info["ambiguous"] == 1
-    assert info["reason"] == "ambiguous"
+    assert result == [long]
+    assert info["ties_by_length"] == 1
+    assert info["reason"] == "selected"
 
 
 def test_deux_limites_et_plus_de_deux_gc_seuls_les_meilleurs_sont_examines():
@@ -239,7 +245,7 @@ def test_deux_limites_et_plus_de_deux_gc_seuls_les_meilleurs_sont_examines():
     assert info["selected"] == 2
 
 
-def test_garde_corps_une_limite_ambigue_autre_claire_autorisee():
+def test_plusieurs_garde_corps_deux_limites_retenus_par_proximite():
     left_a, left_b, right = object(), object(), object()
     targets = [(0., 0., 0., 3.62), (3.12, 0., 3.12, 3.62)]
     paths = [
@@ -249,11 +255,11 @@ def test_garde_corps_une_limite_ambigue_autre_claire_autorisee():
     ]
     result, info = select_guardrails_by_path(
         paths, targets, tolerance=.5,
-        max_railings=2, ambiguity_gap=.025,
+        max_railings=2, ambiguity_gap=.001,
         with_diagnostics=True)
-    assert result == [right]
-    assert info["ambiguous"] == 1
-    assert info["reason"] == "partial_ambiguity"
+    assert result == [left_a, right]
+    assert info["ambiguous"] == 0
+    assert info["reason"] == "selected"
 
 
 def test_filtrage_ne_relit_pas_les_solides_pour_diagnostiquer():
@@ -350,3 +356,87 @@ def test_annexe_52pct_rejette_au_dela_50mm_et_angle_sup_3deg():
         limit, [((.015, 0., .4, 3.62*.52), "rail", 50, 0.)],
         tolerance=.050, angle_degrees=3.,
         minimum_overlap=.50) is None
+
+
+
+def test_reference_native_plus_proche_devant_une_arete_plus_longue():
+    # La proximite prime sur la longueur, a condition que les deux
+    # references respectent les limites d'angle et de recouvrement.
+    boundary = (0., 0., 3.62, 0.)
+    edges = [
+        ((0., .04, 3.62, .04), "long-plus-loin", 12, 3.),
+        ((0., .02, 3.0, .02), "court-proche", 11, 3.),
+    ]
+    assert select_guardrail_edge(boundary, edges, .05) == ("court-proche", 11)
+
+
+def test_reference_native_meme_distance_choisit_plus_longue():
+    boundary = (0., 0., 3.62, 0.)
+    short = ((0., .015, 2.8, .015), "court", 11, 3.)
+    long = ((0., .015, 3.62, .015), "long", 12, 3.)
+    assert select_guardrail_edge(
+        boundary, [short, long], .05) == ("long", 12)
+    assert select_guardrail_edge(
+        boundary, [long, short], .05) == ("long", 12)
+
+
+def test_reference_native_egalite_un_millimetre_choisit_plus_longue():
+    boundary = (0., 0., 3.62, 0.)
+    edges = [
+        ((0., .015, 2.8, .015), "plus-pres-court", 11, 3.),
+        ((0., .0156, 3.62, .0156), "plus-loin-long", 12, 3.),
+    ]
+    assert select_guardrail_edge(
+        boundary, edges, .05, distance_equality=.001) == (
+        "plus-loin-long", 12)
+    assert select_guardrail_edge(
+        boundary, edges, .05, distance_equality=0.) == (
+        "plus-pres-court", 11)
+
+
+def test_reference_egale_distance_en_chaine_ne_change_pas_distance_de_base():
+    boundary = (0., 0., 3.62, 0.)
+    edges = [
+        ((0., .015, 2.8, .015), "court-pres", 1, 3.),
+        ((0., .0158, 3.0, .0158), "moyen", 2, 3.),
+        ((0., .0167, 3.62, .0167), "long-trop-loin", 3, 3.),
+    ]
+    assert select_guardrail_edge(
+        boundary, edges, .05, distance_equality=.001) == (
+        "moyen", 2)
+
+
+def test_deux_gc_contigus_reference_le_plus_proche_meme_si_plus_court():
+    # La reference de cote est le plus proche des deux troncons.
+    boundary = (0., 0., 0., 3.62)
+    e1 = ((.03, 0., .03, 3.62*.52), "long", 101, 3.0)
+    e2 = ((.01, 3.62*.52, .01, 3.62), "court-pres", 102, 3.0)
+    match = select_contiguous_guardrail_pair(
+        boundary, [e1,e2], tolerance=.05,
+        max_gap=.10, max_lateral_mismatch=.02,
+        distance_equality=.001)
+    assert match[0:2] == ("court-pres", 102)
+
+
+def test_deux_gc_contigus_meme_distance_reference_le_plus_long():
+    boundary = (0., 0., 0., 3.62)
+    e1 = ((.015, 0., .015, 3.62*.52), "long", 101, 3.0)
+    e2 = ((.015, 3.62*.52, .015, 3.62), "court", 102, 3.0)
+    match = select_contiguous_guardrail_pair(
+        boundary, [e1,e2], tolerance=.05,
+        max_gap=.10, max_lateral_mismatch=.02,
+        distance_equality=.001)
+    assert match[0:2] == ("long", 101)
+
+
+def test_champs_diagnostic_selection_par_longueur():
+    """Rapport de preselection : égalités departagees, sans ambiguïté."""
+    boundary = [(0., 0., 0., 3.62)]
+    objects = [object(),object()]
+    matches, stats = select_guardrails_by_path(
+        [(objects[0],[(.015,0.,.015,2.4)]),
+         (objects[1],[(.015,0.,.015,3.62)])],
+        boundary, tolerance=.5, ambiguity_gap=.001,
+        with_diagnostics=True)
+    assert matches == [objects[1]]
+    assert stats["ties_by_length"] == 1
