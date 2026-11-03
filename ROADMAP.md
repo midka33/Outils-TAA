@@ -287,6 +287,9 @@ de leurs mises en page.
 - [x] Autoriser un rattrapage borné à 50 mm entre séparation et garde-corps pour les annexes ; journaliser la valeur réelle de l'écart, exiger contrôle du nu au-delà de 20 mm (BUG-COMMON-016).
 - [x] Corriger le filtre de garde-corps par limite (BUG-COMMON-017), sans rejet global lorsqu'un troisième ouvrage est présent ; ajouter diagnostics de sélection et ambiguïté.
 - [x] Gérer une limite constituée de **deux garde-corps contigus**, chacun proche de 50 % : accepter la paire si elle couvre >=90 %, sans affaiblir le seuil de 60 % d'un rail isolé (BUG-COMMON-018).
+- [x] Essai 2240 : 2 cotes créées avec arêtes natives de garde-corps, sans fallback 2D (0 mm / 100 % et 19,3 mm / 63 %).
+- [x] Corriger les deux messages d'arêtes natives répétés : cache de références prêt même lorsqu'aucun repère 2D n'est créé (BUG-COMMON-019).
+- [ ] Recetter sur copie 2240 : deux messages natifs seulement, bons nus, visibilité après masquage des séparations, aucun doublon en seconde exécution.
 - [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
