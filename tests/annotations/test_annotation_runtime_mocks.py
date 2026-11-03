@@ -1196,3 +1196,209 @@ def test_cache_references_vide_evite_une_nouvelle_recherche(monkeypatch):
     service._create_separator_proxies(object(), [room], line_style=object())
     del service.dims._room_boundary_candidates
     assert service.dims._room_boundary_candidates(room) == []
+
+
+
+def test_2238_trois_garde_corps_deux_toprails_et_une_lisse_non_continue(monkeypatch):
+    """La 3e reference n'est pas invisible parce que TopRail est absent."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    architecture = types.ModuleType("Autodesk.Revit.DB.Architecture")
+    geometry_read = []
+
+    class Id(object):
+        def __init__(self, number):
+            self.Value = number
+        def __eq__(self, other):
+            return isinstance(other, Id) and self.Value == other.Value
+
+    class P(object):
+        def __init__(self, x, y, z=2.8):
+            self.X, self.Y, self.Z = x, y, z
+
+    class Box(object):
+        Min, Max = P(-.2, -.2), P(3.9, 3.4)
+
+    class Line(object):
+        def __init__(self, x0, y0, x1, y1):
+            self.points = (P(x0, y0), P(x1, y1))
+            self.Length = ((x1-x0)**2+(y1-y0)**2)**.5
+        def GetEndPoint(self, index):
+            return self.points[index]
+
+    class Edge(object):
+        def __init__(self, segment):
+            self._curve = Line(*segment)
+            self.Reference = types.SimpleNamespace(
+                ConvertToStableRepresentation=lambda doc: "ref-native")
+        def AsCurve(self):
+            return self._curve
+
+    class Solid(object):
+        Volume = 1.
+        def __init__(self, segment):
+            self.Edges = [Edge(segment)]
+
+    class RailType(object):
+        RailStructure = types.SimpleNamespace(
+            GetNonContinuousRailCount=lambda: 1)
+
+    class RailElement(object):
+        def __init__(self, rail_id, segment):
+            self.rail_id = rail_id
+            self.segment = segment
+        def get_Geometry(self, options):
+            geometry_read.append(self.rail_id)
+            return [Solid(self.segment)]
+
+    class Railing(object):
+        def __init__(self, number, top, segment, railpath):
+            self.Id = Id(number)
+            self.TopRail = Id(top)
+            self.segment = segment
+            self.railpath = railpath
+        def GetTypeId(self):
+            return Id(500)
+        def GetHandRails(self):
+            return []
+        def GetPath(self):
+            return [Line(*self.railpath)]
+        def get_BoundingBox(self, view):
+            return Box()
+        def get_Geometry(self, options):
+            geometry_read.append(self.Id.Value)
+            if self.Id.Value != 3:
+                raise AssertionError("Aucun scan du parent avec TopRail !")
+            return [Solid(self.segment)]
+
+    railings = [
+        Railing(1, 101, (0., .01, 3.62, .01),
+                (0., .01, 3.62, .01)),
+        Railing(2, 102, (0., 3.13, 3.62*.52, 3.13),
+                (0., 3.13, 3.62, 3.13)),
+        Railing(3, -1, (3.62*.52, 3.13, 3.62, 3.13),
+                (3.62*.52, 3.13, 3.62, 3.13)),
+    ]
+
+    class Doc(object):
+        def GetElement(self, ident):
+            if ident.Value == 500:
+                return RailType()
+            if ident.Value == 101:
+                return RailElement(101, railings[0].segment)
+            if ident.Value == 102:
+                return RailElement(102, railings[1].segment)
+            return None
+
+    class Collector(object):
+        def __init__(self, doc, view_id):
+            pass
+        def OfClass(self, cls):
+            return self
+        def WhereElementIsNotElementType(self):
+            return self
+        def ToElements(self):
+            return list(railings)
+
+    class Options(object):
+        pass
+
+    architecture.Railing = Railing
+    monkeypatch.setitem(sys.modules, "Autodesk.Revit.DB.Architecture",
+                        architecture)
+    db = mod.DB
+    db.FilteredElementCollector = Collector
+    db.ElementId = types.SimpleNamespace(InvalidElementId=Id(-1))
+    db.Line = Line
+    db.Solid = Solid
+    db.GeometryInstance = object
+    db.Options = Options
+    db.ViewDetailLevel = types.SimpleNamespace(
+        Medium="medium", Coarse="coarse")
+    service = mod.GenericDimensions(Doc())
+    service.target_view = types.SimpleNamespace(Id="view2238")
+    service._millimeters_to_internal = lambda mm: mm/1000.
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_BoundingBox=lambda view: Box(),
+        get_Parameter=lambda arg: FakeParameter("2238"))
+
+    bounds = [(0., 0., 3.62, 0.), (0., 3.12, 3.62, 3.12)]
+    edges = service._nearby_guardrail_edges(room, bounds)
+    assert geometry_read == [101, 102, 3]
+    assert len(edges) == 3
+    assert edges[-1][2].Value == 3
+    log = "\n".join(service._guardrail_warnings)
+    assert "GC 3 : TopRail absent" in log
+    assert "1 lisse(s) non continue(s)" in log
+    assert "GC 3 non continu" in log
+
+    from common.guardrail_reference_policy import (
+        select_contiguous_guardrail_pair)
+    result = select_contiguous_guardrail_pair(
+        bounds[1], edges, tolerance=.05, max_gap=.1,
+        max_lateral_mismatch=.02,
+        max_elevation_difference=.15)
+    assert result is not None
+    assert result[2]["support_count"] == 2
+    assert result[2]["combined_overlap_ratio"] > .99
+
+
+def test_noncontinuous_parent_geometry_budget_et_sans_instance(monkeypatch):
+    """Pas de parcours recursif du parent ni d'aretes hors budget."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+
+    class Id(object):
+        Value = 998
+
+    class P(object):
+        def __init__(self, x, y):
+            self.X, self.Y, self.Z = x, y, 3.
+
+    class Line(object):
+        Length = 1.
+        def GetEndPoint(self, i):
+            return P(i, 0.)
+
+    class Edge(object):
+        Reference = types.SimpleNamespace(
+            ConvertToStableRepresentation=lambda doc: "ref")
+        def AsCurve(self):
+            return Line()
+
+    class Solid(object):
+        Volume = 1.
+        Edges = [Edge() for i in range(49)]
+
+    class Instance(object):
+        def GetSymbolGeometry(self):
+            raise AssertionError("Balustres ne doivent pas etre lus.")
+
+    class Railing(object):
+        Id = Id()
+        def get_Geometry(self, options):
+            return [Instance(), Solid()]
+
+    mod.DB.Options = type("Options", (object,), {})
+    mod.DB.ViewDetailLevel = types.SimpleNamespace(Coarse="coarse")
+    mod.DB.Solid = Solid
+    mod.DB.Line = Line
+    mod.DB.GeometryInstance = Instance
+
+    service = mod.GenericDimensions(types.SimpleNamespace())
+    service.target_view = types.SimpleNamespace()
+    service._millimeters_to_internal = lambda mm: mm/1000.
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda _: FakeParameter("2238"))
+    # 49 aretes ont ete proposees, le budget reste 48 :
+    # la totalite des references de cette source est rejetee.
+    result = service._bounded_noncontinuous_edges(
+        room, Railing(), [(0., 0., 1., 0.)],
+        max_edges=48, max_objects=16)
+    assert result == []
+    assert any("budget 48 aretes" in x
+               for x in service._guardrail_warnings)
