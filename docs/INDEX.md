@@ -74,7 +74,7 @@ Le dossier `release/` contient uniquement les documents de cette version :
 
 Les documents de la précédente release v1.3.0 sont archivés sous `archive/releases/v1.3.0/`. Ceux de v1.2.0 et des versions antérieures restent dans leurs archives respectives.
 
-**État de publication :** seule la présence effective du tag, des actifs et des contrôles de release sur [GitHub Releases v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) atteste de la release ; la documentation seule ne vaut pas publication.
+**Release publiée et vérifiée le 3 novembre 2026 :** [Outils TAA v1.4.0 sur GitHub](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0), tag `v1.4.0` pointant sur le SHA `21336b3d`, avec six actifs et 754 tests automatisés réussis dans la CI de publication. La recette d'installation Windows du CMD reste à confirmer.
 
 ## Archives
 
