@@ -1,7 +1,7 @@
 # Outils TAA — Plans de vente
 
 **Version fonctionnelle :** V1.1  
-**Livraison :** Outils TAA v1.3.0  
+**Livraison initiale :** Outils TAA v1.3.0 ; **fonctionnalités métier inchangées en v1.4.0**  
 **Statut :** validé dans Autodesk Revit 2025.4 / pyRevit 5.x  
 **Date de référence :** 20 octobre 2026
 
@@ -291,8 +291,8 @@ tests/plans_vente/
 
 ## 16. Références
 
-- Tutoriel courant : `docs/release/Tutoriel_Plans_de_Vente_v1.3.0.md`
-- Recette V1.1 : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`
+- Tutoriel courant : `docs/release/Tutoriel_Plans_de_Vente_v1.4.0.md`
+- Recette V1.1 : `docs/archive/releases/v1.3.0/Preparation_Plans_de_Vente_V1.1_Liens.md`
 - Références UI : `docs/references/plans-vente/`
 - Registre des bugs : `docs/11_BUGS_Prevention_Registry.md`
 - Historique détaillé : `docs/archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`
