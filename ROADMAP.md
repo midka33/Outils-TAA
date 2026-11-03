@@ -294,6 +294,9 @@ de leurs mises en page.
 - [x] Conserver un deuxième garde-corps comme candidat à examen natif même lorsque le chemin du premier semble couvrir la limite entière ; la continuité réelle est validée après lecture des arêtes, sans augmenter les plafonds de 3 garde-corps et 120 arêtes (BUG-COMMON-021).
 - [x] Ajouter un diagnostic des trois IDs de garde-corps et, si un seul type contient une lisse non continue sans TopRail/HandRail, une extraction directe limitée à 16 objets / 48 arêtes (BUG-COMMON-022).
 - [x] Séparer couverture par union des **deux chemins de garde-corps (>=90%)** et **arête native unique** (>=25%) pour les annexes ; ne plus lire le parent sans TopRail en extérieur (BUG-COMMON-023).
+- [x] Après retour Revit de 2238 **post-correctif 023**, confirmer que la seconde cote reste sur repères 2D (meilleure arête 52 % / 15 mm), sans couverture native démontrée.
+- [x] Ajouter un diagnostic de la paire de chemins sur la limite refusée : IDs, positions projetées, union, superposition, jeu, décalage et motif précis de rejet, sans réduire les protections ni toucher à Plans de vente (BUG-COMMON-024).
+- [ ] Rejouer sur la loggia 2238 dans Revit 2025.4 et transmettre la nouvelle ligne `diagnostic continuité GC` ; déterminer le blocage réel avant toute modification de la sélection native.
 - [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
