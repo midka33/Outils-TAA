@@ -1092,3 +1092,69 @@ cote et ne modifie pas Plans de vente.
 
 **Statut : diagnostic ajouté sur la branche bêta ; test utilisateur
 Revit du diagnostic en attente.** Voir BUG-COMMON-024.
+
+
+### Récupération bêta des axes de garde-corps décalés — 2238 (3 novembre 2026)
+
+**Rapport utilisateur post-BUG-COMMON-024 :** trois garde-corps détectés.
+Les chemins des GC `8951804` et `16141871` couvrent ensemble
+**100 %** de la seconde limite de la pièce **2238** : l'un
+**52–100 %**, l'autre **0–52 %**, sans trou ni superposition.
+Leur implantation latérale diffère toutefois de **33 mm**,
+ce qui dépasse le seuil courant de **20 mm**. L'axe le plus
+éloigné est à 58 mm de la séparation ; une vraie arête native
+est à **0 mm** et couvre **52 %** de cette même séparation.
+L'ancienne décision `decalage_lateral` expliquait donc le
+repli 2D, mais ne constituait pas à elle seule la preuve
+que les **nus réels** diffèrent de 33 mm.
+
+**Exception d'essai encadrée — BUG-COMMON-025 :** le mode
+diagnostic bêta permet maintenant de récupérer l'arête native,
+sans assouplir la règle ordinaire, uniquement si **tous** les
+points suivants sont respectés :
+- chemins longitudinaux distincts, du même côté de la
+  séparation, angle <=3°, union >=98 %, superposition <=2 % ;
+- raccordement longitudinal <=10 mm ;
+- décalage entre axes dans ]20 ; 40] mm et distance de
+  chaque axe à la séparation <=60 mm ;
+- arête native d'un des deux garde-corps à <=5 mm de la
+  séparation, parallèle, couvrant >=25 % et réellement liée
+  au bon parent `TopRail` ou `HandRail` ;
+- aucun dépassement des budgets existants : 3 GC,
+  80 segments de chemins et 120 arêtes.
+
+Une nouvelle ligne du rapport doit signaler :
+`RECUPERATION BETA du GC malgre axes decales de 33 mm`.
+**La cote ne devient pas associative aux deux garde-corps** :
+elle reste uniquement associée au rail fournissant
+l'`Edge.Reference` native.
+
+**Attention :** la tolérance sur les axes ne garantit **pas**
+l'alignement des faces ni du nu intérieur. Ce cas ne doit pas
+être déclaré validé avant vérification manuelle sur copie,
+à l'échelle du modèle, de la valeur réelle de la cote,
+de l'alignement des deux nus et de la stabilité de la cote
+lorsqu'on masque les séparations de pièces.
+
+**Recette à effectuer :**
+- [ ] REV-ANN-99 — Mettre à jour la branche bêta, supprimer
+      les cotes précédentes de la loggia 2238, recharger pyRevit
+      et relancer uniquement cette pièce en vue
+      `Collectifs A_Niveau 1`.
+- [ ] REV-ANN-100 — Confirmer une ligne `RECUPERATION BETA`,
+      deux cotes de longueur réellement correcte, et **aucun
+      repère 2D** utilisé pour la seconde limite ; si l'API
+      Revit refuse la référence, conserver le diagnostic.
+- [ ] REV-ANN-101 — Vérifier que les **nus intérieurs réels des
+      deux garde-corps** sont alignés. S'ils sont décalés,
+      ne pas considérer la cote produite comme correcte.
+- [ ] REV-ANN-102 — Masquer les séparations de pièces,
+      vérifier les cotes, relancer une deuxième fois (absence
+      de doublons/crash), puis contrôler la pièce 2240.
+- [ ] REV-ANN-103 — Seulement après les vérifications ci-dessus,
+      décider de conserver, modifier ou retirer cette exception
+      bêta avant la fusion éventuelle.
+
+**État :** code et tests hors Revit réalisés. **Validation Revit
+en attente**, et les axes `GetPath()` ne sont jamais pris pour
+une référence géométrique de cote.
