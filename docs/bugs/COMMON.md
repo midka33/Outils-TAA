@@ -818,3 +818,22 @@ distance mesurée dans la même unité pour tous les ouvrages.
 et tests de présélection par chemin sur trois garde-corps et deux
 limites. Les suites CI doivent réussir. **Validation native Revit
 2025.4 toujours requise**, particulièrement sur 2238.
+
+
+**Préservation des limites composées (2238) :** la présélection reste
+au plus un garde-corps prioritaire par limite selon proximité puis
+longueur. Si ce garde-corps seul couvre moins de 60 %, un **second
+garde-corps distinct** peut être ajouté exceptionnellement au
+parcours natif **uniquement si leurs chemins démontrent une
+continuité** (couverture cumulée >=90 %, raccord <=100 mm,
+écart latéral mutuel <=20 mm). Cette preuve par chemins ne
+constitue jamais une référence de cote : les `Edge.Reference`
+restent contrôlées par le moteur natif. Pour couvrir deux
+directions dont une composée, le budget de garde-corps examinés
+passe de **2 à 3 maximum**, en conservant le plafond total
+inchangé de **120 arêtes examinées**. Si plus de trois rails
+sont requis, fallback 2D au lieu d'augmenter l'exploration.
+Tests : `test_loggia_2238_une_limite_complete_et_deux_rails_suivants`,
+`test_ne_pas_chercher_second_rail_si_pas_de_continuite`,
+`test_complement_de_rail_refuse_si_decales_30mm`,
+`test_companion_ne_fait_pas_depassement_silencieux_du_budget`.
