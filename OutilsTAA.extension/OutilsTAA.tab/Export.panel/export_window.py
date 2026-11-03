@@ -486,6 +486,7 @@ class ExportWindow(forms.WPFWindow):
                     len(self._selected_set.items or []),
                 )
             self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
+            self.FormatSubfoldersCheckBox.IsChecked = effective.separate_format_subfolders
             self.PdfQualityCombo.SelectedItem = effective.pdf_quality
             self.PdfCheckBox.IsChecked = effective.pdf_enabled
             self.PdfCombinedRadio.IsChecked = effective.pdf_mode == "COMBINED"
@@ -515,6 +516,9 @@ class ExportWindow(forms.WPFWindow):
         try:
             self.SelectedNodeText.Text = "Dossier : {0}".format(folder.name)
             self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
+            self.FormatSubfoldersCheckBox.IsChecked = (settings.separate_format_subfolders
+                                                        if settings.separate_format_subfolders is not None
+                                                        else self.CarnetSubfolderCheckBox.IsChecked)
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
@@ -605,7 +609,8 @@ class ExportWindow(forms.WPFWindow):
     def _field_label(field):
         labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage PDF", "dwg_filename_template": "nommage DWG", "dwg_filename_independent": "nommage DWG indépendant"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
-        labels["separate_carnet_subfolder"] = "dossier de sortie"
+        labels["separate_carnet_subfolder"] = "dossier de publication dans la sortie"
+        labels["separate_format_subfolders"] = "sous-dossiers PDF et DWG"
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
@@ -658,6 +663,7 @@ class ExportWindow(forms.WPFWindow):
         values = {
             "pdf_quality": int(self.PdfQualityCombo.SelectedItem or 300),
             "separate_carnet_subfolder": bool(self.CarnetSubfolderCheckBox.IsChecked),
+            "separate_format_subfolders": bool(self.FormatSubfoldersCheckBox.IsChecked),
             "pdf_enabled": bool(self.PdfCheckBox.IsChecked),
             "pdf_mode": "COMBINED" if self.PdfCombinedRadio.IsChecked else "SEPARATE",
             "dwg_enabled": bool(self.DwgCheckBox.IsChecked),
@@ -712,10 +718,16 @@ class ExportWindow(forms.WPFWindow):
         settings.dwg_setup_name = values.get("dwg_setup_name")
         settings.dwg_true_color = bool(values.get("dwg_true_color", True))
         settings.dwg_merge_views = values.get("dwg_merge_views") is not False
+        for folder_field in ("separate_carnet_subfolder", "separate_format_subfolders"):
+            if values.get(folder_field) is not None:
+                setattr(settings, folder_field, bool(values[folder_field]))
         self._selected_set.publication_settings = settings
         self._loading_settings = True
         try:
             self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
+            self.FormatSubfoldersCheckBox.IsChecked = (settings.separate_format_subfolders
+                                                        if settings.separate_format_subfolders is not None
+                                                        else self.CarnetSubfolderCheckBox.IsChecked)
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
@@ -809,6 +821,7 @@ class ExportWindow(forms.WPFWindow):
         mapping = {
             "PdfQualityCombo": "pdf_quality",
             "CarnetSubfolderCheckBox": "separate_carnet_subfolder",
+            "FormatSubfoldersCheckBox": "separate_format_subfolders",
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
             "DwgCheckBox": "dwg_enabled",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
