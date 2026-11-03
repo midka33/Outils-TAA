@@ -23,7 +23,8 @@ def matches_guardrail_edge(boundary, edge, tolerance,
 
 def select_guardrail_edge(boundary, edges, tolerance,
                           angle_degrees=3., minimum_overlap=.60,
-                          max_edges=120, include_metrics=False):
+                          max_edges=120, include_metrics=False,
+                          distance_equality=0.):
     """Choisir une référence d'arête valide, pas un axe théorique.
 
     edges: (segment_xy, reference, element_id, z) déjà présélectionnés
@@ -33,7 +34,10 @@ def select_guardrail_edge(boundary, edges, tolerance,
     edges = list(edges or [])
     if len(edges) > int(max_edges):
         return None
+    import math
+
     best = None
+    equality = max(0., float(distance_equality))
     for segment, reference, element_id, z in edges:
         if reference is None:
             continue
@@ -41,38 +45,43 @@ def select_guardrail_edge(boundary, edges, tolerance,
             boundary, segment, tolerance, angle_degrees, minimum_overlap)
         if metrics is None:
             continue
-        score = metrics["score"]
-        if best is None or score < best[0]:
-            best = (score, reference, element_id, metrics)
+        distance = float(metrics["distance"])
+        length = math.hypot(float(segment[2])-float(segment[0]),
+                            float(segment[3])-float(segment[1]))
+        # La proximite prime sur le recouvrement et sur le score mixte.
+        # En cas d'egalite de distance seulement, garder l'arete longue.
+        if (best is None
+                or distance < best[0] - equality
+                or (abs(distance-best[0]) <= equality
+                    and length > best[1] + 1.e-9)):
+            best = (distance, length, reference, element_id, metrics)
     if best is None:
         return None
     if include_metrics:
-        return best[1], best[2], best[3]
-    return best[1], best[2]
+        return best[2], best[3], best[4]
+    return best[2], best[3]
 
 
 def select_guardrails_by_path(items, target_segments, tolerance,
                               max_railings=2, max_segments=80,
                               angle_degrees=12.0, minimum_overlap=.30,
                               ambiguity_gap=0.0, with_diagnostics=False):
-    """Présélectionner au plus un garde-corps par limite retenue.
+    """Choisir les garde-corps les plus proches, puis les plus longs.
 
-    Le chemin Railing.GetPath sert UNIQUEMENT au classement spatial.
-    Ne jamais utiliser ce chemin comme Reference pour la cotation.
-
-    Contrairement au filtre historique, la présence de trois ouvrages
-    géométriquement proches d'une même Room n'annule pas d'office la
-    recherche : chaque limite est évaluée indépendamment.
-    Si deux ouvrages sont quasi ex aequo (marge ambiguity_gap), cette
-    limite est rejetée plutôt que d'imposer arbitrairement un nu.
+    Le chemin Railing.GetPath sert a filtrer les ouvrages, JAMAIS
+    comme reference de cote. Les contraintes d'angle/recouvrement
+    restent obligatoires. ambiguity_gap est conserve pour compatibilite,
+    et represente desormais le seuil de distance dite egale (en pieds).
     """
+    import math
+
     targets = list(target_segments or [])
     info = {"reason": "no_targets", "inspected": 0, "path_matches": 0,
             "ambiguous": 0, "selected": 0, "closest_distance": None,
-            "target_count": len(targets)}
+            "target_count": len(targets), "ties_by_length": 0}
     if not targets:
         return ([], info) if with_diagnostics else []
-    # Préparer la matrice des scores sans géométrie de solides.
+    equality = max(0., float(ambiguity_gap))
     rows = [[] for _ in targets]
     for element, segments in items:
         for segment in segments:
@@ -80,6 +89,8 @@ def select_guardrails_by_path(items, target_segments, tolerance,
             if info["inspected"] > int(max_segments):
                 info["reason"] = "path_budget"
                 return ([], info) if with_diagnostics else []
+            length = math.hypot(float(segment[2])-float(segment[0]),
+                                float(segment[3])-float(segment[1]))
             for i, target in enumerate(targets):
                 metrics = segment_match_metrics(
                     target, segment,
@@ -88,44 +99,56 @@ def select_guardrails_by_path(items, target_segments, tolerance,
                     minimum_overlap_ratio=minimum_overlap)
                 if metrics is None:
                     continue
-                rows[i].append((metrics["score"],
-                                metrics["distance"], element))
+                distance = float(metrics["distance"])
+                rows[i].append((distance, length, element))
                 info["path_matches"] += 1
                 if (info["closest_distance"] is None or
-                        metrics["distance"] < info["closest_distance"]):
-                    info["closest_distance"] = metrics["distance"]
+                        distance < info["closest_distance"]):
+                    info["closest_distance"] = distance
 
     selected = []
     for matches in rows:
         if not matches:
             continue
-        # Agréger les scores par ouvrage ; deux segments du même garde-
-        # corps ne doivent pas provoquer une fausse ambiguïté.
+        # Le meme ouvrage peut produire plusieurs troncons valides ;
+        # ne conserver que son meilleur troncon pour cette limite.
         unique = []
-        for score, distance, element in matches:
+        for distance, length, element in matches:
             idx = next((i for i, entry in enumerate(unique)
                         if entry[2] is element), -1)
             if idx < 0:
-                unique.append((score, distance, element))
-            elif score < unique[idx][0]:
-                unique[idx] = (score, distance, element)
-        unique.sort(key=lambda row: (row[0], row[1]))
-        if (len(unique) > 1 and
-                unique[1][0] - unique[0][0] <= ambiguity_gap + 1e-10):
-            info["ambiguous"] += 1
-            continue
-        chosen = unique[0][2]
+                unique.append((distance, length, element))
+            elif (distance < unique[idx][0] - equality or
+                  (abs(distance-unique[idx][0]) <= equality
+                   and length > unique[idx][1] + 1.e-9)):
+                unique[idx] = (distance, length, element)
+
+        best = None
+        for candidate in unique:
+            if best is None:
+                best = candidate
+                continue
+            if candidate[0] < best[0] - equality:
+                best = candidate
+            elif abs(candidate[0]-best[0]) <= equality:
+                if candidate[1] > best[1] + 1.e-9:
+                    best = candidate
+        if len(unique) > 1:
+            equivalents = [c for c in unique
+                           if abs(c[0]-best[0]) <= equality]
+            if len(equivalents) > 1:
+                info["ties_by_length"] += 1
+        chosen = best[2]
         if all(existing is not chosen for existing in selected):
             selected.append(chosen)
+
     if len(selected) > int(max_railings):
         info["reason"] = "rail_budget"
         selected = []
     elif not selected:
-        info["reason"] = ("ambiguous" if info["ambiguous"]
-                          else "no_match")
+        info["reason"] = "no_match"
     else:
-        info["reason"] = ("partial_ambiguity" if info["ambiguous"]
-                          else "selected")
+        info["reason"] = "selected"
     info["selected"] = len(selected)
     return (selected, info) if with_diagnostics else selected
 
