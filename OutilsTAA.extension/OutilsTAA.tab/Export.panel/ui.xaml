@@ -68,7 +68,8 @@
           </StackPanel>
           <TreeView x:Name="PublicationTree" Grid.Row="1" AllowDrop="True" SelectedItemChanged="Tree_SelectedItemChanged" MouseDoubleClick="Tree_MouseDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,4,0,0" />
           <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-            <Button Content="Supprimer" Click="DeleteNode_Click" MinWidth="90" ToolTip="Supprimer les éléments sélectionnés (Ctrl / Maj). Les feuilles Revit sont conservées." />
+            <Button x:Name="RenameFolderButton" Content="Renommer" Click="RenameFolder_Click" MinWidth="100" Margin="0,0,8,0" ToolTip="Renommer le dossier sélectionné (F2 ou clic droit)." />
+              <Button Content="Supprimer" Click="DeleteNode_Click" MinWidth="90" ToolTip="Supprimer les éléments sélectionnés (Ctrl / Maj). Les feuilles Revit sont conservées." />
           </StackPanel>
         </Grid>
       </Border>
