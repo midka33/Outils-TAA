@@ -292,6 +292,7 @@ de leurs mises en page.
 - [ ] Recetter sur copie 2240 : deux messages natifs seulement, bons nus, visibilité après masquage des séparations, aucun doublon en seconde exécution.
 - [x] Règle de choix entre plusieurs garde-corps : **le plus proche de la limite, puis le plus long à distance équivalente (1 mm)** ; appliquée aux chemins, arêtes natives et paires contiguës (BUG-COMMON-020).
 - [x] Conserver un deuxième garde-corps comme candidat à examen natif même lorsque le chemin du premier semble couvrir la limite entière ; la continuité réelle est validée après lecture des arêtes, sans augmenter les plafonds de 3 garde-corps et 120 arêtes (BUG-COMMON-021).
+- [x] Ajouter un diagnostic des trois IDs de garde-corps et, si un seul type contient une lisse non continue sans TopRail/HandRail, une extraction directe limitée à 16 objets / 48 arêtes (BUG-COMMON-022).
 - [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
