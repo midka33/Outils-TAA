@@ -252,6 +252,30 @@ de leurs mises en page.
 - [ ] Définir le modèle de mise en page et les règles de nommage.
 - [ ] Préparer le workflow de génération, mise à jour et contrôle avant développement.
 
+## Module futur — Giration des véhicules
+
+**Statut : planifié (cadrage validé le 2026-11-03) — non développé.**  
+**Spécification :** [`docs/25_Giration_Vehicules.md`](docs/25_Giration_Vehicules.md). **Suivi :** [issue #40](https://github.com/midka33/Outils-TAA/issues/40).
+
+**Objectif :** retrouver dans Revit 2025.4 via pyRevit 5.x le **tracé manuel de giration** d'Autodesk Vehicle Tracking et son niveau d'information graphique sur plan, avec une interface WPF plus intuitive.
+
+**Décisions :**
+- L'utilisateur choisit le véhicule adapté à son projet, sans sélection automatique en fonction du type de bâtiment.
+- Il dessine/pilote librement le parcours ; le plugin impose les contraintes de giration du véhicule sélectionné.
+- Véhicules définis à partir de données géométriques et cinématiques sourcées (SDIS 33, autres SDIS, constructeurs), **sans confondre exigences de voirie et rayon de braquage mécanique**.
+- Même famille d'informations graphiques que Vehicle Tracking : silhouettes successives, trajectoires de roues, enveloppes intérieure/extérieure, rayons, sens et repères de contrôle ; graphiques utilisables en plan/feuille et export PDF/DWG.
+- **Technologie imposée :** pyRevit 5.x / IronPython, moteur métier Python indépendant de WPF et de l'API Revit ; pas de complément autonome C# et pas de Dynamo.
+
+### Jalons V1
+- [ ] **P0 — Faisabilité :** valider dans Revit 2025.4 un tracé manuel et un aperçu dynamique à la souris fluides via pyRevit ; documenter les limites réelles de l'API (jalon bloquant).
+- [ ] **P1 — Cinématique :** moteur de braquage, limitation du rayon, transition entre segments, marche avant/arrière, trajectoires des roues et tests géométriques hors Revit.
+- [ ] **P2 — Représentation :** positions du véhicule, lignes de parcours, enveloppes balayées et repères comparables à la référence Vehicle Tracking ; production de géométrie Revit exportable.
+- [ ] **P3 — Production :** bibliothèque de véhicules sourcés, interface WPF, enregistrement et modification des trajectoires, options d'affichage et validation utilisateur en conditions réelles.
+
+**Hors V1 :** calcul d'itinéraire automatique, sélection réglementaire du véhicule, certification de conformité, contrôle automatique des collisions, analyse 3D des rampes.
+
+**Aucun code livré et aucun test de faisabilité Revit encore exécuté.** Ce module est ajouté au backlog sans décaler automatiquement les jalons déjà engagés d'Export, Calculs et Plans de vente.
+
 ## Phase 5 — Industrialisation
 
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.
