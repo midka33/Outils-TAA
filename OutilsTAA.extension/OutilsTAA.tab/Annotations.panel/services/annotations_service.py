@@ -95,6 +95,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self.target_view = None
         self._guardrail_cache = {}
         self._guardrail_warnings = []
+        self._guardrail_paths = {}
+        self._guardrail_native_parents = {}
 
     def _stable_reference(self, reference):
         if reference is None:
@@ -373,6 +375,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         # En cas de refus ou d'ambiguite, garder le cache vide plutôt
         # que de parcourir la geometrie une deuxieme fois.
         self._guardrail_cache[key] = []
+        self._guardrail_paths[key] = []
+        self._guardrail_native_parents = {}
         try:
             from Autodesk.Revit.DB.Architecture import Railing
             from common.floor_reference_policy import intersects_xy
@@ -477,6 +481,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             "{} : {} garde-corps retenu(s) par leur chemin "
             "pour examen des aretes natives.".format(
                 label, len(railings)))
+        # La verification de couverture se fera APRES extraction.
+        # Une Reference native de TopRail peut ne couvrir que 52 %
+        # alors que deux chemins de garde-corps couvrent toute la limite.
+        selected_ids = set(id_value(item.Id) for item in railings)
+        self._guardrail_paths[key] = [
+            (id_value(item.Id), list(segments))
+            for item, segments in paths
+            if id_value(item.Id) in selected_ids]
         options = DB.Options()
         options.ComputeReferences = True
         options.IncludeNonVisibleObjects = False
@@ -522,6 +534,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     element = self.document.GetElement(rail_id)
                     if element is not None:
                         continuous.append((rail_id, element))
+                        self._guardrail_native_parents[key_id] = parent_id
                         seen_rail_ids.add(key_id)
                         resolved += 1
                 except Exception:
@@ -621,11 +634,17 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                         error))
                 continue
         # Le rail non continu ne possède pas d'ElementId de TopRail
-        # à interroger isolément. Sur un seul GC dont le type annonce
-        # réellement une lisse non continue, sondage ciblé du parent :
+        # à interroger isolément. La nouvelle preuve par DEUX chemins
+        # épargne cette lecture du parent pour les annexes extérieures.
+        # Pour les pièces intérieures, l'ancien repli reste inchangé.
         # au plus 16 objets directs, 48 arêtes, sans GeometryInstance
         # (risque de parcourir tous les balustres) ni copie de référence.
-        if len(missing) == 1:
+        if len(missing) == 1 and self._is_exterior_annex(room):
+            self._guardrail_warnings.append(
+                "{} : GC {} sans rail filant : controle de couverture "
+                "par chemins, aucun solide parent explore.".format(
+                    label, id_value(missing[0].Id)))
+        elif len(missing) == 1:
             if inspected >= max_edges:
                 self._guardrail_warnings.append(
                     "{} : budget natif atteint, GC non continu non sonde."
@@ -662,7 +681,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         from common.guardrail_reference_policy import (
             select_guardrail_edge, guardrail_tolerance_mm,
             guardrail_minimum_overlap, diagnose_guardrail_candidates,
-            select_contiguous_guardrail_pair)
+            select_contiguous_guardrail_pair,
+            select_native_edge_with_path_continuity)
         edges = self._nearby_guardrail_edges(
             room, [item.segment for item in remaining])
         if not edges:
@@ -698,6 +718,24 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     max_lateral_mismatch=self._millimeters_to_internal(20.),
                     max_elevation_difference=self._millimeters_to_internal(150.),
                     distance_equality=self._millimeters_to_internal(1.))
+            if match is None and exterior:
+                # Deux chemins de garde-corps peuvent couvrir la limite
+                # meme si un seul TopRail fournit une reference native.
+                # La preuve reste geometrique : union projetee >=90 %,
+                # 2 ouvrages distincts, peu de jour et peu de decalage.
+                match = select_native_edge_with_path_continuity(
+                    candidate.segment, edges,
+                    self._guardrail_paths.get(str(room.UniqueId), []),
+                    self._guardrail_native_parents,
+                    native_tolerance=tolerance,
+                    path_tolerance=self._millimeters_to_internal(500.),
+                    angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                    minimum_path_coverage=.90,
+                    minimum_part_coverage=.25,
+                    maximum_gap=self._millimeters_to_internal(100.),
+                    maximum_lateral_mismatch=self._millimeters_to_internal(20.),
+                    distance_equality=self._millimeters_to_internal(1.),
+                    max_railings=3, max_paths=80, max_edges=120)
             if match is None:
                 # Diagnostiquer les distances reelles, sans decaler les
                 # references ni abaisser arbitrairement le recouvrement.
@@ -729,6 +767,18 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 "verifier son nu interieur et sa visibilite.".format(
                     room_num, distance_mm,
                     metrics["overlap_ratio"]*100.))
+            if metrics.get("path_support_count") == 2:
+                self._guardrail_warnings.append(
+                    "{} : DEUX chemins de garde-corps alignes couvrent "
+                    "{:.0f}% de la limite (jeu {:.0f} mm). "
+                    "Cote associee UNIQUEMENT a l'arete native du GC {} "
+                    "(couverture propre {:.0f}%). Le second GC ne pilote "
+                    "pas la cote ; controle apres modification obligatoire."
+                    .format(room_num,
+                            metrics["path_combined_overlap_ratio"]*100.,
+                            metrics["path_gap"]/unit_mm,
+                            metrics["reference_parent_id"],
+                            metrics["overlap_ratio"]*100.))
             if metrics.get("support_count") == 2:
                 self._guardrail_warnings.append(
                     "{} : DEUX garde-corps contigus identifies : "
@@ -1422,6 +1472,8 @@ class AnnotationService(object):
             self.dims.proxy_candidates = {}
             self.dims._guardrail_cache = {}
             self.dims._guardrail_warnings = []
+            self.dims._guardrail_paths = {}
+            self.dims._guardrail_native_parents = {}
             self.dims.target_view = None
 
     def run(self, kind, views, annotation_type_id, line_style=None,
