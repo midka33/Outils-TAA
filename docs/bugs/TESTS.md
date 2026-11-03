@@ -102,3 +102,14 @@ BUG-TEST-006 est étendue aux workflows Plans de vente, Calculs et contrat ruban
 Export : exécution sur `main` et contrôle du SHA exact avant création du tag.
 BUG-COMMON-002 s’applique aussi au ZIP utilisateur : retrait des répertoires de
 tests/caches et contrôle du contenu décompressé avant publication.
+### BUG-TEST-007 — Tests Annotations collectés par le workflow Export sans PYTHONPATH
+
+**Symptôme :** le workflow Export échoue pendant la collecte de `tests/annotations/test_strict_dimension_positioning.py` avec `ModuleNotFoundError: No module named 'annotations'`, alors que le workflow Annotations propre a réussi.
+
+**Cause racine :** Export collecte tout `tests/` sans injecter `OutilsTAA.extension/lib` dans le chemin d'import, ce qui affecte tout test de nouveau module qui importe la bibliothèque commune directement.
+
+**Correction :** ajout ciblé de `OutilsTAA.extension/lib` à `sys.path` dans le fichier de test, indépendamment des variables d'environnement des workflows. Aucun changement de la logique Export.
+
+**Règle préventive :** lors de l'ajout d'un nouveau dossier de tests sous `tests/`, vérifier également la collecte par les workflows génériques qui traversent tout ce dossier.
+
+**Anti-régression :** exécution GitHub Actions des workflows Export et Annotations et contrôle explicite de leurs conclusions.
