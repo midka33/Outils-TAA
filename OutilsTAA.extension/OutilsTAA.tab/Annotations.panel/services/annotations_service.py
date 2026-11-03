@@ -331,11 +331,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         railings, selection = select_guardrails_by_path(
             paths, boundary_segments,
             tolerance=self._millimeters_to_internal(500.),
-            max_railings=2, max_segments=80,
+            max_railings=3, max_segments=80,
             angle_degrees=12., minimum_overlap=.30,
             ambiguity_gap=self._millimeters_to_internal(1.),
-            # A moins d'1 mm, la distance est consideree equivalente ;
-            # le garde-corps le plus long departage l'egalite.
+            # Un second rail n'est retenu sur une meme limite que si
+            # la continuite est prouvee avant extraction native.
+            allow_contiguous_companion=True,
+            companion_gap=self._millimeters_to_internal(100.),
+            companion_lateral=self._millimeters_to_internal(20.),
             with_diagnostics=True)
         label = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)
         reason = selection["reason"]
@@ -347,10 +350,11 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self._guardrail_warnings.append(
             "{} : filtrage GC : {} chemin(s) dans la piece, "
             "{} limite(s), {} correspondance(s), {} egalite(s) "
-            "departagee(s) par longueur, plus proche {}, statut {}.".format(
+            "departagee(s) par longueur, {} second(s) troncon(s) "
+            "complementaire(s), plus proche {}, statut {}.".format(
                 label, len(paths), selection["target_count"],
                 selection["path_matches"], selection["ties_by_length"],
-                distance_text, reason))
+                selection["companions"], distance_text, reason))
         if not railings:
             self._guardrail_warnings.append(
                 "{} : aucune reference GC selectionnable sur les limites "
