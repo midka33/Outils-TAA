@@ -1,5 +1,16 @@
 # Roadmap Outils TAA
 
+## État d'ensemble au 3 novembre 2026
+
+**Version de release préparée : Outils TAA v1.4.0 — Export**, après la fusion de la PR #39 dans `main`. Les six campagnes de recette **EXPORT-01 à EXPORT-06** sont confirmées dans Revit 2025.4. Dernier jalon : publier le tag et les livrables de v1.4.0 après réussite des contrôles sur le SHA de release. Consulter `docs/release/Preparation_Export_v1.4.0.md` et `docs/release/Notes_v1.4.0.md`.
+
+- **Export :** validation fonctionnelle achevée ; publication de la version v1.4.0 en préparation.
+- **Calculs des pièces :** stable, comportement métier inchangé depuis v1.3.0.
+- **Plans de vente :** V1.1 fichiers liés stable, livrée depuis v1.3.0 ; pas de nouvelle fonction dans v1.4.0.
+- **Cotations, Étiquettes, Légendes, Giration :** développer sur leurs branches ou dans leurs jalons dédiés ; **aucun travail non fusionné n'est inclus dans v1.4.0**.
+
+Les cases historiques restées ouvertes ci-dessous ne sont pas des échecs de la recette v1.4.0 : elles correspondent à des campagnes anciennes ou à des tests ciblés non exécutés isolément.
+
 ## Phase 1 — Socle architectural
 
 - [x] Formaliser l'architecture du dépôt.
@@ -61,7 +72,7 @@
 - [x] Résoudre les réglages à travers les dossiers parents (TEST-31).
 - [ ] Revalider TEST-31 dans Revit après correction.
 - [ ] Terminer les tests V1, dont TEST-44 et profils P1 à P4, puis la non-régression.
-- [ ] Finaliser et sortir Export V1 avant de reprendre les fonctionnalités V2.
+- [x] Finaliser le socle Export V1 (versions v1.1.0 puis v1.4.0) ; réévaluer séparément les fonctionnalités V2.
 
 ### V1 — Finition graphique TAA
 
@@ -281,7 +292,7 @@ de leurs mises en page.
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.
 - [ ] Ajouter tests d'intégration Revit.
 - [ ] Ajouter validation de structure du dépôt.
-- [ ] Documenter les procédures de release.
+- [x] Documenter la release v1.4.0 et son pipeline de packaging, contrôle des trois modules et publication par SHA testé.
 
 ### Export — après stabilisation V1
 
@@ -290,37 +301,37 @@ de leurs mises en page.
   dans la V1 synchrone ; ne pas l'activer uniquement via SetExportInBackground(True).
 
 
-### Export — ergonomie de l'ajout des mises en page (decision du 2026-10-22)
+### Export — ergonomie de l'ajout des mises en page (décision du 2026-10-22, réalisée dans la PR #39)
 
-**Statut : planifie, non developpe.** Reference : `docs/09_Export.md`, section « Evolution UX planifiee — explorateur escamotable des mises en page ».
+**Statut : développée, intégrée et validée (PR #39, recettes EXPORT-01 à 06).** Référence : `docs/09_Export.md` et `docs/release/Tutoriel_Export_v1.4.0.md`.
 
-- [ ] Auditer les XAML, handlers et services existants de « Ajouter / gerer… » et du glisser-deposer.
-- [ ] Integrer un panneau gauche escamotable, redimensionnable et a etat memorise, sans supprimer les panneaux publication et parametres.
-- [ ] Afficher les feuilles du document Revit actif, recherche instantanee et filtres, indicateurs d'utilisation et regroupements utiles.
-- [ ] Selection Ctrl/Maj/Ctrl+A persistante entre recherches ; ajout par bouton, double-clic, menu contextuel et glisser-deposer multiple vers les dossiers.
-- [ ] Reutiliser le comportement de survol, ouverture automatique, scroll et insertion de l'arborescence existante ; eviter les doublons dans un dossier, autoriser la reutilisation inter-dossiers.
-- [ ] Preserver le modele a dossiers uniques, les parametres PDF/DWG, le stockage, les profils et les publications existantes.
-- [ ] Ajouter tests automatises et recette Revit 2025.4 / pyRevit 5.x : clavier, DPI, Full HD, interactions, persistance et non-regression.
+- [x] Auditer les XAML, handlers et services existants de « Ajouter / gerer… » et du glisser-deposer.
+- [x] Integrer un panneau gauche escamotable, redimensionnable et a etat memorise, sans supprimer les panneaux publication et parametres.
+- [x] Afficher les feuilles du document Revit actif, recherche instantanee et filtres, indicateurs d'utilisation et regroupements utiles.
+- [x] Selection Ctrl/Maj/Ctrl+A persistante entre recherches ; ajout par bouton, double-clic, menu contextuel et glisser-deposer multiple vers les dossiers.
+- [x] Reutiliser le comportement de survol, ouverture automatique, scroll et insertion de l'arborescence existante ; eviter les doublons dans un dossier, autoriser la reutilisation inter-dossiers.
+- [x] Preserver le modele a dossiers uniques, les parametres PDF/DWG, le stockage, les profils et les publications existantes.
+- [x] Ajouter tests automatisés et recette fonctionnelle Revit 2025.4 / pyRevit 5.x : interactions, persistance et non-régression (EXPORT-01 à 06). La matrice complète DPI/écrans reste un contrôle ciblé éventuel.
 
 
-### Export — explorateur escamotable (developpement en cours, 2026-10-22)
+### Export — explorateur escamotable (validé dans Revit 2025.4 le 2026-11-03)
 
-Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du panneau WPF, des filtres, des regroupements, de la selection et de l'ajout sans deplacement des feuilles est proposee.
+La branche `feature/export-explorateur-feuilles` a été intégrée à `main` par la **PR #39** le 2026-11-03. La fenêtre finale, les filtres, regroupements, ajouts, déplacements, PDF/DWG et la persistance sont validés par l'utilisateur.
 
 - [x] Integrer le panneau escamotable, redimensionnable et les preferences de largeur/visibilite.
 - [x] Recherche, filtre des non ajoutees, regroupements repliables et indicateurs d'utilisation.
 - [x] Selection multiple et ajout par bouton, double-clic, menu et drag-and-drop distinct du deplacement interne.
 - [x] Ajouter une operation de persistance atomique preservant les sources et evitant les doublons par dossier.
 - [x] Ecrire les tests unitaires de l'ajout dans un dossier.
-- [x] Executer effectivement les pytest : 321 tests passes via GitHub Actions (22 octobre 2026).
-- [ ] Valider la fenetre et les interactions sous Revit 2025.4 / pyRevit 5.x.
-- [ ] Rejouer les recettes de non-regression de l'arborescence et des publications PDF/DWG.
-- [ ] Fusionner uniquement apres validation utilisateur.
+- [x] Exécuter les tests : **375 tests Export** et contrat ruban réussis sur la tête finale de la PR #39 (2026-11-03).
+- [x] Valider la fenêtre et les interactions utilisateur dans Revit 2025.4 / pyRevit 5.x (EXPORT-02 à 06).
+- [x] Rejouer la recette fonctionnelle PDF/DWG multi-dossiers, suppression, drag-and-drop, héritage et persistance (EXPORT-01 à 06).
+- [x] Fusionner uniquement après validation utilisateur : PR #39 fusionnée sur `main` (SHA `5a37be83e3d5893156399b242b838f4a9805ef58`).
 
 ### Export — recette publication par sous-dossier (2026-11-03)
 
 - [x] Écarter les dossiers de publication vides du périmètre récursif PDF/DWG sans les supprimer de l'arborescence ; 5 PDF combinés + 16 DWG validés par test automatisé (BUG-EXPORT-056).
-- [ ] Confirmer dans Revit 2025.4 l'aperçu et un export dans un dossier temporaire en sélectionnant `A2000 Plan des façades`.
+- [x] Confirmer dans Revit 2025.4 l'aperçu puis l'export réel d'`A2000 Plan des façades` : 5 PDF combinés + 16 DWG (EXPORT-01).
 
 
 
@@ -331,7 +342,8 @@ Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du 
 - [x] Uniformiser les libellés visibles de l'aperçu, du rapport, de la progression et du résumé autour de « Dossier ».
 - [x] Ajouter `{nom_dossier}` comme alias de `{carnet}` et conserver la lecture des anciens modèles.
 - [x] Couvrir les contrats d'interface et l'alias de nommage par tests automatisés.
-- [ ] Recette réelle dans Revit 2025.4 : bouton Renommer, clic droit, F2, persistance, et test d'une ancienne configuration de nommage.
+- [x] Recette Revit : renommage, conservation du contenu et des réglages, persistance après réouverture (EXPORT-02).
+- [ ] Contrôles isolés encore utiles : raccourci F2, clic droit et ancienne variable de nommage `{carnet}` dans un projet existant (couverts par tests de contrat, pas confirmés individuellement par l'utilisateur).
 
 
 
@@ -342,4 +354,15 @@ Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du 
 - [x] Conserver les destinations des anciens dossiers et projets qui n'ont pas encore le nouveau réglage.
 - [x] Appliquer exactement les mêmes chemins dans l'aperçu et les exporteurs PDF/DWG.
 - [x] Couvrir quatre combinaisons de dossiers, PDF combiné/séparé, héritage, profils et compatibilité JSON par tests hors Revit.
-- [ ] Recette Revit 2025.4 / pyRevit 5.x sur destination temporaire : quatre combinaisons, héritage, et PDF/DWG réels.
+- [x] Recette Revit 2025.4 : indépendance des options, export réel PDF/DWG et héritage des réglages confirmés (EXPORT-01 et EXPORT-05).
+- [ ] Procès-verbal manuel distinct des quatre combinaisons de dossiers (les quatre chemins sont couverts par la suite automatisée).
+
+### Release Outils TAA v1.4.0 — checklist (2026-11-03)
+
+- [x] Recette Revit Export EXPORT-01 à EXPORT-06 validée.
+- [x] PR #39 intégrée dans `main` sans fusionner les branches parallèles.
+- [x] Notes, tutoriels, changelog, index documentaire et procédures de test actualisés.
+- [x] Préparer ZIP utilisateur, installateur CMD sans admin et manifeste SHA-256 dans le workflow de release.
+- [ ] Contrôles CI de release sur le SHA exact de `main` et ZIP vérifié.
+- [ ] Tag Git et release GitHub `v1.4.0` publiés avec actifs vérifiés.
+- [ ] Recette d'installation de l'installateur v1.4.0 sur Windows.
