@@ -6,7 +6,7 @@
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x / Windows  
 **PR fonctionnelle :** [#39](https://github.com/midka33/Outils-TAA/pull/39) — fusionnée dans `main`, commit `5a37be83e3d5893156399b242b838f4a9805ef58`.  
 **Branche de préparation :** `release/v1.4.0-export` — dédiée aux notes, tutoriels, packaging et release.  
-**Statut documentaire :** recette Export validée ; publication v1.4.0 conditionnée à la réussite des contrôles sur le SHA de release.
+**Statut documentaire :** **release v1.4.0 publiée et vérifiée** le 3 novembre 2026 ; le test manuel de l'installateur Windows reste à réaliser.
 
 ## 1. Périmètre précis
 
@@ -43,10 +43,10 @@ La procédure de release ne fusionne, ne supprime et ne réécrit aucune autre b
 - [x] Contrat ruban Export réussi sur cette branche.
 - [x] Aucune modification de code métier hors Export dans la PR #39.
 - [x] Compatibilité des anciens réglages et modèles de noms testée.
-- [ ] Workflow de publication v1.4.0 : rejouer Export, Calculs des pièces, Plans de vente et ruban **sur le SHA exact de la release**.
-- [ ] Inspecter le ZIP pyRevit distribué et contrôler qu'il contient les trois modules.
-- [ ] Générer, contrôler et publier les empreintes SHA-256.
-- [ ] Vérifier le tag et les actifs de [GitHub Releases v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0).
+- [x] Workflow de publication v1.4.0 terminé avec succès sur le SHA exact `21336b3df7f54ea2b4692384ba414e048bfae89e` : **375 Export, 3 ruban, 79 Calculs, 297 Plans de vente**, soit 754 tests.
+- [x] ZIP vérifié : **191 entrées**, modules Export, Calculs des pièces et Plans de vente présents ; aucun fichier interdit détecté.
+- [x] SHA-256 des actifs générés et vérifiés pendant le workflow de publication ; `SHA256SUMS.txt` disponible dans la release.
+- [x] [GitHub Releases v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) vérifiée : tag sur `21336b3df7f54ea2b4692384ba414e048bfae89e`, six actifs et notes publiques, non brouillon.
 - [ ] Test d'installation Windows par un utilisateur après publication de l'installateur v1.4.0.
 
 Les cases non cochées seront attestées par les exécutions GitHub Actions / tests Windows après leur réalisation. Ne pas les considérer comme réussies du seul fait de la présence de ce document.
@@ -67,3 +67,13 @@ Les cases non cochées seront attestées par les exécutions GitHub Actions / te
 2. Installer depuis le CMD sur le poste Windows de recette, sans élévation.
 3. Ouvrir Revit 2025.4, effectuer un test de non-régression simple des trois modules.
 4. Reprendre les développements parallèles sur leurs branches respectives en se synchronisant avec `main`, sans merge automatique entre elles.
+
+
+## 6. Attestation de publication — 3 novembre 2026
+
+- **PR de préparation :** [#41](https://github.com/midka33/Outils-TAA/pull/41), fusionnée dans `main`.
+- **Commit Git et tag `v1.4.0` :** `21336b3df7f54ea2b4692384ba414e048bfae89e` (tag léger de type commit, contrôlé sur l'API GitHub).
+- **Pipeline terminé :** [GitHub Actions — Publication Outils TAA v1.4.0](https://github.com/midka33/Outils-TAA/actions/runs/41667879829), deux jobs réussis (validation puis publication).
+- **Actifs vérifiés :** `Outils-TAA_v1.4.0.zip` (334 595 octets), `INSTALLER_Outils_TAA_v1.4.0.cmd`, `SHA256SUMS.txt`, trois tutoriels.
+- **Contrôles sur le SHA publié :** Export 375, ruban 3, Calculs 79, Plans de vente 297 ; ZIP validé et somme SHA-256 correcte.
+- **Limite restante :** aucune exécution réelle de l'installateur v1.4.0 sur Windows n'est encore attestée. La recette utilisateur Export, elle, a été effectuée dans Revit 2025.4 avant la distribution.

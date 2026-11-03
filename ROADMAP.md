@@ -2,9 +2,9 @@
 
 ## État d'ensemble au 3 novembre 2026
 
-**Version de release préparée : Outils TAA v1.4.0 — Export**, après la fusion de la PR #39 dans `main`. Les six campagnes de recette **EXPORT-01 à EXPORT-06** sont confirmées dans Revit 2025.4. Dernier jalon : publier le tag et les livrables de v1.4.0 après réussite des contrôles sur le SHA de release. Consulter `docs/release/Preparation_Export_v1.4.0.md` et `docs/release/Notes_v1.4.0.md`.
+**Version courante : Outils TAA v1.4.0 — Export, publiée le 3 novembre 2026**. Les six campagnes de recette **EXPORT-01 à EXPORT-06** sont confirmées dans Revit 2025.4 ; le tag et les six actifs ont été vérifiés sur GitHub Releases. Le tag pointe sur le SHA testé `21336b3df7f54ea2b4692384ba414e048bfae89e`. Consulter `docs/release/Preparation_Export_v1.4.0.md` et `docs/release/Notes_v1.4.0.md`.
 
-- **Export :** validation fonctionnelle achevée ; publication de la version v1.4.0 en préparation.
+- **Export :** version v1.4.0 publiée, fonctionnalité validée et distribuable ; contrôle de l'installation CMD sur poste Windows restant à réaliser.
 - **Calculs des pièces :** stable, comportement métier inchangé depuis v1.3.0.
 - **Plans de vente :** V1.1 fichiers liés stable, livrée depuis v1.3.0 ; pas de nouvelle fonction dans v1.4.0.
 - **Cotations, Étiquettes, Légendes, Giration :** développer sur leurs branches ou dans leurs jalons dédiés ; **aucun travail non fusionné n'est inclus dans v1.4.0**.
@@ -363,6 +363,6 @@ La branche `feature/export-explorateur-feuilles` a été intégrée à `main` pa
 - [x] PR #39 intégrée dans `main` sans fusionner les branches parallèles.
 - [x] Notes, tutoriels, changelog, index documentaire et procédures de test actualisés.
 - [x] Préparer ZIP utilisateur, installateur CMD sans admin et manifeste SHA-256 dans le workflow de release.
-- [ ] Contrôles CI de release sur le SHA exact de `main` et ZIP vérifié.
-- [ ] Tag Git et release GitHub `v1.4.0` publiés avec actifs vérifiés.
+- [x] Contrôles CI de release sur le SHA exact de `main` : 375 Export + 3 ruban + 79 Calculs + 297 Plans de vente ; ZIP de 191 entrées vérifié.
+- [x] Tag Git et [release GitHub `v1.4.0`](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) publiés, six actifs vérifiés, SHA `21336b3d`.
 - [ ] Recette d'installation de l'installateur v1.4.0 sur Windows.
