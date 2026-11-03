@@ -908,3 +908,56 @@ une pièce demeure.
 
 Voir **BUG-COMMON-021**. Aucun résultat Revit natif de
 cette nouvelle présélection n'a encore été obtenu.
+
+
+### Troisieme garde-corps sans rail filant accessible — test 2238
+
+**Observation utilisateur (3 novembre 2026) :** le rapport annonce
+3 garde-corps retenus, mais seulement **2 rails filants** inspectes.
+Un rail natif couvre toute la premiere limite ; la meilleure
+arete de la seconde ne couvre que **52 %**, et le deuxieme
+troncon n'est toujours pas trouve.
+
+**Diagnostic renforce :** pour chacun des garde-corps candidats,
+le rapport indique desormais son **ElementId**, son TopRail,
+le nombre de mains courantes, et, lorsqu'aucun rail filant
+n'est accessible, le nombre de lisses non continues du
+`RailingType.RailStructure`. Cela permet de distinguer un
+garde-corps sans TopRail, un composant indisponible et un
+type de garde-corps possedant des lisses non continues.
+
+**Recherche native de secours, exceptionnellement :** quand
+un seul garde-corps candidat sans filant declare une lisse
+non continue, l'adaptateur tente de lire les solides
+**directs** du seul `Railing` parent, avec
+`Options.ComputeReferences`. Il n'examine aucun
+`GeometryInstance` de balustres, ni les objets de
+garde-corps voisins. Cette operation reste limitee a
+**16 objets directs**, **48 aretes**, **12 references
+candidates**, et conserve le plafond global de **120
+aretes**. Les references doivent etre natives et leur
+segment suffisamment proche de la limite.
+En cas d'echec, aucun faux lien n'est invente :
+le repli 2D demeure et le rapport precise pourquoi.
+
+**Restriction apres le crash passe :** cette analyse d'un
+parent Railing peut etre plus couteuse qu'une lecture
+isolee de TopRail ; elle n'est appliquee qu'a un seul
+garde-corps de type compatible, en mode diagnostic
+**une piece / une vue**, sur copie de maquette.
+
+**Recette REV-ANN-86 a REV-ANN-89 :**
+- [ ] REV-ANN-86 — Relancer uniquement 2238 apres suppression
+      des cotes precedentes, sur copie et apres mise a jour Git.
+- [ ] REV-ANN-87 — Lire le detail des IDs des trois GC :
+      confirmer si le troisieme n'a pas de rail filant,
+      et si son type declare une lisse non continue.
+- [ ] REV-ANN-88 — Si une lisse non continue est trouvee,
+      verifier si elle apporte la reference du second troncon,
+      et si les deux portions couvrent >=90 % de la limite.
+- [ ] REV-ANN-89 — Controle du vrai nu, de la valeur des
+      deux cotes, de leur visibilite lorsque les separations
+      sont masquees, de l'absence de doublon et de crash.
+
+Voir BUG-COMMON-022. Non valide en environnement Revit natif
+au moment de ce changement.
