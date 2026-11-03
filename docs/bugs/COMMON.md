@@ -946,3 +946,77 @@ traverser la GeometryInstance), suites Annotations/Plans de vente,
 Export et Calculs. **Aucun test Revit de ce correctif à ce stade** :
 l'acceptation d'une arête native de lisse non continue dans
 une cote Revit 2025.4 reste à contrôler sur copie.
+
+
+---
+
+### BUG-COMMON-023 — 2238 : garde-corps successifs, un seul TopRail à référence native
+
+**Observation et besoin (3 novembre 2026) :** pour la loggia 2238,
+trois garde-corps sont identifiés par leurs chemins, mais seuls deux
+rails filants livrent des références natives. Une limite obtient
+une arête native sur 100 % ; sur l'autre, l'arête native la plus
+proche couvre 52 % et un deuxième garde-corps constitue le reste
+du bord. L'ancien algorithme exigeait soit une arête de >=60 %, soit
+deux **arêtes** natives jointives, donc tombait systématiquement
+sur un repère 2D même lorsqu'un seul rail pouvait fournir une vraie
+référence de cote.
+
+**Cause racine :** confusion entre (a) la preuve de la continuité
+constructive de la limite et (b) l'élément API nécessaire pour
+coter. La continuité peut être vérifiée sur deux chemins
+`Railing.GetPath()`, alors que **une seule** arête native
+`Edge.Reference` est disponible. La lecture de la géométrie du
+garde-corps parent était utilisée comme tentative de récupération
+du second rail, malgré le risque de parcours des balustres.
+Par ailleurs, l'ID d'un TopRail peut être un `ElementId` .NET
+alors que les données des tests sont des entiers : toute table
+de correspondance doit normaliser les clés avant comparaison.
+
+**Correction bêta :** pour les **annexes extérieures uniquement**,
+après recherche standard d'arête native individuelle >=60 % puis
+vérification de deux arêtes natives, autoriser une preuve alternative
+fondée sur **deux chemins de garde-corps distincts** situés sur
+la même limite :
+- **union des projections >=90 %** de la limite, sans additionner
+  deux fois les parties superposées ;
+- chaque portion >=25 %, angle <=3°, intervalle de jonction
+  <=100 mm, décalage latéral entre chemins <=20 mm ;
+- refus si l'un des chemins couvre déjà toute la limite alors que
+  l'autre ne fait que se superposer ;
+- **une vraie référence native** (TopRail / HandRail) provenant
+  de **l'un des deux garde-corps**, dont l'arête est proche
+  (<=50 mm), suffisamment parallèle (<=3°), couvre >=25 %
+  de la limite et correspond à sa portion de chemin ;
+- choix de la référence admissible la plus proche de la limite,
+  puis de la plus longue à distance équivalente de 1 mm.
+
+**Sécurité / associativité :** le chemin sert **uniquement à prouver
+la couverture**, jamais à construire la référence d'une cote. La
+cote Revit est associative à **une seule arête native**, pas au
+deuxième garde-corps dont le chemin a validé la continuité.
+Le module avertit de cette limite et impose le contrôle du nu réel
+après modification de l'un ou l'autre ouvrage. Si la couverture
+des deux chemins n'est pas fiable, s'ils ne sont pas contigus,
+ou si aucune arête native admissible ne correspond à leur ouvrage,
+repli 2D inchangé. Pas de balayage des solides du garde-corps
+parent pour les annexes extérieures ; conserver le diagnostic
+type/ID pour comprendre les configurations. Nombre d'ouvrages
+inspectés et budgets des solides filants inchangés, mode
+diagnostic sur une pièce maintenu. Plans de vente stable inchangé.
+
+**Prévention :** séparer la **preuve de couverture** (chemins
+physiques) de la **Reference API cotable** ; ne pas supposer
+deux références natives nécessaires lorsqu'un ouvrage unique
+suffit pour poser la cote, mais ne jamais utiliser la longueur
+des chemins pour falsifier sa valeur. Normaliser les ElementId
+entre IronPython / .NET et les tests Python.
+
+**Anti-régression :** tests de deux chemins 52 % + 48 % avec une
+seule arête native, superposition, couverture insuffisante, trou
+de 150 mm, référence d'un garde-corps étranger, arête à >50 mm,
+priorité à la plus proche, et simulation du moteur pour 2238
+avec zéro lecture de géométrie parent. Exécuter les tests
+Annotations + PDV, Export, Calculs, puis recetter réellement
+sur une copie dans Revit 2025.4. **La référence native obtenue
+par ce fallback n'a pas encore été validée dans Revit.**
