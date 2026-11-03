@@ -419,7 +419,10 @@ def select_native_edge_with_path_continuity(
                 return int(getattr(value, attr))
             except Exception:
                 pass
-        return str(value)
+        try:
+            return int(value)
+        except Exception:
+            return str(value)
 
     # Un chemin peut avoir plusieurs segments. On ne somme jamais des
     # longueurs brutes : seuls deux segments continus, distincts et
