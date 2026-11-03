@@ -1136,3 +1136,18 @@ référence appartenant à un troisième garde-corps => refus.
 Tester l'absence d'altération du traitement strict, puis valider
 réellement dans Revit 2025.4 avant de lever le mode diagnostic
 une pièce/une vue.
+
+
+**Validation intermédiaire Revit du 3 novembre 2026 (après le correctif 025) :**
+la pièce 2238 a créé deux annotations avec **deux messages de référence
+native de garde-corps utilisée** : 100 % pour la première limite et
+52 % pour la seconde. Le rapport contient `RECUPERATION BETA` pour
+les chemins de GC décalés de **33 mm**, confirme l'union **100 %**,
+la superposition **0 %** et une arête native à **0 mm**. Il ne contient
+plus d'avertissement de repli par repères 2D. La cote partielle référence
+**uniquement le garde-corps 16141871** et non le garde-corps complémentaire
+8951804. **La récupération d'une Reference native est donc validée sur
+cette configuration Revit réelle** ; la justesse des deux valeurs
+affichées, l'alignement des nus intérieurs, la persistance sans séparations
+et la non-régression sur 2240 restent **non vérifiés**. La fonctionnalité
+ne doit pas être fusionnée dans `main` sans ces vérifications.
