@@ -15,7 +15,8 @@ from common.guardrail_reference_policy import (
     guardrail_minimum_overlap, diagnose_guardrail_candidates,
     select_contiguous_guardrail_pair,
     select_native_edge_with_path_continuity,
-    diagnose_guardrail_path_continuity)
+    diagnose_guardrail_path_continuity,
+    select_native_edge_with_path_axis_offset_recovery)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -784,3 +785,115 @@ def test_revit_diagnostic_est_raccorde_apres_echec_de_continuite():
     assert "diagnostic continuité GC" in source
     assert "chemins compatibles mais aucune arete" in source
     assert "max_railings=3, max_paths=80" in source
+
+
+def test_2238_recuperation_beta_axes_de_33mm_et_arete_native_zero_mm():
+    """Couverture 100%, chemins sur le meme cote a 25/58 mm du nu."""
+    millimetre = 1. / 304.8
+    length = 3.62
+    path_a = (0., 25*millimetre, length*.52, 25*millimetre)
+    path_b = (length*.52, 58*millimetre,
+              length, 58*millimetre)
+    paths = [(16141871, [path_a]), (8951804, [path_b])]
+    edges = [((0., 0., length*.52, 0.), "NATIVE", 16141873, 3.2)]
+    result = select_native_edge_with_path_axis_offset_recovery(
+        (0., 0., length, 0.), edges, paths,
+        {16141873: 16141871},
+        native_tolerance=50*millimetre, path_tolerance=.5,
+        max_relaxed_lateral=40*millimetre,
+        max_boundary_axis_offset=60*millimetre,
+        max_native_offset=5*millimetre,
+        maximum_gap=10*millimetre)
+    assert result is not None
+    assert result[:2] == ("NATIVE", 16141873)
+    assert result[2]["axis_offset_recovery"] is True
+    assert result[2]["associative_to_both"] is False
+    assert abs(result[2]["axis_offset_gap"]/millimetre - 33.) < .01
+    assert abs(result[2]["axis_offset_max"]/millimetre - 58.) < .01
+    assert result[2]["path_combined_overlap_ratio"] > .999
+    # Avec le seuil historique de 20 mm, cette paire reste refusee.
+    assert select_native_edge_with_path_continuity(
+        (0., 0., length, 0.), edges, paths, {16141873: 16141871},
+        50*millimetre, .5, maximum_gap=10*millimetre,
+        maximum_lateral_mismatch=20*millimetre) is None
+
+
+def test_recuperation_2238_refuse_axe_de_41mm_ou_max_61mm():
+    mm = 1. / 304.8
+    length = 3.62
+    boundary = (0., 0., length, 0.)
+    edge = [((0., 0., length*.52, 0.), "NATIVE", 201, 3.2)]
+    for upper in (61, 67):
+        paths = [(11, [(0., 20*mm, length*.52, 20*mm)]),
+                 (12, [(length*.52, upper*mm, length, upper*mm)])]
+        assert select_native_edge_with_path_axis_offset_recovery(
+            boundary, edge, paths, {201:11},
+            50*mm, .5, max_relaxed_lateral=40*mm,
+            max_boundary_axis_offset=60*mm,
+            max_native_offset=5*mm,
+            maximum_gap=10*mm) is None
+
+
+def test_recuperation_2238_refuse_arete_native_6mm():
+    mm = 1. / 304.8
+    length = 3.62
+    paths = [(11, [(0., 25*mm, length*.52, 25*mm)]),
+             (12, [(length*.52, 58*mm, length, 58*mm)])]
+    edge = [((0., 6*mm, length*.52, 6*mm), "NATIVE", 201, 3.2)]
+    assert select_native_edge_with_path_axis_offset_recovery(
+        (0., 0., length, 0.), edge, paths, {201:11},
+        50*mm, .5, max_relaxed_lateral=40*mm,
+        max_boundary_axis_offset=60*mm,
+        max_native_offset=5*mm,
+        maximum_gap=10*mm) is None
+
+
+def test_recuperation_2238_refuse_trou_superposition_ou_axe_oppose():
+    mm = 1. / 304.8
+    length = 3.62
+    edge = [((0., 0., length*.52, 0.), "NATIVE", 201, 3.2)]
+    first = (0., 25*mm, length*.52, 25*mm)
+    remaining = [
+        # 20 mm de trou
+        (length*.52+20*mm, 58*mm, length, 58*mm),
+        # plus de 2% de superposition
+        (length*.48, 58*mm, length, 58*mm),
+        # axe de l'autre cote de la limite
+        (length*.52, -8*mm, length, -8*mm),
+    ]
+    for second in remaining:
+        paths = [(11, [first]), (12, [second])]
+        assert select_native_edge_with_path_axis_offset_recovery(
+            (0., 0., length, 0.), edge, paths, {201:11},
+            50*mm, .5, max_relaxed_lateral=40*mm,
+            max_boundary_axis_offset=60*mm,
+            max_native_offset=5*mm,
+            maximum_gap=10*mm) is None
+
+
+def test_recuperation_2238_refuse_reference_autre_garde_corps():
+    mm = 1. / 304.8
+    length = 3.62
+    paths = [(11, [(0., 25*mm, length*.52, 25*mm)]),
+             (12, [(length*.52, 58*mm, length, 58*mm)]),
+             (13, [(0., 80*mm, length, 80*mm)])]
+    edge = [((0., 0., length*.52, 0.), "OTHER", 201, 3.2)]
+    assert select_native_edge_with_path_axis_offset_recovery(
+        (0., 0., length, 0.), edge, paths, {201:13},
+        50*mm, .5, max_relaxed_lateral=40*mm,
+        max_boundary_axis_offset=60*mm,
+        max_native_offset=5*mm,
+        maximum_gap=10*mm) is None
+
+
+def test_recuperation_beta_raccordee_uniquement_sur_l_echec_natif():
+    path = (Path(__file__).resolve().parents[2] /
+            "OutilsTAA.extension/OutilsTAA.tab/Annotations.panel"
+            "/services/annotations_service.py")
+    source = path.read_text(encoding="utf-8")
+    assert "select_native_edge_with_path_axis_offset_recovery(" in source
+    assert "RECUPERATION BETA du GC" in source
+    assert "max_relaxed_lateral=self._millimeters_to_internal(40.)" in source
+    assert "max_boundary_axis_offset=self._millimeters_to_internal(60.)" in source
+    assert "max_native_offset=self._millimeters_to_internal(5.)" in source
+    assert "maximum_gap=self._millimeters_to_internal(10.)" in source
