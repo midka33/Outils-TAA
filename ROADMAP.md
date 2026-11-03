@@ -308,3 +308,14 @@ Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du 
 - [x] Ajouter `{nom_dossier}` comme alias de `{carnet}` et conserver la lecture des anciens modèles.
 - [x] Couvrir les contrats d'interface et l'alias de nommage par tests automatisés.
 - [ ] Recette réelle dans Revit 2025.4 : bouton Renommer, clic droit, F2, persistance, et test d'une ancienne configuration de nommage.
+
+
+
+### Export — organisation indépendante des dossiers et formats (2026-11-03)
+
+- [x] Séparer « Créer ce dossier dans la sortie » et « Créer un sous-dossier par format (PDF et DWG) » dans l'interface.
+- [x] Ajouter `separate_format_subfolders` dans le modèle, l'héritage et les profils personnalisés.
+- [x] Conserver les destinations des anciens dossiers et projets qui n'ont pas encore le nouveau réglage.
+- [x] Appliquer exactement les mêmes chemins dans l'aperçu et les exporteurs PDF/DWG.
+- [x] Couvrir quatre combinaisons de dossiers, PDF combiné/séparé, héritage, profils et compatibilité JSON par tests hors Revit.
+- [ ] Recette Revit 2025.4 / pyRevit 5.x sur destination temporaire : quatre combinaisons, héritage, et PDF/DWG réels.
