@@ -291,6 +291,7 @@ de leurs mises en page.
 - [x] Corriger les deux messages d'arêtes natives répétés : cache de références prêt même lorsqu'aucun repère 2D n'est créé (BUG-COMMON-019).
 - [ ] Recetter sur copie 2240 : deux messages natifs seulement, bons nus, visibilité après masquage des séparations, aucun doublon en seconde exécution.
 - [x] Règle de choix entre plusieurs garde-corps : **le plus proche de la limite, puis le plus long à distance équivalente (1 mm)** ; appliquée aux chemins, arêtes natives et paires contiguës (BUG-COMMON-020).
+- [x] Conserver exceptionnellement le deuxième tronçon d'une limite composée (2238) lorsque la continuité est démontrée, avec un budget maximal de 3 garde-corps mais toujours 120 arêtes.
 - [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
