@@ -860,3 +860,51 @@ Reference native utilisée** ; le second garde-corps sert à
 valider la continuité géométrique et ne devient pas associatif
 à la cote. Les seuils de contrôle des arêtes natives restent
 distincts de ceux des chemins de présélection.
+
+
+### Correctif de la présélection du deuxième tronçon — loggia 2238
+
+**Retour du 3 novembre 2026 :** le rapport voit **3 chemins de
+garde-corps et 3 correspondances pour 2 limites**, mais n'en
+retient que deux pour la géométrie native. Une première cote
+repose sur une arête native à 100 % ; une seconde reste en
+2D, l'arête native inspectée ne couvrant que 52 % de la limite.
+
+**Problème :** le préfiltre n'autorisait un deuxième tronçon que
+si `Railing.GetPath()` du premier occupait moins de 60 % de
+la limite. La longueur de ce chemin peut différer de celle de
+l'arête réelle du TopRail qui fournit la référence de cotation.
+Le deuxième tronçon était donc potentiellement rejeté trop tôt.
+
+**Correction du préfiltre :** retenir le garde-corps principal
+selon **distance puis longueur à égalité (1 mm)**, puis
+éventuellement **un deuxième candidat distinct** de la même
+limite pour inspection de ses arêtes natives, même si le
+chemin du premier semble couvrir la limite entièrement.
+
+**Ce n'est PAS encore une validation de continuité :**
+seul le contrôle des **vraies arêtes de TopRail/HandRail**
+peut établir que les deux ouvrages sont effectivement
+successifs, alignés et couvrent ensemble >=90 % de la
+limite, avec un raccord suffisamment proche. Le rapport
+annonce donc un `second tronçon à vérifier sur les arêtes`,
+puis éventuellement `DEUX garde-corps contigus identifies`
+si et seulement si le test natif est concluant.
+Au-delà de trois garde-corps à examiner ou de 120 arêtes,
+le module revient au repère 2D ; le mode diagnostic sur
+une pièce demeure.
+
+**Recette 2238 :**
+- [ ] REV-ANN-81 : sur copie, enlever les cotes de l'essai,
+      actualiser Git et redémarrer Revit ; lancer sur la seule 2238.
+- [ ] REV-ANN-82 : regarder si **3 garde-corps** sont explorés,
+      et si le troisième fournit une arête native pertinente.
+- [ ] REV-ANN-83 : distinguer « candidat supplémentaire »
+      de « paire contiguë validée » ; contrôler le recouvrement
+      cumulé, le vrai nu et la cote réelle.
+- [ ] REV-ANN-84 : masquer les séparations sans masquer les
+      garde-corps, et contrôler les deux cotes.
+- [ ] REV-ANN-85 : deuxième lancement sans doublon ni plantage.
+
+Voir **BUG-COMMON-021**. Aucun résultat Revit natif de
+cette nouvelle présélection n'a encore été obtenu.
