@@ -1071,7 +1071,12 @@ class AnnotationService(object):
                         candidate.element_id_value = id_value(detail.Id)
                         candidate.length_references = None
                         candidate.source_kind = "proxy"
-                    self.dims.proxy_candidates[str(room.UniqueId)] = candidates
+                # Memoriser AUSSI les references toutes natives.
+                # Sinon create_dimensions relance _room_boundary_candidates
+                # une seconde fois et duplique les diagnostics GC.
+                # Cache limite a cette seule piece / TransactionGroup,
+                # nettoye dans _run_unit.finally (pas de persistance).
+                self.dims.proxy_candidates[str(room.UniqueId)] = candidates
 
             tx.Commit()
             return created
