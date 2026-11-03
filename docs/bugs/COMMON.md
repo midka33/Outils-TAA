@@ -1070,3 +1070,69 @@ après suppression des anciennes cotes, relever la nouvelle ligne
 `diagnostic continuité GC`, puis vérifier 2240 en non-régression.
 N'autoriser la cotation en masse qu'après validation de l'associativité et
 du nu réel, sans crash.
+
+
+---
+
+### BUG-COMMON-025 — Loggia 2238 : chemins GC 100 % jointifs mais axes décalés de 33 mm
+
+**Retour réel après BUG-COMMON-024 (3 novembre 2026) :**
+la pièce 2238, dans `Collectifs A_Niveau 1`, produit deux annotations
+mais toujours un repli 2D sur la seconde limite. Le nouveau diagnostic
+sépare les garde-corps **8951804** et **16141871** :
+- chemin 8951804 : **52–100 %** ; chemin 16141871 : **0–52 %** ;
+- union **100 %**, superposition **0 %**, raccord **0 mm** ;
+- écart entre axes `Railing.GetPath()` **33 mm** (limite standard **20 mm**) ;
+- axe le plus éloigné de la limite de pièce : **58 mm** ;
+- arête native du TopRail : **0 mm** de la limite et **52 %** de couverture.
+
+**Cause précise du refus :** `decalage_lateral` uniquement. Le
+traitement standard confondait ici l'alignement des **axes d'implantation**
+des deux garde-corps avec une preuve du nu fini commun. Or les
+`GetPath()` dépendent des réglages d'implantation des garde-corps :
+leurs axes peuvent être décalés même lorsque le début et la fin des
+ouvrages coïncident longitudinalement. **Ce retour seul ne prouve pas
+que les nus physiques sont alignés.**
+
+**Correction expérimentale sur la branche bêta uniquement :**
+avant le dernier repli 2D et uniquement pour une annexe extérieure,
+`select_native_edge_with_path_axis_offset_recovery` peut accepter
+une arête native d'un des deux garde-corps si toutes les protections
+suivantes sont simultanément satisfaites :
+
+1. Deux chemins distincts, du **même côté** de la séparation de pièce.
+2. Couverture longitudinale >=**98 %**, superposition <=**2 %**,
+   jeu <=**10 mm**, avec angle <=**3°**.
+3. Différence latérale entre axes : plus de 20 mm, mais <=**40 mm** ;
+   chaque axe reste <=**60 mm** de la séparation.
+4. Une **Edge.Reference Revit originale** issue d'un des deux
+   garde-corps prouvant la continuité, avec écart <=**5 mm** de la
+   séparation de pièce et recouvrement d'au moins **25 %**.
+5. Correspondance vérifiée entre l'ID du TopRail/HandRail et son
+   garde-corps parent, avec alignement de l'arête et de son chemin.
+
+En l'absence d'une seule de ces conditions, le moteur laisse le repli
+2D antérieur. Il n'assouplit pas le contrôle standard des arêtes natives
+individuelles (>=60 %) ni les règles de Plans de vente. Aucun solide de
+garde-corps parent sans TopRail n'est exploré, aucun budget n'est augmenté
+(3 garde-corps, 80 chemins, 120 arêtes natives), et aucun `GetPath()`
+n'est utilisé comme `Reference` Revit.
+
+**Alerte impérative :** la cote créée reste **associative à UNE seule
+arête native**, jamais aux deux garde-corps. Le recul des axes ne prouve
+pas que le nu réel du garde-corps sans TopRail se trouve sur la même
+ligne que celui de l'arête cotée. Le rapport émet
+`RECUPERATION BETA du GC malgre axes decales` et impose un contrôle
+manuel du **nu intérieur**, de la longueur affichée et de l'absence
+de déplacement entre les deux ouvrages. Interdire une fusion dans
+`main` avant cette validation Revit ; le résultat est une hypothèse
+de récupération, pas une règle métier généralisée.
+
+**Anti-régression hors Revit :** axes simulés de 25/58 mm (écart 33),
+chemins 52 % + 48 %, reference native à 0 mm => récupération ;
+déplacement des axes de 41 mm, axe >60 mm, référence à 6 mm,
+superposition >2 %, raccord de 20 mm, axes de côtés opposés,
+référence appartenant à un troisième garde-corps => refus.
+Tester l'absence d'altération du traitement strict, puis valider
+réellement dans Revit 2025.4 avant de lever le mode diagnostic
+une pièce/une vue.
