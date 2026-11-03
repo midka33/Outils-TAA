@@ -1364,8 +1364,7 @@ def test_noncontinuous_parent_geometry_budget_et_sans_instance(monkeypatch):
             return P(i, 0.)
 
     class Edge(object):
-        Reference = types.SimpleNamespace(
-            ConvertToStableRepresentation=lambda doc: "ref")
+        Reference = None  # 49 aretes sans Reference : tester le budget d'aretes.
         def AsCurve(self):
             return Line()
 
