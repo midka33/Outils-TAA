@@ -796,3 +796,48 @@ Pas de changement des seuils de géométrie ni du moteur PDV.
 
 Voir BUG-COMMON-019. Ce correctif a été testé hors Revit,
 sa recette dans Revit 2025.4 reste indispensable.
+
+
+### Règle de sélection entre plusieurs garde-corps — 3 novembre 2026
+
+**Règle métier validée :** lorsqu'il existe plusieurs garde-corps
+susceptibles de délimiter une annexe extérieure, choisir la
+**référence géométriquement admissible la plus proche** de la
+limite de pièce. Si deux candidats ont une distance identique
+à **1 mm près**, retenir celui dont le segment de garde-corps
+est **le plus long**. Cette comparaison s'effectue après les
+contrôles d'alignement, de recouvrement et de référence native
+Revit, et non à la place de ces contrôles.
+
+L'ordre est appliqué à la présélection des chemins
+`Railing.GetPath`, à la sélection des arêtes natives réelles,
+et au choix du rail de référence lorsqu'une paire de
+garde-corps **contigus** a été validée. Le second rail de la
+paire vérifie la continuité, mais **la cote n'est associative
+qu'à la première arête native** : surveiller les deux ouvrages
+après modification. Une arête seule ne peut toujours pas
+être choisie si son recouvrement est inférieur à 60 % ;
+deux arêtes successives restent soumises aux règles de
+continuité et couverture totale >=90 %.
+
+Cette règle **remplace** le rejet automatique des scores
+presque égaux à 25 mm documenté sous BUG-COMMON-017.
+Les candidats plus éloignés ne deviennent pas préférés en
+raison de leur longueur. Les budgets de géométrie et le
+mode de diagnostic à une seule pièce sont inchangés.
+
+**Tests de recette Revit sur copie :**
+- [ ] REV-ANN-77 — Deux garde-corps parallèles : celui dont le
+      nu est le plus proche de la limite gagne, même si l'autre
+      est plus long.
+- [ ] REV-ANN-78 — Deux garde-corps à distance égale
+      (tolérance 1 mm) : le plus long fournit la référence.
+- [ ] REV-ANN-79 — Deux tronçons successifs sur la même limite
+      de 2238 : vérifier la continuité et confirmer quel rail
+      est référencé ; contrôler la valeur de cote au nu réel.
+- [ ] REV-ANN-80 — Masquer les séparations en conservant les
+      garde-corps visibles ; vérifier la stabilité et l'absence
+      de cotes doublées au second lancement.
+
+Voir **BUG-COMMON-020**. Tests Python automatisés requis et
+validation native Revit 2025.4 encore à effectuer.
