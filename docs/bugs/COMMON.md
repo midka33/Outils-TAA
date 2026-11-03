@@ -1151,3 +1151,6 @@ cette configuration Revit réelle** ; la justesse des deux valeurs
 affichées, l'alignement des nus intérieurs, la persistance sans séparations
 et la non-régression sur 2240 restent **non vérifiés**. La fonctionnalité
 ne doit pas être fusionnée dans `main` sans ces vérifications.
+
+
+**Recette complémentaire utilisateur du 3 novembre 2026 : 2238 validée sur 4/4 contrôles.** Après la récupération native confirmée, l'utilisateur valide explicitement les valeurs des deux cotes, l'alignement des nus intérieurs des GC 16141871 et 8951804, la conservation des cotes avec les séparations de pièces masquées, ainsi que la seconde exécution sans doublon ni plantage. **BUG-COMMON-025 est donc validé fonctionnellement sur cette pièce de test Revit 2025.4.** Cette validation est limitée au cas 2238 ; la cote de la seconde limite demeure associative uniquement au GC 16141871 et la non-régression sur la pièce 2240 reste à effectuer avant toute généralisation ou fusion de la branche bêta dans `main`.
