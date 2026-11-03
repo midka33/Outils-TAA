@@ -76,7 +76,16 @@ class PublicationProfileService(object):
             "dwg_enabled": True if settings.dwg_enabled is None else bool(settings.dwg_enabled),
             "dwg_setup_name": settings.dwg_setup_name,
             "dwg_true_color": True if settings.dwg_true_color is None else bool(settings.dwg_true_color),
-            "dwg_merge_views": True if settings.dwg_merge_views is None else bool(settings.dwg_merge_views)
+            "dwg_merge_views": True if settings.dwg_merge_views is None else bool(settings.dwg_merge_views),
+            # Les profils personnalisés enregistrent désormais l'organisation
+            # des fichiers. Les anciens profils ne portent pas ces champs.
+            "separate_carnet_subfolder": (
+                True if settings.separate_carnet_subfolder is None
+                else bool(settings.separate_carnet_subfolder)),
+            "separate_format_subfolders": (
+                bool(settings.separate_format_subfolders)
+                if settings.separate_format_subfolders is not None
+                else settings.separate_carnet_subfolder is not False)
         }
 
         for field, default in pdf_defaults().items():
