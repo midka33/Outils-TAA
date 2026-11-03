@@ -11,6 +11,26 @@ Le calcul ne remplace pas la détermination réglementaire de la surface.
 from plans_vente.dimension_geometry import segment_match_metrics
 
 
+
+def _closest_then_longest(candidates, distance_equality=0.):
+    """Trier selon distance absolue puis longueur si meme distance.
+
+    Le seuil d'egalite est applique par rapport au MINIMUM GLOBAL,
+    sans chainage de tolerances sur plusieurs candidats.
+    Les autres controles geometriques sont effectues en amont.
+    Entrees : tuples (distance, longueur, ...).
+    """
+    rows = list(candidates or [])
+    if not rows:
+        return None
+    shortest_distance = min(item[0] for item in rows)
+    equality = max(0., float(distance_equality))
+    near = [item for item in rows
+            if item[0] <= shortest_distance + equality + 1.e-10]
+    # Conserver le premier en cas d'egalite complete (ordre stable).
+    return max(near, key=lambda item: item[1])
+
+
 def matches_guardrail_edge(boundary, edge, tolerance,
                            angle_degrees=3., minimum_overlap=.60):
     """Retourne les métriques de confiance du même moteur que les dalles."""
@@ -36,8 +56,7 @@ def select_guardrail_edge(boundary, edges, tolerance,
         return None
     import math
 
-    best = None
-    equality = max(0., float(distance_equality))
+    eligible = []
     for segment, reference, element_id, z in edges:
         if reference is None:
             continue
@@ -48,13 +67,8 @@ def select_guardrail_edge(boundary, edges, tolerance,
         distance = float(metrics["distance"])
         length = math.hypot(float(segment[2])-float(segment[0]),
                             float(segment[3])-float(segment[1]))
-        # La proximite prime sur le recouvrement et sur le score mixte.
-        # En cas d'egalite de distance seulement, garder l'arete longue.
-        if (best is None
-                or distance < best[0] - equality
-                or (abs(distance-best[0]) <= equality
-                    and length > best[1] + 1.e-9)):
-            best = (distance, length, reference, element_id, metrics)
+        eligible.append((distance, length, reference, element_id, metrics))
+    best = _closest_then_longest(eligible, distance_equality)
     if best is None:
         return None
     if include_metrics:
@@ -118,21 +132,11 @@ def select_guardrails_by_path(items, target_segments, tolerance,
                         if entry[2] is element), -1)
             if idx < 0:
                 unique.append((distance, length, element))
-            elif (distance < unique[idx][0] - equality or
-                  (abs(distance-unique[idx][0]) <= equality
-                   and length > unique[idx][1] + 1.e-9)):
-                unique[idx] = (distance, length, element)
-
-        best = None
-        for candidate in unique:
-            if best is None:
-                best = candidate
-                continue
-            if candidate[0] < best[0] - equality:
-                best = candidate
-            elif abs(candidate[0]-best[0]) <= equality:
-                if candidate[1] > best[1] + 1.e-9:
-                    best = candidate
+            else:
+                same_element = [x for x in matches if x[2] is element]
+                unique[idx] = _closest_then_longest(
+                    same_element, distance_equality=equality)
+        best = _closest_then_longest(unique, distance_equality=equality)
         if len(unique) > 1:
             equivalents = [c for c in unique
                            if abs(c[0]-best[0]) <= equality]
@@ -226,7 +230,8 @@ def select_contiguous_guardrail_pair(boundary, edges, tolerance,
                                      max_gap=.32808399,
                                      max_lateral_mismatch=.0656168,
                                      max_elevation_difference=.492126,
-                                     max_edges=120):
+                                     max_edges=120,
+                                     distance_equality=0.):
     """Deux rails successifs peuvent constituer UNE limite exterieure.
 
     Toutes les distances sont en unites des segments (pieds Revit dans
@@ -282,7 +287,7 @@ def select_contiguous_guardrail_pair(boundary, edges, tolerance,
         segments.append((left, right, lateral, float(z),
                          reference, element_id, angle, fraction))
 
-    best = None
+    valid_pairs = []
     for i, a in enumerate(segments):
         for b in segments[i+1:]:
             if element_key(a[5]) == element_key(b[5]):
@@ -307,26 +312,30 @@ def select_contiguous_guardrail_pair(boundary, edges, tolerance,
                 continue
             if length-max(a[1],b[1]) > float(max_gap):
                 continue
-            # Minimiser l'ecart et le defaut de raccordement.
-            score = (max(abs(a[2]),abs(b[2])) +
-                     .5*abs(a[2]-b[2]) +
-                     gap + (1.-coverage)*float(tolerance))
-            keeper, companion = (a,b) if a[7] >= b[7] else (b,a)
+            # La reference native est celle du rail le plus proche
+            # de la limite, non automatiquement celui de la plus
+            # grande portion. Egalite de distance => rail le plus long.
+            keeper = _closest_then_longest([
+                (abs(a[2]), a[7], a),
+                (abs(b[2]), b[7], b)],
+                distance_equality=distance_equality)[2]
+            companion = b if keeper is a else a
             metrics = {
                 "distance": abs(keeper[2]),
                 "overlap_ratio": keeper[7],
-                "score": score,
                 "support_count": 2,
                 "combined_overlap_ratio": coverage,
                 "gap": gap,
                 "lateral_mismatch": abs(a[2]-b[2]),
                 "companion_element_id": companion[5],
             }
-            if best is None or score < best[0]:
-                best = (score, keeper[4], keeper[5], metrics)
+            valid_pairs.append((abs(keeper[2]), keeper[7],
+                                keeper[4], keeper[5], metrics))
+    best = _closest_then_longest(
+        valid_pairs, distance_equality=distance_equality)
     if best is None:
         return None
-    return best[1], best[2], best[3]
+    return best[2], best[3], best[4]
 
 
 def is_exterior_annex(room_name, interior_exterior=""):
