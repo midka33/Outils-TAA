@@ -795,3 +795,28 @@ les indicateurs d'utilisation.
 **Règle préventive :** distinguer explicitement les **conteneurs d'organisation** des **cibles publiables**. Un `PublicationSet` sans feuille est un conteneur légitime, pas un livrable PDF/DWG. Ne jamais bloquer une publication récursive valide à cause d'un ancêtre ou d'un frère vide ; ne jamais masquer une vraie erreur concernant une feuille présente.
 
 **Anti-régression :** `tests/test_export_multiselection.py` reproduit un dossier `A2000` vide avec cinq sous-dossiers non vides, 16 feuilles, 21 lignes d'aperçu dont cinq PDF combinés et 16 DWG, sans erreur ; vérifie également les descendants vides, l'absence de publication si tous les dossiers sont vides, et un parent contenant lui-même des feuilles. Dans Revit : sélectionner `A2000`, contrôler l'aperçu, confirmer uniquement sur une destination de test et vérifier un PDF combiné par sous-dossier.
+
+
+### BUG-EXPORT-057 — Renommage des dossiers introuvable ou inopérant dans l'interface
+
+**Symptôme :** dans Revit 2025.4, un utilisateur ne peut pas renommer un dossier existant alors que le repository possède déjà l'opération `rename_publication_folder`.
+
+**Cause racine :** la première interface installait un menu contextuel sur le `TreeView` parent, puis essayait d'identifier le dossier par `ContextMenuOpening.OriginalSource`. Ce point d'entrée n'était pas fiable et la commande n'était pas accessible visuellement. Le raccourci F2 ne peut servir d'unique accès.
+
+**Correction :** ajouter un bouton visible « Renommer » sous l'arbre, attacher le menu « Renommer (F2) » à chaque `TreeViewItem` représentant un dossier, et transmettre explicitement la cible par `MenuItem.Tag` au handler. Le renommage continue d'utiliser l'identifiant stable du dossier et conserve feuilles, paramètres, enfants, ordre et persistance.
+
+**Règle préventive :** toute action métier essentielle sur un nœud hiérarchique doit disposer d'un accès visible et d'un menu ciblé ; ne pas dépendre de la source d'un événement contextuel du parent ni de la sélection native WPF pour déterminer la cible d'un clic droit.
+
+**Anti-régression :** `tests/test_export_rename_ui_terminology.py` vérifie le bouton, les menus par nœud et le cas où le clic droit vise un autre dossier que la sélection précédente. Dans Revit, vérifier bouton, clic droit et F2 sur un dossier ordinaire puis sur un dossier contenant des feuilles ; fermer/réouvrir et confirmer la conservation.
+
+### BUG-EXPORT-058 — Le terme « carnet » subsiste dans une interface désormais fondée sur les dossiers
+
+**Symptôme :** l'aperçu indiquait « Carnet » et « Publication du carnet », le rapport et la progression utilisaient « carnet » et la variable PDF par défaut affichait `{carnet}`, alors que l'utilisateur ne manipule que des dossiers.
+
+**Cause racine :** migration ergonomique vers une arborescence à dossiers uniques sans adaptation de tous les libellés ni de la variable visible de nommage héritée.
+
+**Correction :** afficher « Dossier » dans l'aperçu/rapport, « Dossier de publication » dans la progression, « PDF combiné du dossier » sur les lignes PDF globales, et « dossier(s) » dans le résumé. Ajouter `{nom_dossier}` comme alias fonctionnel de `{carnet}`, montrer le nouveau token dans l'interface et masquer l'ancien dans le catalogue proposé sans supprimer sa prise en charge dans les modèles JSON existants. `{dossier}` demeure distinct : il désigne le dossier parent.
+
+**Règle préventive :** les noms de structures internes ne doivent pas transparaître dans les libellés métier. Un renommage de token utilisateur doit toujours conserver la compatibilité des modèles persistants existants, sans réécriture silencieuse.
+
+**Anti-régression :** `tests/test_naming_parameters.py` vérifie l'équivalence des noms de fichiers entre ancien/nouveau token et le catalogue de variables ; `tests/test_export_rename_ui_terminology.py` vérifie les libellés visibles. Dans Revit, vérifier une ancienne configuration `{carnet}` et une nouvelle `{nom_dossier}`, leurs aperçus et exports.
