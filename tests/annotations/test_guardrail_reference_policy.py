@@ -13,7 +13,8 @@ from common.guardrail_reference_policy import (
     select_guardrails_by_path,
     is_exterior_annex, guardrail_tolerance_mm,
     guardrail_minimum_overlap, diagnose_guardrail_candidates,
-    select_contiguous_guardrail_pair)
+    select_contiguous_guardrail_pair,
+    select_native_edge_with_path_continuity)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -577,3 +578,97 @@ def test_rail_budget_ne_parcourt_pas_4_rails():
         allow_contiguous_companion=True, with_diagnostics=True)
     # Un seul complément envisagé pour une limite, pas les quatre ouvrages.
     assert len(selected) <= 3
+
+
+
+def test_2238_deux_chemins_de_moitie_et_une_seule_reference_native():
+    """Deux GetPath successifs 52% + 48% mais un seul TopRail cotable."""
+    lim = (0., 0., 3.62, 0.)
+    p1 = (0., .015, 3.62*.52, .015)
+    p2 = (3.62*.52, .018, 3.62, .018)
+    rail_paths = [(101, [p1]), (102, [p2])]
+    native = [((0., .010, 3.62*.52, .010), "NATIVE", 901, 3.2)]
+    match = select_native_edge_with_path_continuity(
+        lim, native, rail_paths, {901:101},
+        native_tolerance=.05, path_tolerance=.50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert match is not None
+    assert match[0:2] == ("NATIVE", 901)
+    assert match[2]["path_support_count"] == 2
+    assert match[2]["path_combined_overlap_ratio"] > .99
+    assert match[2]["overlap_ratio"] < .60
+    assert match[2]["associative_to_both"] is False
+
+
+def test_chemins_superposes_52plus48_ne_sont_pas_une_limite_continue():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62*.52, .015)]),
+             (102, [(0., .018, 3.62*.48, .018)])]
+    edges = [((0., .01, 3.62*.52, .01), "NATIVE", 901, 3.2)]
+    assert select_native_edge_with_path_continuity(
+        lim, edges, paths, {901:101}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_somme_65pourcent_insuffisante_sans_90pourcent_utile():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62*.35, .015)]),
+             (102, [(3.62*.35, .018, 3.62*.65, .018)])]
+    edges = [((0., .01, 3.62*.35, .01), "NATIVE", 901, 3.2)]
+    assert select_native_edge_with_path_continuity(
+        lim, edges, paths, {901:101}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_reference_native_dun_troisieme_gc_ne_valide_pas_les_deux_chemins():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62*.52, .015)]),
+             (102, [(3.62*.52, .018, 3.62, .018)]),
+             (103, [(0., .30, 3.62, .30)])]
+    edges = [((0., .01, 3.62*.52, .01), "OTHER_NATIVE", 903, 3.2)]
+    assert select_native_edge_with_path_continuity(
+        lim, edges, paths, {903:103}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_reference_native_excedant_50mm_est_refusee_meme_avec_chemins():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62*.52, .015)]),
+             (102, [(3.62*.52, .018, 3.62, .018)])]
+    edges = [((0., .065, 3.62*.52, .065), "TOO_FAR", 901, 3.2)]
+    assert select_native_edge_with_path_continuity(
+        lim, edges, paths, {901:101}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_chemin_complet_plus_demi_chemin_superpose_ne_prouve_pas_continuite():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62, .015)]),
+             (102, [(3.62*.52, .018, 3.62, .018)])]
+    edges = [((0., .010, 3.62*.52, .010), "NATIVE", 901, 3.2)]
+    assert select_native_edge_with_path_continuity(
+        lim, edges, paths, {901:101}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_deux_chemins_separes_150mm_refuses():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62*.52, .015)]),
+             (102, [(3.62*.52+.15, .018, 3.62, .018)])]
+    edges = [((0., .010, 3.62*.52, .010), "NATIVE", 901, 3.2)]
+    assert select_native_edge_with_path_continuity(
+        lim, edges, paths, {901:101}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_entre_deux_references_natives_choisir_la_plus_proche():
+    lim = (0., 0., 3.62, 0.)
+    paths = [(101, [(0., .015, 3.62*.52, .015)]),
+             (102, [(3.62*.52, .018, 3.62, .018)])]
+    edges = [
+        ((0., .04, 3.62*.52, .04), "LONG_FAR", 901, 3.2),
+        ((3.62*.52, .010, 3.62, .010), "NEAR", 902, 3.2)]
+    match = select_native_edge_with_path_continuity(
+        lim, edges, paths, {901:101, 902:102}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert match[0] == "NEAR"
