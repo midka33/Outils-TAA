@@ -8,6 +8,8 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [1.4.0] — 2026-11-03 — Export : explorateur de feuilles et publication (PR #39)
 
+**Publiée le 3 novembre 2026** : [GitHub Releases v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0), tag sur `21336b3df7f54ea2b4692384ba414e048bfae89e`. Validation sur ce SHA : **754 tests automatisés réussis**, ZIP contrôlé et empreintes SHA-256 vérifiées. L'installateur CMD attend encore sa recette d'installation Windows.
+
 ### Ajouté
 
 - Explorateur **Mises en page Revit** escamotable et redimensionnable à gauche de l'arborescence, avec largeur/visibilité mémorisées.
