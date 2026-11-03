@@ -277,3 +277,121 @@ de leurs mises en page.
 - [ ] Reutiliser le comportement de survol, ouverture automatique, scroll et insertion de l'arborescence existante ; eviter les doublons dans un dossier, autoriser la reutilisation inter-dossiers.
 - [ ] Preserver le modele a dossiers uniques, les parametres PDF/DWG, le stockage, les profils et les publications existantes.
 - [ ] Ajouter tests automatises et recette Revit 2025.4 / pyRevit 5.x : clavier, DPI, Full HD, interactions, persistance et non-regression.
+
+---
+
+## Phase 3 — Giration des véhicules
+
+**Issue GitHub :** [#40](https://github.com/midka33/Outils-TAA/issues/40)  
+**Documentation :** `docs/25_Giration_Vehicules.md`  
+**Branche :** `feature/giration-v1`  
+**Statut :** Phase P0 - Prototype initial développé (2026-11-02)
+
+### Phase P0 — Faisabilité interactive (en cours)
+
+**Objectif :** Développer le moteur cinématique et la structure de base.
+
+- [x] Créer la structure initiale du module (`Giration.panel/` et `lib/giration/`)
+- [x] Développer le modèle de données des véhicules (`Vehicle`)
+- [x] Implémenter le moteur cinématique d'Ackermann (`AckermannKinematics`)
+- [x] Créer la bibliothèque des véhicules (SDIS 33, camions, utilitaires, etc.)
+- [x] Développer les classes géométriques de base (`Vector2D`)
+- [x] Créer l'interface WPF de base
+- [x] Créer le contrôleur principal
+- [x] Écrire les tests unitaires pour le moteur cinématique
+- [x] Documenter le module (`docs/25_Giration_Vehicules.md`)
+- [ ] **À tester dans Revit** : Intégration avec l'API Revit (ExternalEvent, prévisualisation)
+- [ ] **À tester dans Revit** : Capture des clics souris pour le tracé interactif
+- [ ] **À tester dans Revit** : Prévisualisation dynamique dans la vue de plan
+
+**Critère de validation :** L'utilisateur peut piloter visuellement un véhicule dans sa vue de plan.
+
+**Date cible :** 2026-11-15 (validation technique sans Revit terminée)
+
+### Phase P1 — Moteur de cinématique (validé)
+
+**Objectif :** Valider le calcul des trajectoires.
+
+- [x] Calcul des trajectoires en ligne droite
+- [x] Calcul des trajectoires courbes avec braquage
+- [x] Calcul des trajectoires des roues (avant et arrière)
+- [x] Calcul de l'enveloppe balayée
+- [x] Validation des trajectoires par rapport aux contraintes
+- [x] Gestion de la marche avant et arrière
+- [x] Tests unitaires complets
+- [ ] **À valider dans Revit** : Tests avec l'API Revit
+
+**Critère de validation :** Le moteur cinématique produit des résultats corrects et validés dans Revit.
+
+**Date cible :** 2026-11-22
+
+### Phase P2 — Représentation graphique
+
+**Objectif :** Créer les représentations graphiques exploitables dans Revit.
+
+- [ ] Création des éléments Revit natifs (lignes, arcs, etc.)
+- [ ] Styles de lignes personnalisables
+- [ ] Organisation des éléments (groupes, sous-projets)
+- [ ] Gestion des unités (mètres, etc.)
+- [ ] Export PDF/DWG des trajectoires
+- [ ] Reproduire les informations graphiques de Vehicle Tracking
+- [ ] Affichage personnalisable (véhicule, roues, enveloppe, positions)
+
+**Critère de validation :** Les graphiques produits sont comparables à ceux d'Autodesk Vehicle Tracking.
+
+**Date cible :** 2026-12-06
+
+### Phase P3 — Bibliothèque des véhicules
+
+**Objectif :** Intégrer les véhicules documentés.
+
+- [x] Structure de la bibliothèque
+- [x] Véhicules de base (SDIS 33, camions, utilitaires)
+- [ ] Intégration complète des données SDIS 33
+- [ ] Ajout de véhicules personnalisés par l'utilisateur
+- [ ] Import/export de véhicules (JSON)
+- [ ] Interface de gestion des véhicules
+
+**Critère de validation :** La bibliothèque contient tous les véhicules nécessaires pour les cas d'usage.
+
+**Date cible :** 2026-12-13
+
+### Phase P4 — Persistance et modification
+
+**Objectif :** Enregistrer et modifier les simulations.
+
+- [ ] Enregistrement des simulations dans le projet Revit
+- [ ] Chargement des simulations existantes
+- [ ] Modification des paramètres de simulation
+- [ ] Régénération des éléments graphiques
+- [ ] Suppression des simulations
+- [ ] Persistance des préférences utilisateur
+
+**Critère de validation :** Les simulations peuvent être enregistrées, chargées, modifiées et supprimées.
+
+**Date cible :** 2026-12-20
+
+### Phase P5 — Stabilisation
+
+**Objectif :** Finaliser et stabiliser le module.
+
+- [ ] Tests de non-régression complets
+- [ ] Documentation utilisateur finale
+- [ ] Tutoriel d'utilisation
+- [ ] Validation utilisateur complète
+- [ ] Intégration dans la release principale
+
+**Critère de validation :** Le module est prêt pour une utilisation en production.
+
+**Date cible :** 2027-01-10
+
+---
+
+### Livrables attendus
+
+- [ ] Module fonctionnel dans Revit 2025.4
+- [ ] Documentation technique complète
+- [ ] Documentation utilisateur
+- [ ] Tutoriels
+- [ ] Tests automatisés
+- [ ] Validation utilisateur
