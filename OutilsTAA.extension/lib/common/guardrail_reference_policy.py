@@ -382,6 +382,128 @@ def select_contiguous_guardrail_pair(boundary, edges, tolerance,
     return best[2], best[3], best[4]
 
 
+
+def select_native_edge_with_path_continuity(
+        boundary, native_edges, railing_paths, parent_by_native_id,
+        native_tolerance, path_tolerance,
+        angle_degrees=3., minimum_path_coverage=.90,
+        minimum_part_coverage=.25, maximum_gap=.32808399,
+        maximum_lateral_mismatch=.0656168,
+        distance_equality=0., max_railings=3, max_paths=80,
+        max_edges=120):
+    """Deux chemins continus justifient UNE arête native partielle.
+
+    L'union de deux portions de GetPath doit couvrir au moins 90 % de
+    la limite (sans compter deux fois les superpositions). Seul un des
+    deux ouvrages doit fournir une véritable Edge.Reference, située
+    à 50 mm au plus de la limite, alignée et couvrant au moins 25 %.
+    Le chemin n'est JAMAIS utilisé comme Reference de cote. Les IDs
+    parent permettent de rattacher une arête TopRail à son garde-corps.
+
+    Retour (Reference, ElementId_natif, metrics) ou None. Toutes les
+    distances sont en coordonnées des segments (pieds en Revit).
+    """
+    import math
+
+    paths = list(railing_paths or [])
+    edges = list(native_edges or [])
+    if (len(paths) < 2 or len(paths) > int(max_railings) or
+            len(edges) > int(max_edges)):
+        return None
+    if sum(len(segments) for parent, segments in paths) > int(max_paths):
+        return None
+
+    def key(value):
+        for attr in ("Value", "IntegerValue"):
+            try:
+                return int(getattr(value, attr))
+            except Exception:
+                pass
+        return str(value)
+
+    # Un chemin peut avoir plusieurs segments. On ne somme jamais des
+    # longueurs brutes : seuls deux segments continus, distincts et
+    # suffisamment couvrants constituent une preuve admissible.
+    supported_pairs = []
+    for i, (parent_a, segments_a) in enumerate(paths):
+        for parent_b, segments_b in paths[i+1:]:
+            if key(parent_a) == key(parent_b):
+                continue
+            for seg_a in segments_a:
+                for seg_b in segments_b:
+                    proof = select_contiguous_guardrail_pair(
+                        boundary,
+                        [(seg_a, "PATH_ONLY", parent_a, 0.),
+                         (seg_b, "PATH_ONLY", parent_b, 0.)],
+                        tolerance=path_tolerance,
+                        angle_degrees=angle_degrees,
+                        min_combined_overlap=minimum_path_coverage,
+                        min_part_overlap=minimum_part_coverage,
+                        max_gap=maximum_gap,
+                        max_lateral_mismatch=maximum_lateral_mismatch,
+                        max_elevation_difference=1.,
+                        distance_equality=distance_equality)
+                    if proof is not None:
+                        supported_pairs.append((parent_a, seg_a,
+                                                parent_b, seg_b,
+                                                proof[2]))
+
+    if not supported_pairs:
+        return None
+    bx0, by0, bx1, by1 = [float(n) for n in boundary]
+    length = math.hypot(bx1-bx0, by1-by0)
+    if length < 1.e-9:
+        return None
+
+    candidates = []
+    for seg, ref, native_id, z in edges:
+        if ref is None:
+            continue
+        native_key = key(native_id)
+        parent = parent_by_native_id.get(native_key, native_id)
+        parent_key = key(parent)
+        metrics = matches_guardrail_edge(
+            boundary, seg, native_tolerance,
+            angle_degrees=angle_degrees,
+            minimum_overlap=minimum_part_coverage)
+        if metrics is None:
+            continue
+        edge_length = math.hypot(float(seg[2])-float(seg[0]),
+                                 float(seg[3])-float(seg[1]))
+        for pa, sa, pb, sb, support in supported_pairs:
+            if parent_key not in (key(pa), key(pb)):
+                continue
+            # L'arête cotable doit correspondre à la portion du chemin
+            # de SON parent, et pas à une autre face du même ouvrage.
+            own_path = sa if parent_key == key(pa) else sb
+            overlap = segment_match_metrics(
+                own_path, seg,
+                angle_tolerance_degrees=angle_degrees,
+                distance_tolerance=path_tolerance,
+                minimum_overlap_ratio=.50)
+            if overlap is None:
+                continue
+            data = dict(metrics)
+            data.update({
+                "path_support_count": 2,
+                "path_combined_overlap_ratio": support[
+                    "combined_overlap_ratio"],
+                "path_gap": support["gap"],
+                "path_lateral_mismatch": support["lateral_mismatch"],
+                "support_parent_ids": (pa, pb),
+                "reference_parent_id": parent,
+                "associative_to_both": False,
+            })
+            candidates.append((float(metrics["distance"]),
+                               edge_length, ref, native_id, data))
+
+    selected = _closest_then_longest(
+        candidates, distance_equality=distance_equality)
+    if selected is None:
+        return None
+    return selected[2], selected[3], selected[4]
+
+
 def is_exterior_annex(room_name, interior_exterior=""):
     """Loggia, terrasse, balcon ou jardin ; ou classification projet Ext.
 
