@@ -13,7 +13,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 
 | Module | Statut |
 |---|---|
-| **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
+| **Export** | **v1.4.0** — explorateur des mises en page, publication PDF/DWG, héritage et persistance validés dans Revit 2025.4 (PR #39) |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
@@ -25,6 +25,18 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
+
+## Release courante — Outils TAA v1.4.0
+
+La **v1.4.0** stabilise l'évolution du module **Export**, intégrée à `main` via la **PR #39** : explorateur de mises en page escamotable, filtres et sélection multiple, ajout et réorganisation des feuilles, renommage des dossiers, publication PDF/DWG par sous-dossier et classement des fichiers par format.
+
+La recette fonctionnelle **EXPORT-01 à EXPORT-06** a été validée par l'utilisateur le **3 novembre 2026**, y compris **5 PDF combinés + 16 DWG**, héritage et persistance après redémarrage de Revit. Les **375 tests Export** étaient réussis sur la tête de la PR ; le workflow de release effectue une vérification supplémentaire sur le commit exact publié.
+
+Cette version ne modifie pas les fonctionnalités métier de **Calculs des pièces** ni de **Plans de vente V1.1**. Les autres branches de développement ne sont pas incluses.
+
+- [Notes de version v1.4.0](docs/release/Notes_v1.4.0.md)
+- [Recette et préparation Export](docs/release/Preparation_Export_v1.4.0.md)
+- [Page GitHub de la release v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0)
 
 ## Plans de vente V1.1 — fichiers Revit liés
 
@@ -46,13 +58,13 @@ cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure le
 éléments des fichiers liés.
 
 Voir `docs/20_Plans_de_Vente.md` et la recette de release
-`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+`docs/archive/releases/v1.3.0/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 ## Guide utilisateur
 
-- [Export — tutoriel](docs/release/Tutoriel_Export_v1.3.0.md)
-- [Calculs des pièces — tutoriel](docs/release/Tutoriel_Calculs_Pieces_v1.3.0.md)
-- [Plans de vente — tutoriel](docs/release/Tutoriel_Plans_de_Vente_v1.3.0.md)
+- [Export — tutoriel v1.4.0](docs/release/Tutoriel_Export_v1.4.0.md)
+- [Calculs des pièces — tutoriel v1.4.0](docs/release/Tutoriel_Calculs_Pieces_v1.4.0.md)
+- [Plans de vente — tutoriel v1.4.0](docs/release/Tutoriel_Plans_de_Vente_v1.4.0.md)
 - [Index de la documentation](docs/INDEX.md)
 
 ## Historique des noms
