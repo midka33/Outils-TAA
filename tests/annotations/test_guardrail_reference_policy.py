@@ -440,3 +440,79 @@ def test_champs_diagnostic_selection_par_longueur():
         with_diagnostics=True)
     assert matches == [objects[1]]
     assert stats["ties_by_length"] == 1
+
+
+
+def test_loggia_2238_une_limite_complete_et_deux_rails_suivants():
+    """2 cotes : un rail continu + deux demi-rails sur l'autre bord."""
+    full = object()
+    first_half, second_half = object(), object()
+    limit_a = (0., 0., 3.62, 0.)
+    limit_b = (0., 3.12, 3.62, 3.12)
+    paths = [
+        (full, [(0., .01, 3.62, .01)]),
+        (first_half, [(0., 3.13, 3.62*.52, 3.13)]),
+        (second_half, [(3.62*.52, 3.13, 3.62, 3.13)]),
+    ]
+    chosen, info = select_guardrails_by_path(
+        paths, [limit_a, limit_b], tolerance=.5,
+        max_railings=3, max_segments=80,
+        ambiguity_gap=.001, allow_contiguous_companion=True,
+        companion_gap=.1, companion_lateral=.02,
+        with_diagnostics=True)
+    assert chosen == [full, first_half, second_half]
+    assert info["selected"] == 3
+    assert info["companions"] == 1
+    assert info["reason"] == "selected"
+
+
+def test_ne_pas_chercher_second_rail_si_pas_de_continuite():
+    a, b = object(), object()
+    target = [(0., 0., 3.62, 0.)]
+    paths = [
+        (a, [(0., .01, 3.62*.52, .01)]),
+        (b, [(0., .015, 3.62*.50, .015)]),
+    ]
+    selected, info = select_guardrails_by_path(
+        paths, target, tolerance=.5,
+        max_railings=3, allow_contiguous_companion=True,
+        companion_gap=.1, companion_lateral=.02,
+        with_diagnostics=True)
+    assert selected == [a]
+    assert info["companions"] == 0
+
+
+def test_complement_de_rail_refuse_si_decales_30mm():
+    a, b = object(), object()
+    target = [(0., 0., 3.62, 0.)]
+    paths = [
+        (a, [(0., .01, 3.62*.52, .01)]),
+        (b, [(3.62*.52, .04, 3.62, .04)]),
+    ]
+    selected, info = select_guardrails_by_path(
+        paths, target, tolerance=.5,
+        max_railings=3, allow_contiguous_companion=True,
+        companion_gap=.1, companion_lateral=.02,
+        with_diagnostics=True)
+    assert selected == [a]
+    assert info["companions"] == 0
+
+
+def test_companion_ne_fait_pas_depassement_silencieux_du_budget():
+    """Deux limites dédoublées => quatre rails : repli sûr, pas de solide."""
+    objs = [object() for _ in range(4)]
+    p = 3.62
+    targets = [(0., 0., p, 0.), (0., 3.12, p, 3.12)]
+    items = [
+        (objs[0], [(0., .01, p*.52, .01)]),
+        (objs[1], [(p*.52, .01, p, .01)]),
+        (objs[2], [(0., 3.13, p*.52, 3.13)]),
+        (objs[3], [(p*.52, 3.13, p, 3.13)]),
+    ]
+    selected, info = select_guardrails_by_path(
+        items, targets, .5, max_railings=3,
+        allow_contiguous_companion=True,
+        companion_gap=.1, companion_lateral=.02,
+        with_diagnostics=True)
+    assert selected == []
+    assert info["reason"] == "rail_budget"
