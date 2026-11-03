@@ -1276,7 +1276,7 @@ def test_2238_trois_garde_corps_deux_toprails_et_une_lisse_non_continue(monkeypa
         Railing(1, 101, (0., .01, 3.62, .01),
                 (0., .01, 3.62, .01)),
         Railing(2, 102, (0., 3.13, 3.62*.52, 3.13),
-                (0., 3.13, 3.62, 3.13)),
+                (0., 3.13, 3.62*.52, 3.13)),
         Railing(3, -1, (3.62*.52, 3.13, 3.62, 3.13),
                 (3.62*.52, 3.13, 3.62, 3.13)),
     ]
@@ -1319,6 +1319,7 @@ def test_2238_trois_garde_corps_deux_toprails_et_une_lisse_non_continue(monkeypa
     service = mod.GenericDimensions(Doc())
     service.target_view = types.SimpleNamespace(Id="view2238")
     service._millimeters_to_internal = lambda mm: mm/1000.
+    service._is_exterior_annex = lambda room: True
     room = types.SimpleNamespace(
         UniqueId="2238",
         get_BoundingBox=lambda view: Box(),
@@ -1326,23 +1327,27 @@ def test_2238_trois_garde_corps_deux_toprails_et_une_lisse_non_continue(monkeypa
 
     bounds = [(0., 0., 3.62, 0.), (0., 3.12, 3.62, 3.12)]
     edges = service._nearby_guardrail_edges(room, bounds)
-    assert geometry_read == [101, 102, 3]
-    assert len(edges) == 3
-    assert edges[-1][2].Value == 3
+    # Pas de lecture du solide parent 3 malgré l'absence de TopRail.
+    assert geometry_read == [101, 102]
+    assert len(edges) == 2
+    assert service._guardrail_paths["2238"][-1][0] == 3
+    assert service._guardrail_native_parents == {101: 1, 102: 2}
     log = "\n".join(service._guardrail_warnings)
     assert "GC 3 : TopRail absent" in log
     assert "1 lisse(s) non continue(s)" in log
-    assert "GC 3 non continu" in log
+    assert "controle de couverture par chemins" in log
 
     from common.guardrail_reference_policy import (
-        select_contiguous_guardrail_pair)
-    result = select_contiguous_guardrail_pair(
-        bounds[1], edges, tolerance=.05, max_gap=.1,
-        max_lateral_mismatch=.02,
-        max_elevation_difference=.15)
+        select_native_edge_with_path_continuity)
+    result = select_native_edge_with_path_continuity(
+        bounds[1], edges, service._guardrail_paths["2238"],
+        service._guardrail_native_parents,
+        native_tolerance=.05, path_tolerance=.50,
+        maximum_gap=.1, maximum_lateral_mismatch=.02)
     assert result is not None
-    assert result[2]["support_count"] == 2
-    assert result[2]["combined_overlap_ratio"] > .99
+    assert result[1].Value == 102
+    assert result[2]["path_support_count"] == 2
+    assert result[2]["path_combined_overlap_ratio"] > .99
 
 
 def test_noncontinuous_parent_geometry_budget_et_sans_instance(monkeypatch):
@@ -1402,3 +1407,40 @@ def test_noncontinuous_parent_geometry_budget_et_sans_instance(monkeypatch):
     assert result == []
     assert any("budget 48 aretes" in x
                for x in service._guardrail_warnings), service._guardrail_warnings
+
+
+
+def test_2238_service_convertit_separation_avec_chemins_et_un_toprail(monkeypatch):
+    """Vraie integration du fallback chemin dans GenericDimensions."""
+    mod = load_annotation_module(monkeypatch)
+    lib = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(lib))
+    service = mod.GenericDimensions(object())
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service._is_exterior_annex = lambda room: True
+    service.FLOOR_EDGE_TOLERANCE_MM = 20.
+    service.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES = 3.
+    service.FLOOR_EDGE_MIN_OVERLAP_RATIO = .60
+    reference = object()
+    parent_id = types.SimpleNamespace(Value=11)
+    service._nearby_guardrail_edges = lambda room, boundaries: [
+        ((0., .010, 3.62*.52, .010), reference,
+         types.SimpleNamespace(Value=901), 3.2)]
+    service._guardrail_paths["2238"] = [
+        (11, [(0., .015, 3.62*.52, .015)]),
+        (12, [(3.62*.52, .018, 3.62, .018)])]
+    service._guardrail_native_parents = {901: 11}
+    room = types.SimpleNamespace(
+        UniqueId="2238",
+        get_Parameter=lambda param: FakeParameter("2238"))
+    candidate = types.SimpleNamespace(
+        source_kind="separator", segment=(0., 0., 3.62, 0.),
+        reference=object(), element_id_value=-1, length_references=None)
+    service._upgrade_separator_guardrail(room, [candidate])
+    assert candidate.source_kind == "guardrail_edge"
+    assert candidate.reference is reference
+    assert candidate.element_id_value == 901
+    warnings = "\n".join(service._guardrail_warnings)
+    assert "DEUX chemins de garde-corps alignes couvrent" in warnings
+    assert "UNIQUEMENT a l'arete native" in warnings
+    assert "Le second GC ne pilote pas la cote" in warnings
