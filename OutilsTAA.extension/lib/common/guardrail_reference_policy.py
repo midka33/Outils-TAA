@@ -136,7 +136,7 @@ def select_guardrails_by_path(items, target_segments, tolerance,
             idx = next((i for i, entry in enumerate(unique)
                         if entry[2] is element), -1)
             if idx < 0:
-                unique.append((distance, length, element))
+                unique.append((distance, length, element, segment, overlap))
             else:
                 same_element = [x for x in matches if x[2] is element]
                 unique[idx] = _closest_then_longest(
