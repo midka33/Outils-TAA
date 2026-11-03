@@ -886,3 +886,63 @@ plus les tests précédents de deux tronçons jointifs et les suites
 CI Annotations, Plans de vente, Export et Calculs. **Test natif
 dans Revit 2025.4 obligatoire** : deuxième tronçon réellement
 sélectionné puis preuve de continuité native, ou fallback documenté.
+
+
+---
+
+### BUG-COMMON-022 — Trois garde-corps présélectionnés, mais seulement deux rails filants inspectés (2238)
+
+**Symptôme Revit 2025.4 (3 novembre 2026) :** 2238, deux cotes
+créées ; `3 garde-corps retenu(s) par leur chemin` mais seulement
+`2 rail(s) filant(s), 24 arêtes inspectées, 8 références candidates`.
+La première cote utilise une arête native (100 %), la deuxième
+retombe en 2D car la meilleure référence atteint 52 % de
+recouvrement. Le nouveau préfiltre BUG-COMMON-021 fonctionne,
+mais n'offre aucune arête supplémentaire exploitable.
+
+**Cause racine dans le code :** l'extraction native n'utilisait
+que `Railing.TopRail` et `Railing.GetHandRails()`. Le troisième
+garde-corps est présélectionné, mais n'est pas identifié dans le
+diagnostic par son ElementId et ne fournit aucun élément filant
+supplémentaire. Sa configuration Revit reste inconnue sans
+diagnostic : absence de TopRail, HandRail non résolu, rail dupliqué,
+ou type contenant une `RailStructure` non continue.
+La documentation API Autodesk distingue les composants continus
+directement accessibles du `Railing` et les lisses non continues
+définies dans `RailingType.RailStructure`.
+
+**Correction :** journaliser pour chacun des 3 garde-corps
+sélectionnés son **ElementId**, l'ElementId de TopRail ou son
+absence, le nombre de HandRail accessibles, et si aucun composant
+continu n'est résolu, le nombre de lisses non continues de son
+`RailingType.RailStructure.GetNonContinuousRailCount()`.
+En l'absence de composant filant, sonder uniquement **un** parent
+Railing dont le type déclare une lisse non continue. Cette recherche
+utilise les solides natifs **directs** uniquement, ne traverse pas
+les `GeometryInstance` de balustres, borne à **16 objets**, **48
+arêtes** et **12 références** ; elle n'emploie que
+`Edge.Reference` et exige que le segment soit assez proche
+et parallèle à une séparation de la pièce. Si l'API échoue,
+si plusieurs parents sont concernés ou si le budget est dépassé,
+abandonner ses arêtes et garder le fallback 2D, sans supprimer
+les arêtes natives déjà trouvées sur les rails filants.
+Le budget global de 120 arêtes demeure inchangé et le mode
+diagnostic reste limité à une pièce.
+
+**Règle préventive :** distinguer le nombre de garde-corps
+sélectionnés du nombre de composants géométriques réellement
+accessibles. Ne pas supposer que tout Railing possède un TopRail
+ou un HandRail. Éviter un nouveau parcours global non borné
+des solides et balustres après un crash Revit antérieur.
+Ne pas revendiquer une référence native lorsque le composant
+Revit n'en fournit pas réellement.
+
+**Tests anti-régression :**
+`test_2238_trois_garde_corps_deux_toprails_et_une_lisse_non_continue`
+(une limite composée dont le troisième rail n'a pas TopRail),
+`test_noncontinuous_parent_geometry_budget_et_sans_instance`
+(échec sûr lorsque 49 arêtes dépassent un plafond de 48, sans
+traverser la GeometryInstance), suites Annotations/Plans de vente,
+Export et Calculs. **Aucun test Revit de ce correctif à ce stade** :
+l'acceptation d'une arête native de lisse non continue dans
+une cote Revit 2025.4 reste à contrôler sur copie.
