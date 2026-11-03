@@ -246,12 +246,124 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             point = transform.OfPoint(point)
         return point
 
-    def _nearby_guardrail_edges(self, room, boundary_segments):
-        """Arêtes NATIVES de deux garde-corps au plus, sans parcours global.
+    def _noncontinuous_rail_count(self, railing):
+        """RailStructure du type Revit, sans inspection des solides."""
+        try:
+            rail_type = self.document.GetElement(railing.GetTypeId())
+            structure = rail_type.RailStructure
+            if structure is None:
+                return 0
+            return max(0, int(structure.GetNonContinuousRailCount()))
+        except Exception:
+            # Une structure non accessible ne justifie PAS de sonder
+            # aveuglément les solides du garde-corps parent.
+            return None
 
-        Les arêtes sont seulement interrogées pour une pièce ayant une
-        séparation non résolue par une dalle. Si Revit ne fournit pas de
-        référence valide, le chemin de secours 2D reste applicable.
+    def _bounded_noncontinuous_edges(self, room, railing,
+                                     boundary_segments, max_edges=48,
+                                     max_objects=16):
+        """Une seule lisse non continue, seulement solides DIRECTS du GC.
+
+        Cette lecture ne s'effectue que sur un Railing sans TopRail ni
+        HandRail exploitable, et dont le type déclare au moins une lisse
+        non continue. Pas de GetInstanceGeometry, pas de symboles de
+        balustres, budgets distincts des 120 arêtes globales.
+        """
+        number = room_value(
+            room, DB.BuiltInParameter.ROOM_NUMBER, str(room.UniqueId))
+        ident = id_value(railing.Id)
+        from common.guardrail_reference_policy import matches_guardrail_edge
+        tolerance = self._millimeters_to_internal(50.)
+        minimum = self._millimeters_to_internal(100.)
+        options = DB.Options()
+        options.ComputeReferences = True
+        options.IncludeNonVisibleObjects = False
+        try:
+            options.DetailLevel = DB.ViewDetailLevel.Coarse
+        except Exception:
+            pass
+        found = []
+        scanned = 0
+        objects = 0
+        skipped_instances = 0
+        trace("GUARDRAIL_NONCONTINUOUS_BEFORE",
+              safe_name(self.target_view), number, "id={}".format(ident))
+        try:
+            geom = railing.get_Geometry(options)
+            trace("GUARDRAIL_NONCONTINUOUS_AFTER",
+                  safe_name(self.target_view), number, "id={}".format(ident))
+            if geom is None:
+                self._guardrail_warnings.append(
+                    "{} : GC {} sans geometrie non continue exploitable."
+                    .format(number, ident))
+                return []
+            for obj in geom:
+                objects += 1
+                if objects > max_objects:
+                    raise ValueError(
+                        "budget {} objets directs depasse".format(max_objects))
+                if not isinstance(obj, DB.Solid):
+                    skipped_instances += 1
+                    continue
+                try:
+                    if obj.Volume <= 1.e-12:
+                        continue
+                except Exception:
+                    pass
+                for edge in obj.Edges:
+                    scanned += 1
+                    if scanned > max_edges:
+                        raise ValueError(
+                            "budget {} aretes non continues depasse"
+                            .format(max_edges))
+                    try:
+                        reference = edge.Reference
+                        if reference is None:
+                            continue
+                        curve = edge.AsCurve()
+                        if not isinstance(curve, DB.Line):
+                            continue
+                        if curve.Length < minimum:
+                            continue
+                        p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
+                        if abs(p1.Z-p0.Z) > minimum*.1:
+                            continue
+                        segment = (float(p0.X), float(p0.Y),
+                                   float(p1.X), float(p1.Y))
+                        if not any(matches_guardrail_edge(
+                                boundary, segment, tolerance,
+                                angle_degrees=3., minimum_overlap=.25)
+                                   for boundary in boundary_segments):
+                            continue
+                        reference.ConvertToStableRepresentation(self.document)
+                        found.append((
+                            segment, reference, railing.Id,
+                            (float(p0.Z)+float(p1.Z))*.5))
+                        if len(found) > 12:
+                            raise ValueError(
+                                "budget 12 references non continues depasse")
+                    except ValueError:
+                        raise
+                    except Exception:
+                        continue
+        except Exception as error:
+            self._guardrail_warnings.append(
+                "{} : GC {} non continu non exploitable ({}) ; "
+                "repli 2D conserve.".format(number, ident, error))
+            return []
+        self._guardrail_warnings.append(
+            "{} : GC {} non continu : {} objet(s), {} arete(s), "
+            "{} reference(s) candidate(s), {} instance(s) ignoree(s)."
+            .format(number, ident, objects, scanned, len(found),
+                    skipped_instances))
+        return found
+
+    def _nearby_guardrail_edges(self, room, boundary_segments):
+        """Références NATIVES de trois GC au plus, sans parcours global.
+
+        Les lisses non continues du type ne sont sondées que sur
+        un seul GC sans composant TopRail ou HandRail exploitable.
+        Sinon, le repère 2D reste le secours.
         """
         if self.target_view is None:
             return []
