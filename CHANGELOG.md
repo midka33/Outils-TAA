@@ -6,6 +6,40 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-11-03 — Export : explorateur de feuilles et publication (PR #39)
+
+### Ajouté
+
+- Explorateur **Mises en page Revit** escamotable et redimensionnable à gauche de l'arborescence, avec largeur/visibilité mémorisées.
+- Recherche instantanée par numéro ou nom de feuille ; regroupement et filtre par paramètres Revit, filtre « Non ajoutées uniquement » et indicateurs d'utilisation.
+- Sélection multiple Ctrl/Maj/Ctrl+A et ajout par bouton, double-clic, menu ou glisser-déposer, sans retirer les feuilles de leurs autres dossiers ; doublons refusés au sein d'un même dossier.
+- Bouton **Renommer** visible, action F2 et menu contextuel attaché à chaque dossier, sans perte de contenu ni de réglages.
+- Nouvelle option **Créer un sous-dossier par format (PDF et DWG)**, indépendante de la création du dossier de publication, héritable et persistante.
+- Jeton de nommage **`{nom_dossier}`**, représentant le dossier de publication ; le jeton `{carnet}` reste compatible avec les configurations existantes.
+
+### Corrigé / amélioré
+
+- Réorganisation et déplacements multiples des feuilles et dossiers, maintien des ordres et blocage des cycles.
+- Exclusion des dossiers parents sans feuilles du lot d'export réel, sans supprimer ces dossiers de l'arborescence ni affecter l'héritage des paramètres.
+- Noms de colonnes, aperçus, progression et rapports centrés sur le terme métier **Dossier**, sans terme « carnet » visible pour les nouveaux utilisateurs.
+- Calcul des chemins PDF et DWG cohérent entre aperçu et export réel pour les quatre combinaisons de dossiers, y compris les anciennes configurations dépourvues du nouveau champ.
+- Préservation de la persistance par projet et des profils ; la migration n'efface pas les modèles de nommage ni les réglages existants.
+
+### Validation
+
+- **EXPORT-01 à EXPORT-06 : validés par l'utilisateur dans Revit 2025.4 / pyRevit 5.x le 3 novembre 2026**, couvrant l'export réel de 5 PDF combinés + 16 DWG, le renommage, la suppression, le glisser-déposer, l'héritage et la persistance après redémarrage et entre projets.
+- **375 tests automatisés Export** et contrat ruban réussis sur la tête de la PR #39 ; le pipeline de release vérifie aussi les suites Calculs des pièces et Plans de vente sur le SHA exact publié avant de créer les artefacts.
+- PR #39 fusionnée dans `main` (SHA `5a37be83e3d5893156399b242b838f4a9805ef58`), sans fusion ni modification des autres branches.
+
+### Non modifié / limites
+
+- **Calculs des pièces** et **Plans de vente V1.1** : fonctionnalités métier inchangées depuis la v1.3.0.
+- Publication des seules feuilles modifiées, PDF en arrière-plan et moteur dynamique Stage 08 non raccordé : toujours hors périmètre de cette release.
+- Les variantes F2/clic droit et chacun des quatre cas de dossiers ne disposent pas de procès-verbal utilisateur indépendant ; les scénarios métier principaux ont été validés et les combinaisons de chemins sont couvertes par tests hors Revit.
+
+**Documentation de release :** [notes v1.4.0](docs/release/Notes_v1.4.0.md) · [recette](docs/release/Preparation_Export_v1.4.0.md) · [tutoriel Export](docs/release/Tutoriel_Export_v1.4.0.md).
+
+
 ## [1.3.0] — 2026-10-20
 
 ### Ajouté — Plans de vente V1.1 : fichiers Revit liés (PR #28 / issue #27)
