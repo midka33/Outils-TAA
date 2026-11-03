@@ -961,3 +961,82 @@ garde-corps de type compatible, en mode diagnostic
 
 Voir BUG-COMMON-022. Non valide en environnement Revit natif
 au moment de ce changement.
+
+
+### Couverture cumulée par chemins et référence native unique — 2238
+
+**Nouvelle règle de cotation des annexes extérieures :** deux
+garde-corps successifs peuvent fournir **ensemble la preuve de
+couverture d'une limite**, même si un seul possède une arête native
+exploitable par l'API Revit. L'objectif est de résoudre le cas de
+2238 où une arête cotable couvre 52 % et le deuxième garde-corps
+représente les 48 % restants.
+
+La décision est **découpée en deux vérifications indépendantes** :
+
+1. **Couverture de la limite** : examiner les segments de
+   `Railing.GetPath()` des seuls garde-corps présélectionnés
+   (3 éléments maximum). Il faut deux ouvrages distincts,
+   des portions successives et non superposées, une **union
+   projetée de 90 % minimum**, chaque portion >=25 %,
+   angle <=3°, raccord <=100 mm et décalage latéral entre
+   chemins <=20 mm. Une addition brute de longueurs n'est
+   pas suffisante : deux garde-corps superposés sur la même
+   moitié ne satisfont pas la règle. Un chemin entièrement
+   superposé avec un deuxième demi-chemin ne permet pas non
+   plus de certifier deux portions successives.
+2. **Référence native de la cote** : une seule des deux
+   portions doit fournir une `Edge.Reference` native
+   exploitable, avec une arête parallèle (<=3°), à **50 mm
+   maximum** de la limite et couvrant au moins 25 %.
+   Elle doit provenir du garde-corps participant à la
+   preuve de couverture, et correspondre à son propre
+   chemin. Si plusieurs arêtes sont disponibles, choisir
+   la plus proche de la limite, puis la plus longue en
+   cas d'égalité de distance (1 mm).
+
+Le module utilise **l'arête native pour la valeur Revit
+de cotation** : il n'utilise jamais `GetPath()` comme
+référence et ne force pas l'ancienne valeur issue des
+séparations décalées. La cote n'est associative qu'au
+garde-corps qui fournit cette arête. Le second garde-corps
+n'est qu'un **contrôle de continuité** et toute évolution
+de son tracé impose une vérification de la cote.
+
+**Sécurité et performance :** pour les annexes extérieures,
+l'analyse des solides du garde-corps **parent** sans rail
+filant est remplacée par ce contrôle de couverture à
+partir des chemins déjà lus. Le diagnostic d'ID et de
+type de rail est conservé. Les limites existantes restent
+fixées à trois garde-corps présélectionnés, 80 tronçons
+de chemin, 120 arêtes natives (TopRail/HandRail) ; pas
+d'extension du parcours de la géométrie parent.
+Les pièces intérieures et Plans de vente conservent
+leur comportement actuel. En cas d'échec d'une des
+conditions, le repère 2D non associatif reste le secours.
+
+**Exemple de message attendu si les deux chemins sont
+valides :** `2238 : DEUX chemins de garde-corps alignes
+couvrent 100% de la limite (jeu 0 mm). Cote associee
+UNIQUEMENT a l'arete native du GC ...`.
+
+**Essais Revit 2025.4 indispensables sur copie** :
+- [ ] REV-ANN-90 — Loggia 2238 : retirer les deux cotes
+      de l'essai précédent, mettre à jour la branche et
+      relancer sur une seule pièce.
+- [ ] REV-ANN-91 — Vérifier l'union réelle des chemins
+      (>=90 %), le bon nu du garde-corps et la valeur
+      native de la seconde cote. Si les chemins se
+      superposent au lieu de se compléter, le repli 2D
+      est la décision attendue.
+- [ ] REV-ANN-92 — Masquer `Séparations de pièces`
+      en conservant les garde-corps visibles : les
+      cotes référencées au garde-corps doivent rester.
+- [ ] REV-ANN-93 — Confirmer qu'une deuxième exécution
+      ne duplique aucune cote et ne déclenche aucun crash.
+- [ ] REV-ANN-94 — Pièce 2240 : vérifier que les deux
+      références natives et les diagnostics non doublés
+      restent inchangés.
+
+Voir **BUG-COMMON-023**. Tests Python hors Revit possibles,
+validation native dans Revit 2025.4 **non encore effectuée**.
