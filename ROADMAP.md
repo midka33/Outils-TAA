@@ -298,7 +298,8 @@ de leurs mises en page.
 - [x] Ajouter un diagnostic de la paire de chemins sur la limite refusée : IDs, positions projetées, union, superposition, jeu, décalage et motif précis de rejet, sans réduire les protections ni toucher à Plans de vente (BUG-COMMON-024).
 - [x] Rejouer sur la loggia 2238 après BUG-COMMON-024 : diagnostic confirmé, union 100 %, aucune superposition ni jour, décalage d'axes 33 mm >20 mm (cause explicite du rejet).
 - [x] Préparer une récupération **bêta ultrastricte**, limitée aux axes décalés de 20 à 40 mm avec union >=98 %, jeu <=10 mm et véritable arête native <=5 mm (BUG-COMMON-025) ; ne pas toucher à Plans de vente.
-- [ ] Confirmer dans Revit 2025.4 la récupération native de 2238, vérifier les **nus intérieurs réels**, la valeur mesurée, la visibilité sans séparations et l'absence de doublons ou de crash ; conserver la possibilité de retirer l'exception avant fusion.
+- [x] Confirmer sous Revit 2025.4 la **récupération native** de la seconde limite de la loggia 2238 après BUG-COMMON-025 : 2 annotations, 100 % + 52 % de couverture native, union des chemins 100 %, décalage d'axes 33 mm, aucun repli 2D signalé.
+- [ ] Vérifier encore les **deux valeurs affichées**, l'alignement des **nus intérieurs réels**, la visibilité sans séparations, la deuxième exécution (doublons/crash) et le cas de non-régression 2240 ; conserver l'exception en bêta jusqu'à décision après recette.
 - [ ] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash avant réactivation en masse.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
