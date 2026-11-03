@@ -195,17 +195,18 @@ class ExportWindow(forms.WPFWindow):
                     )
                     node.Items.Add(child)
 
-        roots = [
-            folder
-            for folder in self._folders
-            if getattr(folder, "parent_id", None) is None
-        ]
-        roots.sort(key=lambda value: tree_order(value, 0))
-
-        for folder in roots:
-            node = self._make_folder_node(folder)
+        # Les dossiers publiables peuvent eux aussi être à la racine.
+        # Lorsqu'un dossier ordinaire hors « Général » reçoit sa première
+        # feuille, le dépôt le promeut en PublicationSet avec folder_id=None.
+        # Ne pas le perdre à la reconstruction de l'arborescence.
+        roots = container_children(None)
+        for kind, value in roots:
+            if kind == "FOLDER":
+                node = self._make_folder_node(value)
+            else:
+                node = self._make_carnet_node(value)
             self.PublicationTree.Items.Add(node)
-            populate("FOLDER", folder, node, set())
+            populate(kind, value, node, set())
 
         self._load_selected_settings()
         if getattr(self, "_sheet_explorer", None) is not None:
