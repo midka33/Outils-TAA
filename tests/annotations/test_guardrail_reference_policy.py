@@ -466,7 +466,7 @@ def test_loggia_2238_une_limite_complete_et_deux_rails_suivants():
     assert info["reason"] == "selected"
 
 
-def test_ne_pas_chercher_second_rail_si_pas_de_continuite():
+def test_second_rail_peut_etre_examine_meme_sans_preuve_par_le_chemin():
     a, b = object(), object()
     target = [(0., 0., 3.62, 0.)]
     paths = [
@@ -478,8 +478,10 @@ def test_ne_pas_chercher_second_rail_si_pas_de_continuite():
         max_railings=3, allow_contiguous_companion=True,
         companion_gap=.1, companion_lateral=.02,
         with_diagnostics=True)
-    assert selected == [a]
-    assert info["companions"] == 0
+    # Examen autorise mais la continuite doit rester a prouver avec
+    # les aretes natives ; aucune cote ne peut etre creee ici.
+    assert selected == [a, b]
+    assert info["companions"] == 1
 
 
 def test_complement_de_rail_refuse_si_decales_30mm():
@@ -494,12 +496,14 @@ def test_complement_de_rail_refuse_si_decales_30mm():
         max_railings=3, allow_contiguous_companion=True,
         companion_gap=.1, companion_lateral=.02,
         with_diagnostics=True)
-    assert selected == [a]
-    assert info["companions"] == 0
+    # Le chemin ne prouve pas l'ecart des aretes natives :
+    # les deux objets peuvent etre examines et rejetes ensuite.
+    assert selected == [a, b]
+    assert info["companions"] == 1
 
 
 def test_companion_ne_fait_pas_depassement_silencieux_du_budget():
-    """Deux limites dédoublées => quatre rails : repli sûr, pas de solide."""
+    """Deux limites avec quatre rails : rejet total si budget a trois."""
     objs = [object() for _ in range(4)]
     p = 3.62
     targets = [(0., 0., p, 0.), (0., 3.12, p, 3.12)]
@@ -516,3 +520,60 @@ def test_companion_ne_fait_pas_depassement_silencieux_du_budget():
         with_diagnostics=True)
     assert selected == []
     assert info["reason"] == "rail_budget"
+
+
+
+def test_loggia_2238_chemin_entier_arrete_native_demie_garde_second_gc():
+    """GetPath() peut etre complet alors que TopRail ne couvre que 52%."""
+    full = object()
+    first_half, second_half = object(), object()
+    limit_a = (0., 0., 3.62, 0.)
+    limit_b = (0., 3.12, 3.62, 3.12)
+    paths = [
+        (full, [(0., .01, 3.62, .01)]),
+        # chemin de 100% ; son arête native TopRail ne fait que 52%
+        (first_half, [(0., 3.13, 3.62, 3.13)]),
+        (second_half, [(3.62*.52, 3.13, 3.62, 3.13)]),
+    ]
+    chosen, info = select_guardrails_by_path(
+        paths, [limit_a, limit_b], tolerance=.5, max_railings=3,
+        allow_contiguous_companion=True, ambiguity_gap=.001,
+        with_diagnostics=True)
+    assert chosen == [full, first_half, second_half]
+    assert info["companions"] == 1
+    assert info["selected"] == 3
+
+    # Le contrôle NATIF, et non GetPath(), valide la paire.
+    edges = [
+        ((0., 3.13, 3.62*.52, 3.13), "native-A", 101, 2.8),
+        ((3.62*.52, 3.13, 3.62, 3.13), "native-B", 102, 2.8),
+    ]
+    native = select_contiguous_guardrail_pair(
+        limit_b, edges, tolerance=.05, max_gap=.10,
+        max_lateral_mismatch=.02, max_elevation_difference=.15)
+    assert native is not None
+    assert native[2]["support_count"] == 2
+    assert abs(native[2]["combined_overlap_ratio"]-1.) < 1.e-9
+
+
+def test_candidat_supplémentaire_seul_ne_suffit_pas_a_coter():
+    """Ne pas fabriquer une cote si la continuite des aretes est fausse."""
+    limit = (0., 0., 3.62, 0.)
+    two_edges = [
+        ((0., .01, 3.62*.52, .01), "first", 101, 2.8),
+        ((0., .015, 3.62*.50, .015), "second", 102, 2.8)]
+    result = select_contiguous_guardrail_pair(
+        limit, two_edges, tolerance=.05, max_gap=.10,
+        max_lateral_mismatch=.02, max_elevation_difference=.15)
+    assert result is None
+
+
+def test_rail_budget_ne_parcourt_pas_4_rails():
+    target = [(0., 0., 3.62, 0.)]
+    items = [(object(), [(0., .01+i*.005, 3.62*.5, .01+i*.005)])
+             for i in range(4)]
+    selected, info = select_guardrails_by_path(
+        items, target, .5, max_railings=3,
+        allow_contiguous_companion=True, with_diagnostics=True)
+    # Un seul complément envisagé pour une limite, pas les quatre ouvrages.
+    assert len(selected) <= 3
