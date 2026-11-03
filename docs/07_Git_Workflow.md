@@ -1367,3 +1367,10 @@ La procédure est décrite par `.github/workflows/release-v1.4.0.yml` et `docs/r
 Le pipeline v1.4.0 est déclenché sur l'intégration de ses notes dans `main`, et peut être relancé explicitement. Il est **idempotent** : une release existante n'est pas remplacée silencieusement. La permission GitHub `contents: write` n'est demandée que pour l'étape de publication, après les tests.
 
 **Points de vigilance :** les conditions et permissions GitHub Actions peuvent empêcher la publication malgré un code validé. Vérifier son statut, puis corriger le workflow sur une branche dédiée si nécessaire ; éviter de créer manuellement un tag sur une branche non testée.
+
+
+## Publication effective v1.4.0
+
+Le pipeline a terminé avec succès ses deux jobs le **3 novembre 2026** : 754 tests automatisés, archive ZIP vérifiée, empreintes SHA-256 correctes et création de six actifs de release. Le tag `v1.4.0` pointe vers `21336b3df7f54ea2b4692384ba414e048bfae89e`. Référence : [release publique](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) et [run GitHub Actions](https://github.com/midka33/Outils-TAA/actions/runs/41667879829).
+
+Cette attestation complète les règles générales ci-dessus sans modifier les branches de fonctionnalités en cours.
