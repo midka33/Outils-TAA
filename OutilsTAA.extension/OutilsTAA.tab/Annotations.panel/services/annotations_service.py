@@ -351,7 +351,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             "{} : filtrage GC : {} chemin(s) dans la piece, "
             "{} limite(s), {} correspondance(s), {} egalite(s) "
             "departagee(s) par longueur, {} second(s) troncon(s) "
-            "complementaire(s), plus proche {}, statut {}.".format(
+            "a verifier sur les aretes, plus proche {}, statut {}.".format(
                 label, len(paths), selection["target_count"],
                 selection["path_matches"], selection["ties_by_length"],
                 selection["companions"], distance_text, reason))
