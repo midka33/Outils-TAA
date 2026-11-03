@@ -841,3 +841,22 @@ mode de diagnostic à une seule pièce sont inchangés.
 
 Voir **BUG-COMMON-020**. Tests Python automatisés requis et
 validation native Revit 2025.4 encore à effectuer.
+
+
+**Préservation de la limite composée 2238 :** afin de ne pas
+perdre le second tronçon lors de la présélection, un garde-corps
+supplémentaire peut être examiné **seulement si son chemin complète
+la portion du garde-corps prioritaire** sur une même limite
+(couverture totale >=90 %, raccord <=100 mm, décalage latéral
+entre rails <=20 mm). Il ne suffit pas d'être le deuxième plus
+proche : il doit contribuer à la continuité. Pour les deux
+directions de cote dont une limite est composée, le budget est
+**trois garde-corps natifs maximum**, sans augmenter le plafond
+total de **120 arêtes examinées**. Le filtre peut refuser et
+revenir au repère 2D si plus d'ouvrages sont nécessaires.
+
+La priorité proximité puis longueur détermine toujours **la
+Reference native utilisée** ; le second garde-corps sert à
+valider la continuité géométrique et ne devient pas associatif
+à la cote. Les seuils de contrôle des arêtes natives restent
+distincts de ceux des chemins de présélection.
