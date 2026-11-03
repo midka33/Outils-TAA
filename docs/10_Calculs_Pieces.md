@@ -1,9 +1,9 @@
 # Calculs des pièces
 
-**Statut :** Validé dans Revit 2025.4 — intégré à `main` et livré dans Outils TAA v1.3.0  
+**Statut :** Validé dans Revit 2025.4 — livré depuis v1.0.3, **inchangé dans la release Outils TAA v1.4.0**  
 **Cible :** Revit 2025.4 / pyRevit 5.x  
 **Module :** `Calculs.panel`  
-**Validation finale :** Revit 2025.4 / pyRevit 5.x — 6 octobre 2026
+**Validation finale :** Revit 2025.4 / pyRevit 5.x — 6 octobre 2026 ; documentation utilisateur courante : `docs/release/Tutoriel_Calculs_Pieces_v1.4.0.md`
 
 ---
 
