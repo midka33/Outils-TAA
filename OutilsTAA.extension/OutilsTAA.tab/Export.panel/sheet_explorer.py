@@ -43,9 +43,20 @@ class SheetExplorer(object):
             ["Paramètre : " + name for name in self._parameters]
         )
         window.SheetExplorerGrouping.SelectedIndex = 0
+        self._updating_parameter_values = False
+        window.SheetExplorerParameter.ItemsSource = (
+            ["Tous les paramètres"] + self._parameters)
+        window.SheetExplorerParameter.SelectedIndex = 0
+        window.SheetExplorerValue.ItemsSource = ["Toutes les valeurs"]
+        window.SheetExplorerValue.SelectedIndex = 0
         window.SheetExplorerList.PreviewKeyDown += self._key_down
-        window.PublicationTree.PreviewDragOver += self._drag_over
-        window.PublicationTree.PreviewDrop += self._drop
+        # Preview et bubble : le contrôle TreeViewItem peut consommer
+        # l'événement avant le TreeView. AddHandler reçoit aussi Handled.
+        from System.Windows import UIElement
+        window.PublicationTree.AddHandler(
+            UIElement.PreviewDragOverEvent, self._drag_over, True)
+        window.PublicationTree.AddHandler(
+            UIElement.PreviewDropEvent, self._drop, True)
         window.Closing += self._closing
         self._build_context_menu()
         self.refresh()
@@ -98,7 +109,7 @@ class SheetExplorer(object):
         w.SheetExplorerSplitter.Visibility = Visibility.Visible if self._visible else Visibility.Collapsed
         w.SheetExplorerColumn.Width = GridLength(self._last_width if self._visible else 0, GridUnitType.Pixel)
         w.SheetExplorerSplitterColumn.Width = GridLength(5 if self._visible else 0, GridUnitType.Pixel)
-        w.SheetExplorerToggle.Content = "Masquer les feuilles" if self._visible else "Afficher les feuilles"
+        w.SheetExplorerToggle.Content = "◀ Feuilles" if self._visible else "▶ Feuilles"
 
     def toggle(self):
         if self._visible:
@@ -170,12 +181,50 @@ class SheetExplorer(object):
             return "Non renseigné"
         return ""
 
+    @staticmethod
+    def _parameter_value(sheet, name):
+        if not name:
+            return ""
+        try:
+            parameter = sheet.LookupParameter(name)
+            if parameter is None:
+                return ""
+            return parameter.AsString() or parameter.AsValueString() or ""
+        except Exception:
+            return ""
+
+    def parameter_changed(self):
+        w = self.window
+        parameter = w.SheetExplorerParameter.SelectedItem
+        self._updating_parameter_values = True
+        try:
+            values = set()
+            if parameter and parameter != "Tous les paramètres":
+                values = set(self._parameter_value(sheet, parameter)
+                             for sheet in self._ordered_sheets)
+            w.SheetExplorerValue.ItemsSource = (
+                ["Toutes les valeurs"] + sorted(values))
+            w.SheetExplorerValue.SelectedIndex = 0
+        finally:
+            self._updating_parameter_values = False
+        self.refresh()
+
+    def value_changed(self):
+        if not self._updating_parameter_values:
+            self.refresh()
+
     def refresh(self):
         w = self.window
         query = (w.SheetExplorerSearch.Text or "").strip().lower()
         unused = bool(w.SheetExplorerUnused.IsChecked)
         mode = max(0, w.SheetExplorerGrouping.SelectedIndex)
         used = self._used_paths()
+        selected_parameter = w.SheetExplorerParameter.SelectedItem
+        selected_value = w.SheetExplorerValue.SelectedItem
+        filter_parameter = (selected_parameter
+                            if selected_parameter != "Tous les paramètres" else None)
+        filter_value = (selected_value
+                        if selected_value != "Toutes les valeurs" else None)
         old_scroll = None
         try:
             old_scroll = self._scroll_offset()
@@ -195,6 +244,9 @@ class SheetExplorer(object):
                     continue
                 if unused and uid in used:
                     continue
+                if filter_parameter and filter_value is not None:
+                    if self._parameter_value(sheet, filter_parameter) != filter_value:
+                        continue
                 rows.append((self._group(sheet, mode), sheet))
             if mode == 2:
                 rows.sort(key=lambda entry: (entry[0], (entry[1].Name or "").lower()))
