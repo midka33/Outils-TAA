@@ -292,3 +292,8 @@ Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du 
 - [ ] Valider la fenetre et les interactions sous Revit 2025.4 / pyRevit 5.x.
 - [ ] Rejouer les recettes de non-regression de l'arborescence et des publications PDF/DWG.
 - [ ] Fusionner uniquement apres validation utilisateur.
+
+### Export — recette publication par sous-dossier (2026-11-03)
+
+- [x] Écarter les dossiers de publication vides du périmètre récursif PDF/DWG sans les supprimer de l'arborescence ; 5 PDF combinés + 16 DWG validés par test automatisé (BUG-EXPORT-056).
+- [ ] Confirmer dans Revit 2025.4 l'aperçu et un export dans un dossier temporaire en sélectionnant `A2000 Plan des façades`.
