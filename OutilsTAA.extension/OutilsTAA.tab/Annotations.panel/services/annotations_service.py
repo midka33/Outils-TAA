@@ -333,7 +333,9 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             tolerance=self._millimeters_to_internal(500.),
             max_railings=2, max_segments=80,
             angle_degrees=12., minimum_overlap=.30,
-            ambiguity_gap=self._millimeters_to_internal(25.),
+            ambiguity_gap=self._millimeters_to_internal(1.),
+            # A moins d'1 mm, la distance est consideree equivalente ;
+            # le garde-corps le plus long departage l'egalite.
             with_diagnostics=True)
         label = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)
         reason = selection["reason"]
@@ -344,10 +346,10 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             if closest is not None else "aucune")
         self._guardrail_warnings.append(
             "{} : filtrage GC : {} chemin(s) dans la piece, "
-            "{} limite(s), {} correspondance(s), {} ambigue(s), "
-            "plus proche {}, statut {}.".format(
+            "{} limite(s), {} correspondance(s), {} egalite(s) "
+            "departagee(s) par longueur, plus proche {}, statut {}.".format(
                 label, len(paths), selection["target_count"],
-                selection["path_matches"], selection["ambiguous"],
+                selection["path_matches"], selection["ties_by_length"],
                 distance_text, reason))
         if not railings:
             self._guardrail_warnings.append(
@@ -515,7 +517,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 tolerance=tolerance,
                 angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
                 minimum_overlap=minimum_overlap,
-                include_metrics=True)
+                include_metrics=True,
+                distance_equality=self._millimeters_to_internal(1.))
             if match is None and exterior:
                 # Deux garde-corps distincts peuvent former une seule
                 # limite, chacun couvrant moins de 60%. Ne valider que
@@ -527,7 +530,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     min_part_overlap=.25,
                     max_gap=self._millimeters_to_internal(100.),
                     max_lateral_mismatch=self._millimeters_to_internal(20.),
-                    max_elevation_difference=self._millimeters_to_internal(150.))
+                    max_elevation_difference=self._millimeters_to_internal(150.),
+                    distance_equality=self._millimeters_to_internal(1.))
             if match is None:
                 # Diagnostiquer les distances reelles, sans decaler les
                 # references ni abaisser arbitrairement le recouvrement.
