@@ -1402,4 +1402,4 @@ def test_noncontinuous_parent_geometry_budget_et_sans_instance(monkeypatch):
         max_edges=48, max_objects=16)
     assert result == []
     assert any("budget 48 aretes" in x
-               for x in service._guardrail_warnings)
+               for x in service._guardrail_warnings), service._guardrail_warnings
