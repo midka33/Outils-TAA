@@ -140,7 +140,7 @@
               <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Text="Nommage PDF" VerticalAlignment="Center"/>
-                <TextBox x:Name="FilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Modèle de nommage. Les variables sont disponibles dans Options avancées."/>
+                <TextBox x:Name="FilenameTemplateTextBox" Grid.Column="1" MinHeight="28" Padding="6,3" TextChanged="SettingsChanged" ToolTip="Ex. {nom_dossier} = nom du dossier publié. {dossier} = nom du dossier parent. Voir les variables dans Options avancées."/>
               </Grid>
               <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
