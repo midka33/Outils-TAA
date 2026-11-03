@@ -185,6 +185,9 @@ def select_guardrails_by_path(items, target_segments, tolerance,
                 available_slots -= 1
         if remaining:
             info["reason"] = "rail_budget"
+            # Plusieurs limites nécessitent plus de rails que le budget.
+            # Ne choisir aucun sous-ensemble arbitraire : repli sûr.
+            selected = []
 
     if len(selected) > int(max_railings):
         info["reason"] = "rail_budget"
