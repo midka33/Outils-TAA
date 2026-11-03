@@ -763,3 +763,58 @@ et tests existants de références 2D. Suite Annotations + PDV et
 workflows transversaux à vérifier. **Dans Revit**, relancer 2240
 sur copie après retrait des cotes du précédent essai, contrôler
 deux cotes seulement et deux lignes de référence native seulement.
+
+
+---
+
+### BUG-COMMON-020 — Plusieurs garde-corps : choix non conforme à proximité puis longueur
+
+**Règle métier explicite (3 novembre 2026) :** lorsqu'une limite de
+loggia, terrasse, balcon ou jardin longe plusieurs garde-corps,
+la **référence admissible la plus proche de cette limite** est
+prioritaire. Si les distances sont identiques ou quasi équivalentes
+(écart <=1 mm pour absorber les approximations numériques Revit),
+prendre **le garde-corps / la référence la plus longue**.
+
+**Cause racine :** la présélection des garde-corps se fondait sur
+`segment_match_metrics.score` (score combiné distance et recouvrement)
+et rejetait les candidats dont les scores étaient proches à moins
+de 25 mm comme « ambigus ». La sélection native utilisait également
+ce score mixte. Dans un cas à plusieurs ouvrages, un garde-corps
+plus long mais plus éloigné pouvait l'emporter sur le plus proche
+ou bloquer complètement la sélection.
+
+**Correction bêta :** introduire une comparaison unique
+distance minimale, puis longueur à distance égale. L'égalité
+fonctionnelle est fixée à **1 mm** dans l'adaptateur Revit,
+et évaluée par rapport à la distance minimale globale (pas
+de chaînage cumulatif de petites tolérances). Appliquer la
+même règle à (1) la présélection des chemins `Railing.GetPath`,
+(2) la sélection d'une `Edge.Reference` native et (3) la
+désignation de la référence parmi deux garde-corps dont la
+continuité est préalablement validée. Une égalité de distance
+n'entraîne plus à elle seule un fallback 2D.
+
+**Limites de sécurité :** cette règle ne dispense jamais des critères
+préalables d'admissibilité (proximité maximale 50 mm pour une annexe,
+angle <=3°, recouvrement individuel >=60% ou paire contiguë couvrant
+>=90%, existence de vraie référence native). Le second garde-corps
+d'une paire contiguë ne devient pas associatif à la cote, puisqu'une
+seule arête native est référencée. Aucun plafond d'inspection de
+géométrie n'est relevé. Le mode diagnostic une seule pièce reste actif.
+
+**Règle préventive :** ne pas employer un score composite ou un
+rejet d'égalité arbitraire lorsque l'utilisateur a défini une
+hiérarchie de comparaison explicite. Le meilleur candidat est
+sélectionné *après* les contrôles d'admissibilité et selon une
+distance mesurée dans la même unité pour tous les ouvrages.
+
+**Tests anti-régression :** nouvelles variantes de
+`test_reference_native_plus_proche_devant_une_arete_plus_longue`,
+`test_reference_native_meme_distance_choisit_plus_longue`,
+`test_reference_native_egalite_un_millimetre_choisit_plus_longue`,
+`test_reference_egale_distance_en_chaine_ne_change_pas_distance_de_base`,
+`test_deux_gc_contigus_reference_le_plus_proche_meme_si_plus_court`
+et tests de présélection par chemin sur trois garde-corps et deux
+limites. Les suites CI doivent réussir. **Validation native Revit
+2025.4 toujours requise**, particulièrement sur 2238.
