@@ -677,10 +677,29 @@ class ExportWindow(forms.WPFWindow):
         }
         return values.get(field)
 
+    def _freeze_legacy_format_folder_setting(self, target, settings, field):
+        """Découple les anciens réglages dès la première modification du dossier.
+
+        Historiquement, la création de PDF/DWG dépendait de la case « Créer ce
+        dossier ». Quand l'utilisateur change cette case, conserver le choix
+        actuel des dossiers par format, sauf si un parent fournit déjà une
+        valeur explicite qui doit continuer à être héritée.
+        """
+        if field != "separate_carnet_subfolder":
+            return
+        if getattr(settings, "separate_format_subfolders", None) is not None:
+            return
+        if self._setting_source(target, "separate_format_subfolders") != "Défaut":
+            return
+        effective = self._resolve_container_settings(target)
+        settings.separate_format_subfolders = bool(
+            effective.separate_format_subfolders)
+
     def _save_selected_field(self, field):
         if self._selected_set is None or self._loading_settings or field not in self.INHERITABLE_FIELDS:
             return
         settings = self._selected_set.publication_settings or PublicationSettings()
+        self._freeze_legacy_format_folder_setting(self._selected_set, settings, field)
         setattr(settings, field, self._control_value(field))
         self._selected_set.publication_settings = settings
         self._selected_set.output_directory = settings.output_directory
@@ -700,6 +719,7 @@ class ExportWindow(forms.WPFWindow):
         settings = folder.publication_settings or PublicationSettings()
         if field is None:
             return
+        self._freeze_legacy_format_folder_setting(folder, settings, field)
         setattr(settings, field, self._control_value(field))
         folder.publication_settings = settings
         self.controller.save_folder(folder)
