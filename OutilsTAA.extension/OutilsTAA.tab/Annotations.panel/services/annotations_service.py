@@ -1408,6 +1408,8 @@ class AnnotationService(object):
         self.dims.proxy_candidates = {}
         self.dims._guardrail_cache = {}
         self.dims._guardrail_warnings = []
+        self.dims._guardrail_paths = {}
+        self.dims._guardrail_native_parents = {}
         self.dims.target_view = view
         try:
             before = self._ids(view, kind)
