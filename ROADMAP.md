@@ -297,3 +297,14 @@ Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du 
 
 - [x] Écarter les dossiers de publication vides du périmètre récursif PDF/DWG sans les supprimer de l'arborescence ; 5 PDF combinés + 16 DWG validés par test automatisé (BUG-EXPORT-056).
 - [ ] Confirmer dans Revit 2025.4 l'aperçu et un export dans un dossier temporaire en sélectionnant `A2000 Plan des façades`.
+
+
+
+### Export — renommage des dossiers et terminologie (2026-11-03)
+
+- [x] Ajouter un bouton Renommer visible et un menu contextuel attaché à chaque dossier.
+- [x] Permettre le renommage sans changer l'ID, les enfants, les feuilles, les paramètres et la position.
+- [x] Uniformiser les libellés visibles de l'aperçu, du rapport, de la progression et du résumé autour de « Dossier ».
+- [x] Ajouter `{nom_dossier}` comme alias de `{carnet}` et conserver la lecture des anciens modèles.
+- [x] Couvrir les contrats d'interface et l'alias de nommage par tests automatisés.
+- [ ] Recette réelle dans Revit 2025.4 : bouton Renommer, clic droit, F2, persistance, et test d'une ancienne configuration de nommage.
