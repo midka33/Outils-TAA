@@ -100,3 +100,24 @@ def test_root_level_published_folder_is_rendered():
     source = (PANEL / "export_window.py").read_text(encoding="utf-8")
     assert "roots = container_children(None)" in source
     assert 'populate(kind, value, node, set())' in source
+
+
+def test_remove_sheet_reference_keeps_revit_source_and_empty_folder(tmp_path):
+    repo = _repo(tmp_path)
+    repo.add_sheets_to_folder([_item("a", "A101"), _item("b", "A102")], "plans")
+    assert repo.remove_sheets_from_publications([("plans", "a")]) == 1
+    assert [i.unique_id for i in next(p for p in repo.list_all()
+                                    if p.id == "plans").items] == ["b"]
+    assert [i.unique_id for i in next(p for p in repo.list_all()
+                                    if p.id == "source").items] == ["a"]
+    assert repo.remove_sheets_from_publications([("plans", "b")]) == 1
+    assert next(p for p in repo.list_all() if p.id == "plans").items == []
+
+
+def test_remove_only_from_selected_publication(tmp_path):
+    repo = _repo(tmp_path)
+    repo.add_sheets_to_folder([_item("a", "A101")], "plans")
+    repo.add_sheets_to_folder([_item("a", "A101")], "pro")
+    assert repo.remove_sheets_from_publications([("plans", "a")]) == 1
+    assert len(next(p for p in repo.list_all() if p.id == "pro").items) == 1
+    assert repo.remove_sheets_from_publications([("plans", "a")]) == 0
