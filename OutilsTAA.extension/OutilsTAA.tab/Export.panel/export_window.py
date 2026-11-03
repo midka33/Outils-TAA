@@ -722,12 +722,13 @@ class ExportWindow(forms.WPFWindow):
             if values.get(folder_field) is not None:
                 setattr(settings, folder_field, bool(values[folder_field]))
         self._selected_set.publication_settings = settings
+        # Un profil ancien peut ne pas contenir les deux réglages de dossiers.
+        # Montrer les valeurs héritées réelles, pas des valeurs locales None.
+        effective = self._resolve_settings(self._selected_set)
         self._loading_settings = True
         try:
-            self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
-            self.FormatSubfoldersCheckBox.IsChecked = (settings.separate_format_subfolders
-                                                        if settings.separate_format_subfolders is not None
-                                                        else self.CarnetSubfolderCheckBox.IsChecked)
+            self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
+            self.FormatSubfoldersCheckBox.IsChecked = effective.separate_format_subfolders
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
