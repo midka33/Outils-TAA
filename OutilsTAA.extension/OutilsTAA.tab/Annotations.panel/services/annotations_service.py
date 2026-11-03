@@ -484,42 +484,71 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             options.DetailLevel = DB.ViewDetailLevel.Medium
         except Exception:
             pass
-        # N'examiner QUE les composants filants distincts : TopRail et
-        # HandRail. La geometrie du Railing principal contient souvent
-        # dizaines de barreaux et poteaux : 120 aretes avant le rail utile.
-        # On ne parcourt plus le solide du Railing parent.
+        # Ne pas confondre trois GC selectionnes avec trois rails
+        # accessibles. Leur type peut contenir des lisses non continues,
+        # non exposes par TopRail / GetHandRails.
         continuous = []
+        missing = []
+        seen_rail_ids = set()
         for railing in railings:
+            parent_id = id_value(railing.Id)
             ids = []
+            top_status = "absent"
             try:
                 top_id = railing.TopRail
                 if (top_id is not None and
                         top_id != DB.ElementId.InvalidElementId):
                     ids.append(top_id)
+                    top_status = str(id_value(top_id))
             except Exception:
-                pass
+                top_status = "indisponible"
+            hand_count = 0
             try:
                 for hand_id in railing.GetHandRails() or []:
                     if (hand_id is not None and
                             hand_id != DB.ElementId.InvalidElementId):
                         ids.append(hand_id)
+                        hand_count += 1
             except Exception:
                 pass
+
+            resolved = 0
             for rail_id in ids[:5]:
-                if any(id_value(pair[0]) == id_value(rail_id)
-                       for pair in continuous):
+                key_id = id_value(rail_id)
+                if key_id in seen_rail_ids:
+                    resolved += 1
                     continue
                 try:
                     element = self.document.GetElement(rail_id)
                     if element is not None:
                         continuous.append((rail_id, element))
+                        seen_rail_ids.add(key_id)
+                        resolved += 1
                 except Exception:
                     continue
-        if not continuous:
+
+            if resolved:
+                self._guardrail_warnings.append(
+                    "{} : GC {} : TopRail {}, {} HandRail(s), "
+                    "{} composant(s) filant(s) accessible(s).".format(
+                        label, parent_id, top_status, hand_count, resolved))
+            else:
+                count = self._noncontinuous_rail_count(railing)
+                count_text = ("indetermine" if count is None
+                              else str(count))
+                self._guardrail_warnings.append(
+                    "{} : GC {} : TopRail {}, {} HandRail(s), "
+                    "0 filant accessible, type : {} lisse(s) non "
+                    "continue(s).".format(
+                        label, parent_id, top_status,
+                        hand_count, count_text))
+                if count is not None and count > 0:
+                    missing.append(railing)
+
+        if not continuous and not missing:
             self._guardrail_warnings.append(
-                "{} : aucun rail filant (TopRail / HandRail) accessible ; "
-                "reperes 2D conserves.".format(
-                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key)))
+                "{} : aucun rail filant ni lisse non continue sondable ; "
+                "reperes 2D conserves.".format(label))
             return []
 
         min_length = self._millimeters_to_internal(100.)
@@ -591,11 +620,32 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                         room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
                         error))
                 continue
+        # Le rail non continu ne possède pas d'ElementId de TopRail
+        # à interroger isolément. Sur un seul GC dont le type annonce
+        # réellement une lisse non continue, sondage ciblé du parent :
+        # au plus 16 objets directs, 48 arêtes, sans GeometryInstance
+        # (risque de parcourir tous les balustres) ni copie de référence.
+        if len(missing) == 1:
+            if inspected >= max_edges:
+                self._guardrail_warnings.append(
+                    "{} : budget natif atteint, GC non continu non sonde."
+                    .format(label))
+            else:
+                extra = self._bounded_noncontinuous_edges(
+                    room, missing[0], boundary_segments,
+                    max_edges=min(48, max_edges-inspected),
+                    max_objects=16)
+                edges.extend(extra)
+        elif len(missing) > 1:
+            self._guardrail_warnings.append(
+                "{} : {} GC sans rail filant avec lisses non continues ; "
+                "recherche parent ignoree (plus d'un GC a sonder), "
+                "repli 2D conserve.".format(label, len(missing)))
+
         self._guardrail_warnings.append(
             "{} : {} rail(s) filant(s), {} aretes inspectees, "
-            "{} reference(s) candidate(s).".format(
-                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, key),
-                len(continuous), inspected, len(edges)))
+            "{} reference(s) candidate(s) au total.".format(
+                label, len(continuous), inspected, len(edges)))
         self._guardrail_cache[key] = edges
         return edges
 
