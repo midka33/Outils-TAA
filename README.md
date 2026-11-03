@@ -21,6 +21,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Cotation automatique** | 📋 Planifié — cotation des vues sélectionnées, type de cote au choix, prévention des chevauchements et groupes de détails attachés |
 | **Étiquetage automatique** | 📋 Planifié — étiquetage des pièces dans les vues sélectionnées, type d'étiquette au choix, prévention des chevauchements et groupes de détails attachés |
 | **Légendes automatiques** | 📋 Planifié — génération de légendes depuis le gabarit d’une vue ou les couleurs des pièces, avec légende partagée entre plusieurs vues et échelle identique à la vue de référence |
+| **Giration des véhicules** | 📋 Planifié — tracé manuel type Vehicle Tracking, limité par la cinématique du véhicule choisi ; enveloppes et trajectoires complètes dans Revit. [Spécification](docs/25_Giration_Vehicules.md) · [Suivi #40](https://github.com/midka33/Outils-TAA/issues/40) |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
