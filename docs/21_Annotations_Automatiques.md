@@ -748,3 +748,51 @@ ne modifie pas Plans de vente stable.
 
 **État :** correction et tests Python uniquement ; l'acceptation
 des références reste à vérifier dans Revit 2025.4.
+
+
+### Validation partielle des références natives — pièce 2240 (3 novembre 2026)
+
+**Retour réel Revit 2025.4 :** cotation de **2240** sur
+`Collectifs A_Niveau 1`, **2 annotations créées**, sans
+message de fallback 2D. Le module détecte quatre chemins de
+garde-corps, en retient deux, examine 24 arêtes natives et
+retrouve huit références candidates. Il rapporte deux limites
+admises sur une vraie référence d'arête : **0,0 mm / 100 %** et
+**19,3 mm / 63 %**. L'utilisateur a transmis une capture ; le
+contrôle précis de la position au nu intérieur et de la visibilité
+après masquage des séparations reste à faire.
+
+**Régression constatée dans le rapport :** chaque message
+`arête native de garde-corps utilisée` apparaît **deux fois**,
+alors que seules deux dimensions ont été produites. La cause
+logicielle confirmée est une seconde résolution des candidats :
+`_create_separator_proxies` ne remplissait son cache que
+lorsqu'un fallback 2D était nécessaire. En l'absence de
+fallback (cas 2240), `create_dimensions` relançait
+`_room_boundary_candidates`, et donc les diagnostics de
+sélection native.
+
+**Correctif :** remplir le cache de candidats à chaque
+premier passage, y compris pour les références entièrement
+natives et les listes vides. Le second passage de cotation
+consomme les mêmes références. Ce cache reste interne à une
+seule exécution de pièce et est nettoyé après la transaction.
+Pas de changement des seuils de géométrie ni du moteur PDV.
+
+**Recette Revit sur copie :**
+- [ ] REV-ANN-72 — Nettoyer les cotes de l'essai 2240 et
+      relancer une seule fois : **deux cotes et seulement deux
+      messages d'arêtes natives**, sans fallback 2D.
+- [ ] REV-ANN-73 — Contrôler que les deux cotes mesurent le nu
+      intérieur attendu et ne se superposent pas avec des cotes
+      préexistantes.
+- [ ] REV-ANN-74 — Masquer temporairement les séparations de
+      pièces, conserver visibles les garde-corps et confirmer
+      que les deux cotes restent visibles.
+- [ ] REV-ANN-75 — Deuxième lancement sans doublon.
+- [ ] REV-ANN-76 — Reprendre la loggia 2238 (deux garde-corps
+      contigus) séparément ; son comportement **n'est pas validé**
+      par l'essai 2240.
+
+Voir BUG-COMMON-019. Ce correctif a été testé hors Revit,
+sa recette dans Revit 2025.4 reste indispensable.
