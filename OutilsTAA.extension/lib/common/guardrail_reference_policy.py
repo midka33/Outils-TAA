@@ -617,6 +617,7 @@ def diagnose_guardrail_path_continuity(
                         "overlap": overlap/length,
                         "gap": gap,
                         "lateral": lateral,
+                        "path_signed_offsets": (a["lateral"], b["lateral"]),
                         "max_boundary_offset": max(
                             abs(a["lateral"]), abs(b["lateral"])),
                         "reasons": reasons,
@@ -637,6 +638,93 @@ def diagnose_guardrail_path_continuity(
     result["reason"] = ("chemins_compatibles" if result["supported"]
                         else ",".join(best["reasons"]))
     return result
+
+
+
+def select_native_edge_with_path_axis_offset_recovery(
+        boundary, native_edges, railing_paths, parent_by_native_id,
+        native_tolerance, path_tolerance,
+        angle_degrees=3., max_relaxed_lateral=.1312336,
+        max_boundary_axis_offset=.1968504,
+        max_native_offset=.0164042,
+        minimum_coverage=.98, maximum_overlap=.02,
+        maximum_gap=.0328084,
+        distance_equality=0., max_railings=3, max_paths=80,
+        max_edges=120):
+    """Repli beta ultrastrict pour deux axes de GC decales mais jointifs.
+
+    Ne JAMAIS deduire le nu physique de GetPath : la seule reference
+    cotable reste une Edge.Reference native proche de la limite.
+    En cas d'incertitude ou d'ouvrage disjoint, retourner None.
+    """
+    report = diagnose_guardrail_path_continuity(
+        boundary, railing_paths, path_tolerance,
+        angle_degrees=angle_degrees,
+        minimum_path_coverage=minimum_coverage,
+        minimum_part_coverage=.25,
+        maximum_gap=maximum_gap,
+        maximum_lateral_mismatch=max_relaxed_lateral,
+        max_railings=max_railings, max_paths=max_paths)
+    evidence = report.get("best")
+    if not report.get("supported") or evidence is None:
+        return None
+    if (evidence["coverage"] + 1.e-9 < float(minimum_coverage)
+            or evidence["overlap"] > float(maximum_overlap) + 1.e-9
+            or evidence["gap"] > float(maximum_gap) + 1.e-9
+            or evidence["max_boundary_offset"] >
+            float(max_boundary_axis_offset) + 1.e-9):
+        return None
+
+    offsets = evidence["path_signed_offsets"]
+    # Deux axes doivent se trouver du meme cote de la limite ; des axes
+    # en vis-a-vis peuvent representer des nus physiques differents.
+    if offsets[0]*offsets[1] < 0.:
+        return None
+    # N'utiliser cette voie que lorsque les axes sont EFFECTIVEMENT
+    # decales : les cas alignes relevent du moteur standard.
+    if evidence["lateral"] <= .0656168 + 1.e-9:
+        return None
+
+    candidate = select_native_edge_with_path_continuity(
+        boundary, native_edges, railing_paths, parent_by_native_id,
+        native_tolerance=native_tolerance,
+        path_tolerance=path_tolerance,
+        angle_degrees=angle_degrees,
+        minimum_path_coverage=minimum_coverage,
+        minimum_part_coverage=.25,
+        maximum_gap=maximum_gap,
+        maximum_lateral_mismatch=max_relaxed_lateral,
+        distance_equality=distance_equality,
+        max_railings=max_railings, max_paths=max_paths,
+        max_edges=max_edges)
+    if candidate is None:
+        return None
+    reference, native_id, metrics = candidate
+    if float(metrics["distance"]) > float(max_native_offset) + 1.e-9:
+        return None
+
+    def key(element_id):
+        for attribute in ("Value", "IntegerValue"):
+            try:
+                return int(getattr(element_id, attribute))
+            except Exception:
+                pass
+        try:
+            return int(element_id)
+        except Exception:
+            return str(element_id)
+
+    proof_ids = set(key(x) for x in evidence["parent_ids"])
+    reference_ids = set(key(x) for x in
+                        metrics.get("support_parent_ids", ()))
+    if proof_ids != reference_ids:
+        return None
+    result = dict(metrics)
+    result["axis_offset_recovery"] = True
+    result["axis_offset_gap"] = evidence["lateral"]
+    result["axis_offset_max"] = evidence["max_boundary_offset"]
+    result["axis_offset_overlap"] = evidence["overlap"]
+    return reference, native_id, result
 
 
 def is_exterior_annex(room_name, interior_exterior=""):
