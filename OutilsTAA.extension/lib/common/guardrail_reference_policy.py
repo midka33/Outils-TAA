@@ -126,65 +126,72 @@ def select_guardrails_by_path(items, target_segments, tolerance,
                     info["closest_distance"] = distance
 
     selected = []
+    second_choices = []
     for target, matches in zip(targets, rows):
         if not matches:
             continue
-        # Le meme ouvrage peut produire plusieurs troncons valides ;
-        # ne conserver que son meilleur troncon pour cette limite.
+        # Un même garde-corps peut exposer plusieurs troncons de chemin :
+        # garder sa meilleure correspondance, sans confondre ses troncons
+        # avec des ouvrages distincts.
         unique = []
         for distance, length, element, segment, overlap in matches:
-            idx = next((i for i, entry in enumerate(unique)
-                        if entry[2] is element), -1)
-            if idx < 0:
-                unique.append((distance, length, element, segment, overlap))
-            else:
-                same_element = [x for x in matches if x[2] is element]
-                unique[idx] = _closest_then_longest(
-                    same_element, distance_equality=equality)
-        best = _closest_then_longest(unique, distance_equality=equality)
-        if len(unique) > 1:
-            equivalents = [c for c in unique
-                           if abs(c[0]-best[0]) <= equality]
-            if len(equivalents) > 1:
-                info["ties_by_length"] += 1
-        chosen = best[2]
-        if all(existing is not chosen for existing in selected):
-            selected.append(chosen)
+            if any(entry[2] is element for entry in unique):
+                continue
+            same_element = [x for x in matches if x[2] is element]
+            unique.append(_closest_then_longest(
+                same_element, distance_equality=equality))
 
-        # Deux gardes-corps peuvent se partager une seule limite (2238).
-        # Dans ce cas UNIQUEMENT, conserver un second chemin natif si
-        # ses projections forment effectivement une seule ligne continue.
-        # Aucune Reference de cote ne vient des chemins : il s'agit
-        # seulement d'eviter d'ecarter le second TopRail avant analyse.
-        if allow_contiguous_companion and best[4] < .60:
-            complementary = []
-            for other in unique:
-                if other[2] is chosen:
+        primary = _closest_then_longest(unique, distance_equality=equality)
+        equivalents = [candidate for candidate in unique
+                       if abs(candidate[0]-primary[0]) <= equality]
+        if len(equivalents) > 1:
+            info["ties_by_length"] += 1
+        if all(existing is not primary[2] for existing in selected):
+            selected.append(primary[2])
+
+        if allow_contiguous_companion:
+            # Ne pas conclure sur la continuité d'après GetPath :
+            # un chemin peut couvrir 100% tandis que les arêtes natives
+            # du TopRail ne couvrent que 52%. Conserver le candidat
+            # suivant uniquement pour CONTRÔLE natif si un budget reste.
+            # Le moteur select_contiguous_guardrail_pair validera ensuite
+            # l'adjacence et la couverture des véritables Edge.Reference.
+            others = [candidate for candidate in unique
+                      if candidate[2] is not primary[2]]
+            while others:
+                extra = _closest_then_longest(
+                    others, distance_equality=equality)
+                others = [o for o in others if o is not extra]
+                if any(existing is extra[2] for existing in selected):
                     continue
-                evidence = select_contiguous_guardrail_pair(
-                    target,
-                    [(best[3], True, 1, 0.),
-                     (other[3], True, 2, 0.)],
-                    tolerance=tolerance, angle_degrees=angle_degrees,
-                    min_combined_overlap=.90, min_part_overlap=.25,
-                    max_gap=companion_gap,
-                    max_lateral_mismatch=companion_lateral,
-                    max_elevation_difference=1.)
-                if evidence is not None:
-                    complementary.append(other)
-            companion = _closest_then_longest(
-                complementary, distance_equality=equality)
-            if companion is not None:
-                if all(existing is not companion[2] for existing in selected):
-                    selected.append(companion[2])
-                    info["companions"] += 1
+                if any(entry[2] is extra[2] for entry in second_choices):
+                    continue
+                second_choices.append(extra)
+                break
+
+    if allow_contiguous_companion and second_choices:
+        # Les références candidates n'ont PAS encore été validées.
+        # Limiter le nombre d'ouvrages inspectés, sans inventer
+        # une ligne continue depuis leur simple chemin Revit.
+        available_slots = max(0, int(max_railings)-len(selected))
+        remaining = list(second_choices)
+        while remaining and available_slots:
+            extra = _closest_then_longest(
+                remaining, distance_equality=equality)
+            remaining = [r for r in remaining if r is not extra]
+            if all(existing is not extra[2] for existing in selected):
+                selected.append(extra[2])
+                info["companions"] += 1
+                available_slots -= 1
+        if remaining:
+            info["reason"] = "rail_budget"
 
     if len(selected) > int(max_railings):
         info["reason"] = "rail_budget"
         selected = []
     elif not selected:
         info["reason"] = "no_match"
-    else:
+    elif info["reason"] != "rail_budget":
         info["reason"] = "selected"
     info["selected"] = len(selected)
     return (selected, info) if with_diagnostics else selected
