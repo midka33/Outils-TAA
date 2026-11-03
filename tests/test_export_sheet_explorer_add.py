@@ -73,3 +73,30 @@ def test_reopen_keeps_added_sheets_and_folder_children(tmp_path):
     assert [i.unique_id for i in next(s for s in reopened.list_all() if s.id == "plans").items] == ["a"]
     assert next(f for f in reopened.list_folders() if f.id == "child").parent_id == "plans"
 
+
+
+def test_root_level_folder_remains_root_after_first_sheet(tmp_path):
+    """Un dossier placé hors Général doit rester à la racine après ajout."""
+    repo = _repo(tmp_path)
+    repo.save_folder(PublicationFolder(
+        "Dossier indépendant", folder_id="independent", parent_id=None))
+    assert repo.add_sheets_to_folder(
+        [_item("root-a", "A301")], "independent") == (1, 0)
+    promoted = next(value for value in repo.list_all()
+                    if value.id == "independent")
+    assert promoted.folder_id is None
+    assert [item.unique_id for item in promoted.items] == ["root-a"]
+    assert not any(value.id == "independent" for value in repo.list_folders())
+
+    reopened = CarnetRepository(repo.storage_path)
+    persisted = next(value for value in reopened.list_all()
+                     if value.id == "independent")
+    assert persisted.folder_id is None
+    assert len(persisted.items) == 1
+
+
+def test_root_level_published_folder_is_rendered():
+    """Contrat structurel : l'arbre affiche les dossiers publiables racine."""
+    source = (PANEL / "export_window.py").read_text(encoding="utf-8")
+    assert "roots = container_children(None)" in source
+    assert 'populate(kind, value, node, set())' in source
