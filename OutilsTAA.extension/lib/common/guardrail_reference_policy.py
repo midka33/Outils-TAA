@@ -79,7 +79,10 @@ def select_guardrail_edge(boundary, edges, tolerance,
 def select_guardrails_by_path(items, target_segments, tolerance,
                               max_railings=2, max_segments=80,
                               angle_degrees=12.0, minimum_overlap=.30,
-                              ambiguity_gap=0.0, with_diagnostics=False):
+                              ambiguity_gap=0.0, with_diagnostics=False,
+                              allow_contiguous_companion=False,
+                              companion_gap=.32808399,
+                              companion_lateral=.0656168):
     """Choisir les garde-corps les plus proches, puis les plus longs.
 
     Le chemin Railing.GetPath sert a filtrer les ouvrages, JAMAIS
@@ -92,7 +95,8 @@ def select_guardrails_by_path(items, target_segments, tolerance,
     targets = list(target_segments or [])
     info = {"reason": "no_targets", "inspected": 0, "path_matches": 0,
             "ambiguous": 0, "selected": 0, "closest_distance": None,
-            "target_count": len(targets), "ties_by_length": 0}
+            "target_count": len(targets), "ties_by_length": 0,
+            "companions": 0}
     if not targets:
         return ([], info) if with_diagnostics else []
     equality = max(0., float(ambiguity_gap))
@@ -114,14 +118,15 @@ def select_guardrails_by_path(items, target_segments, tolerance,
                 if metrics is None:
                     continue
                 distance = float(metrics["distance"])
-                rows[i].append((distance, length, element))
+                rows[i].append((distance, length, element,
+                                segment, metrics["overlap_ratio"]))
                 info["path_matches"] += 1
                 if (info["closest_distance"] is None or
                         distance < info["closest_distance"]):
                     info["closest_distance"] = distance
 
     selected = []
-    for matches in rows:
+    for target, matches in zip(targets, rows):
         if not matches:
             continue
         # Le meme ouvrage peut produire plusieurs troncons valides ;
@@ -145,6 +150,34 @@ def select_guardrails_by_path(items, target_segments, tolerance,
         chosen = best[2]
         if all(existing is not chosen for existing in selected):
             selected.append(chosen)
+
+        # Deux gardes-corps peuvent se partager une seule limite (2238).
+        # Dans ce cas UNIQUEMENT, conserver un second chemin natif si
+        # ses projections forment effectivement une seule ligne continue.
+        # Aucune Reference de cote ne vient des chemins : il s'agit
+        # seulement d'eviter d'ecarter le second TopRail avant analyse.
+        if allow_contiguous_companion and best[4] < .60:
+            complementary = []
+            for other in unique:
+                if other[2] is chosen:
+                    continue
+                evidence = select_contiguous_guardrail_pair(
+                    target,
+                    [(best[3], True, 1, 0.),
+                     (other[3], True, 2, 0.)],
+                    tolerance=tolerance, angle_degrees=angle_degrees,
+                    min_combined_overlap=.90, min_part_overlap=.25,
+                    max_gap=companion_gap,
+                    max_lateral_mismatch=companion_lateral,
+                    max_elevation_difference=1.)
+                if evidence is not None:
+                    complementary.append(other)
+            companion = _closest_then_longest(
+                complementary, distance_equality=equality)
+            if companion is not None:
+                if all(existing is not companion[2] for existing in selected):
+                    selected.append(companion[2])
+                    info["companions"] += 1
 
     if len(selected) > int(max_railings):
         info["reason"] = "rail_budget"
