@@ -1040,3 +1040,55 @@ UNIQUEMENT a l'arete native du GC ...`.
 
 Voir **BUG-COMMON-023**. Tests Python hors Revit possibles,
 validation native dans Revit 2025.4 **non encore effectuée**.
+
+
+### Retour après BUG-COMMON-023 — pièce 2238 (3 novembre 2026)
+
+L'utilisateur a relancé **après** le correctif BUG-COMMON-023. Rapport :
+2 annotations dans `Collectifs A_Niveau 1`, pièce 2238 hors groupe,
+**3 GC présélectionnés**, 2 TopRail accessibles, 24 arêtes inspectées,
+8 références candidates, et un troisième GC sans TopRail (4 lisses non
+continues). Une limite reçoit une **arête native** (100 % de recouvrement,
+écart 0 mm). La seconde limite conserve le repli 2D : meilleure arête
+à **15 mm**, angle 0°, mais seulement **52 %** de recouvrement.
+
+**Conclusion : la correction 023 n'est pas validée sur 2238.** Le rapport
+ne montre pas de succès `DEUX chemins de garde-corps alignes` :
+aucune preuve géométrique complète n'a pu être associée à la seconde cote.
+Il serait incorrect d'abaisser le seuil de 60 % ou d'en déduire que les
+deux garde-corps se suivent réellement, car le rapport n'indique ni leurs
+intervalles projetés ni leur éventuelle superposition.
+
+**Correctif de diagnostic BUG-COMMON-024 (sans changement de cotation) :**
+lorsqu'une limite extérieure échoue à la sélection native et au fallback
+de continuité, la bêta imprime maintenant :
+- IDs de la meilleure paire de garde-corps ;
+- position des portions de chaque chemin (pourcentage début-fin de la limite) ;
+- couverture par **union**, superposition, jeu et décalage ;
+- raison précise du rejet : chevauchement >10 %, couverture <90 %,
+  raccord >100 mm, écart latéral >20 mm, angle, portion trop courte,
+  extrémité non couverte, ou chemins compatibles sans arête native associable.
+
+Les chemins sont **déjà extraits** et le diagnostic ne lit aucun solide
+ni élément supplémentaire. Les plafonds restent à 3 GC, 80 segments,
+120 arêtes ; aucun changement des `Reference` Revit ni de la logique
+de repli 2D. Ce résultat ne valide **pas** l'associativité de la seconde
+cote et ne modifie pas Plans de vente.
+
+**Recette ciblée suivante (sur copie du modèle)** :
+- [ ] REV-ANN-95 — Mettre à jour `feature/annotations-automatiques-beta`,
+      supprimer les cotes et repères 2D précédents de 2238 et relancer
+      uniquement la pièce 2238.
+- [ ] REV-ANN-96 — Transmettre la ligne
+      `2238 : diagnostic continuité GC ...` et le rapport complet ; décider
+      à partir des **portions réellement projetées** si les deux chemins
+      sont successifs, superposés ou disjoints.
+- [ ] REV-ANN-97 — Si les chemins sont géométriquement compatibles mais
+      la référence native rejetée, examiner la correspondance rail/parent
+      et la position du nu avant toute nouvelle correction.
+- [ ] REV-ANN-98 — Vérifier la pièce 2240 (deux références natives) sans
+      nouveaux repères 2D ni messages dupliqués, puis la stabilité sur un
+      second lancement.
+
+**Statut : diagnostic ajouté sur la branche bêta ; test utilisateur
+Revit du diagnostic en attente.** Voir BUG-COMMON-024.
