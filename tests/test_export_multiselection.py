@@ -246,7 +246,7 @@ def test_ctrl_shift_and_empty_selection_refresh_publish_scope():
     manager.window = SimpleNamespace(PublicationTree=SimpleNamespace(SelectedItem=nodes[0]),
         _publication_selection_changed=lambda: snapshots.append(manager.selected_tags()))
     for name in ('_select', 'selected_tags', '_mouse_down', '_key_down'):
-        ns['Key'] = SimpleNamespace(Up=10, Down=11, Left=12, Right=13, Home=14, End=15)
+        ns['Key'] = SimpleNamespace(Up=10, Down=11, Left=12, Right=13, Home=14, End=15, F2=16)
         setattr(manager, name, MethodType(method('services/publication_tree_drag_drop.py', 'PublicationTreeDragDrop', name, ns), manager))
     manager._mouse_down(None, SimpleNamespace(OriginalSource=nodes[0]))
     keyboard.Modifiers = 1
@@ -275,3 +275,123 @@ def test_selection_info_counts_all_targets_and_disables_empty_selection():
     tags[:] = []
     handler(window)
     assert not window.PublishButton.IsEnabled
+
+
+def test_empty_publication_parent_is_not_published_but_children_are():
+    """A2000 est un dossier visuel vide : seul chaque sous-dossier est publié."""
+    parent = PublicationSet(
+        "A2000 Plans des façades", [], set_id="a2000",
+        folder_id="root", persistent=True)
+    children = []
+    for index, count in enumerate((4, 4, 4, 2, 2)):
+        sheets = [
+            PublicationItem(
+                "face-{0}-{1}".format(index, n),
+                index * 100 + n + 1,
+                "SHEET",
+                "A{0}{1:02d}".format(index + 21, n),
+                "Façade")
+            for n in range(count)
+        ]
+        children.append(PublicationSet(
+            "A{0}00 Façades".format(index + 21), sheets,
+            set_id="a{0}00".format(index + 21),
+            folder_id=parent.id, persistent=True))
+    empty_child = PublicationSet(
+        "Sous-dossier en attente", [], set_id="later",
+        folder_id=parent.id, persistent=True)
+    window = SimpleNamespace(
+        _folders=[PublicationFolder("Général", "root")],
+        _carnets=[parent] + children + [empty_child])
+
+    targets = publication_targets(
+        [("CARNET", parent)],
+        lambda f: _folder_targets(window, f),
+        lambda c: _set_targets(window, c))
+
+    assert [target.id for target in targets] == [child.id for child in children]
+    assert sum(len(t.items) for t in targets) == 16
+    assert all(target.publication_folder_parts ==
+               ("A2000 Plans des façades",) for target in targets)
+    # L'arborescence elle-même n'est pas modifiée.
+    assert parent.items == []
+    assert empty_child in window._carnets
+
+
+def test_empty_parent_preview_has_five_combined_pdfs_and_no_blocking_errors(tmp_path):
+    """Reproduction de la recette A2000 : 21 livrables, zéro cible vide."""
+    parent = PublicationSet("A2000 Plan des façades", [],
+                            set_id="a2000", persistent=True)
+    children = []
+    for index, sheet_count in enumerate((4, 4, 4, 2, 2)):
+        children.append(PublicationSet(
+            "A{0}00 Façades".format(index + 21),
+            [PublicationItem(
+                "uid-{0}-{1}".format(index, j),
+                index * 10 + j + 1, "SHEET",
+                "A{0}{1:02d}".format(index + 21, j),
+                "Façade")
+             for j in range(sheet_count)],
+            set_id="a{0}".format(index),
+            folder_id=parent.id, persistent=True))
+    window = SimpleNamespace(_folders=[], _carnets=[parent] + children)
+    targets = _set_targets(window, parent)
+    assert len(targets) == 5
+
+    fake_service = SimpleNamespace(
+        sort_items=lambda target: target.items,
+        _resolve_current_sheet_id=lambda item: item.sheet_id,
+        document=SimpleNamespace(
+            GetElement=lambda key: SimpleNamespace(CanBePrinted=True)))
+    preview_service = PublicationPreviewService(fake_service, FilenameService())
+    settings = PublicationSettings.defaults()
+    settings.output_directory = str(tmp_path)
+    settings.pdf_mode = "COMBINED"
+    settings.dwg_enabled = True
+
+    previews = [preview_service.build(target, settings) for target in targets]
+    assert all(not preview["errors"] for preview in previews)
+    all_rows = [row for preview in previews for row in preview["rows"]]
+    assert len(all_rows) == 21
+    pdf_rows = [row for row in all_rows if row.Format == "PDF"]
+    assert len(pdf_rows) == 5
+    assert len(set(row.Path for row in pdf_rows)) == 5
+    assert all(row.Mode == "Combiné" for row in pdf_rows)
+    assert all("A2000 Plan des façades" in row.Path for row in pdf_rows)
+    assert len([row for row in all_rows if row.Format == "DWG"]) == 16
+
+
+def test_empty_only_folder_has_no_publication_target():
+    root = PublicationSet("A2000", [], set_id="a2000", persistent=True)
+    child = PublicationSet("A2100", [], set_id="a2100",
+                           folder_id=root.id, persistent=True)
+    window = SimpleNamespace(_folders=[], _carnets=[root, child])
+    assert _set_targets(window, root) == []
+    assert publication_targets(
+        [("CARNET", root)], lambda f: _folder_targets(window, f),
+        lambda c: _set_targets(window, c)) == []
+
+
+def test_non_empty_parent_still_publishes_its_own_sheets_and_children():
+    parent = PublicationSet(
+        "A2000", [PublicationItem("parent", 1, "SHEET", "A2000", "Façades")],
+        set_id="a2000", persistent=True)
+    child = PublicationSet(
+        "A2100", [PublicationItem("child", 2, "SHEET", "A2100", "Façade")],
+        set_id="a2100", folder_id=parent.id, persistent=True)
+    window = SimpleNamespace(_folders=[], _carnets=[parent, child])
+    targets = _set_targets(window, parent)
+    assert [target.id for target in targets] == ["a2000", "a2100"]
+
+
+def test_empty_publication_between_folders_does_not_block_grandchildren():
+    root = PublicationFolder("DCE", "root")
+    empty = PublicationSet("A2000", [], set_id="a2000",
+                           folder_id="root", persistent=True)
+    grandchild = PublicationSet(
+        "A2100", [PublicationItem("a", 1, "SHEET", "A2100", "Façade")],
+        set_id="a2100", folder_id=empty.id, persistent=True)
+    window = SimpleNamespace(_folders=[root], _carnets=[empty, grandchild])
+    targets = _folder_targets(window, root)
+    assert [target.id for target in targets] == ["a2100"]
+    assert targets[0].publication_folder_parts == ("DCE", "A2000")

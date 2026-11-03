@@ -9,7 +9,7 @@ from dwg_ui_session import capture
 from taa_ui_theme import apply_theme
 from System import Guid
 from System.Windows import FontWeights, Thickness, VerticalAlignment, HorizontalAlignment, Visibility
-from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation, Grid
+from System.Windows.Controls import TreeViewItem, TextBlock, StackPanel, Orientation, Grid, ContextMenu, MenuItem
 from System.Windows.Media import Stretch
 from System.Windows.Shapes import Path as IconPath
 
@@ -26,6 +26,7 @@ from filename_service import FilenameService
 from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
 from publication_tree_drag_drop import PublicationTreeDragDrop
+from sheet_explorer import SheetExplorer
 
 
 class ExportWindow(forms.WPFWindow):
@@ -54,9 +55,11 @@ class ExportWindow(forms.WPFWindow):
         apply_theme(self)
         self._load_context()
         self._drag_drop_manager = PublicationTreeDragDrop(self)
+        self._sheet_explorer = SheetExplorer(self, self._available_sheets)
 
     def _load_context(self):
         sheets = self.controller.export_service.get_sheets()
+        self._available_sheets = list(sheets)
         self.current_project_unique_ids = set(sheet.UniqueId for sheet in sheets if sheet is not None and getattr(sheet, "UniqueId", None))
         self.PdfQualityCombo.ItemsSource = list(PublicationSettings.PDF_QUALITIES)
         self._load_dwg_setups()
@@ -192,19 +195,22 @@ class ExportWindow(forms.WPFWindow):
                     )
                     node.Items.Add(child)
 
-        roots = [
-            folder
-            for folder in self._folders
-            if getattr(folder, "parent_id", None) is None
-        ]
-        roots.sort(key=lambda value: tree_order(value, 0))
-
-        for folder in roots:
-            node = self._make_folder_node(folder)
+        # Les dossiers publiables peuvent eux aussi être à la racine.
+        # Lorsqu'un dossier ordinaire hors « Général » reçoit sa première
+        # feuille, le dépôt le promeut en PublicationSet avec folder_id=None.
+        # Ne pas le perdre à la reconstruction de l'arborescence.
+        roots = container_children(None)
+        for kind, value in roots:
+            if kind == "FOLDER":
+                node = self._make_folder_node(value)
+            else:
+                node = self._make_carnet_node(value)
             self.PublicationTree.Items.Add(node)
-            populate("FOLDER", folder, node, set())
+            populate(kind, value, node, set())
 
         self._load_selected_settings()
+        if getattr(self, "_sheet_explorer", None) is not None:
+            self._sheet_explorer.refresh()
 
     def _node_header(self, text, icon_key, bold=False):
         """Pictogrammes vectoriels sans dépendance à une police d'icônes."""
@@ -229,6 +235,7 @@ class ExportWindow(forms.WPFWindow):
         node.AllowDrop = True
         node.Tag = ("FOLDER", folder)
         node.Header = self._node_header(folder.name, "TaaFolderIcon", True)
+        node.ContextMenu = self._context_menu_for_folder(node.Tag)
         return node
 
     def _make_carnet_node(self, carnet):
@@ -244,6 +251,7 @@ class ExportWindow(forms.WPFWindow):
         node.ToolTip = "Dossier • {0} mise(s) en page".format(
             len(carnet.items or [])
         )
+        node.ContextMenu = self._context_menu_for_folder(node.Tag)
         return node
 
     def _sheet_header(self, item, settings):
@@ -478,6 +486,7 @@ class ExportWindow(forms.WPFWindow):
                     len(self._selected_set.items or []),
                 )
             self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
+            self.FormatSubfoldersCheckBox.IsChecked = effective.separate_format_subfolders
             self.PdfQualityCombo.SelectedItem = effective.pdf_quality
             self.PdfCheckBox.IsChecked = effective.pdf_enabled
             self.PdfCombinedRadio.IsChecked = effective.pdf_mode == "COMBINED"
@@ -486,7 +495,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgTrueColorCheckBox.IsChecked = effective.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = effective.dwg_merge_views
             self.OutputDirectoryTextBox.Text = effective.output_directory or ""
-            self.FilenameTemplateTextBox.Text = effective.filename_template or "{carnet}"
+            self.FilenameTemplateTextBox.Text = (effective.filename_template or "{nom_dossier}").replace("{carnet}", "{nom_dossier}")
             self._sync_dwg_naming(effective)
             self._select_dwg_setup(effective.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
@@ -507,6 +516,9 @@ class ExportWindow(forms.WPFWindow):
         try:
             self.SelectedNodeText.Text = "Dossier : {0}".format(folder.name)
             self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
+            self.FormatSubfoldersCheckBox.IsChecked = (settings.separate_format_subfolders
+                                                        if settings.separate_format_subfolders is not None
+                                                        else self.CarnetSubfolderCheckBox.IsChecked)
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
@@ -515,7 +527,7 @@ class ExportWindow(forms.WPFWindow):
             self.DwgTrueColorCheckBox.IsChecked = settings.dwg_true_color
             self.DwgMergeViewsCheckBox.IsChecked = settings.dwg_merge_views
             self.OutputDirectoryTextBox.Text = settings.output_directory or ""
-            self.FilenameTemplateTextBox.Text = settings.filename_template or "{carnet}"
+            self.FilenameTemplateTextBox.Text = (settings.filename_template or "{nom_dossier}").replace("{carnet}", "{nom_dossier}")
             self._sync_dwg_naming(settings)
             self._select_dwg_setup(settings.dwg_setup_name)
             self.ProfileCombo.SelectedIndex = -1
@@ -597,7 +609,8 @@ class ExportWindow(forms.WPFWindow):
     def _field_label(field):
         labels = {"pdf_quality": "qualité PDF", "pdf_enabled": "PDF", "pdf_mode": "mode PDF", "dwg_enabled": "DWG", "dwg_setup_name": "configuration DWG", "dwg_true_color": "True Color", "dwg_merge_views": "fusion des vues/liens DWG", "output_directory": "destination", "filename_template": "nommage PDF", "dwg_filename_template": "nommage DWG", "dwg_filename_independent": "nommage DWG indépendant"}
         labels.update(dict((field, label) for field, prop, default, label in PDF_OPTIONS))
-        labels["separate_carnet_subfolder"] = "dossier de sortie"
+        labels["separate_carnet_subfolder"] = "dossier de publication dans la sortie"
+        labels["separate_format_subfolders"] = "sous-dossiers PDF et DWG"
         return labels.get(field, field)
 
     def RevertInheritance_Click(self, sender, args):
@@ -641,7 +654,7 @@ class ExportWindow(forms.WPFWindow):
                     or "{numero} {nom}"
                 )
             else:
-                template = settings.filename_template or "{carnet}"
+                template = (settings.filename_template or "{nom_dossier}").replace("{carnet}", "{nom_dossier}")
             self.DwgFilenameTemplateTextBox.Text = template
         finally:
             self._loading_settings = was_loading
@@ -650,6 +663,7 @@ class ExportWindow(forms.WPFWindow):
         values = {
             "pdf_quality": int(self.PdfQualityCombo.SelectedItem or 300),
             "separate_carnet_subfolder": bool(self.CarnetSubfolderCheckBox.IsChecked),
+            "separate_format_subfolders": bool(self.FormatSubfoldersCheckBox.IsChecked),
             "pdf_enabled": bool(self.PdfCheckBox.IsChecked),
             "pdf_mode": "COMBINED" if self.PdfCombinedRadio.IsChecked else "SEPARATE",
             "dwg_enabled": bool(self.DwgCheckBox.IsChecked),
@@ -657,16 +671,35 @@ class ExportWindow(forms.WPFWindow):
             "dwg_true_color": bool(self.DwgTrueColorCheckBox.IsChecked),
             "dwg_merge_views": bool(self.DwgMergeViewsCheckBox.IsChecked),
             "output_directory": (self.OutputDirectoryTextBox.Text or "").strip() or None,
-            "filename_template": self.FilenameTemplateTextBox.Text or "{carnet}",
+            "filename_template": self.FilenameTemplateTextBox.Text or "{nom_dossier}",
             "dwg_filename_independent": bool(self.DwgFilenameIndependentCheckBox.IsChecked),
             "dwg_filename_template": self.DwgFilenameTemplateTextBox.Text or "{numero} {nom}"
         }
         return values.get(field)
 
+    def _freeze_legacy_format_folder_setting(self, target, settings, field):
+        """Découple les anciens réglages dès la première modification du dossier.
+
+        Historiquement, la création de PDF/DWG dépendait de la case « Créer ce
+        dossier ». Quand l'utilisateur change cette case, conserver le choix
+        actuel des dossiers par format, sauf si un parent fournit déjà une
+        valeur explicite qui doit continuer à être héritée.
+        """
+        if field != "separate_carnet_subfolder":
+            return
+        if getattr(settings, "separate_format_subfolders", None) is not None:
+            return
+        if self._setting_source(target, "separate_format_subfolders") != "Défaut":
+            return
+        effective = self._resolve_container_settings(target)
+        settings.separate_format_subfolders = bool(
+            effective.separate_format_subfolders)
+
     def _save_selected_field(self, field):
         if self._selected_set is None or self._loading_settings or field not in self.INHERITABLE_FIELDS:
             return
         settings = self._selected_set.publication_settings or PublicationSettings()
+        self._freeze_legacy_format_folder_setting(self._selected_set, settings, field)
         setattr(settings, field, self._control_value(field))
         self._selected_set.publication_settings = settings
         self._selected_set.output_directory = settings.output_directory
@@ -686,6 +719,7 @@ class ExportWindow(forms.WPFWindow):
         settings = folder.publication_settings or PublicationSettings()
         if field is None:
             return
+        self._freeze_legacy_format_folder_setting(folder, settings, field)
         setattr(settings, field, self._control_value(field))
         folder.publication_settings = settings
         self.controller.save_folder(folder)
@@ -704,10 +738,17 @@ class ExportWindow(forms.WPFWindow):
         settings.dwg_setup_name = values.get("dwg_setup_name")
         settings.dwg_true_color = bool(values.get("dwg_true_color", True))
         settings.dwg_merge_views = values.get("dwg_merge_views") is not False
+        for folder_field in ("separate_carnet_subfolder", "separate_format_subfolders"):
+            if values.get(folder_field) is not None:
+                setattr(settings, folder_field, bool(values[folder_field]))
         self._selected_set.publication_settings = settings
+        # Un profil ancien peut ne pas contenir les deux réglages de dossiers.
+        # Montrer les valeurs héritées réelles, pas des valeurs locales None.
+        effective = self._resolve_settings(self._selected_set)
         self._loading_settings = True
         try:
-            self.CarnetSubfolderCheckBox.IsChecked = settings.separate_carnet_subfolder if settings.separate_carnet_subfolder is not None else True
+            self.CarnetSubfolderCheckBox.IsChecked = effective.separate_carnet_subfolder
+            self.FormatSubfoldersCheckBox.IsChecked = effective.separate_format_subfolders
             self.PdfQualityCombo.SelectedItem = settings.pdf_quality
             self.PdfCheckBox.IsChecked = settings.pdf_enabled
             self.PdfCombinedRadio.IsChecked = settings.pdf_mode == "COMBINED"
@@ -732,7 +773,7 @@ class ExportWindow(forms.WPFWindow):
             folder = self._folder_for_set(self._selected_set)
             item = self._selected_item if self._selected_kind == "SHEET" else None
             preview, unknown = self.filename_service.resolve(
-                settings.filename_template or "{carnet}", self._selected_set,
+                settings.filename_template or "{nom_dossier}", self._selected_set,
                 item=item, folder_name=getattr(folder, "name", None))
             if unknown:
                 preview += " — Variables non résolues : " + ", ".join(unknown)
@@ -801,6 +842,7 @@ class ExportWindow(forms.WPFWindow):
         mapping = {
             "PdfQualityCombo": "pdf_quality",
             "CarnetSubfolderCheckBox": "separate_carnet_subfolder",
+            "FormatSubfoldersCheckBox": "separate_format_subfolders",
             "PdfCheckBox": "pdf_enabled", "PdfCombinedRadio": "pdf_mode", "PdfSeparateRadio": "pdf_mode",
             "DwgCheckBox": "dwg_enabled",
             "DwgSetupCombo": "dwg_setup_name", "DwgTrueColorCheckBox": "dwg_true_color",
@@ -826,4 +868,156 @@ class ExportWindow(forms.WPFWindow):
                     if self._selected_kind == "FOLDER"
                     else self._resolve_settings(node)
                 )
+
+
+    def _context_menu_for_folder(self, tag):
+        """Chaque nœud possède son menu : aucun clic droit ambigu sur le TreeView."""
+        if str(tag[1].id) == "default":
+            return None
+        menu = ContextMenu()
+        rename = MenuItem()
+        rename.Header = "Renommer (F2)"
+        rename.Tag = tag
+        rename.Click += self.RenameFolder_Click
+        menu.Items.Add(rename)
+        return menu
+
+    def RenameFolder_Click(self, sender, args):
+        # Le clic droit se rapporte au nœud sous le pointeur, même si la
+        # sélection de gauche est restée sur un autre dossier.
+        context_tag = getattr(sender, "Tag", None)
+        if isinstance(context_tag, tuple) and len(context_tag) > 1:
+            tags = [context_tag]
+        else:
+            tags = self._publication_selection_tags()
+        if len(tags) != 1 or tags[0][0] not in ("FOLDER", "CARNET"):
+            forms.alert("Sélectionnez un seul dossier à renommer.", title="Export")
+            return
+        tag = tags[0]
+        folder = tag[1]
+        if str(folder.id) == "default":
+            forms.alert("Le dossier Général ne peut pas être renommé.",
+                        title="Export")
+            return
+        new_name = forms.ask_for_string(
+            default=folder.name, prompt="Nouveau nom du dossier :",
+            title="Renommer le dossier")
+        if new_name is None:
+            return
+        if not new_name.strip():
+            forms.alert("Le nom du dossier ne peut pas être vide.", title="Export")
+            return
+        try:
+            self.repository.rename_publication_folder(folder.id, new_name)
+        except Exception as exc:
+            forms.alert("Renommage impossible : {0}".format(exc), title="Export")
+            return
+        manager = self._drag_drop_manager
+        expanded = manager._expanded()
+        offset = manager._scroll_offset()
+        selected_key = manager._key(tag)
+        self._refresh_tree()
+        manager._restore_expanded(expanded)
+        manager._restore_scroll(offset)
+        manager._select([selected_key])
+
+    def DeleteNode_Click(self, sender, args):
+        """Suppression ciblée dans la publication, jamais dans le projet Revit."""
+        tags = self._publication_selection_tags()
+        if not tags:
+            forms.alert("Sélectionnez une mise en page ou un dossier à supprimer.",
+                        title="Export")
+            return
+        kinds = set(tag[0] for tag in tags)
+        if len(kinds) != 1:
+            forms.alert("Sélectionnez uniquement des mises en page ou uniquement "
+                        "des dossiers.", title="Export")
+            return
+        kind = next(iter(kinds))
+        if kind == "SHEET":
+            refs = [(tag[2].id, tag[1].unique_id) for tag in tags]
+            removed = self.repository.remove_sheets_from_publications(refs)
+            if not removed:
+                forms.alert("Aucune mise en page retirée.", title="Export")
+                return
+        elif kind == "FOLDER":
+            if any(str(tag[1].id) == "default" for tag in tags):
+                forms.alert("Le dossier Général ne peut pas être supprimé.",
+                            title="Export")
+                return
+            if not forms.alert("Supprimer les dossiers sélectionnés ? "
+                               "Les sous-dossiers doivent être vides.",
+                               title="Export", yes=True, no=True):
+                return
+            removed = sum(bool(self.controller.delete_folder(tag[1].id))
+                          for tag in tags)
+        elif kind == "CARNET":
+            if not forms.alert("Supprimer les dossiers de publication sélectionnés "
+                               "et leurs références de feuilles ?",
+                               title="Export", yes=True, no=True):
+                return
+            removed = sum(bool(self.repository.delete(tag[1].id))
+                          for tag in tags)
+        else:
+            return
+        if not removed:
+            forms.alert("Suppression impossible : le dossier contient peut-être "
+                        "des sous-dossiers.", title="Export")
+            return
+        self._selected_set = None
+        self._selected_item = None
+        self._selected_folder = None
+        self._selected_kind = None
+        self._drag_drop_manager._select([], notify=False)
+        self._refresh_tree()
+        self._set_no_selection()
+
+    # Explorateur source Revit (les interactions de publication existantes
+    # restent gérées indépendamment par PublicationTreeDragDrop).
+    def SheetExplorerToggle_Click(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.toggle()
+
+    def SheetExplorerSearch_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.refresh()
+
+    def SheetExplorerGrouping_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.refresh()
+
+    def SheetExplorerParameter_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.parameter_changed()
+
+    def SheetExplorerValue_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.value_changed()
+
+    def SheetExplorerFilter_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.refresh()
+
+    def SheetExplorerSelection_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.selection_changed(args)
+
+    def SheetExplorerAdd_Click(self, sender, args):
+        explorer = getattr(self, "_sheet_explorer", None)
+        if explorer is not None:
+            explorer.add_to_current()
+
+    def SheetExplorerDoubleClick(self, sender, args):
+        explorer = getattr(self, "_sheet_explorer", None)
+        if explorer is not None:
+            explorer.add_to_current()
+            args.Handled = True
+
+    def SheetExplorerMouseDown(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.mouse_down(args)
+
+    def SheetExplorerMouseMove(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.mouse_move(args)
 

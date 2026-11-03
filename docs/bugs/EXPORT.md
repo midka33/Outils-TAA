@@ -713,3 +713,125 @@ la ligne du nœud doit utiliser les dimensions du header, jamais
 **Anti-régression :** test avec un TreeViewItem simulé à 220 px et un header à
 20 px ; le centre du header doit rester `INSIDE`, indépendamment de la hauteur
 des enfants.
+
+### BUG-EXPORT-053 — Les en-têtes de groupe de l'explorateur entraient dans la sélection
+
+**Symptôme :** avec l'explorateur de feuilles regroupé, Ctrl+A sélectionnait
+aussi les en-têtes de groupe ; leur tag `GROUP:…` entrait dans `selected_ids`,
+le compteur « Ajouter (n) » était gonflé et une sélection Maj pouvait
+sélectionner un en-tête.
+
+**Cause racine :** les en-têtes sont des `ListBoxItem` avec un `Tag` truthy, tout
+comme les feuilles. `_key_down` et `selection_changed` filtraient uniquement sur
+l'existence du tag, pas sur son type.
+
+**Correction :** préfixe `GROUP_TAG_PREFIX` factorisé et helper `_group_from_tag` ;
+`_key_down` saute les en-têtes, `selection_changed` les désélectionne
+immédiatement s'ils sont attrapés par une plage.
+
+**Règle préventive :** dans un ItemsControl mixant plusieurs natures d'items, la
+nature d'un item doit être discriminée par une convention de tag explicite et
+vérifiée dans chaque chemin de sélection (clavier, souris, code).
+
+**Anti-régression :** recette Revit — Ctrl+A en mode groupé doit afficher un
+compteur égal aux feuilles visibles ; Maj+clic sur un en-tête ne doit pas le
+laisser sélectionné ; vérifier que les compteurs et l'ajout restent exacts.
+
+### BUG-EXPORT-054 — Un dépôt de l'explorateur échouait en silence
+
+**Symptôme :** un glisser-déposer depuis l'explorateur vers un dossier pouvait
+échouer sans aucun retour, alors que le bouton « Ajouter » affichait bien
+l'erreur.
+
+**Cause racine :** le handler `_drop` enveloppait l'ajout dans
+`except Exception: pass`, contrairement à `add_to` (journalisation + alerte).
+La lecture des préférences et la sauvegarde de fermeture avalaient aussi leurs
+erreurs sans trace.
+
+**Correction :** `_drop` journalise via `script.get_logger().exception(...)` et
+affiche la même alerte que `add_to` ; `_restore_settings` et `_closing`
+journalisent un avertissement (règle BUG-EXPORT-025).
+
+**Règle préventive :** aucun `except Exception` ne doit être vide dans le module
+Export : journaliser au minimum, et alerter l'utilisateur lorsque l'action
+initiée échoue.
+
+**Anti-régression :** recette Revit — provoquer un dépôt invalide (fichier de
+stockage en lecture seule) : une alerte doit apparaître et le logger doit
+contenir l'exception ; aucun échec muet.
+
+### BUG-EXPORT-055 — La recherche appelait l'API Revit à chaque frappe
+
+**Symptôme :** dans l'explorateur regroupé par paramètre Revit, chaque frappe
+dans la recherche re-traversait toutes les feuilles avec `LookupParameter`,
+rendant la saisie laggy sur les gros projets (centaines de feuilles).
+
+**Cause racine :** `refresh()` est appelé par `TextChanged` et recalculait le
+tri et le regroupement complets à chaque événement, y compris les appels Revit.
+
+**Correction :** l'ordre trié est calculé une fois à l'ouverture
+(`_ordered_sheets`) et chaque libellé de groupe est mémoïsé par
+`(unique_id, mode)` dans `_group_cache` ; les valeurs de paramètres ne peuvent
+pas changer pendant que la fenêtre modale est ouverte.
+
+**Règle préventive :** un handler appelé par frappe ne doit pas déclencher
+d'appel API Revit ni de recalcul complet non mémoïsé ; mesurer avant d'ajouter
+du travail dans un chemin `TextChanged`.
+
+**Anti-régression :** recette Revit — sur un projet de 300+ feuilles en mode
+« Paramètre », la frappe dans la recherche doit rester fluide (aucun délai
+perceptible) et les groupes rester exacts ; `_used_paths` reste réévalué pour
+les indicateurs d'utilisation.
+
+
+### BUG-EXPORT-056 — Un dossier parent sans feuilles bloque la publication de ses sous-dossiers
+
+**Symptôme :** dans Revit 2025.4, sélectionner le dossier `A2000 Plan des façades` affiche 21 livrables (5 PDF combinés et 16 DWG) mais une erreur bloquante « Aucune mise en page à publier dans le périmètre sélectionné. » empêche de confirmer.
+
+**Cause racine :** le parent visuel peut être un `PublicationSet` sans feuilles, conservé pour héberger des sous-dossiers après la promotion d'un dossier ordinaire. `_container_targets` l'incluait systématiquement parmi les cibles de publication et incluait aussi les descendants `PublicationSet` vides. `PublicationPreviewService.build` signalait alors une erreur pour cette cible vide, même si les autres sous-dossiers avaient des feuilles valides.
+
+**Correction :** dans `models/publication_folder.py`, conserver les dossiers vides dans l'arborescence et la chaîne d'héritage, mais n'inclure dans le périmètre envoyé à l'aperçu et au moteur de publication que les dossiers contenant au moins une référence de feuille. Si toutes les branches sont vides, le périmètre reste vide et aucune publication n'est autorisée.
+
+**Règle préventive :** distinguer explicitement les **conteneurs d'organisation** des **cibles publiables**. Un `PublicationSet` sans feuille est un conteneur légitime, pas un livrable PDF/DWG. Ne jamais bloquer une publication récursive valide à cause d'un ancêtre ou d'un frère vide ; ne jamais masquer une vraie erreur concernant une feuille présente.
+
+**Anti-régression :** `tests/test_export_multiselection.py` reproduit un dossier `A2000` vide avec cinq sous-dossiers non vides, 16 feuilles, 21 lignes d'aperçu dont cinq PDF combinés et 16 DWG, sans erreur ; vérifie également les descendants vides, l'absence de publication si tous les dossiers sont vides, et un parent contenant lui-même des feuilles. Dans Revit : sélectionner `A2000`, contrôler l'aperçu, confirmer uniquement sur une destination de test et vérifier un PDF combiné par sous-dossier.
+
+
+### BUG-EXPORT-057 — Renommage des dossiers introuvable ou inopérant dans l'interface
+
+**Symptôme :** dans Revit 2025.4, un utilisateur ne peut pas renommer un dossier existant alors que le repository possède déjà l'opération `rename_publication_folder`.
+
+**Cause racine :** la première interface installait un menu contextuel sur le `TreeView` parent, puis essayait d'identifier le dossier par `ContextMenuOpening.OriginalSource`. Ce point d'entrée n'était pas fiable et la commande n'était pas accessible visuellement. Le raccourci F2 ne peut servir d'unique accès.
+
+**Correction :** ajouter un bouton visible « Renommer » sous l'arbre, attacher le menu « Renommer (F2) » à chaque `TreeViewItem` représentant un dossier, et transmettre explicitement la cible par `MenuItem.Tag` au handler. Le renommage continue d'utiliser l'identifiant stable du dossier et conserve feuilles, paramètres, enfants, ordre et persistance.
+
+**Règle préventive :** toute action métier essentielle sur un nœud hiérarchique doit disposer d'un accès visible et d'un menu ciblé ; ne pas dépendre de la source d'un événement contextuel du parent ni de la sélection native WPF pour déterminer la cible d'un clic droit.
+
+**Anti-régression :** `tests/test_export_rename_ui_terminology.py` vérifie le bouton, les menus par nœud et le cas où le clic droit vise un autre dossier que la sélection précédente. Dans Revit, vérifier bouton, clic droit et F2 sur un dossier ordinaire puis sur un dossier contenant des feuilles ; fermer/réouvrir et confirmer la conservation.
+
+### BUG-EXPORT-058 — Le terme « carnet » subsiste dans une interface désormais fondée sur les dossiers
+
+**Symptôme :** l'aperçu indiquait « Carnet » et « Publication du carnet », le rapport et la progression utilisaient « carnet » et la variable PDF par défaut affichait `{carnet}`, alors que l'utilisateur ne manipule que des dossiers.
+
+**Cause racine :** migration ergonomique vers une arborescence à dossiers uniques sans adaptation de tous les libellés ni de la variable visible de nommage héritée.
+
+**Correction :** afficher « Dossier » dans l'aperçu/rapport, « Dossier de publication » dans la progression, « PDF combiné du dossier » sur les lignes PDF globales, et « dossier(s) » dans le résumé. Ajouter `{nom_dossier}` comme alias fonctionnel de `{carnet}`, montrer le nouveau token dans l'interface et masquer l'ancien dans le catalogue proposé sans supprimer sa prise en charge dans les modèles JSON existants. `{dossier}` demeure distinct : il désigne le dossier parent.
+
+**Règle préventive :** les noms de structures internes ne doivent pas transparaître dans les libellés métier. Un renommage de token utilisateur doit toujours conserver la compatibilité des modèles persistants existants, sans réécriture silencieuse.
+
+**Anti-régression :** `tests/test_naming_parameters.py` vérifie l'équivalence des noms de fichiers entre ancien/nouveau token et le catalogue de variables ; `tests/test_export_rename_ui_terminology.py` vérifie les libellés visibles. Dans Revit, vérifier une ancienne configuration `{carnet}` et une nouvelle `{nom_dossier}`, leurs aperçus et exports.
+
+
+### BUG-EXPORT-059 — La création des dossiers PDF/DWG est couplée à « Créer ce dossier dans la sortie »
+
+**Symptôme :** l'utilisateur ne peut pas choisir indépendamment la création du dossier de publication (`Plans`, `A2100_Façades_Collectif_A`…) et la séparation des livrables dans des sous-dossiers `PDF` et `DWG`. Actuellement, décocher « Créer ce dossier dans la sortie » empêche également la création des dossiers de formats.
+
+**Cause racine :** `publication_directory()` ajoutait le dossier du format à l'intérieur du même `if create_subfolder` que le dossier de publication. Les réglages ne disposaient que du champ historique `separate_carnet_subfolder`.
+
+**Correction :** ajouter le champ distinct, nullable et héritable `separate_format_subfolders`, et la case « Créer un sous-dossier par format (PDF et DWG) ». Calculer les deux composants du chemin indépendamment dans `publication_directory()`, fonction déjà partagée par l'aperçu et la publication réelle. La sélection du mode PDF combiné/séparé et le moteur DWG ne doivent pas modifier ces choix d'organisation. Les profils personnalisés peuvent mémoriser les deux options.
+
+**Compatibilité :** si `separate_format_subfolders` est absent ou `None` dans un ancien JSON, son comportement effectif reproduit celui de `separate_carnet_subfolder` après résolution de l'héritage : un ancien réglage activé crée `Dossier/PDF` et `Dossier/DWG`, un ancien réglage désactivé n'ajoute aucun de ces dossiers. En revanche, dès que l'utilisateur modifie « Créer ce dossier », l'option de format héritée de l'ancien fonctionnement est figée à sa valeur actuelle pour qu'une case ne modifie plus silencieusement l'autre. Une règle explicite de format déjà portée par un parent continue à être héritée.
+
+**Règle préventive :** une option « créer le dossier de publication » et une option « classer par format » expriment deux décisions métier différentes. Leurs paramètres doivent être distincts dans l'UI, le moteur, les profils et la persistance, et la compatibilité des anciens profils doit être définie avant la migration. Utiliser un calcul de chemin unique pour la prévisualisation et la publication ; ne jamais produire de sous-dossiers de format si l'option dédiée est désactivée.
+
+**Anti-régression :** `tests/test_publication_folder_paths.py` couvre l'ensemble des combinaisons PDF combiné/séparé, périmètres, option de dossier et option de format (y compris absent pour compatibilité), et contrôle la correspondance exacte entre aperçu et chemins livrés. `tests/test_export_format_subfolders.py` couvre les quatre combinaisons de chemins, l'héritage entre dossiers, les profils et les réglages JSON historiques, ainsi que le découplage immédiat des deux cases après modification. Recette Revit : vérifier les quatre combinaisons en sortie de test et le maintien des anciens chemins.

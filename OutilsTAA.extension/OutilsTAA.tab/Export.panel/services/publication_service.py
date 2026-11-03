@@ -44,11 +44,11 @@ class PublicationService(object):
     def validate_publication_set(self, publication_set):
         errors = []
         if publication_set is None:
-            return ["Le carnet de publication est manquant."]
+            return ["Le dossier de publication est manquant."]
         if not publication_set.name:
-            errors.append("Le carnet doit avoir un nom.")
+            errors.append("Le dossier de publication doit avoir un nom.")
         if not publication_set.items:
-            errors.append("Le carnet ne contient aucun élément à publier.")
+            errors.append("Le dossier de publication ne contient aucune mise en page.")
             return errors
         seen_ids = set()
         for item in publication_set.items:
@@ -62,7 +62,7 @@ class PublicationService(object):
             except Exception:
                 key = str(current_id)
             if key in seen_ids:
-                errors.append("Le carnet contient une feuille en double (ID {}).".format(key))
+                errors.append("Le dossier de publication contient une feuille en double (ID {}).".format(key))
             seen_ids.add(key)
             try:
                 view = self.document.GetElement(current_id)

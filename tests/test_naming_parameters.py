@@ -36,7 +36,8 @@ def test_catalogue_union_includes_empty_readonly_and_project_parameters():
     tokens = [v.Token for v in svc.variable_catalogue([first, second])]
     assert tokens.count('{feuille:Numéro de feuille}') == 1
     assert '{feuille:Vide}' in tokens and '{feuille:Phase}' in tokens
-    assert '{info_projet:Nom du projet}' in tokens and '{carnet}' in tokens
+    assert '{info_projet:Nom du projet}' in tokens and '{nom_dossier}' in tokens
+    assert '{carnet}' not in tokens  # Variable historique toujours lisible, masquée aux nouveaux utilisateurs.
 
 
 def test_scopes_legacy_unicode_and_first_sheet_context():
@@ -114,3 +115,25 @@ def test_picker_filter_and_insertion_replace_selection_at_caret():
     ui_method('InsertFilenameToken_Click')(ui, None, None)
     assert box.Text == 'Avant {info_projet:Nom du projet} Après'
     assert box.CaretIndex == 6 + len(combo.SelectedItem.Token)
+
+
+def test_legacy_carnet_and_new_nom_dossier_templates_are_equivalent():
+    svc = service({})
+    target = NS(name="A2100_Façades_Collectif_A",
+                items=[NS(sheet_number="A2100", sheet_name="Façade")])
+    assert svc.validate_template("{carnet}") == []
+    assert svc.validate_template("{nom_dossier}") == []
+    assert svc.carnet_filename("{carnet}", target) == svc.carnet_filename(
+        "{nom_dossier}", target)
+    assert svc.carnet_filename("{nom_dossier}", target)[0] == (
+        "A2100_Façades_Collectif_A.pdf")
+    assert "{carnet}" not in svc.available_tokens()
+    assert "{nom_dossier}" not in svc.available_tokens()  # available_tokens renvoie les noms sans accolades
+    assert "nom_dossier" in svc.available_tokens()
+
+
+def test_dossier_parameter_label_in_picker():
+    svc = service({})
+    labels = dict((v.Token, v.Label) for v in svc.variable_catalogue([]))
+    assert "Nom du dossier de publication" in labels["{nom_dossier}"]
+    assert "Nom du dossier parent" in labels["{dossier}"]

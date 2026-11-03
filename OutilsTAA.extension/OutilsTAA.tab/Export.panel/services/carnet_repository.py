@@ -484,6 +484,80 @@ class CarnetRepository(object):
         self._write(data)
         return True
 
+    def add_sheets_to_folder(self, items, folder_id):
+        """Ajoute sans déplacer les feuilles sources ; une écriture atomique.
+
+        Un dossier d'organisation non racine est promu en dossier publiable,
+        avec son ID, sa place dans l'arbre et ses réglages conservés.
+        Retourne (nombre_ajoute, nombre_ignore).
+        """
+        items = list(items or [])
+        if not items:
+            return (0, 0)
+        data = self._ensure_structure(self._read())
+        target = next((value for value in data["sets"]
+                       if str(value.get("id")) == str(folder_id)), None)
+        if target is None:
+            folder = next((value for value in data["folders"]
+                           if str(value.get("id")) == str(folder_id)), None)
+            if folder is None:
+                raise ValueError("Selectionnez un dossier de publication valide.")
+            if str(folder_id) == self.DEFAULT_FOLDER_ID:
+                # Le dossier racine est un identifiant valide mais ne peut pas
+                # recevoir de mises en page directement : message distinct
+                # pour ne pas laisser croire que la cible est inconnue.
+                raise ValueError(
+                    "Le dossier racine « {0} » ne peut pas recevoir de mises en "
+                    "page ; choisissez un sous-dossier.".format(
+                        self.DEFAULT_FOLDER_NAME
+                    )
+                )
+            target = {
+                "id": folder["id"],
+                "name": folder.get("name", ""),
+                "persistent": True,
+                "folder_id": folder.get("parent_id"),
+                "sort_order": folder.get("sort_order", 0),
+                "tree_order": folder.get("tree_order"),
+                "output_directory": None,
+                "filename_template_id": None,
+                "publication_settings": folder.get("publication_settings"),
+                "source": {"mode": PublicationSource.MANUAL,
+                           "parameter_name": None, "parameter_value": None},
+                "items": [],
+            }
+            data["folders"] = [
+                value for value in data["folders"]
+                if str(value.get("id")) != str(folder_id)
+            ]
+            data["sets"].append(target)
+
+        existing = set(str(value.get("unique_id"))
+                       for value in target.get("items", []))
+        added = 0
+        for item in items:
+            # Contrat d'entrée : des PublicationItem complets, comme pour
+            # `_to_dict`. Un item vide ou sans identifiant est ignoré, pas ajouté.
+            if item is None:
+                continue
+            uid = str(item.unique_id or "")
+            if not uid or uid in existing:
+                continue
+            target["items"].append({
+                "unique_id": item.unique_id,
+                "sheet_id": item.sheet_id,
+                "item_type": item.item_type,
+                "sheet_number": item.sheet_number,
+                "sheet_name": item.sheet_name,
+                "parameter_value": item.parameter_value,
+            })
+            existing.add(uid)
+            added += 1
+        if added:
+            self._normalize_tree_order(data)
+            self._write(data)
+        return (added, len(items) - added)
+
     def move_sheets_into_folder(self, sheet_refs, folder_id):
         """Move ordered (set_id, sheet_unique_id) pairs into an ordinary folder.
 
@@ -582,6 +656,46 @@ class CarnetRepository(object):
             parent_id,
             before,
         )
+
+    def rename_publication_folder(self, folder_id, new_name):
+        """Renomme un dossier sans toucher aux ID, enfants ni réglages."""
+        folder_id = str(folder_id)
+        name = (new_name or "").strip()
+        if not name:
+            raise ValueError("Le nom du dossier ne peut pas être vide.")
+        if folder_id == self.DEFAULT_FOLDER_ID:
+            raise ValueError("Le dossier Général ne peut pas être renommé.")
+        data = self._ensure_structure(self._read())
+        for collection in ("folders", "sets"):
+            for item in data.get(collection, []):
+                if str(item.get("id")) == folder_id:
+                    if item.get("name") != name:
+                        item["name"] = name
+                        self._write(data)
+                    return True
+        raise ValueError("Dossier introuvable.")
+
+    def remove_sheets_from_publications(self, sheet_refs):
+        """Retire les références de feuilles sans supprimer les feuilles Revit.
+
+        sheet_refs: couples (id du dossier publiable, UniqueId de feuille).
+        Le dossier reste présent même lorsque sa dernière feuille est retirée.
+        """
+        refs = set((str(sid), str(uid)) for sid, uid in (sheet_refs or []))
+        if not refs:
+            return 0
+        data = self._ensure_structure(self._read())
+        removed = 0
+        for publication in data.get("sets", []):
+            sid = str(publication.get("id"))
+            items = publication.get("items", [])
+            remaining = [item for item in items
+                         if (sid, str(item.get("unique_id"))) not in refs]
+            removed += len(items) - len(remaining)
+            publication["items"] = remaining
+        if removed:
+            self._write(data)
+        return removed
 
     def delete(self, set_id):
         data = self._ensure_structure(self._read())
@@ -775,3 +889,4 @@ class CarnetRepository(object):
             value.get("sort_order", 0),
             value.get("tree_order"),
         )
+

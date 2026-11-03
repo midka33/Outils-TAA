@@ -1775,165 +1775,70 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 ## 28. Correspondance avec les étapes réalisées
 
 ```text
-Étape 01 → Sélection contextuelle Export                 ✅
-Étape 02 → Éditeur de nommage Export                     ✅
-Étape 03 → Profils de publication                            ✅
-Étape 04 → Héritage dossier → carnet                        ✅
-Étape 05 → Prévisualisation                                 ✅
-Étape 06 → Publication multiple par dossier                 ✅
-             + sélection multiple / drag-and-drop           ✅
-             + ordre persistant                              ✅
-
-Étape 07 → Historique / MODIFIED_ONLY                       ⏳
-Étape 08 → Dynamique avancé                                  ⏳
-Étape 09 → Extensibilité                                     ⏳
-```
-
-Cette section doit être maintenue à jour à chaque changement de comportement significatif du module Export.
-
-## Compléments de la fenêtre principale — 2026-10-01
-
-- Le menu « Dossier » du panneau de réglages est retiré. Il déplaçait un carnet ;
-  cette opération reste disponible par glisser-déposer dans l'arborescence.
-- Ctrl / Maj permettent de sélectionner plusieurs carnets ou dossiers puis de
-  les supprimer avec une confirmation commune listant les noms. Les carnets de
-  session sont aussi sélectionnables. Les dossiers sont supprimés du plus profond
-  au parent, seulement s'ils sont vides ; les contenus non sélectionnés et Général
-  sont conservés. Un bilan indique les éléments conservés ou en erreur. La commande
-  ne supprime jamais de feuilles Revit. Les feuilles du carnet ne sont pas des cibles
-  de cette commande. La sélection multiple ne change pas le périmètre de publication.
-- Les mises en page affichent une feuille PDF rouge, DWG bleue ou les deux selon
-  les réglages effectifs du carnet, y compris l'héritage de tous ses parents.
-  Sans format actif, une feuille neutre avec infobulle reste visible.
-- Le pied de fenêtre indique dossier, carnet, périmètre, nombre d'occurrences de
-  mises en page prévues, formats et résolutions PDF. Le dossier inclut ses descendants ;
-  une feuille seule compte pour une occurrence. Les éléments sans format sont
-  signalés à part. L'aperçu reste responsable de valider disponibilité et exportabilité.
-  Aucune taille de fichier n'est estimée. Les profils étant des préréglages copiés,
-  le résumé n'annonce pas de lien permanent avec un profil.
-- La qualité PDF propose 72, 144, 300, 600, 1200, 2400, 3600 ou 4000 DPI, avec
-  300 par défaut. Le champ `pdf_quality` est héritable, surchargeable et enregistré
-  dans les carnets, dossiers et profils ; les anciens documents héritent du défaut.
-  Il est transmis au convertisseur existant `PDFExportQualityType` pour les exports
-  combinés et séparés. Il règle la résolution, sans forcer la rastérisation.
-- Le bouton Export du ruban reçoit l'icône orange feuille/export de la charte,
-  livrée dans `icon.png` et `icon.dark.png`, avec source SVG dans les ressources.
-  Recharger pyRevit après mise à jour pour reconstruire le ruban.
-
-Les services `publication_overview.py` et `publication_tree_delete.py` portent les
-calculs de résumé et la suppression sans dépendance WPF. L'intégration conserve
-le handler canonique de suppression ; `ExportWindow` assure le rendu et son actualisation.
-
-## Interface compacte et paramètres PDF — 2026-10-01
-
-La fenêtre s'ouvre en 1320 × 760 unités WPF (minimum 1060 × 620), en conservant
-Segoe UI 13 px. Profil et héritage sont compacts, la provenance complète des champs
-reste en infobulle. PDF et DWG utilisent des rangées avec retour à la ligne ; modes
-combiné/séparé et True Color sont conservés. Destination et modèle de nommage sont
-accessibles directement. Les variables se trouvent dans « Options avancées »,
-replié initialement. Le défilement reste un secours. Le résumé, Aperçu et Publier
-restent fixes. Aperçu ouvre le contrôle des livrables sans bouton de confirmation ;
-Publier conserve le passage par l'aperçu puis la confirmation existante.
-
-La destination saisie au clavier est maintenant enregistrée à la perte de focus,
-comme la destination choisie par Parcourir. Aucun autre réglage n'est enregistré
-comme surcharge lors de cette action.
-
-La case **« Créer un dossier au nom du carnet »** pilote
-`separate_carnet_subfolder` (héritable, True par défaut), mais son sens n'est plus
-lié à « séparé/combiné ». Cochée, elle crée toujours `NomCarnet/PDF` et
-`NomCarnet/DWG`. Décochée, elle retire ces dossiers de format/carnet tout en
-conservant les sous-dossiers de l'arborescence de publication. Le même calcul de
-chemin est utilisé par l'aperçu et l'export réel. Cette préférence de destination
-n'est pas incluse dans les profils techniques PDF/DWG.
-
-Le bouton de configuration PDF ouvre « Paramètres PDF », organisé en Options et
-Traitement vectoriel/raster. Les huit champs booléens du contrat `pdf_options.py`
-sont héritables, persistants et inclus dans les profils personnalisés. Les anciens
-profils appliquent les valeurs par défaut TAA pour ces nouveaux champs. Le dialogue
-ne sauvegarde que les champs réellement modifiés après Appliquer ; Annuler ou fermer
-ne modifie rien. Rétablir les valeurs par défaut prépare une saisie, sans sauvegarde
-avant Appliquer. Le vectoriel reste le défaut ; il n'empêche pas Revit de rastériser
-les vues qui l'exigent. La qualité DPI principale reste raccordée à ExportQuality.
-
-| Option | Propriété publique PDFExportOptions | Défaut TAA |
-|---|---|---|
-| Liens en bleu | ViewLinksInBlue | False |
-| Masquer plans de référence/construction | HideReferencePlane | True |
-| Masquer étiquettes non référencées | HideUnreferencedViewTags | False |
-| Bords masquant les lignes coïncidentes | MaskCoincidentLines | False |
-| Masquer zones de définition | HideScopeBoxes | True |
-| Masquer limites de cadrage | HideCropBoundaries | True |
-| Demi-teinte par lignes fines | ReplaceHalftoneWithThinLines | False |
-| Traitement raster forcé | AlwaysUseRaster | False |
-
-La présence de chaque propriété est contrôlée sur l'API réellement chargée avant
-l'affichage du dialogue. Un contrôle indisponible est désactivé ; aucun substitut
-fictif n'est envoyé à l'exporteur. Une valeur non prise en charge différente du défaut produit une
-erreur explicite. Le masquage des lignes coïncidentes est désactivé dans le dialogue
-en traitement raster, tout en conservant sa valeur pour un retour au vectoriel.
-
-**Arrière-plan : limitation V1 d'intégration, pas absence de l'API.**
-`SetExportInBackground` existe dans l'API native, mais le flux TAA actuel attend les
-PDF pour les vérifier, les renommer et les livrer. La case est donc désactivée et
-expliquée. L'exporteur demande explicitement un traitement synchrone lorsqu'il
-dispose de la méthode. Activer l'arrière-plan nécessite un suivi de fin des tâches,
-un rapport différé et une livraison sécurisée adaptés ; ce travail est reporté.
-
-Les pictogrammes PDF/DWG ont le libellé dans la feuille à coin plié. L'icône Export
-est redessinée depuis le SVG en orange UI, plus grande dans son carré transparent,
-sans texte dessiné. PNG 16/32/96 px fournis, bundle pyRevit en 96 px clair/sombre.
-Le nom du bouton reste affiché par pyRevit ; le nom du panneau Export est distinct.
-
-Référence des membres publics : documentation Autodesk PDFExportOptions,
-https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/e4236fc8-f8e7-fc74-1b81-9e3a4d9e966b.htm
-Cette référence publiée décrit l'API 2026 ; le contrôle de présence est donc aussi
-réalisé à l'exécution sur Revit 2025.4. L'environnement de développement ne contient
-pas sa DLL et ne permet pas de certifier l'exécution réelle des membres.
-
-## Réglages DWG indépendants — 2026-10-07
-
-Ajout de `dwg_merge_views` nullable/héritable à tous les niveaux. `None` continue
-d'hériter ; la résolution applique True sans réécrire les anciens JSON. L'UI ne
-sauvegarde que le champ modifié. Les profils personnalisés conservent False.
-Les hooks du smartbutton, le batch dossier et le chemin de secours transmettent
-la même valeur. Les réglages PDF et la progression existante sont inchangés.
-La stratégie DWG n'est plus un choix utilisateur : une feuille utilise un appel
-simple, plusieurs feuilles un lot natif Revit. L'ancien `dwg_mode` est conservé
-uniquement pour la lecture des stockages historiques. L'interface a été compactée
-pour respecter la cible Full HD : les réglages courants doivent rester visibles sans
-défilement vertical obligatoire à 1920 × 1080 ; le ScrollViewer reste un secours.
-
-Statut : tests hors Revit uniquement ; validation utilisateur Revit 2025.4 attendue.
 
 
-## Evolution UX planifiee — explorateur escamotable des mises en page (2026-10-22)
+### Correctifs après première recette utilisateur (2026-11-03)
 
-**Statut : a developper, non implemente.** Objectif : faciliter l'ajout des mises en page Revit dans les dossiers de publication, en s'inspirant de l'ergonomie a deux explorateurs d'ArchiCAD sans reintroduire les carnets dans l'interface.
+- Ouverture, redimensionnement, recherche, dédoublonnage local et persistance confirmés dans Revit 2025.4.
+- Le bouton de masquage a été rendu plus compact (« ◀ Feuilles » / « ▶ Feuilles ») dans la barre de l'arborescence.
+- Deux listes de filtre « Paramètre » et « Valeur » ont été ajoutées indépendamment du regroupement visuel ; les valeurs proviennent des feuilles du document.
+- La réception des événements WPF de glisser-déposer utilise des handlers sur le TreeView qui reçoivent aussi les événements marqués comme traités par ses enfants.
+- **À retester dans Revit :** affichage des paramètres/valeurs, filtrage, glisser-déposer sur un dossier existant, masquage du panneau, non-régression des ajouts par bouton.
 
-### Disposition et affichage
-- Ajouter a gauche un explorateur des mises en page Revit, escamotable par un bouton explicite « Afficher/Masquer les feuilles ».
-- Conserver au centre l'arborescence des dossiers de publication et a droite le panneau existant des parametres PDF/DWG, nommage et destination.
-- Panneau ouvert : largeur initiale indicative de 35 a 40 % de la zone de navigation, ajustable avec un separateur vertical ; panneau ferme : l'arborescence recupere l'espace libere.
-- Memoriser largeur, visibilite, recherche, selection et defilement lors des ouvertures/fermetures ; ne pas perdre l'etat des dossiers existants.
-- Preserver la lisibilite en Full HD 1920x1080 et le theme TAA existant ; prevoir un comportement de repli pour les fenetres plus etroites.
 
-### Source des feuilles et recherche
-- Lister les mises en page du document Revit actif avec numero et nom, en distinguant clairement cette source des dossiers de publication.
-- Recherche instantanee et insensible a la casse sur numero et nom ; filtre facultatif « Non ajoutees ».
-- Proposer liste simple et regroupements par numero, nom ou parametre de classement Revit disponible, sans inventer de valeur manquante.
-- Indiquer visuellement si une feuille est deja presente dans un ou plusieurs dossiers ; permettre la reutilisation de la meme feuille dans plusieurs dossiers.
+### Correctif dossier racine apres ajout (2026-11-03)
 
-### Selection et ajout
-- Ctrl+clic : selection discontinue ; Maj+clic : plage ; Ctrl+A : toutes les feuilles visibles dans le filtre ; selection maintenue lors des recherches successives.
-- Glisser-deposer une ou plusieurs feuilles depuis le panneau source vers le dossier cible, en conservant l'ordre affiche ; surligner le dossier cible et indiquer le nombre de feuilles transportees.
-- Reutiliser les conventions de drop deja implementees dans l'arbre de publication : ouverture automatique apres environ 700 ms, defilement automatique et conservation des dossiers ouverts ; ne pas regresser le drag-and-drop interne existant.
-- Double-clic sur une feuille : ajout au dossier actif ; clic droit : « Ajouter au dossier » ; bouton « Ajouter (N) » : ajout au dossier selectionne.
-- Ne jamais creer de doublon involontaire d'une meme feuille dans un meme dossier ; permettre une meme feuille dans des dossiers differents. Si aucune destination valide n'est selectionnee, desactiver l'ajout ou demander explicitement la destination.
-- Apres ajout, actualiser immediatement l'arborescence et les indicateurs sans effacer recherche, selection ou position de defilement de facon inattendue ; fournir un retour discret du nombre d'elements ajoutes/ignores.
+Bug de recette : un dossier independant place hors « General » disparaissait visuellement apres l'ajout de sa premiere feuille. Cause : le repository le convertissait en dossier publiable avec `folder_id=None`, mais `ExportWindow._refresh_tree` n'affichait que les dossiers ordinaires a la racine. Correctif : construire les racines depuis `container_children(None)`, en affichant dossiers ordinaires et dossiers publiables. Tests de non-regression ajoutes pour la promotion/persistance d'un dossier racine et le contrat de rendu. A verifier dans Revit sur le projet de test.
 
-### Contraintes et recette
-- Conserver le modele a dossiers uniques (dossiers + mises en page), le stockage existant, les reglages herites, les destinations, le nommage et les moteurs PDF/DWG ; aucune refonte fonctionnelle de publication.
-- Inspecter les vues WPF/XAML et les handlers d'ajout actuels avant implementation ; etendre/reutiliser les services plutot que dupliquer les logiques d'ajout, de persistance et de glisser-deposer.
-- Tester : panneau ouvert/ferme et largeur memorisee ; recherches successives et selection Ctrl/Maj ; ajout simple/multiple, double-clic, bouton, menu contextuel et drag-and-drop ; dossier ferme/survol/scroll ; doublon dans le meme dossier ; meme feuille dans deux dossiers ; mise a jour des indicateurs ; annulation et reouverture ; non-regression des deplacements internes et de l'export PDF/DWG.
-- Tests automatises des comportements isolables, puis recette WPF dans Revit 2025.4 / pyRevit 5.x avant toute validation finale.
+
+### Renommage des dossiers (2026-11-03)
+
+Les dossiers ordinaires et les dossiers publiables peuvent être renommés via F2 ou clic droit > Renommer. Le dossier système Général ne peut pas être renommé. Le renommage modifie uniquement le nom en stockage, sans toucher aux identifiants, feuilles, sous-dossiers, paramètres ni ordre. Tests unitaires ajoutés. À valider dans Revit 2025.4.
+
+
+### Recette publication A2000 avec dossier parent vide (2026-11-03)
+
+Retour utilisateur : l'aperçu de `A2000 Plan des façades`, contenant des sous-dossiers de façade, affichait 21 livrables mais bloquait avec « Aucune mise en page à publier dans le périmètre sélectionné. » Un dossier publiable utilisé uniquement comme parent était compté comme cible vide. Correctif `BUG-EXPORT-056` : les dossiers sans feuille restent dans la structure et participent à l'héritage des réglages, mais ne deviennent plus des cibles exportées ; un périmètre totalement vide reste non publiable.
+
+Le test automatisé reproduit 5 sous-dossiers non vides et 16 feuilles : mode PDF combiné et DWG actif = **5 PDF combinés distincts + 16 DWG** ; sans DWG, 5 PDF. La validation dans Revit 2025.4 reste nécessaire, en utilisant **Aperçu** avant toute publication réelle, puis une destination temporaire.
+
+
+
+### Ergonomie du renommage et vocabulaire utilisateur (2026-11-03)
+
+**Règle métier :** l'interface Export parle exclusivement de « dossier », « sous-dossier », « dossier de publication » et « mise en page ». Le terme « carnet » reste possible en interne pour la compatibilité du code, mais ne doit pas apparaître dans les textes destinés aux utilisateurs.
+
+- Le bouton **Renommer** est visible sous l'arborescence. Le menu contextuel appartient à chaque dossier ; un clic droit cible le dossier sous le pointeur, même si un autre était sélectionné. F2 reste disponible.
+- Renommer conserve ID, hiérarchie, ordre, feuilles, réglages de publication et stockage ; « Général » n'est pas renommable.
+- Dans l'aperçu, le tableau s'intitule « Dossier » et le PDF global s'affiche comme « PDF combiné du dossier ». Dans le rapport, la progression et le résumé, le terme « carnet » est remplacé par « dossier (de publication) ».
+- Le nouveau token **`{nom_dossier}`** représente le nom du dossier de publication (par exemple `A2100_Façades_Collectif_A`). Il est visible dans le sélecteur de variables et utilisé comme nommage PDF par défaut.
+- **Compatibilité :** `{carnet}` désigne historiquement la même valeur et reste accepté sans migration de stockage ; les champs d'interface affichent son alias `{nom_dossier}`. L'ancien token n'est plus proposé dans le sélecteur pour les nouveaux utilisateurs.
+- **Ne pas confondre :** `{dossier}` désigne le **dossier parent**, tandis que `{nom_dossier}` désigne le **dossier de publication courant**.
+
+Recette Revit 2025.4 : renommer un dossier ordinaire et un dossier publiable via le bouton, F2 et clic droit ; fermer/réouvrir pour contrôler la persistance, vérifier qu'aucune feuille ou réglage n'a changé. Contrôler les PDF combinés en aperçu avec les modèles `{carnet}` existants et `{nom_dossier}` nouveaux. Voir `BUG-EXPORT-057` et `BUG-EXPORT-058`.
+
+
+
+### Organisation de sortie : deux choix indépendants (2026-11-03)
+
+Dans **Réglages de publication → Organisation des fichiers**, l'utilisateur dispose désormais de deux cases séparées et héritables :
+
+1. **Créer ce dossier dans la sortie** : ajoute le nom du dossier de publication à son chemin de sortie (ancienne option conservée).
+2. **Créer un sous-dossier par format (PDF et DWG)** : place les PDF dans `PDF/` et les DWG dans `DWG/`, indépendamment de la première option.
+
+Pour une destination `D:\Exports` et un dossier publié `A2100_Façades_Collectif_A`, les chemins (hors parents de l'arborescence déjà appliqués) sont :
+
+| Dossier de publication | Sous-dossiers par format | Chemins |
+| --- | --- | --- |
+| Oui | Oui | `D:\Exports\A2100_Façades_Collectif_A\PDF\` et `...\DWG\` |
+| Oui | Non | `D:\Exports\A2100_Façades_Collectif_A\` (PDF et DWG ensemble) |
+| Non | Oui | `D:\Exports\PDF\` et `D:\Exports\DWG\` |
+| Non | Non | `D:\Exports\` (PDF et DWG ensemble) |
+
+Les dossiers de parents déjà inclus dans la hiérarchie de publication restent inchangés. Seuls les sous-dossiers des formats effectivement publiés sont créés.
+
+**Compatibilité V1 :** la nouvelle propriété `separate_format_subfolders` est nullable (None = ancienne configuration). Pour les enregistrements ne possédant pas cette propriété, le comportement effectif copie l'ancienne option « Créer ce dossier », de façon à reproduire strictement les chemins historiques sans migration obligatoire. Dès la modification manuelle de « Créer ce dossier », le réglage de format historique est conservé séparément, afin de ne pas modifier la seconde case involontairement. Une valeur explicite de format héritée d'un parent conserve sa priorité normale.
+
+**Technique :** `PublicationSettings.FIELDS/ACTIVE_FIELDS`, `SettingsResolver`, `publication_directory`, l'interface WPF et les profils personnalisés gèrent `separate_format_subfolders`. L'aperçu PDF/DWG et les deux moteurs partagent la même fonction de calcul de destination. Les modes PDF combiné/séparé et DWG n'influent pas sur le classement.
+
+**Recette Revit 2025.4 :** tester les quatre combinaisons avec deux feuilles, les modes PDF combiné et séparé, la création PDF/DWG, les héritages et rechargements de profils, puis contrôler chemins dans l'aperçu avant publication dans un répertoire temporaire. Voir BUG-EXPORT-059.

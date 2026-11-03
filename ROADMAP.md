@@ -301,3 +301,45 @@ de leurs mises en page.
 - [ ] Reutiliser le comportement de survol, ouverture automatique, scroll et insertion de l'arborescence existante ; eviter les doublons dans un dossier, autoriser la reutilisation inter-dossiers.
 - [ ] Preserver le modele a dossiers uniques, les parametres PDF/DWG, le stockage, les profils et les publications existantes.
 - [ ] Ajouter tests automatises et recette Revit 2025.4 / pyRevit 5.x : clavier, DPI, Full HD, interactions, persistance et non-regression.
+
+
+### Export — explorateur escamotable (developpement en cours, 2026-10-22)
+
+Branche : `feature/export-explorateur-feuilles`. Une implementation initiale du panneau WPF, des filtres, des regroupements, de la selection et de l'ajout sans deplacement des feuilles est proposee.
+
+- [x] Integrer le panneau escamotable, redimensionnable et les preferences de largeur/visibilite.
+- [x] Recherche, filtre des non ajoutees, regroupements repliables et indicateurs d'utilisation.
+- [x] Selection multiple et ajout par bouton, double-clic, menu et drag-and-drop distinct du deplacement interne.
+- [x] Ajouter une operation de persistance atomique preservant les sources et evitant les doublons par dossier.
+- [x] Ecrire les tests unitaires de l'ajout dans un dossier.
+- [x] Executer effectivement les pytest : 321 tests passes via GitHub Actions (22 octobre 2026).
+- [ ] Valider la fenetre et les interactions sous Revit 2025.4 / pyRevit 5.x.
+- [ ] Rejouer les recettes de non-regression de l'arborescence et des publications PDF/DWG.
+- [ ] Fusionner uniquement apres validation utilisateur.
+
+### Export — recette publication par sous-dossier (2026-11-03)
+
+- [x] Écarter les dossiers de publication vides du périmètre récursif PDF/DWG sans les supprimer de l'arborescence ; 5 PDF combinés + 16 DWG validés par test automatisé (BUG-EXPORT-056).
+- [ ] Confirmer dans Revit 2025.4 l'aperçu et un export dans un dossier temporaire en sélectionnant `A2000 Plan des façades`.
+
+
+
+### Export — renommage des dossiers et terminologie (2026-11-03)
+
+- [x] Ajouter un bouton Renommer visible et un menu contextuel attaché à chaque dossier.
+- [x] Permettre le renommage sans changer l'ID, les enfants, les feuilles, les paramètres et la position.
+- [x] Uniformiser les libellés visibles de l'aperçu, du rapport, de la progression et du résumé autour de « Dossier ».
+- [x] Ajouter `{nom_dossier}` comme alias de `{carnet}` et conserver la lecture des anciens modèles.
+- [x] Couvrir les contrats d'interface et l'alias de nommage par tests automatisés.
+- [ ] Recette réelle dans Revit 2025.4 : bouton Renommer, clic droit, F2, persistance, et test d'une ancienne configuration de nommage.
+
+
+
+### Export — organisation indépendante des dossiers et formats (2026-11-03)
+
+- [x] Séparer « Créer ce dossier dans la sortie » et « Créer un sous-dossier par format (PDF et DWG) » dans l'interface.
+- [x] Ajouter `separate_format_subfolders` dans le modèle, l'héritage et les profils personnalisés.
+- [x] Conserver les destinations des anciens dossiers et projets qui n'ont pas encore le nouveau réglage.
+- [x] Appliquer exactement les mêmes chemins dans l'aperçu et les exporteurs PDF/DWG.
+- [x] Couvrir quatre combinaisons de dossiers, PDF combiné/séparé, héritage, profils et compatibilité JSON par tests hors Revit.
+- [ ] Recette Revit 2025.4 / pyRevit 5.x sur destination temporaire : quatre combinaisons, héritage, et PDF/DWG réels.

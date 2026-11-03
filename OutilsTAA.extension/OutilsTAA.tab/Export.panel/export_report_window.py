@@ -59,9 +59,9 @@ class PublicationReportWindow(forms.WPFWindow):
 
         success = bool(self.report.get("success"))
         status = "Publication terminée" if success else "Publication terminée avec erreurs"
-        self.SummaryText.Text = "{0} — carnet : {1}".format(
+        self.SummaryText.Text = "{0} — {1}".format(
             status,
-            carnet or "inconnu"
+            carnet or "Dossier non renseigné"
         )
         self.DestinationText.Text = (
             "Destination : {0}".format(self.output_directory)
