@@ -1775,3 +1775,12 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 ## 28. Correspondance avec les étapes réalisées
 
 ```text
+
+
+### Correctifs après première recette utilisateur (2026-11-03)
+
+- Ouverture, redimensionnement, recherche, dédoublonnage local et persistance confirmés dans Revit 2025.4.
+- Le bouton de masquage a été rendu plus compact (« ◀ Feuilles » / « ▶ Feuilles ») dans la barre de l'arborescence.
+- Deux listes de filtre « Paramètre » et « Valeur » ont été ajoutées indépendamment du regroupement visuel ; les valeurs proviennent des feuilles du document.
+- La réception des événements WPF de glisser-déposer utilise des handlers sur le TreeView qui reçoivent aussi les événements marqués comme traités par ses enfants.
+- **À retester dans Revit :** affichage des paramètres/valeurs, filtrage, glisser-déposer sur un dossier existant, masquage du panneau, non-régression des ajouts par bouton.
