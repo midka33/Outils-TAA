@@ -683,7 +683,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             guardrail_minimum_overlap, diagnose_guardrail_candidates,
             select_contiguous_guardrail_pair,
             select_native_edge_with_path_continuity,
-            diagnose_guardrail_path_continuity)
+            diagnose_guardrail_path_continuity,
+            select_native_edge_with_path_axis_offset_recovery)
         edges = self._nearby_guardrail_edges(
             room, [item.segment for item in remaining])
         if not edges:
@@ -738,6 +739,28 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     maximum_lateral_mismatch=self._millimeters_to_internal(20.),
                     distance_equality=self._millimeters_to_internal(1.),
                     max_railings=3, max_paths=80, max_edges=120)
+                if match is None:
+                    # Cas beta : deux chemins parfaitement successifs,
+                    # axes decales de 20 a 40 mm par des types/placements
+                    # differents, MAIS arête native a 5 mm maximum du nu.
+                    # Ne PAS activer si les axes sont de part et d'autre,
+                    # se superposent, presentent du jeu ou s'eloignent.
+                    # La cote ne reste associee qu'a un seul garde-corps.
+                    match = select_native_edge_with_path_axis_offset_recovery(
+                        candidate.segment, edges,
+                        self._guardrail_paths.get(str(room.UniqueId), []),
+                        self._guardrail_native_parents,
+                        native_tolerance=tolerance,
+                        path_tolerance=self._millimeters_to_internal(500.),
+                        angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                        max_relaxed_lateral=self._millimeters_to_internal(40.),
+                        max_boundary_axis_offset=self._millimeters_to_internal(60.),
+                        max_native_offset=self._millimeters_to_internal(5.),
+                        minimum_coverage=.98,
+                        maximum_overlap=.02,
+                        maximum_gap=self._millimeters_to_internal(10.),
+                        distance_equality=self._millimeters_to_internal(1.),
+                        max_railings=3, max_paths=80, max_edges=120)
                 if match is None:
                     # Les raisons du refus des chemins etaient invisibles
                     # dans l'ancien rapport, qui ne donnait que la meilleure
@@ -820,6 +843,22 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 "verifier son nu interieur et sa visibilite.".format(
                     room_num, distance_mm,
                     metrics["overlap_ratio"]*100.))
+            if metrics.get("axis_offset_recovery"):
+                self._guardrail_warnings.append(
+                    "{} : RECUPERATION BETA du GC malgre axes decales "
+                    "de {:.0f} mm (decalage max {:.0f} mm) : couverture "
+                    "des deux chemins {:.0f}%, superposition {:.0f}%, "
+                    "arete native a {:.1f} mm. ATTENTION : axes de "
+                    "GetPath differents ; verifier EN PLAN le nu reel, "
+                    "la valeur de cote et les deux ouvrages. "
+                    "Association Revit a UNE arête seulement."
+                    .format(
+                        room_num,
+                        metrics["axis_offset_gap"]/unit_mm,
+                        metrics["axis_offset_max"]/unit_mm,
+                        metrics["path_combined_overlap_ratio"]*100.,
+                        metrics["axis_offset_overlap"]*100.,
+                        distance_mm))
             if metrics.get("path_support_count") == 2:
                 self._guardrail_warnings.append(
                     "{} : DEUX chemins de garde-corps alignes couvrent "
