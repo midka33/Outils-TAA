@@ -847,6 +847,14 @@ class ExportWindow(forms.WPFWindow):
         if getattr(self, "_sheet_explorer", None):
             self._sheet_explorer.refresh()
 
+    def SheetExplorerParameter_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.parameter_changed()
+
+    def SheetExplorerValue_Changed(self, sender, args):
+        if getattr(self, "_sheet_explorer", None):
+            self._sheet_explorer.value_changed()
+
     def SheetExplorerFilter_Changed(self, sender, args):
         if getattr(self, "_sheet_explorer", None):
             self._sheet_explorer.refresh()
