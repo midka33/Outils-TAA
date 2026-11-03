@@ -1125,3 +1125,74 @@ def test_annexe_rail_seul_52pct_nest_pas_choisi(monkeypatch):
     assert candidate.source_kind == "separator"
     assert not any("DEUX garde-corps contigus" in msg
                    for msg in service._guardrail_warnings)
+
+
+
+def test_2240_cotes_natives_cachees_sans_doubler_diagnostics(monkeypatch):
+    """Deux cotes natives : une seule analyse des garde-corps par pièce.
+
+    Premier passage = préparation des références ; second passage =
+    moteur de cotation. Sans cache, les avertissements 0mm et 19.3mm
+    apparaissaient deux fois dans le rapport pour seulement 2 cotes.
+    """
+    mod = load_annotation_module(monkeypatch)
+    class Tx(object):
+        def __init__(self, document, name):
+            pass
+        def Start(self):
+            pass
+        def Commit(self):
+            pass
+        def RollBack(self):
+            pass
+    mod.DB.Transaction = Tx
+    doc = types.SimpleNamespace()
+    service = mod.AnnotationService(doc)
+    room = types.SimpleNamespace(UniqueId="room-2240")
+    r1 = types.SimpleNamespace(source_kind="guardrail_edge",
+                               segment=(0., 0., 0., 4.),
+                               reference=object())
+    r2 = types.SimpleNamespace(source_kind="guardrail_edge",
+                               segment=(3.12, 0., 3.12, 4.),
+                               reference=object())
+    first_passes = []
+    def scan_guardrails(room):
+        first_passes.append(room.UniqueId)
+        service.dims._guardrail_warnings.append(
+            "2240 : arete native 0.0 mm")
+        service.dims._guardrail_warnings.append(
+            "2240 : arete native 19.3 mm")
+        return [r1, r2]
+    service.dims._room_boundary_candidates = scan_guardrails
+    ids = service._create_separator_proxies(
+        object(), [room], line_style=object())
+    assert ids == []
+    assert service.dims.proxy_candidates["room-2240"] == [r1, r2]
+    del service.dims._room_boundary_candidates
+    # Le second appel doit servir le cache directement, et ne doit pas
+    # invoquer le moteur principal de cotes ni une nouvelle recherche GC.
+    result = service.dims._room_boundary_candidates(room)
+    assert result == [r1, r2]
+    assert first_passes == ["room-2240"]
+    assert len(service.dims._guardrail_warnings) == 2
+
+
+def test_cache_references_vide_evite_une_nouvelle_recherche(monkeypatch):
+    """Même une liste sans candidats reste mémorisée le temps de l'unité."""
+    mod = load_annotation_module(monkeypatch)
+    class Tx(object):
+        def __init__(self, document, name):
+            pass
+        def Start(self):
+            pass
+        def Commit(self):
+            pass
+        def RollBack(self):
+            pass
+    mod.DB.Transaction = Tx
+    service = mod.AnnotationService(types.SimpleNamespace())
+    room = types.SimpleNamespace(UniqueId="room-empty")
+    service.dims._room_boundary_candidates = lambda _room: []
+    service._create_separator_proxies(object(), [room], line_style=object())
+    del service.dims._room_boundary_candidates
+    assert service.dims._room_boundary_candidates(room) == []
