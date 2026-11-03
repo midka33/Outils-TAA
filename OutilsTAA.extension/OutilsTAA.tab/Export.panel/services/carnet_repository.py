@@ -657,6 +657,24 @@ class CarnetRepository(object):
             before,
         )
 
+    def rename_publication_folder(self, folder_id, new_name):
+        """Renomme un dossier sans toucher aux ID, enfants ni réglages."""
+        folder_id = str(folder_id)
+        name = (new_name or "").strip()
+        if not name:
+            raise ValueError("Le nom du dossier ne peut pas être vide.")
+        if folder_id == self.DEFAULT_FOLDER_ID:
+            raise ValueError("Le dossier Général ne peut pas être renommé.")
+        data = self._ensure_structure(self._read())
+        for collection in ("folders", "sets"):
+            for item in data.get(collection, []):
+                if str(item.get("id")) == folder_id:
+                    if item.get("name") != name:
+                        item["name"] = name
+                        self._write(data)
+                    return True
+        raise ValueError("Dossier introuvable.")
+
     def remove_sheets_from_publications(self, sheet_refs):
         """Retire les références de feuilles sans supprimer les feuilles Revit.
 
