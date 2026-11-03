@@ -1378,7 +1378,8 @@ def test_noncontinuous_parent_geometry_budget_et_sans_instance(monkeypatch):
             raise AssertionError("Balustres ne doivent pas etre lus.")
 
     class Railing(object):
-        Id = Id()
+        def __init__(self):
+            self.Id = Id()
         def get_Geometry(self, options):
             return [Instance(), Solid()]
 
