@@ -682,7 +682,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             select_guardrail_edge, guardrail_tolerance_mm,
             guardrail_minimum_overlap, diagnose_guardrail_candidates,
             select_contiguous_guardrail_pair,
-            select_native_edge_with_path_continuity)
+            select_native_edge_with_path_continuity,
+            diagnose_guardrail_path_continuity)
         edges = self._nearby_guardrail_edges(
             room, [item.segment for item in remaining])
         if not edges:
@@ -698,6 +699,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         unit_mm = self._millimeters_to_internal(1.0)
         room_num = room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")
         for candidate in remaining:
+            path_diagnostic = None
             match = select_guardrail_edge(
                 candidate.segment, edges,
                 tolerance=tolerance,
@@ -736,7 +738,58 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     maximum_lateral_mismatch=self._millimeters_to_internal(20.),
                     distance_equality=self._millimeters_to_internal(1.),
                     max_railings=3, max_paths=80, max_edges=120)
+                if match is None:
+                    # Les raisons du refus des chemins etaient invisibles
+                    # dans l'ancien rapport, qui ne donnait que la meilleure
+                    # arete native a 52 %. Aucun nouvel acces a l'API Revit :
+                    # nous reutilisons strictement GetPath deja filtre.
+                    path_diagnostic = diagnose_guardrail_path_continuity(
+                        candidate.segment,
+                        self._guardrail_paths.get(str(room.UniqueId), []),
+                        path_tolerance=self._millimeters_to_internal(500.),
+                        angle_degrees=self.FLOOR_EDGE_ANGLE_TOLERANCE_DEGREES,
+                        minimum_path_coverage=.90,
+                        minimum_part_coverage=.25,
+                        maximum_gap=self._millimeters_to_internal(100.),
+                        maximum_lateral_mismatch=self._millimeters_to_internal(20.),
+                        max_railings=3, max_paths=80)
             if match is None:
+                if path_diagnostic is not None:
+                    summary = path_diagnostic.get("best")
+                    if summary is not None and unit_mm > 0:
+                        parents = summary["parent_ids"]
+                        spans = summary["start_end"]
+                        self._guardrail_warnings.append(
+                            "{} : diagnostic continuité GC {} + {} : "
+                            "chemins {:.0f}-{:.0f}% / {:.0f}-{:.0f}%, "
+                            "union {:.0f}%, superposition {:.0f}%, "
+                            "jeu {:.0f} mm, decalage {:.0f} mm, "
+                            "decalage absolu max {:.0f} mm ; "
+                            "REFUS : {}. {} paire(s) evaluee(s)."
+                            .format(
+                                room_num, parents[0], parents[1],
+                                spans[0][0]*100., spans[0][1]*100.,
+                                spans[1][0]*100., spans[1][1]*100.,
+                                summary["coverage"]*100.,
+                                summary["overlap"]*100.,
+                                summary["gap"]/unit_mm,
+                                summary["lateral"]/unit_mm,
+                                summary["max_boundary_offset"]/unit_mm,
+                                ("chemins compatibles mais aucune arete "
+                                 "native associable"
+                                 if path_diagnostic["supported"]
+                                 else ",".join(summary["reasons"])),
+                                path_diagnostic["pair_count"]))
+                    else:
+                        self._guardrail_warnings.append(
+                            "{} : diagnostic continuité GC : aucune paire "
+                            "admissible ; statut {} ({} chemin(s), {} "
+                            "segment(s), {} paire(s))."
+                            .format(
+                                room_num, path_diagnostic["reason"],
+                                path_diagnostic["path_count"],
+                                path_diagnostic["segment_count"],
+                                path_diagnostic["pair_count"]))
                 # Diagnostiquer les distances reelles, sans decaler les
                 # references ni abaisser arbitrairement le recouvrement.
                 records = diagnose_guardrail_candidates(
