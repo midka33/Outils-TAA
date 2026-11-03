@@ -193,7 +193,8 @@ def select_guardrails_by_path(items, target_segments, tolerance,
         info["reason"] = "rail_budget"
         selected = []
     elif not selected:
-        info["reason"] = "no_match"
+        if info["reason"] != "rail_budget":
+            info["reason"] = "no_match"
     elif info["reason"] != "rail_budget":
         info["reason"] = "selected"
     info["selected"] = len(selected)
