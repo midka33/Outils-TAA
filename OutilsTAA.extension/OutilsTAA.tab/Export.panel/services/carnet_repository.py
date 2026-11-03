@@ -657,6 +657,28 @@ class CarnetRepository(object):
             before,
         )
 
+    def remove_sheets_from_publications(self, sheet_refs):
+        """Retire les références de feuilles sans supprimer les feuilles Revit.
+
+        sheet_refs: couples (id du dossier publiable, UniqueId de feuille).
+        Le dossier reste présent même lorsque sa dernière feuille est retirée.
+        """
+        refs = set((str(sid), str(uid)) for sid, uid in (sheet_refs or []))
+        if not refs:
+            return 0
+        data = self._ensure_structure(self._read())
+        removed = 0
+        for publication in data.get("sets", []):
+            sid = str(publication.get("id"))
+            items = publication.get("items", [])
+            remaining = [item for item in items
+                         if (sid, str(item.get("unique_id"))) not in refs]
+            removed += len(items) - len(remaining)
+            publication["items"] = remaining
+        if removed:
+            self._write(data)
+        return removed
+
     def delete(self, set_id):
         data = self._ensure_structure(self._read())
         set_id = str(set_id)
