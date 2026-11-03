@@ -132,7 +132,7 @@ def select_guardrails_by_path(items, target_segments, tolerance,
         # Le meme ouvrage peut produire plusieurs troncons valides ;
         # ne conserver que son meilleur troncon pour cette limite.
         unique = []
-        for distance, length, element in matches:
+        for distance, length, element, segment, overlap in matches:
             idx = next((i for i, entry in enumerate(unique)
                         if entry[2] is element), -1)
             if idx < 0:
