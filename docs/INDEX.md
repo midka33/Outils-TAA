@@ -54,6 +54,12 @@ Les anciennes étapes, audits et recettes de campagne sont sous
 La spécification de développement détaillée des étapes 01 à 09 est archivée dans
 `archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`.
 
+## Giration des véhicules (planifié)
+
+**Spécification de référence :** `25_Giration_Vehicules.md` — module de tracé manuel type Vehicle Tracking, bibliothèque de véhicules sourcés, calcul d'enveloppes et rendu exploitable dans Revit.
+
+**État :** cadrage fonctionnel validé ; développement non démarré ; faisabilité de l'interaction dynamique sous pyRevit à tester en priorité. [Suivi GitHub #40](https://github.com/midka33/Outils-TAA/issues/40).
+
 ## Release courante
 
 Le dossier `release/` ne contient que les documents utiles à la release
