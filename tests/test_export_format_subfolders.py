@@ -145,3 +145,78 @@ def test_xaml_and_event_map_have_two_distinct_options():
     assert '"FormatSubfoldersCheckBox": "separate_format_subfolders"' in window
     assert '"separate_format_subfolders": bool(self.FormatSubfoldersCheckBox.IsChecked)' in window
     assert "self.FormatSubfoldersCheckBox.IsChecked = effective.separate_format_subfolders" in window
+
+
+def test_first_edit_of_legacy_publication_folder_preserves_other_checkbox():
+    """Désactiver le dossier ne doit plus désactiver silencieusement PDF/DWG."""
+    import ast
+    source = (PANEL / "export_window.py").read_text(encoding="utf-8")
+    cls = next(
+        n for n in ast.parse(source).body
+        if isinstance(n, ast.ClassDef) and n.name == "ExportWindow")
+    node = next(
+        n for n in cls.body
+        if isinstance(n, ast.FunctionDef)
+        and n.name == "_freeze_legacy_format_folder_setting")
+    namespace = {}
+    exec(compile(ast.Module(body=[node], type_ignores=[]),
+                 "export_window.py", "exec"), namespace)
+    method = namespace[node.name]
+
+    publication = PublicationSet(
+        "Plans", set_id="plans", persistent=True,
+        publication_settings=PublicationSettings(
+            separate_carnet_subfolder=True))
+    current = publication.publication_settings
+    resolver = SettingsResolver(None)
+    window = SimpleNamespace(
+        _setting_source=lambda target, field: "Défaut",
+        _resolve_container_settings=lambda target: resolver.resolve_node(
+            target, publication_sets=[publication]))
+
+    method(window, publication, current, "separate_carnet_subfolder")
+    assert current.separate_format_subfolders is True
+    current.separate_carnet_subfolder = False
+    resolved = resolver.resolve_node(
+        publication, publication_sets=[publication])
+    assert resolved.separate_carnet_subfolder is False
+    assert resolved.separate_format_subfolders is True
+
+    # Éditer les autres réglages ne transforme pas les anciennes valeurs.
+    other = PublicationSettings(separate_carnet_subfolder=True)
+    method(window, publication, other, "pdf_mode")
+    assert other.separate_format_subfolders is None
+
+
+def test_first_edit_does_not_freeze_explicit_inherited_format_rule():
+    import ast
+    source = (PANEL / "export_window.py").read_text(encoding="utf-8")
+    cls = next(
+        n for n in ast.parse(source).body
+        if isinstance(n, ast.ClassDef) and n.name == "ExportWindow")
+    fn = next(
+        n for n in cls.body
+        if isinstance(n, ast.FunctionDef)
+        and n.name == "_freeze_legacy_format_folder_setting")
+    namespace = {}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]),
+                 "export_window.py", "exec"), namespace)
+    parent = PublicationFolder(
+        "DCE", "root",
+        publication_settings=PublicationSettings(separate_format_subfolders=False))
+    child = PublicationSet(
+        "Plans", set_id="plans", folder_id="root", persistent=True,
+        publication_settings=PublicationSettings(separate_carnet_subfolder=True))
+    settings = child.publication_settings
+    resolver = SettingsResolver(None)
+    window = SimpleNamespace(
+        _setting_source=lambda target, field: resolver.source_for_node(
+            target, field, folders=[parent], publication_sets=[child]),
+        _resolve_container_settings=lambda target: resolver.resolve_node(
+            target, folders=[parent], publication_sets=[child]))
+    namespace[fn.name](window, child, settings, "separate_carnet_subfolder")
+    assert settings.separate_format_subfolders is None
+    settings.separate_carnet_subfolder = False
+    effective = resolver.resolve_node(
+        child, folders=[parent], publication_sets=[child])
+    assert effective.separate_format_subfolders is False
