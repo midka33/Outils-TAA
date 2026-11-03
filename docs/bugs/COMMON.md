@@ -837,3 +837,52 @@ Tests : `test_loggia_2238_une_limite_complete_et_deux_rails_suivants`,
 `test_ne_pas_chercher_second_rail_si_pas_de_continuite`,
 `test_complement_de_rail_refuse_si_decales_30mm`,
 `test_companion_ne_fait_pas_depassement_silencieux_du_budget`.
+
+
+---
+
+### BUG-COMMON-021 — 2238 : second tronçon éliminé avant contrôle des arêtes natives
+
+**Symptôme (retour Revit 2025.4) :** sur 2238, rapport de
+`3 chemin(s), 2 limite(s), 3 correspondance(s)`, mais
+`0 second(s) tronçon(s) complémentaire(s)`. Seulement **2 garde-corps**
+sont inspectés (24 arêtes, 8 références natives candidates). Une cote
+est native (recouvrement 100 %) et l'autre retombe en 2D car
+l'arête restante couvre **52 %** de sa limite.
+
+**Cause racine dans le code :** le préfiltre
+`select_guardrails_by_path` ne cherchait un second garde-corps
+que si le **chemin GetPath du premier** couvrait moins de 60 %.
+Or la longueur de ce chemin n'est pas nécessairement celle de
+l'arête TopRail effectivement utilisable pour la cote.
+Un chemin de 100 % peut correspondre à une arête native de 52 %.
+Le second ouvrage est alors exclu avant l'analyse des références
+natives ; le test sur la paire ne peut pas s'exécuter.
+La structure géométrique exacte du troisième garde-corps de
+2238 reste à confirmer au prochain test Revit.
+
+**Correction :** conserver la sélection prioritaire du garde-corps
+le plus proche (puis plus long à égalité), et garder en supplément
+le candidat distinct suivant lorsqu'il existe pour une limite,
+sans considérer son chemin comme preuve de contiguïté.
+L'extraction native reste bornée à **3 garde-corps au total** et
+**120 arêtes au total**. La vérification stricte de la continuité,
+du décalage, du raccord et de la couverture >=90 % est effectuée
+**uniquement sur les Edge.Reference natives**. Au-delà du budget,
+conserver le fallback 2D et ne pas choisir arbitrairement un
+sous-ensemble de quatre garde-corps.
+Le rapport précise que le deuxième tronçon est **à vérifier**
+sur les arêtes et n'est pas déjà validé.
+
+**Prévention :** ne jamais transformer un critère de géométrie de
+présélection (Railing.GetPath) en décision définitive sur la longueur
+de l'arête native. Différencier candidat retenu pour inspection et
+continuité attestée par des arêtes cotables.
+
+**Anti-régression :** `test_loggia_2238_chemin_entier_arrete_native_demie_garde_second_gc`,
+`test_candidat_supplémentaire_seul_ne_suffit_pas_a_coter`,
+`test_companion_ne_fait_pas_depassement_silencieux_du_budget`,
+plus les tests précédents de deux tronçons jointifs et les suites
+CI Annotations, Plans de vente, Export et Calculs. **Test natif
+dans Revit 2025.4 obligatoire** : deuxième tronçon réellement
+sélectionné puis preuve de continuité native, ou fallback documenté.
