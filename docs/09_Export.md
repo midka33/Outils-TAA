@@ -1816,3 +1816,29 @@ Le test automatisé reproduit 5 sous-dossiers non vides et 16 feuilles : mode PD
 - **Ne pas confondre :** `{dossier}` désigne le **dossier parent**, tandis que `{nom_dossier}` désigne le **dossier de publication courant**.
 
 Recette Revit 2025.4 : renommer un dossier ordinaire et un dossier publiable via le bouton, F2 et clic droit ; fermer/réouvrir pour contrôler la persistance, vérifier qu'aucune feuille ou réglage n'a changé. Contrôler les PDF combinés en aperçu avec les modèles `{carnet}` existants et `{nom_dossier}` nouveaux. Voir `BUG-EXPORT-057` et `BUG-EXPORT-058`.
+
+
+
+### Organisation de sortie : deux choix indépendants (2026-11-03)
+
+Dans **Réglages de publication → Organisation des fichiers**, l'utilisateur dispose désormais de deux cases séparées et héritables :
+
+1. **Créer ce dossier dans la sortie** : ajoute le nom du dossier de publication à son chemin de sortie (ancienne option conservée).
+2. **Créer un sous-dossier par format (PDF et DWG)** : place les PDF dans `PDF/` et les DWG dans `DWG/`, indépendamment de la première option.
+
+Pour une destination `D:\Exports` et un dossier publié `A2100_Façades_Collectif_A`, les chemins (hors parents de l'arborescence déjà appliqués) sont :
+
+| Dossier de publication | Sous-dossiers par format | Chemins |
+| --- | --- | --- |
+| Oui | Oui | `D:\Exports\A2100_Façades_Collectif_A\PDF\` et `...\DWG\` |
+| Oui | Non | `D:\Exports\A2100_Façades_Collectif_A\` (PDF et DWG ensemble) |
+| Non | Oui | `D:\Exports\PDF\` et `D:\Exports\DWG\` |
+| Non | Non | `D:\Exports\` (PDF et DWG ensemble) |
+
+Les dossiers de parents déjà inclus dans la hiérarchie de publication restent inchangés. Seuls les sous-dossiers des formats effectivement publiés sont créés.
+
+**Compatibilité V1 :** la nouvelle propriété `separate_format_subfolders` est nullable (None = ancienne configuration). Pour les enregistrements ne possédant pas cette propriété, le comportement effectif copie l'ancienne option « Créer ce dossier », de façon à reproduire strictement les chemins historiques sans migration obligatoire. Dès la modification manuelle de « Créer ce dossier », le réglage de format historique est conservé séparément, afin de ne pas modifier la seconde case involontairement. Une valeur explicite de format héritée d'un parent conserve sa priorité normale.
+
+**Technique :** `PublicationSettings.FIELDS/ACTIVE_FIELDS`, `SettingsResolver`, `publication_directory`, l'interface WPF et les profils personnalisés gèrent `separate_format_subfolders`. L'aperçu PDF/DWG et les deux moteurs partagent la même fonction de calcul de destination. Les modes PDF combiné/séparé et DWG n'influent pas sur le classement.
+
+**Recette Revit 2025.4 :** tester les quatre combinaisons avec deux feuilles, les modes PDF combiné et séparé, la création PDF/DWG, les héritages et rechargements de profils, puis contrôler chemins dans l'aperçu avant publication dans un répertoire temporaire. Voir BUG-EXPORT-059.
