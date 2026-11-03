@@ -55,7 +55,6 @@ class ExportWindow(forms.WPFWindow):
         apply_theme(self)
         self._load_context()
         self._drag_drop_manager = PublicationTreeDragDrop(self)
-        self._setup_publication_context_menu()
         self._sheet_explorer = SheetExplorer(self, self._available_sheets)
 
     def _load_context(self):
@@ -236,6 +235,7 @@ class ExportWindow(forms.WPFWindow):
         node.AllowDrop = True
         node.Tag = ("FOLDER", folder)
         node.Header = self._node_header(folder.name, "TaaFolderIcon", True)
+        node.ContextMenu = self._context_menu_for_folder(node.Tag)
         return node
 
     def _make_carnet_node(self, carnet):
@@ -251,6 +251,7 @@ class ExportWindow(forms.WPFWindow):
         node.ToolTip = "Dossier • {0} mise(s) en page".format(
             len(carnet.items or [])
         )
+        node.ContextMenu = self._context_menu_for_folder(node.Tag)
         return node
 
     def _sheet_header(self, item, settings):
@@ -835,31 +836,26 @@ class ExportWindow(forms.WPFWindow):
                 )
 
 
-    def _setup_publication_context_menu(self):
-        """Menu contextuel de l'arborescence, indépendant de l'explorateur source."""
+    def _context_menu_for_folder(self, tag):
+        """Chaque nœud possède son menu : aucun clic droit ambigu sur le TreeView."""
+        if str(tag[1].id) == "default":
+            return None
         menu = ContextMenu()
         rename = MenuItem()
         rename.Header = "Renommer (F2)"
+        rename.Tag = tag
         rename.Click += self.RenameFolder_Click
         menu.Items.Add(rename)
-        self.PublicationTree.ContextMenu = menu
-        self.PublicationTree.ContextMenuOpening += self._publication_context_opening
-
-    def _publication_context_opening(self, sender, args):
-        node = self._drag_drop_manager._item(args.OriginalSource)
-        tag = getattr(node, "Tag", None)
-        if not tag or tag[0] not in ("FOLDER", "CARNET"):
-            args.Handled = True
-            return
-        if str(tag[1].id) == "default":
-            args.Handled = True
-            return
-        self._drag_drop_manager._select(
-            [self._drag_drop_manager._key(tag)])
-        self._rename_context_tag = tag
+        return menu
 
     def RenameFolder_Click(self, sender, args):
-        tags = self._publication_selection_tags()
+        # Le clic droit se rapporte au nœud sous le pointeur, même si la
+        # sélection de gauche est restée sur un autre dossier.
+        context_tag = getattr(sender, "Tag", None)
+        if isinstance(context_tag, tuple) and len(context_tag) > 1:
+            tags = [context_tag]
+        else:
+            tags = self._publication_selection_tags()
         if len(tags) != 1 or tags[0][0] not in ("FOLDER", "CARNET"):
             forms.alert("Sélectionnez un seul dossier à renommer.", title="Export")
             return
