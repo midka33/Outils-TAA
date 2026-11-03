@@ -1784,3 +1784,8 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 - Deux listes de filtre « Paramètre » et « Valeur » ont été ajoutées indépendamment du regroupement visuel ; les valeurs proviennent des feuilles du document.
 - La réception des événements WPF de glisser-déposer utilise des handlers sur le TreeView qui reçoivent aussi les événements marqués comme traités par ses enfants.
 - **À retester dans Revit :** affichage des paramètres/valeurs, filtrage, glisser-déposer sur un dossier existant, masquage du panneau, non-régression des ajouts par bouton.
+
+
+### Correctif dossier racine apres ajout (2026-11-03)
+
+Bug de recette : un dossier independant place hors « General » disparaissait visuellement apres l'ajout de sa premiere feuille. Cause : le repository le convertissait en dossier publiable avec `folder_id=None`, mais `ExportWindow._refresh_tree` n'affichait que les dossiers ordinaires a la racine. Correctif : construire les racines depuis `container_children(None)`, en affichant dossiers ordinaires et dossiers publiables. Tests de non-regression ajoutes pour la promotion/persistance d'un dossier racine et le contrat de rendu. A verifier dans Revit sur le projet de test.
