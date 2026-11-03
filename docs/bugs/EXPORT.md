@@ -782,3 +782,16 @@ du travail dans un chemin `TextChanged`.
 « Paramètre », la frappe dans la recherche doit rester fluide (aucun délai
 perceptible) et les groupes rester exacts ; `_used_paths` reste réévalué pour
 les indicateurs d'utilisation.
+
+
+### BUG-EXPORT-056 — Un dossier parent sans feuilles bloque la publication de ses sous-dossiers
+
+**Symptôme :** dans Revit 2025.4, sélectionner le dossier `A2000 Plan des façades` affiche 21 livrables (5 PDF combinés et 16 DWG) mais une erreur bloquante « Aucune mise en page à publier dans le périmètre sélectionné. » empêche de confirmer.
+
+**Cause racine :** le parent visuel peut être un `PublicationSet` sans feuilles, conservé pour héberger des sous-dossiers après la promotion d'un dossier ordinaire. `_container_targets` l'incluait systématiquement parmi les cibles de publication et incluait aussi les descendants `PublicationSet` vides. `PublicationPreviewService.build` signalait alors une erreur pour cette cible vide, même si les autres sous-dossiers avaient des feuilles valides.
+
+**Correction :** dans `models/publication_folder.py`, conserver les dossiers vides dans l'arborescence et la chaîne d'héritage, mais n'inclure dans le périmètre envoyé à l'aperçu et au moteur de publication que les dossiers contenant au moins une référence de feuille. Si toutes les branches sont vides, le périmètre reste vide et aucune publication n'est autorisée.
+
+**Règle préventive :** distinguer explicitement les **conteneurs d'organisation** des **cibles publiables**. Un `PublicationSet` sans feuille est un conteneur légitime, pas un livrable PDF/DWG. Ne jamais bloquer une publication récursive valide à cause d'un ancêtre ou d'un frère vide ; ne jamais masquer une vraie erreur concernant une feuille présente.
+
+**Anti-régression :** `tests/test_export_multiselection.py` reproduit un dossier `A2000` vide avec cinq sous-dossiers non vides, 16 feuilles, 21 lignes d'aperçu dont cinq PDF combinés et 16 DWG, sans erreur ; vérifie également les descendants vides, l'absence de publication si tous les dossiers sont vides, et un parent contenant lui-même des feuilles. Dans Revit : sélectionner `A2000`, contrôler l'aperçu, confirmer uniquement sur une destination de test et vérifier un PDF combiné par sous-dossier.
