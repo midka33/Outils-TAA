@@ -834,6 +834,57 @@ class ExportWindow(forms.WPFWindow):
                 )
 
 
+    def DeleteNode_Click(self, sender, args):
+        """Suppression ciblée dans la publication, jamais dans le projet Revit."""
+        tags = self._publication_selection_tags()
+        if not tags:
+            forms.alert("Sélectionnez une mise en page ou un dossier à supprimer.",
+                        title="Export")
+            return
+        kinds = set(tag[0] for tag in tags)
+        if len(kinds) != 1:
+            forms.alert("Sélectionnez uniquement des mises en page ou uniquement "
+                        "des dossiers.", title="Export")
+            return
+        kind = next(iter(kinds))
+        if kind == "SHEET":
+            refs = [(tag[2].id, tag[1].unique_id) for tag in tags]
+            removed = self.repository.remove_sheets_from_publications(refs)
+            if not removed:
+                forms.alert("Aucune mise en page retirée.", title="Export")
+                return
+        elif kind == "FOLDER":
+            if any(str(tag[1].id) == "default" for tag in tags):
+                forms.alert("Le dossier Général ne peut pas être supprimé.",
+                            title="Export")
+                return
+            if not forms.alert("Supprimer les dossiers sélectionnés ? "
+                               "Les sous-dossiers doivent être vides.",
+                               title="Export", yes=True, no=True):
+                return
+            removed = sum(bool(self.controller.delete_folder(tag[1].id))
+                          for tag in tags)
+        elif kind == "CARNET":
+            if not forms.alert("Supprimer les dossiers de publication sélectionnés "
+                               "et leurs références de feuilles ?",
+                               title="Export", yes=True, no=True):
+                return
+            removed = sum(bool(self.repository.delete(tag[1].id))
+                          for tag in tags)
+        else:
+            return
+        if not removed:
+            forms.alert("Suppression impossible : le dossier contient peut-être "
+                        "des sous-dossiers.", title="Export")
+            return
+        self._selected_set = None
+        self._selected_item = None
+        self._selected_folder = None
+        self._selected_kind = None
+        self._drag_drop_manager._select([], notify=False)
+        self._refresh_tree()
+        self._set_no_selection()
+
     # Explorateur source Revit (les interactions de publication existantes
     # restent gérées indépendamment par PublicationTreeDragDrop).
     def SheetExplorerToggle_Click(self, sender, args):
