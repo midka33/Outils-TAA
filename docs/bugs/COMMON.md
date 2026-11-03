@@ -1020,3 +1020,53 @@ avec zéro lecture de géométrie parent. Exécuter les tests
 Annotations + PDV, Export, Calculs, puis recetter réellement
 sur une copie dans Revit 2025.4. **La référence native obtenue
 par ce fallback n'a pas encore été validée dans Revit.**
+
+
+---
+
+### BUG-COMMON-024 — 2238 : refus de continuité indiagnostiquable malgré BUG-COMMON-023
+
+**Retour Revit du 3 novembre 2026 (après correctif 023) :** le module détecte
+3 garde-corps et 2 limites de la loggia 2238. Il trouve 2 TopRail et 8
+références candidates sur 24 arêtes, accepte une arête native couvrant 100 %
+de la première limite, mais refuse la meilleure arête de la seconde limite
+(52 % de recouvrement, 15 mm de distance). Il produit toujours des repères 2D.
+Le nouveau fallback par union de deux chemins n'affiche **aucune raison** de
+son échec. Ce retour **invalide la réussite supposée** du correctif 023 sur
+cette maquette ; le vrai motif géométrique reste à vérifier.
+
+**Cause racine du défaut de diagnostic :** dans
+`_upgrade_separator_guardrail`, l'appel à
+`select_native_edge_with_path_continuity` retournait seulement une référence
+native ou `None`. Le rapport n'exposait ensuite que les raisons du rejet
+d'une **arête individuelle** (<60 %) et masquait les raisons du rejet de
+la **preuve de continuité par chemins** (superposition, couverture <90 %,
+jonction >100 mm, décalage >20 mm, mauvais angle, etc.).
+
+**Correction sûre :** ajouter un analyseur géométrique **pur et non intrusif**
+`diagnose_guardrail_path_continuity`, exécuté seulement pour une limite
+extérieure dont les références natives et la preuve de continuité ont déjà
+échoué. Il réutilise les chemins `GetPath` déjà en mémoire, sans lire de
+géométrie Revit supplémentaire. Le rapport donne, pour la meilleure paire,
+les deux IDs de garde-corps, les deux intervalles projetés sur la limite,
+la couverture **par union**, la superposition réelle, le jeu, les écarts
+latéraux et les causes de rejet. Si la paire géométrique était compatible,
+le rapport indique plutôt l'absence de référence native associable.
+Ce rapport ne remplace **jamais** la décision du moteur de cotation.
+
+**Prudence :** une couverture de 100 % obtenue avec un chemin complet et un
+deuxième chemin qui chevauche sa moitié ne prouve pas deux tronçons successifs.
+Ne pas corriger ce cas en abaissant le seuil de 60 %, en additionnant deux fois
+les parties superposées, ou en fabriquant une `Reference` à partir de
+`GetPath`. La seconde cote demeure non associative tant qu'une preuve
+géométrique fiable et une référence native Revit ne sont pas réunies.
+
+**Anti-régression :** tests Python de la géométrie 52 % + 48 % réellement
+successive, chemin complet + demi-chemin superposé (rejet malgré 100 %
+d'union), deux portions superposées, trou de 150 mm, budget de garde-corps,
+invariance du choix de référence, et contrat de rapport. Exécuter suites
+Annotations/Plans de vente. **Recette Revit sur copie** : relancer 2238
+après suppression des anciennes cotes, relever la nouvelle ligne
+`diagnostic continuité GC`, puis vérifier 2240 en non-régression.
+N'autoriser la cotation en masse qu'après validation de l'associativité et
+du nu réel, sans crash.
