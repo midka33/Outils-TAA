@@ -14,7 +14,8 @@ from common.guardrail_reference_policy import (
     is_exterior_annex, guardrail_tolerance_mm,
     guardrail_minimum_overlap, diagnose_guardrail_candidates,
     select_contiguous_guardrail_pair,
-    select_native_edge_with_path_continuity)
+    select_native_edge_with_path_continuity,
+    diagnose_guardrail_path_continuity)
 
 
 def test_arrete_native_superposee_a_la_separation_est_admissible():
@@ -672,3 +673,114 @@ def test_entre_deux_references_natives_choisir_la_plus_proche():
         lim, edges, paths, {901:101, 902:102}, .05, .50,
         maximum_gap=.10, maximum_lateral_mismatch=.02)
     assert match[0] == "NEAR"
+
+
+def test_diagnostic_2238_chemins_successifs_couvrent_100pct():
+    """52 % + 48 % successifs : message de diagnostic compatible."""
+    length = 3.62
+    paths = [
+        (16141887, [(0., .015, length*.52, .015)]),
+        (8951804, [(length*.52, .018, length, .018)]),
+    ]
+    status = diagnose_guardrail_path_continuity(
+        (0., 0., length, 0.), paths, path_tolerance=.50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert status["supported"]
+    assert status["reason"] == "chemins_compatibles"
+    assert status["pair_count"] == 1
+    assert abs(status["best"]["coverage"] - 1.) < 1.e-9
+    assert status["best"]["parent_ids"] == (16141887, 8951804)
+    assert abs(status["best"]["start_end"][0][1] - .52) < 1.e-9
+
+
+def test_diagnostic_2238_chemin_100pct_plus_demi_chemin_superpose():
+    """Une union 100 % ne valide PAS deux ouvrages qui se superposent."""
+    length = 3.62
+    paths = [
+        (16141887, [(0., .015, length, .015)]),
+        (8951804, [(length*.52, .018, length, .018)]),
+    ]
+    status = diagnose_guardrail_path_continuity(
+        (0., 0., length, 0.), paths, path_tolerance=.50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert not status["supported"]
+    assert status["best"]["coverage"] > .99
+    assert abs(status["best"]["overlap"] - .48) < 1.e-9
+    assert "chemins_superposes" in status["best"]["reasons"]
+    assert select_native_edge_with_path_continuity(
+        (0., 0., length, 0.),
+        [((0., .01, length*.52, .01), "NATIVE", 901, 3.2)],
+        paths, {901:16141887}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02) is None
+
+
+def test_diagnostic_2238_deux_chemins_sur_la_meme_moitie():
+    length = 3.62
+    paths = [
+        (16141887, [(0., .015, length*.52, .015)]),
+        (8951804, [(0., .018, length*.48, .018)]),
+    ]
+    status = diagnose_guardrail_path_continuity(
+        (0., 0., length, 0.), paths, path_tolerance=.50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert not status["supported"]
+    assert "chemins_superposes" in status["best"]["reasons"]
+    assert "couverture_insuffisante" in status["best"]["reasons"]
+    assert 0.51 < status["best"]["coverage"] < 0.53
+
+
+def test_diagnostic_2238_chemins_separes_par_150mm():
+    length = 3.62
+    paths = [
+        (16141887, [(0., .015, length*.52, .015)]),
+        (8951804, [(length*.52+.15, .018, length, .018)]),
+    ]
+    status = diagnose_guardrail_path_continuity(
+        (0., 0., length, 0.), paths, path_tolerance=.50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert not status["supported"]
+    assert "raccord_trop_grand" in status["best"]["reasons"]
+    assert abs(status["best"]["gap"]-.15) < 1.e-9
+
+
+def test_diagnostic_2238_absence_deuxieme_chemin_et_budget():
+    target = (0., 0., 3.62, 0.)
+    one = diagnose_guardrail_path_continuity(
+        target, [(16141887, [(0., 0., 3.62, 0.)])], .50)
+    assert one["reason"] == "pas_de_paire"
+    assert one["pair_count"] == 0
+    many = diagnose_guardrail_path_continuity(
+        target, [(i, [(0., 0., 3.62, 0.)]) for i in range(4)],
+        .50, max_railings=3)
+    assert many["reason"] == "budget"
+    assert not many["supported"]
+
+
+def test_diagnostic_2238_ne_change_jamais_la_selection_de_reference():
+    target = (0., 0., 3.62, 0.)
+    paths = [(16141887, [(0., .015, 1.88, .015)]),
+             (8951804, [(1.88, .018, 3.62, .018)])]
+    native = [((0., .01, 1.88, .01), "NATIVE", 901, 3.2)]
+    before = select_native_edge_with_path_continuity(
+        target, native, paths, {901:16141887}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    _ = diagnose_guardrail_path_continuity(
+        target, paths, .50, maximum_gap=.10,
+        maximum_lateral_mismatch=.02)
+    after = select_native_edge_with_path_continuity(
+        target, native, paths, {901:16141887}, .05, .50,
+        maximum_gap=.10, maximum_lateral_mismatch=.02)
+    assert before == after
+    assert after is not None
+
+
+def test_revit_diagnostic_est_raccorde_apres_echec_de_continuite():
+    """Le rapport montre les motifs seulement apres echec du fallback."""
+    panel = (Path(__file__).resolve().parents[2] /
+             "OutilsTAA.extension/OutilsTAA.tab/Annotations.panel"
+             "/services/annotations_service.py")
+    source = panel.read_text(encoding="utf-8")
+    assert "diagnose_guardrail_path_continuity(" in source
+    assert "diagnostic continuité GC" in source
+    assert "chemins compatibles mais aucune arete" in source
+    assert "max_railings=3, max_paths=80" in source
