@@ -64,7 +64,6 @@
             <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
               <Button x:Name="SheetExplorerToggle" Content="◀ Feuilles" Click="SheetExplorerToggle_Click" Margin="4,0" MinWidth="82" ToolTip="Afficher ou masquer l'explorateur des feuilles"/>
               <Button Content="Nouveau dossier" Click="NewFolder_Click" MinWidth="110" Margin="4,0" ToolTip="Nouveau dossier" />
-              <Button Content="Ajouter des mises en page…" Click="OpenCarnetManager_Click" MinWidth="170" Margin="4,0" ToolTip="Créer un ou plusieurs dossiers de publication à partir de mises en page Revit" />
             </StackPanel>
           </StackPanel>
           <TreeView x:Name="PublicationTree" Grid.Row="1" AllowDrop="True" SelectedItemChanged="Tree_SelectedItemChanged" MouseDoubleClick="Tree_MouseDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,4,0,0" />
