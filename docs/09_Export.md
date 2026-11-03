@@ -1789,3 +1789,8 @@ Export sera considéré comme ayant atteint sa cible lorsque l'utilisateur pourr
 ### Correctif dossier racine apres ajout (2026-11-03)
 
 Bug de recette : un dossier independant place hors « General » disparaissait visuellement apres l'ajout de sa premiere feuille. Cause : le repository le convertissait en dossier publiable avec `folder_id=None`, mais `ExportWindow._refresh_tree` n'affichait que les dossiers ordinaires a la racine. Correctif : construire les racines depuis `container_children(None)`, en affichant dossiers ordinaires et dossiers publiables. Tests de non-regression ajoutes pour la promotion/persistance d'un dossier racine et le contrat de rendu. A verifier dans Revit sur le projet de test.
+
+
+### Renommage des dossiers (2026-11-03)
+
+Les dossiers ordinaires et les dossiers publiables peuvent être renommés via F2 ou clic droit > Renommer. Le dossier système Général ne peut pas être renommé. Le renommage modifie uniquement le nom en stockage, sans toucher aux identifiants, feuilles, sous-dossiers, paramètres ni ordre. Tests unitaires ajoutés. À valider dans Revit 2025.4.
