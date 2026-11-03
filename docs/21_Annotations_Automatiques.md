@@ -1173,9 +1173,22 @@ une référence géométrique de cote.
 **Conclusion vérifiable :** **REV-ANN-99** (nouvel essai ciblé) et **le volet récupération native de REV-ANN-100** sont confirmés par le rapport. La récupération fonctionne dans Revit 2025.4 avec les seuils expérimentaux de BUG-COMMON-025. Le diagnostic n'apporte aucune preuve sur la **justesse de la longueur affichée**, l'alignement des **nus intérieurs réels**, la persistance de la cote après masquage des séparations, l'absence de doublons après une deuxième exécution ou l'absence d'incident sur 2240.
 
 **Vérifications restant obligatoires, sur copie de maquette :**
-- [ ] **REV-ANN-100 — complément :** relever les deux valeurs effectivement affichées ; les comparer aux dimensions intérieures finies du logement et confirmer l'absence réelle de repères 2D cachés ou résiduels.
-- [ ] **REV-ANN-101 :** contrôler en plan rapproché l'alignement des **nus intérieurs physiques** des GC 16141871 et 8951804, malgré les axes décalés de 33 mm. Si leurs nus sont différents, retirer ou revoir le contournement.
-- [ ] **REV-ANN-102 :** masquer `Séparations de pièces` dans cette vue ; vérifier les deux cotes, relancer une deuxième fois sans doublon/crash, puis recetter **2240** pour non-régression.
-- [ ] **REV-ANN-103 :** décider après ces contrôles si l'exception reste un comportement bêta, peut être durcie ou doit être abandonnée.
+- [x] **REV-ANN-100 — complément :** utilisateur confirme les deux valeurs correctes et l'absence de repères 2D substitutifs sur la loggia 2238.
+- [x] **REV-ANN-101 :** utilisateur confirme que les **nus intérieurs physiques** des GC 16141871 et 8951804 sont alignés malgré le décalage de 33 mm de leurs axes.
+- [x] **REV-ANN-102 — partie 2238 :** deux cotes toujours visibles avec `Séparations de pièces` masquées, deuxième lancement sans doublon ni plantage, selon confirmation utilisateur.
+- [ ] **REV-ANN-102 — non-régression 2240 :** à recetter séparément dans la pièce 2240 après BUG-COMMON-025.
+- [ ] **REV-ANN-103 :** décision de généralisation / maintien bêta après la non-régression sur 2240 et les autres scénarios critiques.
 
 **Décision :** conserver le **mode diagnostic une pièce/une vue** et **ne pas fusionner dans `main`** sur la seule base de ce rapport. L'associativité native identifie une référence réelle, mais ne garantit pas l'associativité à la totalité de deux ouvrages successifs.
+
+
+### Confirmation complémentaire de la recette 2238 — 3 novembre 2026
+
+L'utilisateur a répondu **« tout est ok »** aux quatre vérifications proposées après le rapport BUG-COMMON-025 :
+
+1. **Valeurs mesurées :** les deux cotes de la pièce 2238 correspondent aux dimensions intérieures réelles de la loggia.
+2. **Nus intérieurs :** alignement physique des deux garde-corps 16141871 et 8951804 confirmé, malgré des axes `Railing.GetPath()` décalés de 33 mm.
+3. **Visibilité :** les deux cotes demeurent visibles après masquage de la catégorie **Séparations de pièces**.
+4. **Deuxième exécution :** absence de doublon et de plantage rapportée.
+
+**Bilan : BUG-COMMON-025 validé fonctionnellement sur la loggia 2238 en Revit 2025.4.** La preuve repose sur le retour utilisateur et le journal précédent ; aucune capture ou mesure géométrique indépendante n'est archivée. La cote partielle ne reste associative qu'au **GC 16141871**, pas au GC 8951804. La solution demeure **bêta** en raison de la non-régression encore à effectuer sur la pièce **2240** et sur les autres configurations de garde-corps avant un éventuel merge dans `main`.
