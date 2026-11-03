@@ -27,6 +27,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
@@ -36,8 +37,12 @@
             <ComboBox x:Name="SheetExplorerGrouping" MinHeight="27" SelectionChanged="SheetExplorerGrouping_Changed"/>
             <CheckBox x:Name="SheetExplorerUnused" Content="Non ajoutées uniquement" Margin="0,5,0,0" Checked="SheetExplorerFilter_Changed" Unchecked="SheetExplorerFilter_Changed"/>
           </StackPanel>
-          <ListBox x:Name="SheetExplorerList" Grid.Row="3" SelectionMode="Extended" SelectionChanged="SheetExplorerSelection_Changed" PreviewMouseLeftButtonDown="SheetExplorerMouseDown" PreviewMouseMove="SheetExplorerMouseMove" MouseDoubleClick="SheetExplorerDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-          <StackPanel Grid.Row="4" Margin="0,8,0,0">
+          <StackPanel Grid.Row="3" Margin="0,0,0,6">
+            <ComboBox x:Name="SheetExplorerParameter" MinHeight="26" SelectionChanged="SheetExplorerParameter_Changed" ToolTip="Paramètre de feuille à filtrer"/>
+            <ComboBox x:Name="SheetExplorerValue" MinHeight="26" Margin="0,4,0,0" SelectionChanged="SheetExplorerValue_Changed" ToolTip="Valeur du paramètre"/>
+          </StackPanel>
+          <ListBox x:Name="SheetExplorerList" Grid.Row="4" SelectionMode="Extended" SelectionChanged="SheetExplorerSelection_Changed" PreviewMouseLeftButtonDown="SheetExplorerMouseDown" PreviewMouseMove="SheetExplorerMouseMove" MouseDoubleClick="SheetExplorerDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+          <StackPanel Grid.Row="5" Margin="0,8,0,0">
             <TextBlock x:Name="SheetExplorerSelectionInfo" Text="0 feuille sélectionnée" Margin="0,0,0,5"/>
             <Button x:Name="SheetExplorerAddButton" Content="Ajouter (0)" Click="SheetExplorerAdd_Click" IsEnabled="False" MinHeight="30"/>
           </StackPanel>
@@ -57,7 +62,7 @@
               <TextBlock Text="Comme dans l'Explorateur : Ctrl/Maj pour sélectionner, glisser pour déplacer ou réordonner." Margin="0,3,0,0" TextWrapping="Wrap" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
-              <Button x:Name="SheetExplorerToggle" Content="Masquer les feuilles" Click="SheetExplorerToggle_Click" Margin="4,0" MinWidth="110" />
+              <Button x:Name="SheetExplorerToggle" Content="◀ Feuilles" Click="SheetExplorerToggle_Click" Margin="4,0" MinWidth="82" ToolTip="Afficher ou masquer l'explorateur des feuilles"/>
               <Button Content="Nouveau dossier" Click="NewFolder_Click" MinWidth="110" Margin="4,0" ToolTip="Nouveau dossier" />
               <Button Content="Ajouter des mises en page…" Click="OpenCarnetManager_Click" MinWidth="170" Margin="4,0" ToolTip="Créer un ou plusieurs dossiers de publication à partir de mises en page Revit" />
             </StackPanel>
