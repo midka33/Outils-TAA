@@ -13,7 +13,8 @@ import os
 import sys
 
 # Assurer que le chemin vers lib/giration est dans sys.path
-LIB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+EXTENSION_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+LIB_DIR = os.path.join(EXTENSION_DIR, "lib")
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 

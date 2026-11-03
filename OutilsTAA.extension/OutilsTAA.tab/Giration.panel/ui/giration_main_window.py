@@ -25,6 +25,7 @@ for path in (EXTENSION_DIR, LIB_DIR, PANEL_DIR):
 
 from pyrevit import forms
 from lib.common import logger
+from services.taa_ui_theme import apply_theme
 
 
 class GirationMainWindow(forms.WPFWindow):
@@ -49,6 +50,9 @@ class GirationMainWindow(forms.WPFWindow):
         # Charger le XAML
         xaml_path = os.path.join(os.path.dirname(__file__), "giration_main_window.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
+        
+        # Appliquer le thème Outils TAA
+        apply_theme(self)
         
         # Initialiser l'interface
         self._initialize_ui()

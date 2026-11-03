@@ -19,7 +19,7 @@ UI_DIR = os.path.join(PANEL_DIR, "ui")
 LIB_DIR = os.path.join(EXTENSION_DIR, "lib")
 
 # Ajout des chemins au sys.path
-for path in (EXTENSION_DIR, LIB_DIR, PANEL_DIR, MODEL_DIR, SERVICE_DIR, UI_DIR):
+for path in (EXTENSION_DIR, PANEL_DIR, MODEL_DIR, SERVICE_DIR, UI_DIR):
     if path not in sys.path:
         sys.path.append(path)
 
@@ -28,7 +28,7 @@ from lib.common import logger
 
 # Import du module de giration
 try:
-    from giration_main_window import GirationMainWindow
+    from ui.giration_main_window import GirationMainWindow
     from giration_controller import GirationController
     GIRATION_AVAILABLE = True
 except ImportError as e:
