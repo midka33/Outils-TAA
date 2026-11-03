@@ -1343,3 +1343,27 @@ Le bon workflow est donc celui qui permet à un développeur de comprendre :
 > **ce qui a changé, pourquoi cela a changé, qui l'a validé et dans quelle version le changement est disponible.**
 
 L'objectif final est de pouvoir faire évoluer **Outils TAA** pendant plusieurs années sans perdre la compréhension de son architecture ni la maîtrise de ses différentes versions.
+
+---
+
+# Retour d'expérience release Outils TAA v1.4.0 — 3 novembre 2026
+
+## Publication reproductible après validation Revit
+
+La release `v1.4.0` est préparée sur une branche dédiée `release/v1.4.0-export`, qui ne modifie pas les branches des autres modules en cours. Elle consolide uniquement les documents, le paquet de livraison et le workflow de publication du code **déjà fusionné** depuis la PR #39.
+
+La procédure est décrite par `.github/workflows/release-v1.4.0.yml` et `docs/release/Preparation_Export_v1.4.0.md`.
+
+1. Exiger une recette Revit 2025.4 confirmée et consignée dans la PR métier.
+2. Documenter la nouvelle version dans `CHANGELOG.md`, `README.md`, `ROADMAP.md`, `docs/INDEX.md`, la référence fonctionnelle, les tutoriels et les notes.
+3. Préparer une PR de release **distincte**, destinée à `main` ; ne pas fusionner les autres branches.
+4. Exécuter les contrôles hors Revit sur la PR, puis sur le **SHA exact** de `main` utilisé pour la release : Export, contrat ruban, Calculs et Plans de vente.
+5. Générer `Outils-TAA_v1.4.0.zip` exclusivement depuis `OutilsTAA.extension/` du commit publié ; vérifier les chemins des modules et interdire caches, fichiers temporaires, MSI et modèles Revit.
+6. Produire le CMD utilisateur sans droits administrateur, les tutoriels et les empreintes SHA-256, puis vérifier ces dernières.
+7. Créer le tag `v1.4.0` et la release GitHub **uniquement après succès des contrôles** avec `gh release create --target <SHA testé>`.
+8. Contrôler que la release et ses actifs existent réellement. Ne pas déclarer la version publiée sur la seule base de documents ou d'un workflow présent.
+9. Faire une recette d'installation réelle sur Windows à l'aide de l'installateur publié ; signaler les limites de validation dans la préparation de release.
+
+Le pipeline v1.4.0 est déclenché sur l'intégration de ses notes dans `main`, et peut être relancé explicitement. Il est **idempotent** : une release existante n'est pas remplacée silencieusement. La permission GitHub `contents: write` n'est demandée que pour l'étape de publication, après les tests.
+
+**Points de vigilance :** les conditions et permissions GitHub Actions peuvent empêcher la publication malgré un code validé. Vérifier son statut, puis corriger le workflow sur une branche dédiée si nécessaire ; éviter de créer manuellement un tag sur une branche non testée.
