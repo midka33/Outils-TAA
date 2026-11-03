@@ -4,7 +4,7 @@
 import json
 import os
 
-from System.Windows import DragDrop, DragDropEffects, DataObject, Visibility, GridLength, GridUnitType
+from System.Windows import DragDrop, DragDropEffects, DragEventHandler, DataObject, Visibility, GridLength, GridUnitType
 from System.Windows.Controls import ListBoxItem, TextBlock, ContextMenu, MenuItem
 from System.Windows.Input import Keyboard, ModifierKeys, MouseButtonState, Key
 from System.Windows.Media import VisualTreeHelper
@@ -54,9 +54,9 @@ class SheetExplorer(object):
         # l'événement avant le TreeView. AddHandler reçoit aussi Handled.
         from System.Windows import UIElement
         window.PublicationTree.AddHandler(
-            UIElement.PreviewDragOverEvent, self._drag_over, True)
+            UIElement.PreviewDragOverEvent, DragEventHandler(self._drag_over), True)
         window.PublicationTree.AddHandler(
-            UIElement.PreviewDropEvent, self._drop, True)
+            UIElement.PreviewDropEvent, DragEventHandler(self._drop), True)
         window.Closing += self._closing
         self._build_context_menu()
         self.refresh()
