@@ -109,18 +109,18 @@ class GirationMainWindow(forms.WPFWindow):
         vehicle = self.controller.get_current_vehicle()
         
         if vehicle:
-            self.LengthValue.Text = f"{vehicle.length:.2f} m"
-            self.WidthValue.Text = f"{vehicle.width:.2f} m"
-            self.WheelbaseValue.Text = f"{vehicle.wheelbase:.2f} m"
+            self.LengthValue.Text = "{0:.2f} m".format(vehicle.length)
+            self.WidthValue.Text = "{0:.2f} m".format(vehicle.width)
+            self.WheelbaseValue.Text = "{0:.2f} m".format(vehicle.wheelbase)
             
             if vehicle.min_turning_radius:
-                self.MinRadiusValue.Text = f"{vehicle.min_turning_radius:.2f} m"
+                self.MinRadiusValue.Text = "{0:.2f} m".format(vehicle.min_turning_radius)
             else:
                 self.MinRadiusValue.Text = "N/A"
             
             # Convertir l'angle de radians en degrés
             max_steering_deg = math.degrees(vehicle.max_steering_angle)
-            self.MaxSteeringValue.Text = f"{max_steering_deg:.1f}°"
+            self.MaxSteeringValue.Text = "{0:.1f}°".format(max_steering_deg)
         else:
             self.LengthValue.Text = "0.0 m"
             self.WidthValue.Text = "0.0 m"
@@ -187,7 +187,7 @@ class GirationMainWindow(forms.WPFWindow):
             
             # TODO: Mettre à jour la prévisualisation dans Revit
             
-            self._update_status(f"Dernier segment annulé - {len(self._current_trajectory)} segments restants")
+            self._update_status("Dernier segment annulé - {0} segments restants".format(len(self._current_trajectory)))
     
     def ClearButton_Click(self, sender, args):
         """Gestionnaire du clic sur le bouton Effacer tout."""
@@ -257,7 +257,7 @@ class GirationMainWindow(forms.WPFWindow):
         elif num_segments == 1:
             self.TrajectoryInfo.Text = "1 segment"
         else:
-            self.TrajectoryInfo.Text = f"{num_segments} segments"
+            self.TrajectoryInfo.Text = "{0} segments".format(num_segments)
     
     def _test_trajectory(self):
         """
@@ -296,17 +296,17 @@ class GirationMainWindow(forms.WPFWindow):
         is_valid, errors = self.controller.validate_trajectory(trajectory)
         
         if is_valid:
-            self._update_status(f"Test réussi: {len(trajectory)} points générés")
+            self._update_status("Test réussi: {0} points générés".format(len(trajectory)))
             
             # Afficher les résultats
-            result_text = f"""
+            result_text = """
             **Résultats du test**
             
-            - Points de trajectoire: {len(trajectory)}
-            - Trajectoires des roues: {len(wheel_trajectories)} roues
-            - Polygones balayés: {len(swept_area)}
+            - Points de trajectoire: {0}
+            - Trajectoires des roues: {1} roues
+            - Polygones balayés: {2}
             - Validation: ✓ Valide
-            """
+            """.format(len(trajectory), len(wheel_trajectories), len(swept_area))
             forms.alert(result_text, title="Résultats du test")
         else:
             self._update_status("Test échoué: erreurs de validation")

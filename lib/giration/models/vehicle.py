@@ -95,7 +95,7 @@ class Vehicle:
             self.min_turning_radius = self._calculate_min_turning_radius()
     
     def __repr__(self):
-        return f"Vehicle(name='{self.name}', category='{self.category}')"
+        return "Vehicle(name='{0}', category='{1}')".format(self.name, self.category)
     
     def __str__(self):
         return self.name

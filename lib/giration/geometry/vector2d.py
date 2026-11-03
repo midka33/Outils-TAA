@@ -30,7 +30,7 @@ class Vector2D:
         self.y = float(y)
     
     def __repr__(self):
-        return f"Vector2D({self.x}, {self.y})"
+        return "Vector2D({0}, {1})".format(self.x, self.y)
     
     def __eq__(self, other, tolerance=1e-10):
         """Test d'égalité avec tolérance numérique."""

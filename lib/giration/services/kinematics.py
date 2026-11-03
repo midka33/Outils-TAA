@@ -44,7 +44,7 @@ class TrajectoryPoint:
         self.timestamp = float(timestamp)
     
     def __repr__(self):
-        return f"TrajectoryPoint(pos={self.position}, angle={self.angle}, steer={self.steering_angle}, reverse={self.is_reverse})"
+        return "TrajectoryPoint(pos={0}, angle={1}, steer={2}, reverse={3})".format(self.position, self.angle, self.steering_angle, self.is_reverse)
     
     def to_dict(self):
         return {
@@ -451,8 +451,9 @@ class AckermannKinematics:
             # Vérifier l'angle de braquage
             if abs(point.steering_angle) > self.vehicle.max_steering_angle:
                 errors.append(
-                    f"Point {i}: Angle de braquage {point.steering_angle} "
-                    f"dépasse le maximum {self.vehicle.max_steering_angle}"
+                    "Point {0}: Angle de braquage {1} dépasse le maximum {2}".format(
+                        i, point.steering_angle, self.vehicle.max_steering_angle
+                    )
                 )
         
         return len(errors) == 0, errors

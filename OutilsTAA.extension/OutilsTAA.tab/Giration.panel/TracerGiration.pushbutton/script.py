@@ -32,7 +32,7 @@ try:
     from giration_controller import GirationController
     GIRATION_AVAILABLE = True
 except ImportError as e:
-    logger.get_logger().error(f"Erreur de chargement du module Giration: {e}")
+    logger.get_logger().error("Erreur de chargement du module Giration: {0}".format(e))
     GIRATION_AVAILABLE = False
 
 
@@ -62,7 +62,7 @@ def main():
     except Exception as e:
         logger.get_logger().exception("Erreur lors de la création du contrôleur Giration")
         forms.alert(
-            f"Erreur lors de l'initialisation: {e}",
+            "Erreur lors de l'initialisation: {0}".format(e),
             title="Giration - Erreur"
         )
         return
@@ -74,7 +74,7 @@ def main():
     except Exception as e:
         logger.get_logger().exception("Erreur lors de l'ouverture de la fenêtre Giration")
         forms.alert(
-            f"Erreur lors de l'ouverture de la fenêtre: {e}",
+            "Erreur lors de l'ouverture de la fenêtre: {0}".format(e),
             title="Giration - Erreur"
         )
 
