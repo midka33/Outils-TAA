@@ -121,3 +121,31 @@ def test_remove_only_from_selected_publication(tmp_path):
     assert repo.remove_sheets_from_publications([("plans", "a")]) == 1
     assert len(next(p for p in repo.list_all() if p.id == "pro").items) == 1
     assert repo.remove_sheets_from_publications([("plans", "a")]) == 0
+
+
+def test_rename_ordinary_folder_preserves_children(tmp_path):
+    repo = _repo(tmp_path)
+    repo.save_folder(PublicationFolder("Enfant", folder_id="child", parent_id="plans"))
+    assert repo.rename_publication_folder("plans", "Plans renommés")
+    reopened = CarnetRepository(repo.storage_path)
+    assert next(f for f in reopened.list_folders() if f.id == "plans").name == "Plans renommés"
+    assert next(f for f in reopened.list_folders() if f.id == "child").parent_id == "plans"
+
+
+def test_rename_published_folder_keeps_sheets_and_id(tmp_path):
+    repo = _repo(tmp_path)
+    repo.add_sheets_to_folder([_item("b", "A102")], "plans")
+    assert repo.rename_publication_folder("plans", "Nouvelle publication")
+    reopened = CarnetRepository(repo.storage_path)
+    target = next(p for p in reopened.list_all() if p.id == "plans")
+    assert target.name == "Nouvelle publication"
+    assert [item.unique_id for item in target.items] == ["b"]
+    assert target.folder_id == "dce"
+
+
+def test_rename_default_and_blank_rejected(tmp_path):
+    repo = _repo(tmp_path)
+    with pytest.raises(ValueError):
+        repo.rename_publication_folder("default", "Autre")
+    with pytest.raises(ValueError):
+        repo.rename_publication_folder("plans", "  ")
