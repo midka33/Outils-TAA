@@ -1794,3 +1794,10 @@ Bug de recette : un dossier independant place hors « General » disparaissait v
 ### Renommage des dossiers (2026-11-03)
 
 Les dossiers ordinaires et les dossiers publiables peuvent être renommés via F2 ou clic droit > Renommer. Le dossier système Général ne peut pas être renommé. Le renommage modifie uniquement le nom en stockage, sans toucher aux identifiants, feuilles, sous-dossiers, paramètres ni ordre. Tests unitaires ajoutés. À valider dans Revit 2025.4.
+
+
+### Recette publication A2000 avec dossier parent vide (2026-11-03)
+
+Retour utilisateur : l'aperçu de `A2000 Plan des façades`, contenant des sous-dossiers de façade, affichait 21 livrables mais bloquait avec « Aucune mise en page à publier dans le périmètre sélectionné. » Un dossier publiable utilisé uniquement comme parent était compté comme cible vide. Correctif `BUG-EXPORT-056` : les dossiers sans feuille restent dans la structure et participent à l'héritage des réglages, mais ne deviennent plus des cibles exportées ; un périmètre totalement vide reste non publiable.
+
+Le test automatisé reproduit 5 sous-dossiers non vides et 16 feuilles : mode PDF combiné et DWG actif = **5 PDF combinés distincts + 16 DWG** ; sans DWG, 5 PDF. La validation dans Revit 2025.4 reste nécessaire, en utilisant **Aperçu** avant toute publication réelle, puis une destination temporaire.
