@@ -232,6 +232,28 @@ Pour une source liée, bâtiment et typologie sont lus dans le document source.
 Le numéro métier du logement reste le `filter_key` et n'est pas remplacé par
 l'identité technique du lien.
 
+## 12.1 Options avancées — surcharges Revit
+
+Les Options avancées permettent de conserver le fonctionnement automatique de
+la feuille modèle ou de choisir explicitement, dans le document hôte :
+
+- le gabarit de la vue logement ;
+- le gabarit du plan de repérage ;
+- le type d'étiquette de pièces ;
+- le type de cote linéaire.
+
+Chaque liste commence par **Automatique — feuille modèle**. Dans ce mode, le
+moteur conserve la déduction historique à partir des vues et annotations de la
+feuille modèle.
+
+Lorsqu'un choix explicite est effectué, son `UniqueId` est transmis à la
+génération. La vue logement et le repérage n'acceptent que des gabarits de plan
+d'étage du document hôte ; les étiquettes et cotes utilisent les types du
+document hôte.
+
+Ces choix restent pour l'instant mémorisés pendant la session de la fenêtre
+Plans de vente. Leur persistance par projet fait l'objet d'un correctif séparé.
+
 ## 13. Progression, transactions et rapport
 
 La création par lot affiche une progression fondée sur des jalons réellement
