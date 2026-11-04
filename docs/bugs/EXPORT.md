@@ -835,3 +835,29 @@ les indicateurs d'utilisation.
 **Règle préventive :** une option « créer le dossier de publication » et une option « classer par format » expriment deux décisions métier différentes. Leurs paramètres doivent être distincts dans l'UI, le moteur, les profils et la persistance, et la compatibilité des anciens profils doit être définie avant la migration. Utiliser un calcul de chemin unique pour la prévisualisation et la publication ; ne jamais produire de sous-dossiers de format si l'option dédiée est désactivée.
 
 **Anti-régression :** `tests/test_publication_folder_paths.py` couvre l'ensemble des combinaisons PDF combiné/séparé, périmètres, option de dossier et option de format (y compris absent pour compatibilité), et contrôle la correspondance exacte entre aperçu et chemins livrés. `tests/test_export_format_subfolders.py` couvre les quatre combinaisons de chemins, l'héritage entre dossiers, les profils et les réglages JSON historiques, ainsi que le découplage immédiat des deux cases après modification. Recette Revit : vérifier les quatre combinaisons en sortie de test et le maintien des anciens chemins.
+
+### BUG-EXPORT-060 — Le champ Nommage DWG est réécrit pendant la saisie en PDF combiné
+
+**Symptôme :** lorsque le PDF est en mode combiné, le nommage DWG est correctement
+forcé en mode indépendant mais l'utilisateur ne peut pas saisir normalement une
+nouvelle règle dans le champ « Nommage DWG » : le texte semble verrouillé ou se
+réinitialise pendant la frappe.
+
+**Cause racine :** le `TextBox` déclenchait `SettingsChanged` sur chaque
+`TextChanged`. Le handler sauvegardait alors la valeur puis appelait
+`_sync_dwg_naming()`, qui réaffectait immédiatement la propriété `Text` du
+même contrôle. WPF perdait donc le contexte normal de saisie à chaque caractère.
+
+**Correction :** enregistrer le nommage DWG à la sortie du champ
+(`LostFocus`) au lieu de chaque frappe. Le mode PDF combiné continue de forcer
+l'indépendance DWG et conserve le champ de règle DWG actif.
+
+**Règle préventive :** un contrôle texte éditable ne doit pas être réécrit par
+un synchroniseur appelé depuis son propre événement `TextChanged`. Pour les
+valeurs qui nécessitent normalisation et persistance, préférer une validation à
+la sortie du champ ou séparer explicitement l'état d'activation du contenu texte.
+
+**Anti-régression :** `tests/test_export_dwg_naming_edit.py` vérifie que le
+champ utilise `LostFocus`, qu'il reste actif en PDF combiné et qu'une règle
+DWG personnalisée n'est pas remplacée par la règle par défaut.
+
