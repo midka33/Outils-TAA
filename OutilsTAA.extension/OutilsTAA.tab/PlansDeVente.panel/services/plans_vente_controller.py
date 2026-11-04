@@ -89,6 +89,11 @@ class PlansVenteController(object):
     def location_source_views_for_housing(self, housing):
         return self.location_plan_service.source_views_for_housing(housing)
 
+    def main_view_templates(self):
+        # Les vues logement et les vues de repérage utilisent toutes deux
+        # des gabarits de plan d'étage du document hôte.
+        return self.location_plan_service.list_view_templates()
+
     def location_view_templates(self):
         return self.location_plan_service.list_view_templates()
 
@@ -316,6 +321,10 @@ class PlansVenteController(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_template_unique_id="",
+        location_view_template_unique_id="",
+        room_tag_type_unique_id="",
+        dimension_type_unique_id="",
         main_view_zone_line_style="",
         progress_callback=None,
     ):
@@ -330,6 +339,10 @@ class PlansVenteController(object):
             auto_fit_main_view=auto_fit_main_view,
             building_parameter_name=building_parameter_name,
             typology_parameter_name=typology_parameter_name,
+            main_view_template_unique_id=main_view_template_unique_id,
+            location_view_template_unique_id=location_view_template_unique_id,
+            room_tag_type_unique_id=room_tag_type_unique_id,
+            dimension_type_unique_id=dimension_type_unique_id,
             main_view_zone_line_style=main_view_zone_line_style,
             progress_callback=progress_callback,
         )
@@ -365,6 +378,10 @@ class PlansVenteController(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_template_unique_id="",
+        location_view_template_unique_id="",
+        room_tag_type_unique_id="",
+        dimension_type_unique_id="",
         main_view_zone_line_style="",
         progress_callback=None,
     ):
@@ -379,6 +396,10 @@ class PlansVenteController(object):
             auto_fit_main_view=auto_fit_main_view,
             building_parameter_name=building_parameter_name,
             typology_parameter_name=typology_parameter_name,
+            main_view_template_unique_id=main_view_template_unique_id,
+            location_view_template_unique_id=location_view_template_unique_id,
+            room_tag_type_unique_id=room_tag_type_unique_id,
+            dimension_type_unique_id=dimension_type_unique_id,
             main_view_zone_line_style=main_view_zone_line_style,
             progress_callback=progress_callback,
         )
