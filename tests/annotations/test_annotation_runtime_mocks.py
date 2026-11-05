@@ -1628,3 +1628,111 @@ def test_repli_interieur_en_erreur_n_autorise_pas_de_cotes_exterieures(monkeypat
     assert all(isinstance(p, strict.SkippedPlacement) for p in result)
     assert any("cotes exterieures refusees" in line
                for line in warnings)
+
+
+def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
+    """Un seul axe oppose ; secours longueur native du mur transversal."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+
+    class Ref(object):
+        def __init__(self, label):
+            self.label = label
+
+        def ConvertToStableRepresentation(self, doc):
+            return self.label
+
+    class Boundary(object):
+        def __init__(self, segment, name, native_length=None):
+            self.segment = segment
+            self.reference = Ref(name)
+            self.source_kind = "wall"
+            self.length_references = (
+                (Ref(native_length+"-start"), Ref(native_length+"-end"))
+                if native_length else None)
+
+    # Seuls deux murs horizontaux sont opposes : le troisieme
+    # mur vertical peut etre cote ENTRE ses deux extremites natives.
+    walls = [
+        Boundary((0., 0., 4., 0.), "horizontal-bas"),
+        Boundary((4., 0., 4., 2.), "vertical", "longueur-reelle"),
+        Boundary((4., 2., 0., 2.), "horizontal-haut"),
+    ]
+    monkeypatch.setattr(
+        mod.DimensionService, "_room_boundary_candidates",
+        lambda self, room: list(walls), raising=False)
+    monkeypatch.setattr(
+        mod.DimensionService, "_fallback_length_indexes",
+        lambda self, selected, pairs: list(range(len(selected))),
+        raising=False)
+
+    service = mod.GenericDimensions(None)
+    service._existing_dimension_reference_pairs = lambda: set()
+    service._existing_proxy_dimensions = lambda: []
+    service._nearby_guardrail_edges = lambda *args: (_ for _ in ()).throw(
+        AssertionError("GC interdit dans la piece limitee par murs"))
+    room = FakeRoom(FakeLevel())
+    room.UniqueId = "2247"
+
+    chosen = service._room_boundary_candidates(room)
+    assert len(chosen) == 3
+    assert service._length_fallback_room_allow
+    fallback = service._fallback_length_indexes(chosen, [])
+    assert len(fallback) == 1
+    assert chosen[fallback[0]].length_references is not None
+    assert chosen[fallback[0]].source_kind == "wall"
+
+    # Le lancement suivant ne doit jamais ajouter de deuxieme
+    # cote de longueur identique lorsqu'elle existe deja.
+    measured = frozenset(("longueur-reelle-start", "longueur-reelle-end"))
+    service._existing_dimension_reference_pairs = lambda: {measured}
+    again = service._room_boundary_candidates(room)
+    assert len(again) == 2
+    assert service._fallback_length_indexes(again, []) == []
+
+
+def test_2247_sans_references_extremites_ninvente_pas_de_cote(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+
+    class Ref(object):
+        def ConvertToStableRepresentation(self, doc):
+            return "fake-ref"
+
+    class Wall(object):
+        source_kind = "wall"
+        length_references = None
+        reference = Ref()
+
+        def __init__(self, segment):
+            self.segment = segment
+
+    raw = [Wall((0., 0., 4., 0.)), Wall((4., 2., 0., 2.))]
+    monkeypatch.setattr(
+        mod.DimensionService, "_room_boundary_candidates",
+        lambda self, room: list(raw), raising=False)
+    service = mod.GenericDimensions(None)
+    service._existing_dimension_reference_pairs = lambda: set()
+    service._existing_proxy_dimensions = lambda: []
+    chosen = service._room_boundary_candidates(FakeRoom(FakeLevel()))
+    assert len(chosen) == 2
+    assert service._fallback_length_indexes(chosen, []) == []
+    assert any("aucune longueur de mur native complementaire" in w
+               for w in service._guardrail_warnings)
+
+
+def test_aucune_exploration_garde_corps_quand_limites_toutes_murs(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    service = mod.GenericDimensions(None)
+    service._nearby_guardrail_edges = lambda *args: (_ for _ in ()).throw(
+        AssertionError("exploration GC inattendue"))
+    candidates = [types.SimpleNamespace(
+        source_kind="wall", segment=(0., 0., 4., 0.),
+        reference=object(), length_references=None),
+        types.SimpleNamespace(
+            source_kind="wall", segment=(0., 2., 4., 2.),
+            reference=object(), length_references=None)]
+    assert service._upgrade_separator_guardrail(
+        FakeRoom(FakeLevel()), candidates) is candidates
