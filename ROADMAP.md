@@ -358,3 +358,12 @@ Voir `docs/21_Annotations_Automatiques.md`.
 - Étudier l'export PDF en arrière-plan : suivi des tâches Revit, annulation, rapport
   différé et livraison/renommage sécurisés après achèvement. La case reste désactivée
   dans la V1 synchrone ; ne pas l'activer uniquement via SetExportInBackground(True).
+
+
+### REV-ANN-122 — chambre 2247, identification de la version et des references (5 novembre 2026)
+
+- [x] Documenter le constat : 23 cotes pour 12 pieces ; les cinq petites pieces ont retrouve leurs deux cotes a l'interieur, **2247 reste a une seule cote**.
+- [x] Identifier l'absence dans le rapport de la ligne de secours longueur native mur, pourtant presente dans la derniere branche : un chargement de code ancien ou concurrent est possible.
+- [x] Ajouter le marqueur `REVISION COTATION BETA : 2026-11-05-2247-native-fallback-02` et `DIAGNOSTIC 2247` (sources des limites et references natives), sans modifier les cotes existantes ni Plans de vente ; **468 tests GitHub Actions reussis**.
+- [ ] Confirmer dans Revit 2025.4 que la bonne version s'execute, puis verifier si la limite manquante dispose de vraies references de faces ou d'extremites. Ne pas creer de dimension fictive pour atteindre 24/24.
+- [ ] Si une deuxieme cote est creee, controler sa valeur en nu fini, son placement interieur et l'absence de doublon ; sinon corriger a partir des nouvelles lignes de diagnostic, pas par supposition.
