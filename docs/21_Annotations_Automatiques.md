@@ -1693,3 +1693,9 @@ de dedup-04 encore en attente.**
 **Avertissements acceptés par décision métier :** emprise graphique débordante pour les pièces 2222, 2223, 2250, 2252 ; collision non résolue et meilleure position intérieure conservée pour 2249, 2251, 2252, 2253. Ces avertissements n'empêchent pas la création ; l'utilisateur repositionne les étiquettes illisibles.
 
 **Statut précis :** génération 44/44 **validée sur cette vue**, pas validation globale du module. Reste à tester : étiquettes existantes / seconde exécution sans doublons, plusieurs vues, groupes de modèle et non-régression Plans de vente. Ne pas confondre validation de cette recette et fusion de la PR #37.
+
+## Validation Revit — anti-doublons Étiquetage auto (05/11/2026)
+
+**Confirmation explicite de l'utilisateur :** après un premier lancement ayant créé **44 étiquettes pour 44 pièces** dans `Collectifs A_Niveau 1`, le deuxième lancement a créé **0 annotation supplémentaire**, et **les 44 étiquettes initiales sont toujours visibles**. **Test anti-doublons validé sur cette vue**, sans suppression des étiquettes existantes. Ne pas extrapoler aux groupes de modèle, aux autres vues ou aux autres types d'étiquettes non testés.
+
+Amélioration non bloquante à prévoir : remplacer le message répété « annotations deja presentes ou vues non cotables » par une indication spécifique et comptabilisée (« étiquette déjà présente »), distincte des vrais refus.
