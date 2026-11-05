@@ -1685,3 +1685,11 @@ de dedup-04 encore en attente.**
 - [ ] Vérifier l'absence de régression de **Cotation automatique** et de **Plans de vente V1.1**.
 
 **Limite :** une pièce sans candidat intérieur valide peut toujours être refusée ; aucune étiquette ne doit être créée hors pièce pour atteindre artificiellement 44/44.
+
+## Recette Étiquetage — 44 pièces (05/11/2026)
+
+**Retour de test utilisateur sous Revit 2025.4, module Étiquetage automatique bêta :** vue `Collectifs A_Niveau 1`, **44 pièces détectées (0 en groupe)**, **44 étiquettes créées**. Le précédent résultat de 37/44 est résolu sur ce cas après suppression du refus systématique des collisions dans l'adaptateur.
+
+**Avertissements acceptés par décision métier :** emprise graphique débordante pour les pièces 2222, 2223, 2250, 2252 ; collision non résolue et meilleure position intérieure conservée pour 2249, 2251, 2252, 2253. Ces avertissements n'empêchent pas la création ; l'utilisateur repositionne les étiquettes illisibles.
+
+**Statut précis :** génération 44/44 **validée sur cette vue**, pas validation globale du module. Reste à tester : étiquettes existantes / seconde exécution sans doublons, plusieurs vues, groupes de modèle et non-régression Plans de vente. Ne pas confondre validation de cette recette et fusion de la PR #37.
