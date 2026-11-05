@@ -1666,3 +1666,22 @@ Le module Plans de vente reste inchange.
 **Statut : correction hors Revit validee
 en tests automatisees, recette Revit
 de dedup-04 encore en attente.**
+
+
+## Règle métier Étiquetage automatique — placement prioritaire (5 novembre 2026)
+
+**Décision explicite de l'utilisateur :** toute pièce possédant un point d'ancrage intérieur valide doit recevoir une étiquette, **même si l'emprise du texte dépasse la pièce ou chevauche des cotes/annotations**. La correction de la lisibilité est laissée à l'utilisateur après génération. Ce comportement concerne **Étiquetage auto dans les vues ordinaires uniquement**, et non le moteur **Plans de vente**.
+
+**Retour Revit avant correction :** niveau `Collectifs A_Niveau 1`, 44 pièces hors groupe ; 37 étiquettes créées, 7 refusées par `ValueError: Aucune position interieure sans chevauchement.` dans `GenericRoomTags._place_one_tag`.
+
+**Correction implémentée :** l'adaptateur `GenericRoomTags` conserve le résultat du moteur partagé `RoomTagService._place_one_tag` sans lever cette exception. Le moteur choisit la meilleure position candidate et vérifie toujours que le **point d'ancrage** est dans la pièce via `Room.IsPointInRoom` et que Revit confirme `tag.IsInRoom`. Il peut remonter des avertissements de collision et de débordement. Le code de Plans de vente n'a pas été modifié.
+
+**Statut : implémenté, test Revit en attente ; aucun test automatisé exécuté pour ce changement dans cette intervention.**
+
+**Recette à faire sur copie :**
+- [ ] Relancer Étiquetage sur une vue équivalente avec 44 pièces **sans étiquettes préexistantes** ; viser 44 créations si les 44 pièces possèdent des candidats intérieurs valides.
+- [ ] Vérifier que les étiquettes sont bien ancrées **dans leur pièce respective** ; des chevauchements ou textes débordants sont acceptés et à corriger manuellement.
+- [ ] Vérifier le rapport pour les avertissements ; vérifier qu'aucune pièce n'est étiquetée dans une autre pièce.
+- [ ] Vérifier l'absence de régression de **Cotation automatique** et de **Plans de vente V1.1**.
+
+**Limite :** une pièce sans candidat intérieur valide peut toujours être refusée ; aucune étiquette ne doit être créée hors pièce pour atteindre artificiellement 44/44.
