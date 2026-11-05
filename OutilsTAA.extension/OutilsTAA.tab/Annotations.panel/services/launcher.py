@@ -9,7 +9,8 @@ from Autodesk.Revit import DB
 from annotations_service import AnnotationService, safe_name, room_value
 from crash_trace import TRACE_PATH
 from apartment_scope import (parameter_candidates, apartment_values,
-                             available_buildings, filter_apartment,
+                             available_buildings, room_parameters,
+                             filter_apartment,
                              MAX_APARTMENT_ROOMS)
 
 
@@ -132,19 +133,17 @@ def run(kind):
 
             building_parameter = None
             building_value = None
-            apartment_candidates = [
-                room for room in test_rooms
-                if str(room.UniqueId) in set(
-                    str(item.UniqueId) for value, items in groups
-                    if value == apartment_value for item in items)
-            ]
-            building_names = [
-                name for name in parameter_candidates(apartment_candidates)
+            apartment_candidates = dict(groups)[apartment_value]
+            # Reconnaitre une separation de batiments meme si chaque
+            # batiment ne possede qu'une seule piece dans cet appartement.
+            building_names = sorted(set(
+                name for room in apartment_candidates
+                for name in room_parameters(room)
                 if name != apartment_parameter and any(
                     marker in name.lower() for marker in
                     ("batiment", "bâtiment", "immeuble", "building", "bloc"))
                 and len(available_buildings(apartment_candidates, name)) > 1
-            ]
+            ))
             if building_names:
                 chosen_building_param = _choose_one([
                     (name, name) for name in building_names
