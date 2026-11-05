@@ -554,3 +554,28 @@ quatre `ComboBox`, le chargement des quatre catalogues Revit, la transmission
 des quatre `UniqueId` dans les chemins mono/multi-niveaux et le fallback vers
 la feuille modèle.
 
+### BUG-PDV-032 — Les options avancées sont perdues après fermeture complète de Plans de vente
+
+**Symptôme :** les choix avancés restent bien présents tant que la fenêtre Plans
+de vente reste ouverte, mais ils reviennent aux valeurs par défaut après fermeture
+puis réouverture de l'outil sur le même projet.
+
+**Cause racine :** les options étaient stockées uniquement dans
+`PlansVenteFinalWindow._settings`, donc en mémoire vive de la fenêtre. Aucun
+stockage projet n'était relu au lancement suivant.
+
+**Correction :** ajouter `PlansVenteSettingsService` avec un fichier JSON local
+par projet sous `%APPDATA%\Outils-TAA\PlansDeVente\Projects\`. L'identité
+du projet privilégie le chemin du central pour un fichier partagé, puis le chemin
+du RVT, puis une identité de session pour un document non enregistré. Les choix
+Revit sont stockés par `UniqueId` et le paramètre logement par identité
+sérialisable.
+
+**Règle préventive :** distinguer explicitement état de fenêtre et préférences
+persistantes. Toute option présentée comme « enregistrée » et attendue au prochain
+lancement doit être écrite hors mémoire vive avec une identité de projet stable.
+
+**Anti-régression :** `tests/plans_vente/test_project_settings_persistence.py`
+couvre l'aller-retour JSON, l'isolation entre projets et la restauration du
+paramètre logement par identité durable.
+
