@@ -302,6 +302,29 @@ de leurs mises en page.
 - [x] Vérifier sous Revit 2025.4 les **deux valeurs de cotes**, l'alignement des **nus intérieurs réels**, la visibilité après masquage des séparations et la seconde exécution sans doublon ni crash sur la pièce **2238** (validation utilisateur 4/4).
 - [x] **Non-régression 2240** après BUG-COMMON-025 : validée 5/5 le 5 novembre 2026 ; le traitement standard retient les arêtes natives sans déclencher l'exception bêta. Reste la recette générale multi-pièces et cas atypiques avant fusion.
 - [x] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash **validés sur cette pièce** ; réactivation en masse toujours suspendue en attendant les autres cas.
+### Cotation bêta — une vue / un appartement (5 novembre 2026)
+
+Après la validation ciblée des pièces 2238 et 2240, **premier élargissement
+contrôlé du périmètre**, exclusivement sur la branche
+`feature/annotations-automatiques-beta` :
+
+- [x] Conserver le choix de cotation **une seule pièce**.
+- [x] Ajouter le mode **un appartement dans une vue**, identifié par un
+  paramètre d'instance de pièce choisi explicitement, et une valeur exacte.
+- [x] Distinguer le bâtiment si l'identifiant de logement est utilisé dans
+  plusieurs bâtiments ; imposer la vérification de la liste nominative
+  des pièces avant toute création.
+- [x] Limiter à **2–12 pièces**, refuser tout groupe de modèle, ne pas
+  étendre aux fichiers liés ni à toutes les vues.
+- [x] Conserver une transaction et un journal par pièce ; arrêter
+  préventivement le lot au premier échec technique et laisser les autres
+  pièces non traitées. Aucune suppression automatique de cotes existantes.
+- [ ] **REV-ANN-104 à 111 :** recette Revit sur une **copie de projet**,
+  appartement de 3 à 8 pièces, anti-doublons, textes de cote, groupes
+  et séparation par bâtiment (voir `docs/21_Annotations_Automatiques.md`).
+- [ ] Évaluer la généralisation à toute la vue uniquement après ces essais
+  et les autres cas bloquants ; aucun merge dans `main` avant validation.
+
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
 
