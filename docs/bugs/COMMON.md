@@ -1157,3 +1157,76 @@ ne doit pas être fusionnée dans `main` sans ces vérifications.
 
 
 **Non-régression sur la pièce 2240 confirmée le 5 novembre 2026 :** 2 annotations dans `Collectifs A_Niveau 1`, 2 arêtes natives GC conservées (écart **0 mm**, recouvrement **100 %** ; écart **19,3 mm**, recouvrement **63 %**), sans `RECUPERATION BETA` ni repères 2D signalés. Contrôles utilisateur 5/5 : deux cotes créées, valeurs et nus corrects, références natives, visibilité des cotes après masquage des séparations et deuxième lancement sans doublon ni crash. L'écart de 19,3 mm désigne le décalage arête/limite de pièce, pas un écart constaté sur la dimension. **BUG-COMMON-025 validé sur 2238 et non-régression sur 2240 validée ; validation globale des autres cas toujours en attente.** Garder le module sur sa branche bêta et ne pas fusionner dans `main` à ce stade.
+
+
+---
+
+### BUG-COMMON-026 — Cotation appartement : seconde orientation omise dans les petites pièces
+
+**Rapport utilisateur du 5 novembre 2026 — vue `Collectifs A_Niveau 1` :**
+mode bêta un appartement, **12 pièces hors groupe** traitées,
+**18 annotations créées** sur un maximum théorique de 24
+(6 pièces avec une seule cote). Les pièces **2249, 2251,
+2252, 2253 et 2256** indiquent explicitement
+`orientation 2 ignoree`, avec 8 à 10 positions initiales mais
+aucune combinaison compatible après le filtrage graphique.
+Dans plusieurs cas **aucun texte entièrement intérieur** n'est
+possible ; pourtant des positions partiellement extérieures sont
+déjà autorisées. La pièce **2247** n'affiche pas d'orientation
+rejetée et n'a produit qu'une cote : un seul axe de faces opposées
+fiable est une hypothèse distincte à confirmer au prochain essai.
+Le rapport ne démontre PAS que les six pièces possèdent toutes
+deux références de faces opposées cotables.
+
+**Différence avec le module Plans de vente :**
+les deux modules utilisent la même génération de positions
+`plans_vente.dimension_positioning.placement_candidates`
+et les mêmes références physiques. Le moteur de Plans de vente
+`select_placements` privilégie deux cotes mais accepte
+des placements avec risques de collisions, signalés par avertissement.
+L'adaptateur Annotations ajoute
+`select_collision_free_placements`, qui refuse ces collisions,
+et peut donc ne conserver qu'une cote. Revenir aveuglément à
+`select_placements` sur une vue déjà annotée réintroduirait des
+chevauchements de textes/étiquettes.
+
+**Correctif bêta limité à Annotations :**
+1. Accepter le **croisement ponctuel** de deux traits ou témoins
+   lorsque leurs directions sont suffisamment transversales,
+   comme le croisement normal des deux directions principales.
+   Les parallèles et les superpositions restent interdits.
+   **Toutes les collisions impliquant un texte sont refusées.**
+2. Après échec du choix strict, rechercher au plus **4 positions
+   supplémentaires par axe**, légèrement au-delà du contour
+   de la pièce (marges bornées à une puis deux hauteurs de texte).
+   La géométrie et les classes proviennent du même moteur
+   `DimensionPlacement` de Plans de vente, sans toucher
+   aux références de murs, sols ou garde-corps Revit.
+3. Réévaluer la sélection stricte avec ces positions.
+   Ne retenir le repli que si le **nombre de cotes sans collisions
+   augmente** ; continuer à bloquer les étiquettes existantes
+   et les textes de cotes, même en dehors de la pièce.
+4. Indiquer `REPLI PETITE PIECE` et avertir d'un éventuel
+   placement hors pièce, avec contrôle visuel de l'emprise
+   dans l'appartement voisin/couloir. En cas de panne du nouveau
+   repli, préserver les cotes réalisables par l'ancien placement.
+5. Journaliser séparément une **absence de seconde direction
+   géométrique** (nombre de paires de faces opposées fiables)
+   afin de ne jamais créer une cote inventée sur un petit tronçon.
+
+**Tests automatisés :** 460 tests Annotations + non-régression
+Plans de vente réussis en CI sur la branche bêta au
+5 novembre 2026. Le module Plans de vente et son moteur
+de références n'ont pas été modifiés.
+
+**Recette Revit en attente :** sur une **copie** de ce même
+appartement, garder les 18 cotes déjà présentes et relancer
+la cotation avec la branche à jour. Vérifier, pour 2249,
+2251, 2252, 2253 et 2256, si des secondes cotes apparaissent
+avec `placement complementaire petites pieces` ou
+`REPLI PETITE PIECE`, leur **valeur**, leur **nu fini**,
+leur **lisibilité hors pièce**, les **collisions réelles** et
+l'absence de doublon. Pour 2247, relever le nouveau message
+`seulement ... orientation(s) de faces opposees` et ne pas
+fabriquer artificiellement un second axe.
+Ne pas fusionner ce correctif dans `main` avant cette recette.
