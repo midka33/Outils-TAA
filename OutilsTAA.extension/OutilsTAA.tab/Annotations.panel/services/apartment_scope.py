@@ -10,9 +10,14 @@ visibles dans la vue. Une correspondance exacte est obligatoire.
 
 MAX_APARTMENT_ROOMS = 12
 
+try:
+    _text_type = unicode
+except NameError:
+    _text_type = str
+
 
 def normalize(value):
-    return "" if value is None else str(value).strip()
+    return "" if value is None else _text_type(value).strip()
 
 
 def _read_value(parameter):
