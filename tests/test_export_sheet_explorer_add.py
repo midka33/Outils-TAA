@@ -149,3 +149,17 @@ def test_rename_default_and_blank_rejected(tmp_path):
         repo.rename_publication_folder("default", "Autre")
     with pytest.raises(ValueError):
         repo.rename_publication_folder("plans", "  ")
+
+
+def test_successful_add_clears_previous_explorer_selection():
+    source = (PANEL / "sheet_explorer.py").read_text(encoding="utf-8")
+    start = source.index("    def add_to(self, destination):")
+    end = source.index("    def mouse_down(self, args):", start)
+    method = source[start:end]
+
+    add_index = method.index("add_sheets_to_folder(")
+    clear_index = method.index("self.selected_ids.clear()")
+    refresh_index = method.index("self.refresh()", clear_index)
+
+    assert add_index < clear_index < refresh_index
+

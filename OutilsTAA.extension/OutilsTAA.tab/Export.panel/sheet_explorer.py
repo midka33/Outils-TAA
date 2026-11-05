@@ -411,6 +411,10 @@ class SheetExplorer(object):
                 manager._restore_expanded(expanded)
                 manager.expand_to_key("CARNET:" + str(destination))
                 manager._restore_scroll(offset)
+
+            # Une action d'ajout est terminée : la sélection précédente ne doit
+            # jamais rester armée pour l'ajout suivant.
+            self.selected_ids.clear()
             self.refresh()
             self.window.SheetExplorerSelectionInfo.Text = "{0} ajoutée(s), {1} ignorée(s)".format(added, ignored)
         except Exception as exc:
