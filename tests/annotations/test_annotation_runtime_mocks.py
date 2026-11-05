@@ -1877,9 +1877,13 @@ def test_appartement_2247_reference_partagee_voisine_ne_supprime_pas_deuxieme_ax
 
     assert len(service._existing_dimension_reference_pairs()) == 1
     assert service._existing_dimension_reference_pairs(room) == set()
+    assert service._dimension_scope_stats == {
+        "inside": 0, "outside": 1, "unknown": 0}
     candidates = service._room_boundary_candidates(room)
     assert len(candidates) == 4
     assert any("2 axe(s) retenu(s)" in warning
+               for warning in service._guardrail_warnings)
+    assert any("1 d'autres pieces ignorees" in warning
                for warning in service._guardrail_warnings)
 
     # La premiere cote de 2247 n'autorise pas une DEUXIEME copie
