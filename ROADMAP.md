@@ -365,5 +365,6 @@ Voir `docs/21_Annotations_Automatiques.md`.
 - [x] Documenter le constat : 23 cotes pour 12 pieces ; les cinq petites pieces ont retrouve leurs deux cotes a l'interieur, **2247 reste a une seule cote**.
 - [x] Identifier l'absence dans le rapport de la ligne de secours longueur native mur, pourtant presente dans la derniere branche : un chargement de code ancien ou concurrent est possible.
 - [x] Ajouter le marqueur `REVISION COTATION BETA : 2026-11-05-2247-native-fallback-02` et `DIAGNOSTIC 2247` (sources des limites et references natives), sans modifier les cotes existantes ni Plans de vente ; **468 tests GitHub Actions reussis**.
-- [ ] Confirmer dans Revit 2025.4 que la bonne version s'execute, puis verifier si la limite manquante dispose de vraies references de faces ou d'extremites. Ne pas creer de dimension fictive pour atteindre 24/24.
-- [ ] Si une deuxieme cote est creee, controler sa valeur en nu fini, son placement interieur et l'absence de doublon ; sinon corriger a partir des nouvelles lignes de diagnostic, pas par supposition.
+- [x] **REV-ANN-122 — Revit 2025.4 :** revision `2026-11-05-2247-native-fallback-02` confirmée, **2 cotes intérieures** créées pour la pièce 2247 (2,62 m horizontale, 3,33 m verticale), superposition de témoins autorisée et avertie. Le secours de longueur de mur n'a pas été invoqué dans ce journal : ne pas attribuer ce succès au mauvais mécanisme.
+- [ ] Confirmer la justesse des **valeurs par rapport aux nus finis**, puis refaire le lancement 2247 pour vérifier l'anti-doublon.
+- [ ] Rejouer **l'appartement complet de 12 pièces** avec la même révision, vérifier deux cotes par pièce (objectif 24/24), placement intérieur, lisibilité des superpositions et absence de nouvelles erreurs.
