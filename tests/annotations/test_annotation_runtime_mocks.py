@@ -1687,6 +1687,7 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
     assert native_pair not in service._existing_dimension_reference_pairs()
     fallback = service._fallback_length_indexes(chosen, [])
     assert len(fallback) == 1, {
+        "debug": service._fallback_debug,
         "parents": mod.DimensionService._fallback_length_indexes(
             service, chosen, []),
         "keys": service._length_fallback_reference_keys,
