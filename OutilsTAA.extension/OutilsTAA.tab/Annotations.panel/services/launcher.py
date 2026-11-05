@@ -8,6 +8,9 @@ from Autodesk.Revit import DB
 
 from annotations_service import AnnotationService, safe_name, room_value
 from crash_trace import TRACE_PATH
+from apartment_scope import (parameter_candidates, apartment_values,
+                             available_buildings, filter_apartment,
+                             MAX_APARTMENT_ROOMS)
 
 
 class Choice(object):
@@ -65,29 +68,147 @@ def run(kind):
         return
 
     diagnostic_room_uid = None
+    diagnostic_room_uids = None
+    chosen_scope = "room"
+    apartment_description = ""
     if kind == "dims":
-        # Apres crash complet : pas de traitement de masse ni groupe.
-        # Selectionner explicitement une seule vue et une seule piece.
+        # Conserver le mode diagnostic une piece APRES CRASH REVIT.
+        # Elargir uniquement a UN appartement, UNE vue, sans groupe,
+        # avec au maximum 12 pieces et liste explicite pre-confirmee.
         if len(views) != 1:
             chosen_view = _choose_one(
                 [(v, safe_name(v, "Vue")) for v in views],
-                "Diagnostic crash - choisir UNE vue")
+                "Diagnostic securise : choisir UNE vue")
             if chosen_view is None:
                 return
             views = [chosen_view.value]
-        test_rooms = [
-            room for room in service._rooms(views[0])
-            if room.GroupId == DB.ElementId.InvalidElementId
-        ]
-        chosen_room = _choose_one([
-            (str(room.UniqueId), "{} - {}".format(
-                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
-                room_value(room, DB.BuiltInParameter.ROOM_NAME, "Piece")))
-            for room in test_rooms
-        ], "Diagnostic securise : choisir UNE piece hors groupe")
-        if chosen_room is None:
+        test_rooms = service._rooms(views[0])
+        scope = _choose_one([
+            ("room", "Une piece (diagnostic securise)"),
+            ("apartment", "Un appartement dans cette vue (beta, 12 pieces max.)"),
+        ], "Cotation beta : choisir le perimetre")
+        if scope is None:
             return
-        diagnostic_room_uid = chosen_room.value
+        chosen_scope = scope.value
+        if chosen_scope == "room":
+            room_candidates = [
+                room for room in test_rooms
+                if room.GroupId == DB.ElementId.InvalidElementId
+            ]
+            chosen_room = _choose_one([
+                (str(room.UniqueId), "{} - {}".format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                    room_value(room, DB.BuiltInParameter.ROOM_NAME, "Piece")))
+                for room in room_candidates
+            ], "Diagnostic securise : choisir UNE piece hors groupe")
+            if chosen_room is None:
+                return
+            diagnostic_room_uid = chosen_room.value
+        else:
+            # Ne jamais deviner le numero de logement a partir du numero
+            # de piece. Choix explicite du parametre d'instance Revit.
+            candidate_names = parameter_candidates(test_rooms)
+            if not candidate_names:
+                forms.alert(
+                    "Aucun parametre d'instance partage entre plusieurs "
+                    "pieces visibles. Renseigner un identifiant de "
+                    "logement sur chaque piece ou choisir UNE piece.",
+                    title=title)
+                return
+            chosen_param = _choose_one([
+                (name, name) for name in candidate_names
+            ], "Choisir le PARAMETRE identifiant l'appartement")
+            if chosen_param is None:
+                return
+            apartment_parameter = chosen_param.value
+            groups = apartment_values(test_rooms, apartment_parameter)
+            chosen_value = _choose_one([
+                (value, "{} ({} pieces visibles)".format(value, len(items)))
+                for value, items in groups
+            ], "Choisir UN appartement : {}".format(apartment_parameter))
+            if chosen_value is None:
+                return
+            apartment_value = chosen_value.value
+
+            building_parameter = None
+            building_value = None
+            apartment_candidates = [
+                room for room in test_rooms
+                if str(room.UniqueId) in set(
+                    str(item.UniqueId) for value, items in groups
+                    if value == apartment_value for item in items)
+            ]
+            building_names = [
+                name for name in parameter_candidates(apartment_candidates)
+                if name != apartment_parameter and any(
+                    marker in name.lower() for marker in
+                    ("batiment", "bâtiment", "immeuble", "building", "bloc"))
+                and len(available_buildings(apartment_candidates, name)) > 1
+            ]
+            if building_names:
+                chosen_building_param = _choose_one([
+                    (name, name) for name in building_names
+                ], "Plusieurs batiments pour cet identifiant : "
+                   "choisir le parametre de BATIMENT")
+                if chosen_building_param is None:
+                    return
+                building_parameter = chosen_building_param.value
+                chosen_building = _choose_one([
+                    (value, value) for value in
+                    available_buildings(apartment_candidates, building_parameter)
+                ], "Choisir le batiment de l'appartement")
+                if chosen_building is None:
+                    return
+                building_value = chosen_building.value
+
+            try:
+                selected_rooms = filter_apartment(
+                    test_rooms, apartment_parameter, apartment_value,
+                    building_parameter=building_parameter,
+                    building_value=building_value,
+                    max_rooms=MAX_APARTMENT_ROOMS)
+            except ValueError as exc:
+                forms.alert(str(exc), title=title)
+                return
+            grouped_rooms = [
+                room for room in selected_rooms
+                if room.GroupId != DB.ElementId.InvalidElementId
+            ]
+            if grouped_rooms:
+                forms.alert(
+                    "Cet appartement contient {} piece(s) dans un "
+                    "groupe de modele. La cotation par appartement ne "
+                    "prend pas encore en charge les groupes ; aucune "
+                    "annotation ne sera creee.".format(len(grouped_rooms)),
+                    title=title)
+                return
+            diagnostic_room_uids = [str(room.UniqueId)
+                                    for room in selected_rooms]
+            room_labels = [
+                "{} - {}".format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                    room_value(room, DB.BuiltInParameter.ROOM_NAME, "Piece"))
+                for room in selected_rooms
+            ]
+            apartment_description = (
+                "Parametre : {} = {}{}\n"
+                "Vue : {}\n"
+                "Pieces visibles retenues ({} / {} maximum) :\n - {}"
+            ).format(
+                apartment_parameter, apartment_value,
+                (" ; {} = {}".format(building_parameter, building_value)
+                 if building_parameter else ""),
+                safe_name(views[0], "Vue"), len(selected_rooms),
+                MAX_APARTMENT_ROOMS, "\n - ".join(room_labels))
+            # Le choix du parametre peut etre erroné (ex. Phase, Niveau) :
+            # faire verifier la liste de toutes les pieces par l'utilisateur.
+            if not forms.alert(
+                    "VERIFIER LE PERIMETRE DE L'APPARTEMENT\n\n"
+                    + apartment_description
+                    + "\n\nCes pieces sont-elles exactement celles "
+                      "de cet appartement ?",
+                    title=title, yes=True, no=True):
+                return
 
     types = service.list_types(kind)
     picked = _choose_one([(x.unique_id, x.label) for x in types],
@@ -109,11 +230,25 @@ def run(kind):
             return
 
     if kind == "dims":
-        question = ("MODE DIAGNOSTIC APRES CRASH REVIT\n"
-                    "Une seule piece hors groupe sera traitee.\n"
-                    "Ne pas executer sur la maquette de production.\n"
-                    "Journal persistant : {}\n"
-                    "Lancer cet essai ?".format(TRACE_PATH))
+        if chosen_scope == "apartment":
+            question = (
+                "MODE BETA APPARTEMENT APRES CRASH REVIT\n"
+                "{}\n\n"
+                "Chaque piece sera traitee dans sa propre transaction.\n"
+                "Le traitement s'arrete au premier echec technique.\n"
+                "AUCUN groupe et AUCUNE autre vue ne seront modifies.\n"
+                "Tester UNIQUEMENT sur une COPIE du projet Revit, "
+                "Revit enregistre et autres fichiers synchronises.\n"
+                "Journal persistant : {}\n"
+                "Lancer la cotation des {} pieces ?"
+            ).format(apartment_description, TRACE_PATH,
+                     len(diagnostic_room_uids))
+        else:
+            question = ("MODE DIAGNOSTIC APRES CRASH REVIT\n"
+                        "Une seule piece hors groupe sera traitee.\n"
+                        "Ne pas executer sur la maquette de production.\n"
+                        "Journal persistant : {}\n"
+                        "Lancer cet essai ?".format(TRACE_PATH))
     else:
         question = "Appliquer {} dans {} vue(s) ?".format(
             title.lower(), len(views))
@@ -122,7 +257,8 @@ def run(kind):
 
     count, report = service.run(
         kind, views, picked.value, style,
-        diagnostic_room_uid=diagnostic_room_uid)
+        diagnostic_room_uid=diagnostic_room_uid,
+        diagnostic_room_uids=diagnostic_room_uids)
     out = script.get_output()
     out.print_md("## {} - version beta".format(title))
     out.print_md("**{} annotation(s) creee(s) dans {} vue(s).**".format(
