@@ -1230,3 +1230,72 @@ l'absence de doublon. Pour 2247, relever le nouveau message
 `seulement ... orientation(s) de faces opposees` et ne pas
 fabriquer artificiellement un second axe.
 Ne pas fusionner ce correctif dans `main` avant cette recette.
+
+
+---
+
+### BUG-COMMON-027 — Appartement 23/24 : deux cotes INTERIEURES, 2247 et recherche GC reservee aux limites non murales
+
+**Retour utilisateur du 5 novembre 2026, apres BUG-COMMON-026 :**
+vue `Collectifs A_Niveau 1`, 12 pieces, **23 cotations creees**
+sur un objectif de 24. Les pieces 2249, 2251, 2252, 2253 et 2256
+ont bien recupere leur seconde cote via `REPLI PETITE PIECE`, mais
+certaines positions depassent le contour des petits locaux.
+La piece **2247** ne produit toujours qu'une cote, sans message
+de refus graphique de la seconde orientation.
+
+**Exigence metier explicite :**
+1. **Deux cotes par piece** des lors que Revit dispose de deux mesures
+   physiques fiables. Les deux **lignes de cote et ancrages de texte
+   doivent etre dans la piece**, meme dans un WC, cellier ou degagement.
+2. Si le local est tres petit, les **superpositions de textes, etiquettes
+   ou temoins sont acceptees** et signalees, plutot que deplacer les
+   cotes hors de la piece ou supprimer la deuxieme.
+3. **Ne rechercher de garde-corps que si une limite selectionnee n'est
+   pas un mur Revit** et que la reference n'est pas deja satisfaisante.
+   Ne pas sonder tous les garde-corps d'une vue pour un local 100 % murs.
+
+**Correctifs sur `feature/annotations-automatiques-beta` :**
+- Le nouveau `annotations/inside_dimension_positioning.py` choisit
+  parmi les candidats `DimensionPlacement` d'origine Plans de vente
+  **deux lignes qui passent a l'interieur** (sondes via
+  `Room.IsPointInRoom`). Il choisit la combinaison avec deux cotes
+  lorsqu'elle existe, puis minimise les collisions. Les risques de
+  chevauchement sont affiches ; le texte peut deborder de son enveloppe
+  pour une piece trop petite, mais son point d'ancrage reste a
+  l'interieur. Aucun repli vers l'exterieur n'est utilise.
+- Pour **2247**, le traitement entre faces finies ne trouve qu'une
+  famille opposee fiable. Le service reutilise donc le **secours natif
+  deja valide dans Plans de vente** : une longueur de mur decrite par
+  les deux References Revit reelles de ses extremites, si elles sont
+  disponibles, et si la meme cote n'existe pas deja. Le moteur Plans
+  de vente n'est pas modifie. L'ancienne surcharge qui retournait
+  toujours `[]` pour `_fallback_length_indexes` est supprimee.
+  Si ces References natives manquent, le programme n'invente jamais
+  une mesure et l'indique dans le rapport.
+- `_upgrade_separator_guardrail` ne déclenche
+  `_nearby_guardrail_edges` que pour une limite **non murale**
+  de type separation de piece : les limites `wall` conserve
+  directement la reference de face de mur et n'entrainent
+  aucune extraction de rails. Les vraies aretes de sol
+  (`floor_edge`) ne sont pas remplacees sans raison.
+
+**Limites et securite :** deux lignes interieures sont preferees,
+mais leur **texte peut chevaucher** une etiquette ou une autre cote
+dans une piece trop petite. Il faut verifier la valeur lue et
+la position des references ; ni cotation fictive, ni creation
+d'une paire de faces inexistante. La procedure reste limitee a un
+appartement beta, 12 pieces maximum, hors groupes et sur copie
+de projet. Les tests automatises hors Revit controlent le
+placement interieur, les superpositions, les pieces en L et les
+References natives de longueur ; la recette graphique Revit
+de 2247 reste a effectuer.
+
+**Prochaine recette ciblée :** repartir d'une **copie sauvegardee**
+du meme appartement, tester les 12 pieces, verifier **24/24 si
+le mur de 2247 possede des References d'extremites valides**, puis
+controler que les deux traits de chaque cote sont internes et
+qu'aucun nouveau garde-corps n'a ete explore pour une piece
+seulement entouree de murs. Verifier notamment les pieces
+2247, 2249, 2251, 2252, 2253 et 2256 et l'absence de doublons.
+Ne pas fusionner dans `main` avant validation.
