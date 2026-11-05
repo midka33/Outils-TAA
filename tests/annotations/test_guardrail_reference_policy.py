@@ -81,7 +81,7 @@ def test_test_non_regression_ordre_references():
         "candidates = super(GenericDimensions, self)._room_boundary_candidates(room)"
     ) < source.index("self._upgrade_separator_guardrail(")
     assert source.index("self._upgrade_separator_guardrail(") < source.index(
-        "existing = self._existing_dimension_reference_pairs()")
+        "existing = self._existing_dimension_reference_pairs(room)")
     assert 'candidate.source_kind = "guardrail_edge"' in source
     assert 'if getattr(candidate, "source_kind", None) != "separator":' in source
 
