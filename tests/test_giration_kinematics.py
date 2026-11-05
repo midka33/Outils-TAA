@@ -7,9 +7,9 @@ Ces tests vérifient les calculs de trajectoire pour différents scénarios.
 
 import pytest
 import math
-from lib.giration.models.vehicle import Vehicle
-from lib.giration.services.kinematics import AckermannKinematics, TrajectoryPoint
-from lib.giration.geometry.vector2d import Vector2D
+from giration.models.vehicle import Vehicle
+from giration.services.kinematics import AckermannKinematics, TrajectoryPoint
+from giration.geometry.vector2d import Vector2D
 
 
 # Créer un véhicule de test standard
