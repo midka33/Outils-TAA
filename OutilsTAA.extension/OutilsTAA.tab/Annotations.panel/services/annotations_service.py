@@ -996,13 +996,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         Seulement quand la geometrie initiale ne donnait pas 2 paires
         opposees fiables. Ne jamais dupliquer une Reference deja cotee.
         """
+        self._fallback_debug = ["entered", self._length_fallback_room_allow]
         if not self._length_fallback_room_allow:
             return []
         indexes = super(GenericDimensions, self)._fallback_length_indexes(
             boundary_candidates, pairs)
         previous = self._existing_dimension_reference_pairs()
         filtered = []
-        self._fallback_debug = []
+        self._fallback_debug.append(("parent_indexes", tuple(indexes)))
         for index in indexes:
             candidate = boundary_candidates[index]
             if (getattr(candidate, "source_kind", "") != "wall"
