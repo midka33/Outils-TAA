@@ -447,11 +447,15 @@ def test_stage09_template_contract_is_unambiguous():
 def test_stage09_optional_location_plan_never_blocks_template_selection():
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
 
     assert "return infos[0], None, warnings" in full
+    assert "if location_info is not None:" in full
     assert "Repérage non créé" in full
     assert "location_viewport_model = None" in sheet
     assert "if template_location_viewport_unique_id:" in sheet
+    assert "À vérifier" in main
+    assert "inspection.warnings" in main
 
 
 def test_stage09_rc2_duplex_explicit_zones_share_one_scale():
