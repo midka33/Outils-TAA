@@ -99,3 +99,7 @@ La PR #37 développe **deux outils autonomes distincts**, `Cotation auto` et `É
 **Avertissements acceptés par décision métier :** emprise graphique débordante pour les pièces 2222, 2223, 2250, 2252 ; collision non résolue et meilleure position intérieure conservée pour 2249, 2251, 2252, 2253. Ces avertissements n'empêchent pas la création ; l'utilisateur repositionne les étiquettes illisibles.
 
 **Statut précis :** génération 44/44 **validée sur cette vue**, pas validation globale du module. Reste à tester : étiquettes existantes / seconde exécution sans doublons, plusieurs vues, groupes de modèle et non-régression Plans de vente. Ne pas confondre validation de cette recette et fusion de la PR #37.
+
+## Étiquetage auto — deuxième lancement (05/11/2026)
+
+Sur `Collectifs A_Niveau 1`, 44 pièces hors groupe détectées, **0 nouvelle étiquette créée** au second passage ; 44 messages génériques « annotations deja presentes ou vues non cotables ». Ceci est **compatible avec l'absence de doublons** après le premier passage à 44/44, mais l'état des étiquettes visibles et de leur association à chaque pièce n'a pas été confirmé explicitement. **Ne pas déclarer un test anti-doublons intégralement validé sur la base du seul compteur 0.** Améliorer ultérieurement le diagnostic « déjà présente » vs « impossible / vue non admissible », avec formulation spécifique à l'étiquetage.
