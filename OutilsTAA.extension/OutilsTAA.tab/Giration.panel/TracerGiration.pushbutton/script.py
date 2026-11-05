@@ -83,7 +83,9 @@ def main():
         forms.alert('Aucun segment trace.', title='Giration')
         return
     try:
-        ids = create_graphics(revit.doc, view, selected, trajectory)
+        with forms.ProgressBar(title='TAA Giration - creation : {value}/{max_value}', cancellable=False) as bar:
+            ids = create_graphics(revit.doc, view, selected, trajectory,
+                                  progress=bar.update_progress)
         forms.alert('{0} courbes de detail creees (prototype non certifie).'.format(len(ids)),
                     title='Giration')
     except Exception as exc:
