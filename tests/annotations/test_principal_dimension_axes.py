@@ -94,8 +94,8 @@ def test_pas_de_paire_de_faces_pas_de_cotation():
     assert axes.principal_reference_indexes([(0., 0., 5., 0.)]) == set()
 
 
-def test_adaptateur_utilise_longueur_mur_seulement_si_seconde_famille_absente():
-    """La longueur n'est une seconde cote que si elle a 2 References natives."""
+def test_adaptateur_reutilise_le_repli_pdv_sans_le_redefinir():
+    """D'ou provient la 2e cote native de la piece 2247."""
     path = (LIB.parent / "OutilsTAA.tab" / "Annotations.panel" /
             "services" / "annotations_service.py")
     source = path.read_text(encoding="utf-8")
@@ -103,13 +103,12 @@ def test_adaptateur_utilise_longueur_mur_seulement_si_seconde_famille_absente():
     tree = ast.parse(source)
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef)
                and n.name == "GenericDimensions")
-    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef)
-                  and n.name == "_fallback_length_indexes")
-    contract = ast.get_source_segment(source, method)
-    assert "source_kind" in contract
-    assert "self._existing_dimension_reference_pairs()" in contract
-    assert "length_references" in contract
-    assert "valid.sort(key=segment_length, reverse=True)" in contract
+    assert not any(isinstance(n, ast.FunctionDef)
+                   and n.name == "_fallback_length_indexes"
+                   for n in cls.body)
+    assert "_length_fallback_reference_keys" in source
+    assert "candidate.length_references = None" in source
+    assert "self._existing_dimension_reference_pairs()" in source
 
 
 def test_directions_trop_proches_ne_sont_pas_les_deux_cotes():
