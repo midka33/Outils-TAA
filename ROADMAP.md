@@ -368,3 +368,39 @@ Voir `docs/21_Annotations_Automatiques.md`.
 - [x] **REV-ANN-122 — Revit 2025.4 :** revision `2026-11-05-2247-native-fallback-02` confirmée, **2 cotes intérieures** créées pour la pièce 2247 (2,62 m horizontale, 3,33 m verticale), superposition de témoins autorisée et avertie. Le secours de longueur de mur n'a pas été invoqué dans ce journal : ne pas attribuer ce succès au mauvais mécanisme.
 - [ ] Confirmer la justesse des **valeurs par rapport aux nus finis**, puis refaire le lancement 2247 pour vérifier l'anti-doublon.
 - [ ] Rejouer **l'appartement complet de 12 pièces** avec la même révision, vérifier deux cotes par pièce (objectif 24/24), placement intérieur, lisibilité des superpositions et absence de nouvelles erreurs.
+
+
+### REV-ANN-123 — chambre 2247 seule OK, appartement 23/24 (5 novembre 2026)
+
+- [x] Reproduire dans Revit le contraste :
+  2247 seule = **2 cotes**, appartement de
+  12 pieces = **23/24**, 2247 seule a
+  une cote lorsque les pieces precedentes
+  ont ete traitees.
+- [x] Identifier la cause logicielle potentielle :
+  anti-doublon sur toutes les References
+  de la vue, y compris les cotes
+  des pieces voisines.
+- [x] Corriger l'anti-doublon des paires
+  natives et proxies pour verifier
+  l'appartenance de la ligne de cote
+  a la piece courante, tout en maintenant
+  le refus des dimensions illisibles.
+- [x] Ajouter les diagnostics de position
+  de cotes et des axes deja mesures ;
+  revision `2026-11-05-apartment-room-dedup-03`.
+- [x] Tests hors Revit : **471 reussis**,
+  dont reproduction de chambres mitoyennes
+  ayant des references de murs communes,
+  et anti-doublon dans la piece.
+- [ ] **Recette Revit 2247 en mode appartement** :
+  confirmer le 24e axe, bonnes valeurs
+  et emplacement interieur, sans doublons
+  sur les autres pieces.
+- [ ] Refaire un lancement complet
+  sans supprimer les cotes pour
+  verifier qu'aucune cote supplementaire
+  n'est creee.
+- [ ] Ne pas fusionner dans `main`
+  avant validation reelle et controle
+  des cotes de garde-corps.
