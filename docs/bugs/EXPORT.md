@@ -861,3 +861,47 @@ la sortie du champ ou séparer explicitement l'état d'activation du contenu tex
 champ utilise `LostFocus`, qu'il reste actif en PDF combiné et qu'une règle
 DWG personnalisée n'est pas remplacée par la règle par défaut.
 
+### BUG-EXPORT-061 — Une feuille ajoutée reste sélectionnée pour l'ajout suivant
+
+**Symptôme :** après avoir ajouté une mise en page à un dossier, l'ajout suivant
+peut réinclure la feuille précédemment ajoutée en plus de la nouvelle sélection.
+
+**Cause racine :** `SheetExplorer.selected_ids` conservait la sélection après
+une opération d'ajout réussie. Le rafraîchissement de la liste reconstruisait
+ensuite l'UI à partir de cet état persistant, ce qui pouvait réarmer une ancienne
+sélection pour l'action suivante.
+
+**Correction :** vider explicitement `selected_ids` après le retour réussi de
+`add_sheets_to_folder`, avant de reconstruire l'explorateur.
+
+**Règle préventive :** une sélection utilisée comme périmètre d'une action
+ponctuelle doit être remise à zéro lorsque l'action est terminée, sauf si
+l'interface annonce explicitement une sélection persistante.
+
+**Anti-régression :** `tests/test_export_sheet_explorer_add.py` vérifie que la
+sélection est effacée entre l'écriture repository et le rafraîchissement UI.
+
+### BUG-EXPORT-062 — Le nom d'une feuille persistante ne suit pas son renommage Revit
+
+**Symptôme :** après renommage d'une mise en page dans Revit, l'explorateur de
+feuilles affiche le nouveau nom mais la même feuille déjà rangée dans un dossier
+Export conserve son ancien nom.
+
+**Cause racine :** `PublicationItem` persistait `sheet_number` et
+`sheet_name` comme snapshot au moment de l'ajout. L'arborescence relisait ce
+snapshot sans resynchroniser les métadonnées d'affichage avec la feuille Revit
+référencée par `UniqueId`.
+
+**Correction :** lors du chargement des publications persistantes, résoudre les
+feuilles courantes par `UniqueId` et actualiser en mémoire `sheet_id`,
+`sheet_number` et `sheet_name`. Cette opération n'écrit pas automatiquement
+dans le JSON ; le `UniqueId` reste la référence durable.
+
+**Règle préventive :** une référence Revit persistante peut conserver des
+métadonnées de secours, mais toute information d'affichage mutable doit être
+rafraîchie depuis l'élément courant lorsque celui-ci existe.
+
+**Anti-régression :** `tests/test_export_sheet_metadata_refresh.py` vérifie le
+rafraîchissement nom/numéro/ElementId sans écriture repository et la conservation
+du snapshot si la feuille n'existe plus.
+
