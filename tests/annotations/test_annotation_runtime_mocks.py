@@ -1805,19 +1805,21 @@ def test_appartement_2247_reference_partagee_voisine_ne_supprime_pas_deuxieme_ax
             self.X, self.Y, self.Z = x, y, 0.
 
     class Curve:
-        IsBound = True
+        IsBound = False
 
         def __init__(self, start, end):
             self.points = [Point(*start), Point(*end)]
 
         def GetEndPoint(self, index):
-            return self.points[index]
+            raise AssertionError('Revit dimension lines are unbound')
 
     class Dim:
         def __init__(self, keys, line=None):
             self.References = [Ref(key) for key in keys]
             if line is not None:
                 self.Curve = Curve(*line)
+                self.Origin = Point((line[0][0]+line[1][0])*.5,
+                                    (line[0][1]+line[1][1])*.5)
 
         def IsHidden(self, view):
             return False
