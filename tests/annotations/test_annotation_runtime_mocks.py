@@ -1951,3 +1951,20 @@ def test_2247_revision_beta_appartement_et_journal_doublons_par_piece(monkeypatc
     assert "CONTROLE DOUBLONS PAR PIECE" in text
     assert "self._existing_dimension_reference_pairs(room)" in text
     assert "self._existing_proxy_dimensions(room)" in text
+
+
+def test_unbound_dimension_uses_origin_not_endpoints(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    service = mod.GenericDimensions(object())
+    service._probe_z = lambda room: 1.
+    service._xyz = lambda x,y,z: types.SimpleNamespace(X=x,Y=y,Z=z)
+    room = types.SimpleNamespace(IsPointInRoom=lambda p: 0<p.X<7 and 3<p.Y<6)
+    class Curve:
+        IsBound = False
+        def GetEndPoint(self, index):
+            raise AssertionError('unbound curve!')
+    def dim(y):
+        return types.SimpleNamespace(Curve=Curve(), Origin=types.SimpleNamespace(X=3,Y=y), Segments=types.SimpleNamespace(Size=0))
+    assert service._dimension_ownership_in_room(dim(4), room) is True
+    assert service._dimension_ownership_in_room(dim(1), room) is False
+    assert service._dimension_ownership_in_room(types.SimpleNamespace(Curve=Curve(),Origin=None),room) is None
