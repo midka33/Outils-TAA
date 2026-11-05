@@ -79,15 +79,17 @@ class _GenericViewMixin(object):
 
 
 class GenericRoomTags(_GenericViewMixin, RoomTagService):
-    """Meme moteur geometrique; echec plutot qu'etiquette en collision."""
+    """Place la meilleure etiquette possible, avec ancrage interieur.
+
+    Les collisions et debordements ne bloquent plus l'etiquetage dans les
+    vues ordinaires : l'utilisateur ajuste ensuite la lisibilite.
+    La verification du point d'ancrage interieur reste dans le moteur PDV.
+    """
 
     def _place_one_tag(self, room, view, tag_type, candidates, probe_z,
                        occupied_boxes, padding):
-        result = super(GenericRoomTags, self)._place_one_tag(
+        return super(GenericRoomTags, self)._place_one_tag(
             room, view, tag_type, candidates, probe_z, occupied_boxes, padding)
-        if not result[2] or result[3]:
-            raise ValueError("Aucune position interieure sans chevauchement.")
-        return result
 
 
 class GenericDimensions(_GenericViewMixin, DimensionService):
