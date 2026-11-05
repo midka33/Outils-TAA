@@ -417,6 +417,10 @@ class FullGenerationService(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_template_unique_id="",
+        location_view_template_unique_id="",
+        room_tag_type_unique_id="",
+        dimension_type_unique_id="",
         main_view_unique_id=None,
         main_view_zone_line_style="",
         progress_callback=None,
@@ -463,13 +467,17 @@ class FullGenerationService(object):
                 location_info.view,
             )
 
-        tag_type = self._dominant_element_type(
+        tag_type = self._selected_or_dominant_type(
+            room_tag_type_unique_id,
             main_info.view,
             "OST_RoomTags",
+            "Le type d'étiquette de pièces sélectionné n'existe plus.",
         )
-        dimension_type = self._dominant_element_type(
+        dimension_type = self._selected_or_dominant_type(
+            dimension_type_unique_id,
             main_info.view,
             "OST_Dimensions",
+            "Le type de cote sélectionné n'existe plus.",
         )
         fill_type = (
             self._filled_region_type(location_info.view)
@@ -477,9 +485,17 @@ class FullGenerationService(object):
             else None
         )
 
-        main_template = self._view_template(main_info.view)
+        main_template = self._selected_view_template(
+            main_view_template_unique_id,
+            main_info.view,
+            "Le gabarit de vue logement sélectionné",
+        )
         location_template = (
-            self._view_template(location_info.view)
+            self._selected_view_template(
+                location_view_template_unique_id,
+                location_info.view,
+                "Le gabarit de repérage sélectionné",
+            )
             if location_info is not None
             else None
         )
@@ -777,6 +793,10 @@ class FullGenerationService(object):
         auto_fit_main_view=True,
         building_parameter_name="",
         typology_parameter_name="",
+        main_view_template_unique_id="",
+        location_view_template_unique_id="",
+        room_tag_type_unique_id="",
+        dimension_type_unique_id="",
         main_view_zone_line_style="",
         progress_callback=None,
     ):
@@ -814,6 +834,10 @@ class FullGenerationService(object):
                 auto_fit_main_view=auto_fit_main_view,
                 building_parameter_name=building_parameter_name,
                 typology_parameter_name=typology_parameter_name,
+                main_view_template_unique_id=main_view_template_unique_id,
+                location_view_template_unique_id=location_view_template_unique_id,
+                room_tag_type_unique_id=room_tag_type_unique_id,
+                dimension_type_unique_id=dimension_type_unique_id,
                 main_view_zone_line_style=main_view_zone_line_style,
                 progress_callback=progress_callback,
             )
@@ -837,13 +861,17 @@ class FullGenerationService(object):
             expected_levels=len(level_housings),
         )
 
-        tag_type = self._dominant_element_type(
+        tag_type = self._selected_or_dominant_type(
+            room_tag_type_unique_id,
             main_infos[0].view,
             "OST_RoomTags",
+            "Le type d'étiquette de pièces sélectionné n'existe plus.",
         )
-        dimension_type = self._dominant_element_type(
+        dimension_type = self._selected_or_dominant_type(
+            dimension_type_unique_id,
             main_infos[0].view,
             "OST_Dimensions",
+            "Le type de cote sélectionné n'existe plus.",
         )
         fill_type = (
             self._filled_region_type(location_info.view)
@@ -851,12 +879,28 @@ class FullGenerationService(object):
             else None
         )
 
-        main_templates = [
-            self._view_template(info.view)
-            for info in main_infos
-        ]
+        if main_view_template_unique_id:
+            selected_main_template = self._selected_view_template(
+                main_view_template_unique_id,
+                main_infos[0].view,
+                "Le gabarit de vue logement sélectionné",
+            )
+            main_templates = [
+                selected_main_template
+                for _ in main_infos
+            ]
+        else:
+            main_templates = [
+                self._view_template(info.view)
+                for info in main_infos
+            ]
+
         location_template = (
-            self._view_template(location_info.view)
+            self._selected_view_template(
+                location_view_template_unique_id,
+                location_info.view,
+                "Le gabarit de repérage sélectionné",
+            )
             if location_info is not None
             else None
         )
@@ -2039,6 +2083,50 @@ class FullGenerationService(object):
         if not regions:
             return None
         return self.document.GetElement(regions[0].GetTypeId())
+
+    def _selected_or_dominant_type(
+        self,
+        selected_unique_id,
+        fallback_view,
+        built_in_name,
+        missing_message,
+    ):
+        unique_id = str(selected_unique_id or "").strip()
+        if unique_id:
+            return self._get_element(unique_id, missing_message)
+        return self._dominant_element_type(
+            fallback_view,
+            built_in_name,
+        )
+
+    def _selected_view_template(
+        self,
+        selected_unique_id,
+        fallback_view,
+        label,
+    ):
+        unique_id = str(selected_unique_id or "").strip()
+        if not unique_id:
+            return self._view_template(fallback_view)
+
+        template = self._get_element(
+            unique_id,
+            "{} n'existe plus.".format(label),
+        )
+        try:
+            from Autodesk.Revit.DB import ViewType
+            valid = (
+                bool(getattr(template, "IsTemplate", False))
+                and getattr(template, "ViewType", None) == ViewType.FloorPlan
+            )
+        except Exception:
+            valid = False
+
+        if not valid:
+            raise ValueError(
+                "{} n'est plus un gabarit de plan d'étage.".format(label)
+            )
+        return template
 
     def _view_template(self, view):
         try:

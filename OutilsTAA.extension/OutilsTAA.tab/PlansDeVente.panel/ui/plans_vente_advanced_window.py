@@ -11,6 +11,15 @@ from common.wpf_resources import load_resource_dictionary
 from plans_vente.sheet_fit import parse_allowed_scales
 
 
+class AutomaticRevitChoice(object):
+    def __init__(self):
+        self.unique_id = ""
+        self.label = "Automatique — feuille modèle"
+
+    def __str__(self):
+        return self.label
+
+
 class PlansVenteAdvancedWindow(forms.WPFWindow):
 
     DEFAULTS = {
@@ -22,6 +31,10 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
         "log_warnings": True,
         "building_parameter_name": "",
         "typology_parameter_name": "",
+        "main_view_template_unique_id": "",
+        "location_view_template_unique_id": "",
+        "room_tag_type_unique_id": "",
+        "dimension_type_unique_id": "",
     }
 
     def __init__(
@@ -30,9 +43,17 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
         active_descriptor,
         settings=None,
         owner=None,
+        main_view_templates=None,
+        location_view_templates=None,
+        room_tag_types=None,
+        dimension_types=None,
     ):
         self.accepted = False
         self.parameter_choices = list(parameter_choices or [])
+        self.main_view_templates = list(main_view_templates or [])
+        self.location_view_templates = list(location_view_templates or [])
+        self.room_tag_types = list(room_tag_types or [])
+        self.dimension_types = list(dimension_types or [])
         self.active_descriptor = active_descriptor
         self.settings = dict(self.DEFAULTS)
         self.settings.update(dict(settings or {}))
@@ -81,6 +102,27 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
         self.TypologyParameterCombo.ItemsSource = self.parameter_choices
         self.TypologyParameterCombo.SelectedIndex = self._parameter_name_index(
             self.settings.get("typology_parameter_name", "")
+        )
+
+        self._load_revit_choices(
+            self.MainViewTemplateCombo,
+            self.main_view_templates,
+            self.settings.get("main_view_template_unique_id", ""),
+        )
+        self._load_revit_choices(
+            self.LocationViewTemplateCombo,
+            self.location_view_templates,
+            self.settings.get("location_view_template_unique_id", ""),
+        )
+        self._load_revit_choices(
+            self.RoomTagTypeCombo,
+            self.room_tag_types,
+            self.settings.get("room_tag_type_unique_id", ""),
+        )
+        self._load_revit_choices(
+            self.DimensionTypeCombo,
+            self.dimension_types,
+            self.settings.get("dimension_type_unique_id", ""),
         )
 
         self.BatchModeCombo.ItemsSource = ["Par lot"]
@@ -137,6 +179,24 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
             if candidate == target:
                 return index
         return -1
+
+    @staticmethod
+    def _load_revit_choices(combo, values, selected_unique_id):
+        choices = [AutomaticRevitChoice()] + list(values or [])
+        combo.ItemsSource = choices
+        target = str(selected_unique_id or "")
+        selected_index = 0
+        if target:
+            for index, item in enumerate(choices):
+                if str(getattr(item, "unique_id", "") or "") == target:
+                    selected_index = index
+                    break
+        combo.SelectedIndex = selected_index
+
+    @staticmethod
+    def _selected_unique_id(combo):
+        item = combo.SelectedItem
+        return str(getattr(item, "unique_id", "") or "").strip()
 
     @staticmethod
     def _selected_parameter_name(combo):
@@ -221,6 +281,18 @@ class PlansVenteAdvancedWindow(forms.WPFWindow):
             ),
             "typology_parameter_name": self._selected_parameter_name(
                 self.TypologyParameterCombo
+            ),
+            "main_view_template_unique_id": self._selected_unique_id(
+                self.MainViewTemplateCombo
+            ),
+            "location_view_template_unique_id": self._selected_unique_id(
+                self.LocationViewTemplateCombo
+            ),
+            "room_tag_type_unique_id": self._selected_unique_id(
+                self.RoomTagTypeCombo
+            ),
+            "dimension_type_unique_id": self._selected_unique_id(
+                self.DimensionTypeCombo
             ),
         }
         self.accepted = True

@@ -523,3 +523,34 @@ arbitrairement entre plusieurs niveaux existants à la même altitude.
 
 **Anti-régression :** test de `host_level_name` avec création automatique du
 niveau et validation réelle dans Revit 2025.4 pendant la recette V1.1.
+
+### BUG-PDV-031 — Les quatre réglages Revit des options avancées sont de faux champs en lecture seule
+
+**Symptôme :** dans « Options avancées », les réglages Gabarit vue logement,
+Gabarit repérage, Type d'étiquette de pièces et Type de cote affichent tous
+« Automatique — feuille modèle » sans proposer la liste des objets disponibles
+dans le document Revit.
+
+**Cause racine :** l'interface Stage 09 avait volontairement conservé quatre
+`TextBox IsReadOnly=True` comme placeholders pendant la stabilisation. Le
+moteur possédait déjà les collecteurs Revit pour les gabarits de plan, types
+d'étiquette et types de cote, mais la fenêtre finale ne les chargeait pas et ne
+transmettait aucune surcharge au moteur de génération.
+
+**Correction :** remplacer les quatre placeholders par des `ComboBox`, charger
+les objets du document hôte au moment d'ouvrir les Options avancées et conserver
+« Automatique — feuille modèle » comme premier choix. Les sélections explicites
+sont transportées par `UniqueId` jusqu'au moteur de génération. Un choix
+utilisateur prime sur l'objet déduit de la feuille modèle ; une valeur vide
+conserve exactement le comportement automatique historique.
+
+**Règle préventive :** une option visible présentée comme un réglage ne doit pas
+être simulée par un champ en lecture seule sans statut explicite. Lorsqu'un choix
+Revit doit survivre aux reconstructions d'éléments, transporter une identité
+durable (`UniqueId`) et valider l'élément au moment de son utilisation.
+
+**Anti-régression :** `tests/plans_vente/test_stage09_final_ui.py` impose les
+quatre `ComboBox`, le chargement des quatre catalogues Revit, la transmission
+des quatre `UniqueId` dans les chemins mono/multi-niveaux et le fallback vers
+la feuille modèle.
+

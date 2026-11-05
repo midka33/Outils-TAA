@@ -77,6 +77,10 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             "log_warnings": True,
             "building_parameter_name": "",
             "typology_parameter_name": "",
+            "main_view_template_unique_id": "",
+            "location_view_template_unique_id": "",
+            "room_tag_type_unique_id": "",
+            "dimension_type_unique_id": "",
         }
 
         current_dir = os.path.dirname(__file__)
@@ -737,11 +741,29 @@ class PlansVenteFinalWindow(forms.WPFWindow):
         )
 
     def AdvancedOptions_Click(self, sender, args):
+        try:
+            main_view_templates = self.controller.main_view_templates()
+            location_view_templates = self.controller.location_view_templates()
+            room_tag_types = self.controller.room_tag_types()
+            dimension_types = self.controller.dimension_types()
+        except Exception as error:
+            forms.alert(
+                "Impossible de charger les gabarits et types Revit :\n\n{}"
+                .format(str(error) or repr(error)),
+                title="Plans de vente — Options avancées",
+                warn_icon=True,
+            )
+            return
+
         dialog = PlansVenteAdvancedWindow(
             parameter_choices=self._parameter_choices,
             active_descriptor=self._active_descriptor,
             settings=self._settings,
             owner=self,
+            main_view_templates=main_view_templates,
+            location_view_templates=location_view_templates,
+            room_tag_types=room_tag_types,
+            dimension_types=dimension_types,
         )
         dialog.ShowDialog()
         if not dialog.accepted:
@@ -1152,6 +1174,22 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                         "typology_parameter_name",
                                         "",
                                     ),
+                                    main_view_template_unique_id=self._settings.get(
+                                        "main_view_template_unique_id",
+                                        "",
+                                    ),
+                                    location_view_template_unique_id=self._settings.get(
+                                        "location_view_template_unique_id",
+                                        "",
+                                    ),
+                                    room_tag_type_unique_id=self._settings.get(
+                                        "room_tag_type_unique_id",
+                                        "",
+                                    ),
+                                    dimension_type_unique_id=self._settings.get(
+                                        "dimension_type_unique_id",
+                                        "",
+                                    ),
                                     main_view_zone_line_style=(
                                         self._selected_main_view_zone_line_style()
                                     ),
@@ -1180,6 +1218,22 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                                 ),
                                 typology_parameter_name=self._settings.get(
                                     "typology_parameter_name",
+                                    "",
+                                ),
+                                main_view_template_unique_id=self._settings.get(
+                                    "main_view_template_unique_id",
+                                    "",
+                                ),
+                                location_view_template_unique_id=self._settings.get(
+                                    "location_view_template_unique_id",
+                                    "",
+                                ),
+                                room_tag_type_unique_id=self._settings.get(
+                                    "room_tag_type_unique_id",
+                                    "",
+                                ),
+                                dimension_type_unique_id=self._settings.get(
+                                    "dimension_type_unique_id",
                                     "",
                                 ),
                                 main_view_zone_line_style=(
