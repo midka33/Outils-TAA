@@ -20,8 +20,10 @@
         </StackPanel>
         <StackPanel Grid.Row="2" Margin="0,12,0,0">
             <CheckBox x:Name="ReverseCheck" Content="Manœuvre en marche arrière" Margin="0,4,0,8"/>
-            <CheckBox x:Name="AcknowledgeCheck"
-                      Content="Je comprends que ces gabarits ne sont pas homologués et que les courbes tracées ne sont pas une preuve de conformité."/>
+            <CheckBox x:Name="AcknowledgeCheck">
+                <TextBlock TextWrapping="Wrap" MaxWidth="510"
+                           Text="Je comprends que ces gabarits ne sont pas homologués et que les courbes tracées ne sont pas une preuve de conformité."/>
+            </CheckBox>
         </StackPanel>
         <Border Grid.Row="3" CornerRadius="4" Padding="12" Margin="0,18,0,10"
                 Background="{DynamicResource TaaMuted}">
