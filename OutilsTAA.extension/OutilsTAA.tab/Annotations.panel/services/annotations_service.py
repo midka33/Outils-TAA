@@ -18,7 +18,7 @@ from room_tag_service import RoomTagService
 
 # Marqueur lisible dans le rapport : permet de detecter une autre copie
 # de l'extension ou un cache pyRevit/IronPython encore charge.
-ANNOTATIONS_BETA_REVISION = "2026-11-05-2247-native-fallback-02"
+ANNOTATIONS_BETA_REVISION = "2026-11-05-apartment-room-dedup-03"
 
 
 def id_value(element_id):
@@ -112,7 +112,33 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         except Exception:
             return None
 
-    def _existing_dimension_reference_pairs(self):
+    def _dimension_ownership_in_room(self, dimension, room):
+        """True si la ligne de cote traverse l'interieur de CETTE piece.
+
+        False : ligne localisee hors piece, non pertinente pour eviter
+        une cote native dans cette piece (par ex. chambre voisine).
+        None : localisation indisponible => conserver le verrou ancien
+        contre les doublons plutot qu'inventer une cote.
+        """
+        if room is None:
+            return None
+        try:
+            curve = dimension.Curve
+            p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
+            x0, y0 = float(p0.X), float(p0.Y)
+            x1, y1 = float(p1.X), float(p1.Y)
+            z = self._probe_z(room)
+            for fraction in (.2, .5, .8):
+                point = self._xyz(
+                    x0 + (x1-x0)*fraction,
+                    y0 + (y1-y0)*fraction, z)
+                if room.IsPointInRoom(point):
+                    return True
+            return False
+        except Exception:
+            return None
+
+    def _existing_dimension_reference_pairs(self, room=None):
         """Identifier les cotes deja presentes par leurs references Revit.
 
         Une bbox partagee avec une autre piece n'est jamais une preuve
@@ -130,6 +156,13 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 try:
                     if dimension.IsHidden(view):
                         continue
+                    # Le meme couple de faces peut etre cote dans une
+                    # chambre VOISINE. La Reference seule ne suffit pas
+                    # a deduire qu'une piece possede deja sa cote.
+                    if (room is not None
+                            and self._dimension_ownership_in_room(
+                                dimension, room) is False):
+                        continue
                     keys = [self._stable_reference(reference)
                             for reference in dimension.References]
                     if len(keys) == 2 and all(keys) and keys[0] != keys[1]:
@@ -140,7 +173,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             pass
         return result
 
-    def _existing_proxy_dimensions(self):
+    def _existing_proxy_dimensions(self, room=None):
         """Cotes 2D TAA identifiables par repere de 5 mm dans la vue.
 
         Les references natives des cotes de details ne correspondent pas
@@ -163,6 +196,10 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         for dim in dimensions:
             try:
                 if dim.IsHidden(view):
+                    continue
+                if (room is not None
+                        and self._dimension_ownership_in_room(
+                            dim, room) is False):
                     continue
                 references = list(dim.References)
                 if len(references) != 2:
@@ -947,8 +984,13 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         # Calculer les références DEJA cotées après substitution :
         # une cote fondée sur une vraie arête de garde-corps doit être
         # reconnue à la relance plutôt que dupliquée.
-        existing = self._existing_dimension_reference_pairs()
-        existing_proxy = self._existing_proxy_dimensions()
+        # IMPORTANT : lire UNIQUEMENT les cotes localisees dans la
+        # piece en cours. La detection historique sur la VUE ENTIERE
+        # supprimait la deuxieme orientation de 2247 lorsque les
+        # chambres voisines avaient deja ete cotees en mode appartement.
+        # Sans geometrie de cote exploitable : protection conservative.
+        existing = self._existing_dimension_reference_pairs(room)
+        existing_proxy = self._existing_proxy_dimensions(room)
         indexes = set()
         # Un seul couple de murs opposes ne suffit pas pour deux
         # directions. Reprendre le SEC0URS Plans de vente : la longueur
@@ -1002,15 +1044,27 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     "disponible : seconde cote non creee pour eviter "
                     "une fausse mesure.".format(
                         room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")))
+        ignored_existing, ignored_proxies = 0, 0
         for pair in pairs:
             refs = [self._stable_reference(candidates[index].reference)
                     for index in (pair.first_index, pair.second_index)]
             if len(refs) == 2 and all(refs) and frozenset(refs) in existing:
+                ignored_existing += 1
                 continue
             if self._pair_already_proxied(pair, candidates, existing_proxy):
+                ignored_proxies += 1
                 continue
             indexes.add(pair.first_index)
             indexes.add(pair.second_index)
+        if len(pairs) >= 2:
+            self._guardrail_warnings.append(
+                "{} : CONTROLE DOUBLONS PAR PIECE : {} axe(s) geometriques, "
+                "{} deja cote(s) dans CETTE piece, {} deja cote(s) "
+                "par reperes 2D, {} axe(s) retenu(s)."
+                .format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                    len(pairs), ignored_existing, ignored_proxies,
+                    len(pairs)-ignored_existing-ignored_proxies))
         # La re-evaluation PDV des paires n'efface pas l'identite
         # des References ; les candidats complementaires apportent
         # seulement leurs references D'EXTREMITES de mur.
