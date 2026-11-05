@@ -109,3 +109,13 @@ Sur `Collectifs A_Niveau 1`, 44 pièces hors groupe détectées, **0 nouvelle é
 **Confirmation explicite de l'utilisateur :** après un premier lancement ayant créé **44 étiquettes pour 44 pièces** dans `Collectifs A_Niveau 1`, le deuxième lancement a créé **0 annotation supplémentaire**, et **les 44 étiquettes initiales sont toujours visibles**. **Test anti-doublons validé sur cette vue**, sans suppression des étiquettes existantes. Ne pas extrapoler aux groupes de modèle, aux autres vues ou aux autres types d'étiquettes non testés.
 
 Amélioration non bloquante à prévoir : remplacer le message répété « annotations deja presentes ou vues non cotables » par une indication spécifique et comptabilisée (« étiquette déjà présente »), distincte des vrais refus.
+
+## Développement groupes de modèle — sécurisation initiale (05/11/2026)
+
+**Objectif :** étiqueter les pièces appartenant à un groupe de modèle avec des groupes de détails attachés, réutilisables sur les occurrences. La cotation en groupe reste volontairement désactivée après un crash antérieur ; ne pas la réactiver sans protocole de validation distinct.
+
+**Implémenté sur la branche bêta :** vérifications renforcées de `_attach()` après `Document.Create.NewGroup` : rejet d'un résultat invalide ou ambigu, exigence d'un seul nouveau type de groupe de détails, et vérification d'une instance `Group.IsAttached` dont `AttachedParentId` correspond au groupe initial. En cas de doute, levée d'exception et rollback des transactions afin de protéger le groupe de modèle. Commit code : `ef8ff7f5c0496282a32456df1a77fe656330e52e`.
+
+**Statut exact :** correction de sécurité implémentée, **aucun test automatisé ni test Revit exécuté** sur cette modification. L'API `NewGroup` mixte peut ne pas rattacher des détails à un groupe de modèle déjà existant ; les garde-fous peuvent donc refuser l'opération, ce qui est attendu tant que la faisabilité n'est pas prouvée. **Aucune fonctionnalité groupe déclarée validée.**
+
+**Recette prioritaire sur une COPIE de maquette :** un groupe modèle ne contenant qu'une ou deux pièces, lancer d'abord **Étiquetage auto** ; vérifier absence de modification du groupe d'origine, création effective d'un groupe de détails attaché et possibilité d'afficher ce type sur une autre occurrence. Après une relance, aucun doublon. En cas de refus, collecter le rapport complet ; ne pas supprimer ou dégrouper l'original. La recette cotation en groupe est séparée et suspendue.
