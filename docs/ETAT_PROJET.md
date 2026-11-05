@@ -54,3 +54,14 @@ Ne pas modifier le code stable ni les fonctionnalités validées sans analyse de
 ## Historique de transmission
 
 - **2026-11-05 — Initialisation du suivi inter-conversations :** consultation du dépôt et création de ce point d'entrée. **Aucun changement de code ni test Revit effectué dans cette opération.**
+
+## Reprise Annotations — conversation transmise le 05/11/2026
+
+**Branche de développement :** `feature/annotations-automatiques-beta` ; PR #37 en brouillon. Ne pas fusionner dans `main` avant les recettes Revit.
+
+- **BUG-COMMON-025 / loggia 2238 : validé par l'utilisateur dans Revit 2025.4.** Deux cotes natives ; valeurs correctes ; nus intérieurs alignés ; cotes visibles avec séparations de pièces masquées ; deuxième exécution sans doublon ni plantage. Rapport : deux chemins successifs couvrant 100 %, sans superposition, jeu 0 mm et décalage latéral 33 mm. La seconde cote n'est associative qu'à l'arête du garde-corps 16141871, non au garde-corps complémentaire 8951804.
+- **Loggia 2240 : non-régression à effectuer.** Attendu : deux cotes natives correctes et visibles, sans recours 2D, ni doublons au second passage.
+- **BUG-COMMON-028 / appartement de 12 pièces : non validé dans Revit.** Le dernier essai décrit dans la documentation de branche produisait 23 cotes sur 24, avec une seule cote pour la chambre 2247 lorsqu'elle était traitée au sein de l'appartement. Le correctif `2026-11-05-apartment-room-dedup-04` emploie `Dimension.Origin` et `Room.IsPointInRoom` pour éviter que des cotes voisines bloquent la chambre. **472 tests automatisés réussis selon la documentation de la branche**, mais recette REV-ANN-124 encore ouverte.
+- **Prochaine action :** tester REV-ANN-124 sur copie de la maquette : 24 cotes sur 12 pièces si aucune n'est préexistante, vérifier 2,62 m et 3,33 m pour 2247, contrôler la non-régression des 11 autres pièces et l'absence de doublons à la deuxième exécution. Un compteur de créations sur maquette déjà cotée n'est pas un total de cotes présentes.
+
+**Provenance :** conversation fournie par l'utilisateur et `docs/21_Annotations_Automatiques.md` consulté sur la branche bêta. Les validations ne sont pas étendues à des cas non testés.
