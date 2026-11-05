@@ -99,6 +99,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self._guardrail_native_parents = {}
         self._length_fallback_room_allow = False
         self._length_fallback_reference_keys = set()
+        self._fallback_debug = ["not_called"]
 
     def _stable_reference(self, reference):
         if reference is None:
