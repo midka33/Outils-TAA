@@ -1011,6 +1011,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         Le moteur PDV appellera ensuite _length_dimension_line sur les
         indices retournes, comme dans Plans de vente.
         """
+        raise RuntimeError("DEBUG_FALLBACK_METHOD_ENTERED")
         existing = self._existing_dimension_reference_pairs()
         valid = []
         for index, candidate in enumerate(boundary_candidates):
