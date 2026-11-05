@@ -7,7 +7,7 @@ Ces tests vérifient les opérations géométriques de base sur les vecteurs 2D.
 
 import pytest
 import math
-from lib.giration.geometry.vector2d import Vector2D
+from giration.geometry.vector2d import Vector2D
 
 
 class TestVector2DInitialization:
