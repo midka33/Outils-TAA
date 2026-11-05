@@ -220,7 +220,7 @@ def test_stage09_entrypoint_uses_final_ui_and_keeps_legacy_alias():
 
     assert "from plans_vente_final_window import PlansVenteFinalWindow" in script
     assert "PlansVenteWindow = PlansVenteFinalWindow" in script
-    assert "window = PlansVenteWindow(controller)" in script
+    assert "settings_service = PlansVenteSettingsService(document=document)" in script\n    assert "window = PlansVenteWindow(controller, settings_service=settings_service)" in script
     assert "plan_update_service" not in script
 
 
