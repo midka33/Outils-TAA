@@ -1543,3 +1543,42 @@ def test_appartement_beta_rejette_membre_manquant_ou_plus_de_12(monkeypatch):
     with pytest.raises(ValueError, match="2 a 12"):
         service.run("dims", [view], "type",
                     diagnostic_room_uids=["A", "A"])
+
+
+def test_placement_repli_petite_piece_reutilise_pdv_et_deux_axes(monkeypatch):
+    """Deux mesures reelles 0,9 x 0,75 ; etiquettes et textes non superposes."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    service = mod.GenericDimensions(object())
+    service.PAPER_CLEARANCE_MM = 6.
+    service.PAPER_TEXT_WIDTH_MM = 12.
+    service.PAPER_TEXT_HEIGHT_MM = 3.
+    service.PAPER_PADDING_MM = .3
+    service.PAPER_WITNESS_MM = 1.5
+    service._millimeters_to_internal = lambda x: x / 1000.
+    service._placement_room_points = lambda r: [
+        (0., 0.), (.9, 0.), (.9, .75), (0., .75)]
+    service._probe_z = lambda r: 1.
+    service._xyz = lambda x, y, z: types.SimpleNamespace(X=x, Y=y, Z=z)
+    service._room_label = lambda r: "WC-R+1"
+    service._alignment_rails = lambda v: []
+    room = types.SimpleNamespace(IsPointInRoom=lambda p: (
+        0. < p.X < .9 and 0. < p.Y < .75))
+    view = types.SimpleNamespace(
+        Scale=100, RightDirection=types.SimpleNamespace(X=1., Y=0.))
+    warnings = []
+    placements = service._plan_graphics(
+        room, view,
+        [((0., .375), (.9, .375)),
+         ((.45, 0.), (.45, .75))],
+        [None, None], [], [], [], warnings)
+    from annotations.strict_dimension_positioning import SkippedPlacement
+    from plans_vente.dimension_positioning import placement_conflicts
+    assert len(placements) == 2
+    assert not any(isinstance(p, SkippedPlacement) for p in placements)
+    assert all(p.tag_hits == 0 and p.dimension_hits == 0 for p in placements)
+    assert placement_conflicts(placements[0], placements[1])[0] == 0
+    assert any("placement complementaire petites pieces" in w
+               for w in warnings) or all(
+                   not getattr(p, "external_compact", False) for p in placements)
