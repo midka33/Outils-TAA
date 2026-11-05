@@ -579,3 +579,24 @@ lancement doit être écrite hors mémoire vive avec une identité de projet sta
 couvre l'aller-retour JSON, l'isolation entre projets et la restauration du
 paramètre logement par identité durable.
 
+### BUG-PDV-033 — Une feuille sans repérage affiche une erreur Python `NoneType.view`
+
+**Symptôme :** la sélection de certaines feuilles modèles affiche
+`Modèle non exploitable : 'NoneType' object has no attribute 'view'`, sans
+indiquer la cause métier.
+
+**Cause racine :** l'aperçu appelait la fonction de rendu avec
+`location_info=None`, mais construisait auparavant le libellé avec
+`location_info.view`. L'accès se produisait donc avant le garde-fou interne.
+
+**Correction :** ne construire le bloc d'aperçu du repérage que lorsque
+`location_info` existe. Les avertissements issus de l'analyse de la feuille
+sont désormais affichés directement sous les détails du modèle.
+
+**Contrat :** l'absence de repérage reste actuellement un avertissement et ne
+bloque pas la génération, conformément au comportement Stage 09 existant. Elle
+est maintenant explicitement indiquée à l'utilisateur. Les vrais cas bloquants
+continuent d'afficher leur message métier.
+
+**Anti-régression :** `tests/plans_vente/test_stage09_final_ui.py`.
+
