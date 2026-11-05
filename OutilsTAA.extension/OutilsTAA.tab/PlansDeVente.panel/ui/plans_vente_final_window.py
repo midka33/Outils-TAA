@@ -531,6 +531,15 @@ class PlansVenteFinalWindow(forms.WPFWindow):
                 )
 
         if inspection.warnings:
+            self.TemplateDetailsText.Text += (
+                "\n\nÀ vérifier :\n- {}"
+            ).format(
+                "\n- ".join(
+                    str(item)
+                    for item in inspection.warnings
+                    if str(item).strip()
+                )
+            )
             self.StatusText.Text = (
                 "Modèle analysé avec {} avertissement(s)."
             ).format(len(inspection.warnings))
