@@ -314,3 +314,21 @@ Avant de répondre « terminé » :
 - Pour chaque nouvelle commande ou modification susceptible de durer plus de 20 secondes, verifier et documenter le comportement de progression. Ajouter a la recette un test d'execution longue (>20 s), un test d'erreur et un controle de non-regression. La validation effective sous Revit 2025.4 / pyRevit 5.x reste obligatoire pour les aspects WPF/API.
 
 **Critere de recette : aucune commande depassant 20 secondes sans indicateur visible, coherent et techniquement compatible avec Revit.**
+
+---
+
+## 12. CONTINUITÉ INTER-CONVERSATIONS ET SUIVI DES PR — OBLIGATOIRE (2026-11-05)
+
+**Périmètre : toutes les IA et tous les agents travaillant sur Outils TAA.**
+
+- Avant une modification, consulter `docs/ETAT_PROJET.md`, `AI_INSTRUCTIONS.md`, la documentation du module, les dernières PR et les registres de bugs applicables.
+- **Chaque PR doit comporter une actualisation de `docs/ETAT_PROJET.md` dans la même branche, avant fusion**, sauf changement exclusivement automatique du journal du suivi, pour éviter une boucle. La mise à jour doit expliquer la portée réelle de la PR, pas simplement mentionner son numéro.
+- Pour chaque PR : renseigner module, objectif, branche, référence de PR, état d'implémentation, décisions nouvelles, impacts fonctionnels, documents modifiés, tests automatisés réellement exécutés et leurs résultats, statut de recette Revit et prochaine action.
+- Distinguer explicitement **proposé / implémenté / tests automatisés réussis / recette Revit réussie / définitivement validé**. Une CI réussie, une PR approuvée ou fusionnée ne prouvent **jamais** une recette Revit.
+- Lors de la fusion, vérifier l'actualisation de l'état de référence sur `main`. Ne jamais marquer comme validée une fonctionnalité sans preuve ; ne pas écraser les états d'autres branches non fusionnées.
+- Après toute étape significative en cours de PR, actualiser le suivi avant de considérer l'étape clôturée. Pour les tests Revit effectués après fusion, créer une PR documentaire de validation liée au commit testé si nécessaire.
+- La documentation technique, les registres de bugs et les comptes rendus restent les sources de détail. `ETAT_PROJET.md` doit être un **résumé de reprise**, compact, daté et vérifiable.
+- En cas de contexte incomplet, signaler les éléments inconnus ; ne jamais inventer un commit, une décision ou une validation.
+- À la reprise d'une conversation ChatGPT, lire le suivi et vérifier l'état réel sur GitHub. À la demande « Fais un point de sauvegarde du développement », actualiser le suivi, puis communiquer le SHA réellement créé.
+
+**Application automatisée :** ces instructions imposent la règle aux agents, mais **ne peuvent pas à elles seules bloquer une PR**. Un contrôle GitHub Actions et, si possible, une protection de branche imposant ce contrôle sont nécessaires pour garantir l'application sur toutes les PR, y compris celles créées hors ChatGPT.
