@@ -1299,3 +1299,6 @@ qu'aucun nouveau garde-corps n'a ete explore pour une piece
 seulement entouree de murs. Verifier notamment les pieces
 2247, 2249, 2251, 2252, 2253 et 2256 et l'absence de doublons.
 Ne pas fusionner dans `main` avant validation.
+
+
+**Recette ciblée sur 2247, 5 novembre 2026 — RESOLU pour la création/positionnement :** la révision effectivement chargée est `2026-11-05-2247-native-fallback-02`. Rapport Revit : **deux annotations créées** dans la chambre 3 (`Collectifs A_Niveau 1`), deux axes intérieurs selon le moteur, largeur affichée **2,62 m**, profondeur affichée **3,33 m**. Superposition de témoins autorisée (texte : 0 ; traits : 1), et emprise proche d'une étiquette signalée. **Aucune cote refusée**. Les messages de diagnostic du secours de longueur native ne figurent pas dans cette exécution : le succès des deux axes ne prouve donc **pas** que ce secours a servi ; il peut s'agir de deux paires de faces opposées. La confirmation métrique des deux nus finis, l'anti-doublon sur relance et la recette 24/24 de l'appartement entier restent ouverts. Le moteur Plans de vente est inchangé ; pas de fusion dans `main`.
