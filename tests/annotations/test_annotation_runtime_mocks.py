@@ -1679,7 +1679,14 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
     assert len(chosen) == 3
     assert service._length_fallback_room_allow
     fallback = service._fallback_length_indexes(chosen, [])
-    assert len(fallback) == 1
+    assert len(fallback) == 1, {
+        "parents": mod.DimensionService._fallback_length_indexes(
+            service, chosen, []),
+        "keys": service._length_fallback_reference_keys,
+        "selected": [(c.source_kind, c.length_references)
+                     for c in chosen],
+        "existing": service._existing_dimension_reference_pairs()
+    }
     assert chosen[fallback[0]].length_references is not None
     assert chosen[fallback[0]].source_kind == "wall"
 
