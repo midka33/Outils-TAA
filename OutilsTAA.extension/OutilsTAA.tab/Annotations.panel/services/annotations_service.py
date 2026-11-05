@@ -676,7 +676,17 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         Les faces finies de murs sont conservees ; les annexes exterieures
         ne remplacent pas une separation par une arête de dalle.
         """
-        remaining = [item for item in candidates
+        # Les murs ont deja une vraie Reference de face finie issue du
+        # moteur Plans de vente. Ne JAMAIS rechercher un garde-corps
+        # si les deux directions retenues sont bornees uniquement par
+        # des murs. La recherche couteuse n'est autorisee que pour
+        # une limite non murale encore sans Reference native de face.
+        non_wall_limits = [
+            item for item in candidates
+            if getattr(item, "source_kind", "wall") != "wall"]
+        if not non_wall_limits:
+            return candidates
+        remaining = [item for item in non_wall_limits
                      if getattr(item, "source_kind", "") == "separator"]
         if not remaining:
             return candidates
