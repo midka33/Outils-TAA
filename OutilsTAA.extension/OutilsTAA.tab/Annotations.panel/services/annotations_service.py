@@ -1169,42 +1169,45 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             # la selection stricte sans collision avec les etiquettes
             # et les textes de cotes deja poses.
             if any(isinstance(item, SkippedPlacement) for item in chosen):
-                expanded = []
-                added = 0
-                for line, anchor, region, group in zip(
-                        lines, anchors, regions, groups):
-                    extra = external_candidates(
-                        line, region or points, contains, settings,
-                        tag_boxes=tags, dimension_boxes=dimensions,
-                        equipment_boxes=equipment, witness_anchors=anchor,
-                        text_axis=text_axis)
-                    for candidate in extra:
-                        if collinear_line_overlap(
-                                (candidate.line_start, candidate.line_end),
-                                rails, offset_tolerance=paper(.5)):
-                            candidate.dimension_hits += 1
-                    expanded.append(group + extra)
-                    added += len(extra)
-                if added:
-                    fallback = select_collision_free_placements(
-                        expanded, rails=rails, max_neighbor_gap=near_gap,
-                        snap_tolerance=snap_tolerance)
-                    before = sum(not isinstance(x, SkippedPlacement)
-                                 for x in chosen)
-                    after = sum(not isinstance(x, SkippedPlacement)
-                                for x in fallback)
-                    if after > before:
-                        chosen = fallback
-                        groups = expanded
-                        warnings.append(
-                            "{} : placement complementaire petites pieces "
-                            "issu du moteur graphique PDV : {} / {} "
-                            "orientation(s) au lieu de {}. "
-                            "Verifier visuellement les cotes hors piece."
-                            .format(self._room_label(room), after,
-                                    len(lines), before))
-                    else:
-                        groups = expanded
+                try:
+                    expanded = []
+                    added = 0
+                    for line, anchor, region, group in zip(
+                            lines, anchors, regions, groups):
+                        extra = external_candidates(
+                            line, region or points, contains, settings,
+                            tag_boxes=tags, dimension_boxes=dimensions,
+                            equipment_boxes=equipment, witness_anchors=anchor,
+                            text_axis=text_axis)
+                        for candidate in extra:
+                            if collinear_line_overlap(
+                                    (candidate.line_start, candidate.line_end),
+                                    rails, offset_tolerance=paper(.5)):
+                                candidate.dimension_hits += 1
+                        expanded.append(group + extra)
+                        added += len(extra)
+                    if added:
+                        fallback = select_collision_free_placements(
+                            expanded, rails=rails, max_neighbor_gap=near_gap,
+                            snap_tolerance=snap_tolerance)
+                        before = sum(not isinstance(x, SkippedPlacement)
+                                     for x in chosen)
+                        after = sum(not isinstance(x, SkippedPlacement)
+                                    for x in fallback)
+                        if after > before:
+                            chosen = fallback
+                            groups = expanded
+                            warnings.append(
+                                "{} : placement complementaire petites pieces "
+                                "issu du moteur graphique PDV : {} / {} "
+                                "orientation(s) au lieu de {}. "
+                                "Verifier visuellement les cotes hors piece."
+                                .format(self._room_label(room), after,
+                                        len(lines), before))
+                        else:
+                            groups = expanded
+                except Exception as error:
+                    warnings.append("{} : repli petites pieces indisponible ({}), placement initial conserve.".format(self._room_label(room), error))
             for i, choice in enumerate(chosen):
                 if isinstance(choice, SkippedPlacement):
                     group = groups[i]
