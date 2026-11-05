@@ -1,6 +1,6 @@
 # Outils TAA — Cotation automatique et Étiquetage automatique
 
-**État : bêta de recette, non validée dans Revit.**
+**État : bêta en validation Revit ; pièces témoins 2238 et 2240 validées, mode appartement nouvellement développé et à recetter.**
 **Compatibilité visée : Revit 2025.4 / pyRevit 5.x.**
 **Branche :** `feature/annotations-automatiques-beta`.
 Ne pas fusionner dans `main` avant validation d'un projet de test.
@@ -1205,3 +1205,81 @@ L'utilisateur a répondu **« tout est ok »** aux quatre vérifications propos�
 - **Aucune ligne de repli 2D** dans le rapport fourni ; aucun message de récupération par axes décalés pour 2240.
 
 **Résultat : REV-ANN-102 — non-régression sur 2240 VALIDÉE (5/5).** Avec 2238 validée, le traitement expérimental BUG-COMMON-025 n'a pas perturbé cette configuration auparavant fonctionnelle. **Ne pas assimiler ce résultat à une validation globale de cotation automatique** : les pièces atypiques, la génération multi-pièces, la gestion des groupes et les autres scénarios de risques de la recette bêta restent ouverts. La cote sur deux garde-corps successifs demeure associative à une seule arête native, sans garantie de mise à jour si l'autre garde-corps change.
+
+
+## Nouvelle étape bêta — cotation de toutes les pièces d'UN appartement (5 novembre 2026)
+
+**Objectif :** valider un appartement à la fois avant de rétablir
+un éventuel traitement sur toute une vue. Le mode diagnostic **une pièce**
+reste disponible et les groupes Revit, le multi-vues, l'ensemble du niveau
+et le traitement de masse restent désactivés pour la cotation.
+
+### Utilisation
+
+1. Sur **une copie sauvegardée du projet**, ouvrir le plan d'étage
+   Revit contenant le logement, puis **Outils TAA > Annotations > Cotation auto**.
+2. Choisir **« Un appartement dans cette vue (bêta, 12 pièces max.) »**.
+3. Sélectionner le **paramètre d'instance des pièces qui porte l'identifiant
+   de l'appartement**. Le programme n'invente pas le numéro de logement en
+   lisant le numéro des pièces ; il présente des paramètres dont les valeurs
+   sont partagées par plusieurs pièces visibles dans cette vue.
+4. Choisir la valeur exacte de ce paramètre, par exemple `101`.
+   Si cet identifiant est utilisé dans plusieurs bâtiments et qu'un
+   paramètre bâtiment est détecté (`Bâtiment`, `Immeuble`, `Bloc`),
+   sélectionner également la valeur du bâtiment.
+5. **Vérifier la liste nominative des pièces affichée avant la cotation.**
+   Ne pas confirmer si elle comporte une pièce d'un autre appartement,
+   oublie une pièce nécessaire, ou mélange plusieurs bâtiments.
+6. Sélectionner le type de cote et le style de lignes 2D de repli,
+   puis confirmer l'essai. Le rapport indique la progression **pièce
+   par pièce** et le nombre d'annotations créées pour chacune.
+
+### Limites de sécurité et garanties
+
+- **Une vue de plan à la fois**, **2 à 12 pièces visibles** portant
+  strictement le même identifiant appartement. Le traitement refuse
+  le périmètre vide, une sélection d'une seule pièce, ou plus de
+  12 pièces au lieu de modifier silencieusement toute la vue.
+- Les **pièces incluses dans un groupe Revit** sont refusées :
+  aucun groupe de détails attachés n'est tenté. Aucun fichier lié n'est
+  utilisé, et aucune pièce en dehors de la vue sélectionnée n'est traitée.
+- Une **liste exacte des pièces** est présentée en prévisualisation ;
+  un second dialogue demande confirmation après le choix du style.
+- **Une transaction Revit isolée par pièce** : le succès d'une pièce
+  est conservé si une pièce suivante provoque une exception. La pièce
+  en erreur est annulée, puis le traitement des pièces restantes est
+  interrompu à titre préventif (marqueur `ARRET PREVENTIF` dans le rapport).
+- La protection contre les doubles cotations demeure fondée sur les
+  références natives déjà cotées et les repères 2D existants.
+- Les garde-corps successifs conservent le contrôle BUG-COMMON-025 ;
+  sur ces ouvrages, la cote peut être associative à **un seul** garde-corps.
+- Un crash natif Revit ne peut pas être empêché par une exception Python :
+  **copie du projet et sauvegarde préalable impératives**.
+  Journal de crash : `%TEMP%\OutilsTAA_Annotations_crashtrace.log`.
+
+### Recette Revit 2025.4 — appartement témoin
+
+- [ ] **REV-ANN-104** — Une vue, paramètre logement et numéro corrects ;
+  la prévisualisation montre toutes et uniquement les pièces du logement.
+- [ ] **REV-ANN-105** — Appartement de 3 à 8 pièces hors groupe :
+  cotation pièce par pièce, jusqu'à deux directions principales par pièce ;
+  valeurs et nus finis conformes, aucun chevauchement avec les annotations
+  ou les équipements.
+- [ ] **REV-ANN-106** — Relancer sans enlever les cotes : aucune nouvelle
+  cote doublée, pas de plantage et pas de duplication de repères 2D.
+- [ ] **REV-ANN-107** — Étiquettes existantes : aucun chevauchement avec
+  les textes de cote ; contrôle d'une chambre, d'un WC et d'une loggia.
+- [ ] **REV-ANN-108** — Appartement comprenant une pièce en groupe :
+  refus explicite **avant toute création** ; aucune modification des groupes.
+- [ ] **REV-ANN-109** — Deux appartements de même numéro dans deux
+  bâtiments : choix explicite du bâtiment ; l'autre logement ne reçoit
+  aucune annotation.
+- [ ] **REV-ANN-110** — Périmètre dépassant 12 pièces et pièce absente :
+  refus explicite avant création ; aucune autre vue ou pièce modifiée.
+- [ ] **REV-ANN-111** — Vérifier les marqueurs `ROOM_COMMITTED`,
+  `RUN_END` et `BATCH_STOP` (si un échec a été observé) et
+  la non-régression des essais 2238 et 2240.
+
+**Statut : code bêta et tests Python à vérifier en CI, essais Revit
+sur appartement complet NON encore validés.** Aucune fusion dans `main`
+et aucun déploiement sur la maquette de production à cette étape.
