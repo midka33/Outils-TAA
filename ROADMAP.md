@@ -289,7 +289,7 @@ de leurs mises en page.
 - [x] Gérer une limite constituée de **deux garde-corps contigus**, chacun proche de 50 % : accepter la paire si elle couvre >=90 %, sans affaiblir le seuil de 60 % d'un rail isolé (BUG-COMMON-018).
 - [x] Essai 2240 : 2 cotes créées avec arêtes natives de garde-corps, sans fallback 2D (0 mm / 100 % et 19,3 mm / 63 %).
 - [x] Corriger les deux messages d'arêtes natives répétés : cache de références prêt même lorsqu'aucun repère 2D n'est créé (BUG-COMMON-019).
-- [ ] Recetter sur copie 2240 : deux messages natifs seulement, bons nus, visibilité après masquage des séparations, aucun doublon en seconde exécution.
+- [x] Recetter sur copie 2240 : deux références natives (écarts 0 mm/100 % et 19,3 mm/63 %), bons nus et valeurs confirmés, visibilité sans séparations et aucun doublon en deuxième exécution (retour utilisateur du 5 novembre 2026).
 - [x] Règle de choix entre plusieurs garde-corps : **le plus proche de la limite, puis le plus long à distance équivalente (1 mm)** ; appliquée aux chemins, arêtes natives et paires contiguës (BUG-COMMON-020).
 - [x] Conserver un deuxième garde-corps comme candidat à examen natif même lorsque le chemin du premier semble couvrir la limite entière ; la continuité réelle est validée après lecture des arêtes, sans augmenter les plafonds de 3 garde-corps et 120 arêtes (BUG-COMMON-021).
 - [x] Ajouter un diagnostic des trois IDs de garde-corps et, si un seul type contient une lisse non continue sans TopRail/HandRail, une extraction directe limitée à 16 objets / 48 arêtes (BUG-COMMON-022).
@@ -300,7 +300,7 @@ de leurs mises en page.
 - [x] Préparer une récupération **bêta ultrastricte**, limitée aux axes décalés de 20 à 40 mm avec union >=98 %, jeu <=10 mm et véritable arête native <=5 mm (BUG-COMMON-025) ; ne pas toucher à Plans de vente.
 - [x] Confirmer sous Revit 2025.4 la **récupération native** de la seconde limite de la loggia 2238 après BUG-COMMON-025 : 2 annotations, 100 % + 52 % de couverture native, union des chemins 100 %, décalage d'axes 33 mm, aucun repli 2D signalé.
 - [x] Vérifier sous Revit 2025.4 les **deux valeurs de cotes**, l'alignement des **nus intérieurs réels**, la visibilité après masquage des séparations et la seconde exécution sans doublon ni crash sur la pièce **2238** (validation utilisateur 4/4).
-- [ ] **Non-régression 2240** après BUG-COMMON-025 : conserver les deux arêtes natives, leurs valeurs/nus, leur visibilité sans séparations et l'absence de doublon avant toute décision de fusion.
+- [x] **Non-régression 2240** après BUG-COMMON-025 : validée 5/5 le 5 novembre 2026 ; le traitement standard retient les arêtes natives sans déclencher l'exception bêta. Reste la recette générale multi-pièces et cas atypiques avant fusion.
 - [x] Recetter la loggia 2238 avec les deux garde-corps successifs : continuité native, nu/valeur de cote, masquage des séparations, absence de doublons et absence de crash **validés sur cette pièce** ; réactivation en masse toujours suspendue en attendant les autres cas.
 - [ ] Extraire les autres composants réellement partageables après recette, en conservant Plans de vente validé.
 - [ ] Fusionner seulement après recette Revit et non-régression.
