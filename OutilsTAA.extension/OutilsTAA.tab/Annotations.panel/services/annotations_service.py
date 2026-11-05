@@ -97,6 +97,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self._guardrail_warnings = []
         self._guardrail_paths = {}
         self._guardrail_native_parents = {}
+        self._length_fallback_room_allow = False
+        self._length_fallback_reference_keys = set()
 
     def _stable_reference(self, reference):
         if reference is None:
@@ -906,15 +908,21 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
             placement_fraction=self.PLACEMENT_FRACTION,
         )
+        self._length_fallback_room_allow = len(pairs) < 2
+        self._length_fallback_reference_keys = set()
         if len(pairs) < 2:
+            count_native = sum(bool(
+                getattr(c, "source_kind", None) == "wall" and
+                getattr(c, "length_references", None))
+                for c in candidates)
             self._guardrail_warnings.append(
-                "{} : seulement {} orientation(s) de faces opposees "
-                "fiable(s) detectee(s) sur {} limite(s). "
-                "Aucune deuxieme cote inventee a partir d'un petit mur ; "
-                "controler les limites de piece et les references natives."
+                "{} : {} axe(s) entre faces opposees detecte(s). "
+                "Recherche d'une longueur complementaire de mur "
+                "avec DEUX references d'extremites natives "
+                "({} mur(s) possible(s)), selon le repli Plans de vente."
                 .format(
                     room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
-                    len(pairs), len(candidates)))
+                    len(pairs), count_native))
         # Ne sonder le garde-corps que lorsque la direction retenue
         # pour une vraie dimension comporte une séparation non résolue.
         selected_indexes = set(
@@ -928,6 +936,34 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         existing = self._existing_dimension_reference_pairs()
         existing_proxy = self._existing_proxy_dimensions()
         indexes = set()
+        # Un seul couple de murs opposes ne suffit pas pour deux
+        # directions. Reprendre le SEC0URS Plans de vente : la longueur
+        # d'un mur (deux references d'extremites natives), et non
+        # l'invention d'une distance entre deux faces non opposees.
+        # Retenir les candidats de mur, jamais les balustres, dalles ou
+        # lignes de separation de piece.
+        fallback_indices = []
+        if len(pairs) < 2:
+            for index, candidate in enumerate(candidates):
+                if (getattr(candidate, "source_kind", None) != "wall"
+                        or not getattr(candidate, "length_references", None)):
+                    continue
+                refs = [self._stable_reference(ref)
+                        for ref in candidate.length_references]
+                if (len(refs) != 2 or not all(refs)
+                        or refs[0] == refs[1]):
+                    continue
+                keys = frozenset(refs)
+                if keys in existing:
+                    continue
+                fallback_indices.append(index)
+                self._length_fallback_reference_keys.add(keys)
+            if not fallback_indices:
+                self._guardrail_warnings.append(
+                    "{} : aucune longueur de mur native complementaire "
+                    "disponible : seconde cote non creee pour eviter "
+                    "une fausse mesure.".format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?")))
         for pair in pairs:
             refs = [self._stable_reference(candidates[index].reference)
                     for index in (pair.first_index, pair.second_index)]
@@ -937,8 +973,39 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 continue
             indexes.add(pair.first_index)
             indexes.add(pair.second_index)
+        # La re-evaluation PDV des paires n'efface pas l'identite
+        # des References ; les candidats complementaires apportent
+        # seulement leurs references D'EXTREMITES de mur.
+        indexes.update(fallback_indices)
         return [candidate for index, candidate in enumerate(candidates)
                 if index in indexes]
+
+    def _fallback_length_indexes(self, boundary_candidates, pairs):
+        """Repli longueur native de mur, conserve depuis Plans de vente.
+
+        Seulement quand la geometrie initiale ne donnait pas 2 paires
+        opposees fiables. Ne jamais dupliquer une Reference deja cotee.
+        """
+        if not self._length_fallback_room_allow:
+            return []
+        indexes = super(GenericDimensions, self)._fallback_length_indexes(
+            boundary_candidates, pairs)
+        previous = self._existing_dimension_reference_pairs()
+        filtered = []
+        for index in indexes:
+            candidate = boundary_candidates[index]
+            if (getattr(candidate, "source_kind", "") != "wall"
+                    or not getattr(candidate, "length_references", None)):
+                continue
+            refs = [self._stable_reference(ref)
+                    for ref in candidate.length_references]
+            if (len(refs) != 2 or not all(refs)
+                    or frozenset(refs) in previous
+                    or frozenset(refs) not in
+                    self._length_fallback_reference_keys):
+                continue
+            filtered.append(index)
+        return filtered
 
     def _is_exterior_annex(self, room):
         """Selection du mode murs / garde-corps / 2D pour les annexes."""
@@ -1568,6 +1635,8 @@ class AnnotationService(object):
         self.dims._guardrail_warnings = []
         self.dims._guardrail_paths = {}
         self.dims._guardrail_native_parents = {}
+        self.dims._length_fallback_room_allow = False
+        self.dims._length_fallback_reference_keys = set()
         self.dims.target_view = view
         try:
             before = self._ids(view, kind)
@@ -1634,6 +1703,8 @@ class AnnotationService(object):
             self.dims._guardrail_warnings = []
             self.dims._guardrail_paths = {}
             self.dims._guardrail_native_parents = {}
+            self.dims._length_fallback_room_allow = False
+            self.dims._length_fallback_reference_keys = set()
             self.dims.target_view = None
 
     def run(self, kind, views, annotation_type_id, line_style=None,
