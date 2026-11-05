@@ -1780,3 +1780,168 @@ def test_revision_beta_affichee_dans_rapport_cotation(monkeypatch):
               / "services/annotations_service.py").read_text(encoding="utf-8")
     assert "REVISION COTATION BETA : {}" in source
     assert "DIAGNOSTIC 2247" in source
+
+
+def test_appartement_2247_reference_partagee_voisine_ne_supprime_pas_deuxieme_axe(monkeypatch):
+    """Deux pieces voisines peuvent utiliser LES MEMES faces de murs.
+
+    Une cote precedente dans A ne signifie pas que B est cotee.
+    Le filtre global supprimait l'axe de B, d'ou 23/24 en traitement
+    appartement, mais 2/2 quand B etait lancee isolement.
+    """
+    mod = load_annotation_module(monkeypatch)
+    lib = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(lib))
+
+    class Ref:
+        def __init__(self, key):
+            self.key = key
+
+        def ConvertToStableRepresentation(self, doc):
+            return self.key
+
+    class Point:
+        def __init__(self, x, y):
+            self.X, self.Y, self.Z = x, y, 0.
+
+    class Curve:
+        def __init__(self, start, end):
+            self.points = [Point(*start), Point(*end)]
+
+        def GetEndPoint(self, index):
+            return self.points[index]
+
+    class Dim:
+        def __init__(self, keys, line=None):
+            self.References = [Ref(key) for key in keys]
+            if line is not None:
+                self.Curve = Curve(*line)
+
+        def IsHidden(self, view):
+            return False
+
+    class Collector:
+        def __init__(self, doc, view_id):
+            self.doc = doc
+
+        def OfCategory(self, cat):
+            return self
+
+        def WhereElementIsNotElementType(self):
+            return self
+
+        def ToElements(self):
+            return self.doc.dimensions
+
+    class Room:
+        UniqueId = "2247"
+
+        def IsPointInRoom(self, point):
+            return 0. < point.X < 7. and 3. < point.Y < 6.
+
+    mod.DB.FilteredElementCollector = Collector
+    mod.DB.BuiltInCategory = types.SimpleNamespace(OST_Dimensions=123)
+    segment_keys = [
+        ((0., 3., 7., 3.), "bas"),
+        ((7., 3., 7., 6.), "droite-partagee"),
+        ((7., 6., 0., 6.), "haut"),
+        ((0., 6., 0., 3.), "gauche-partagee"),
+    ]
+
+    class Bound:
+        source_kind = "wall"
+        length_references = None
+
+        def __init__(self, values):
+            self.segment, key = values
+            self.reference = Ref(key)
+
+    monkeypatch.setattr(
+        mod.DimensionService, "_room_boundary_candidates",
+        lambda self, room: [Bound(c) for c in segment_keys],
+        raising=False)
+
+    # Chambre A cotee en PREMIER : meme couple de faces verticales
+    # mais sa ligne de cote est a y=1,5, hors chambre 2247 (y=3..6).
+    doc = types.SimpleNamespace(dimensions=[Dim(
+        ("droite-partagee", "gauche-partagee"),
+        ((.5, 1.5), (6.5, 1.5)))])
+    service = mod.GenericDimensions(doc)
+    service.target_view = types.SimpleNamespace(Id="niveau-1")
+    service._probe_z = lambda room: 1.
+    service._xyz = lambda x, y, z: types.SimpleNamespace(X=x, Y=y, Z=z)
+    service.ANGLE_TOLERANCE_DEGREES = 5.
+    service.MINIMUM_RELATIVE_LENGTH = .25
+    service.PLACEMENT_FRACTION = .25
+    room = Room()
+
+    assert len(service._existing_dimension_reference_pairs()) == 1
+    assert service._existing_dimension_reference_pairs(room) == set()
+    candidates = service._room_boundary_candidates(room)
+    assert len(candidates) == 4
+    assert any("2 axe(s) retenu(s)" in warning
+               for warning in service._guardrail_warnings)
+
+    # La premiere cote de 2247 n'autorise pas une DEUXIEME copie
+    # dans sa propre piece : seul son autre axe peut encore etre cree.
+    doc.dimensions.append(Dim(
+        ("droite-partagee", "gauche-partagee"),
+        ((.5, 4.5), (6.5, 4.5))))
+    selected = service._room_boundary_candidates(room)
+    assert len(selected) == 2
+    assert any("1 deja cote(s) dans CETTE piece" in warning
+               for warning in service._guardrail_warnings)
+
+    doc.dimensions.append(Dim(
+        ("bas", "haut"), ((3.5, 3.4), (3.5, 5.6))))
+    assert service._room_boundary_candidates(room) == []
+
+
+def test_appartement_2247_reference_non_localisable_reste_protegee(monkeypatch):
+    """Impossible de lire la courbe => ancienne securite anti-doublon."""
+    mod = load_annotation_module(monkeypatch)
+
+    class Ref:
+        def ConvertToStableRepresentation(self, doc):
+            return "face"
+
+    class Dim:
+        References = [Ref(), types.SimpleNamespace(
+            ConvertToStableRepresentation=lambda doc: "autre-face")]
+
+        def IsHidden(self, view):
+            return False
+
+    class Collector:
+        def __init__(self, doc, view):
+            self.doc = doc
+
+        def OfCategory(self, cat):
+            return self
+
+        def WhereElementIsNotElementType(self):
+            return self
+
+        def ToElements(self):
+            return self.doc.dimensions
+
+    mod.DB.FilteredElementCollector = Collector
+    mod.DB.BuiltInCategory = types.SimpleNamespace(OST_Dimensions=123)
+    service = mod.GenericDimensions(types.SimpleNamespace(dimensions=[Dim()]))
+    service.target_view = types.SimpleNamespace(Id=1)
+    room = types.SimpleNamespace(
+        IsPointInRoom=lambda point: False)
+    assert service._dimension_ownership_in_room(Dim(), room) is None
+    assert service._existing_dimension_reference_pairs(room) == {
+        frozenset(("face", "autre-face"))}
+
+
+def test_2247_revision_beta_appartement_et_journal_doublons_par_piece(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-apartment-room-dedup-03"
+    text = (HERE / "OutilsTAA.extension/OutilsTAA.tab"
+            / "Annotations.panel/services/annotations_service.py").read_text(
+                encoding="utf-8")
+    assert "CONTROLE DOUBLONS PAR PIECE" in text
+    assert "self._existing_dimension_reference_pairs(room)" in text
+    assert "self._existing_proxy_dimensions(room)" in text
