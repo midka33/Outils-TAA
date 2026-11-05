@@ -1444,3 +1444,102 @@ def test_2238_service_convertit_separation_avec_chemins_et_un_toprail(monkeypatc
     assert "DEUX chemins de garde-corps alignes couvrent" in warnings
     assert "UNIQUEMENT a l'arete native" in warnings
     assert "Le second GC ne pilote pas la cote" in warnings
+
+
+def test_appartement_beta_transaction_par_piece_et_sans_melanger_autres_logements(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    mod.DB.ElementId = types.SimpleNamespace(InvalidElementId="invalid-group")
+    class Room:
+        def __init__(self, uid):
+            self.UniqueId = uid
+            self.Number = uid
+            self.GroupId = "invalid-group"
+    view = types.SimpleNamespace(
+        ViewType="FloorPlan", IsTemplate=False, Name="Vue appartement",
+        Id="vue-test")
+    service = mod.AnnotationService(object())
+    service._rooms = lambda v: [Room("A"), Room("B"), Room("C"), Room("D")]
+    done = []
+    def unit(view, rooms, kind, atype, group, style):
+        done.append(rooms[0].UniqueId)
+        return 2, []
+    service._run_unit = unit
+    count, report = service.run(
+        "dims", [view], "type", diagnostic_room_uids=["A", "C"])
+    assert done == ["A", "C"]
+    assert count == 4
+    assert any("MODE BETA APPARTEMENT" in x for x in report)
+    assert len([x for x in report if "APPARTEMENT : piece" in x]) == 2
+
+
+def test_appartement_beta_stoppe_apres_erreur_sans_traiter_les_suivantes(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    mod.DB.ElementId = types.SimpleNamespace(InvalidElementId="invalid-group")
+    class Room:
+        def __init__(self, uid):
+            self.UniqueId = uid
+            self.Number = uid
+            self.GroupId = "invalid-group"
+    view = types.SimpleNamespace(
+        ViewType="FloorPlan", IsTemplate=False, Name="Vue appartement",
+        Id="vue-test")
+    service = mod.AnnotationService(object())
+    service._rooms = lambda v: [Room("A"), Room("B"), Room("C")]
+    done = []
+    def unit(view, rooms, kind, atype, group, style):
+        key = rooms[0].UniqueId
+        done.append(key)
+        if key == "B":
+            return 0, ["Vue / hors groupe : annule sans annotation isolee "
+                       "(RuntimeError: test)"]
+        return 2, []
+    service._run_unit = unit
+    count, report = service.run(
+        "dims", [view], "type", diagnostic_room_uids=["A", "B", "C"])
+    assert done == ["A", "B"]
+    assert count == 2
+    assert any("ARRET PREVENTIF" in x for x in report)
+    assert any("1 piece(s) restante(s)" in x for x in report)
+
+
+def test_appartement_beta_rejette_membre_groupe_et_evite_tout_debut_d_operation(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    mod.DB.ElementId = types.SimpleNamespace(InvalidElementId="invalid-group")
+    class Room:
+        def __init__(self, uid, group):
+            self.UniqueId = uid
+            self.GroupId = group
+    view = types.SimpleNamespace(ViewType="FloorPlan", IsTemplate=False,
+                                 Name="Test", Id="view")
+    service = mod.AnnotationService(object())
+    service._rooms = lambda v: [Room("A", "invalid-group"),
+                                Room("B", "model-group")]
+    service._run_unit = lambda *args: (_ for _ in ()).throw(
+        AssertionError("ne doit jamais demarrer une transaction"))
+    import pytest
+    with pytest.raises(ValueError, match="piece en groupe"):
+        service.run("dims", [view], "type",
+                    diagnostic_room_uids=["A", "B"])
+
+
+def test_appartement_beta_rejette_membre_manquant_ou_plus_de_12(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    mod.DB.ElementId = types.SimpleNamespace(InvalidElementId="invalid-group")
+    class Room:
+        def __init__(self, uid):
+            self.UniqueId = uid
+            self.GroupId = "invalid-group"
+    view = types.SimpleNamespace(ViewType="FloorPlan", IsTemplate=False,
+                                 Name="Test", Id="view")
+    service = mod.AnnotationService(object())
+    service._rooms = lambda v: [Room("A")]
+    import pytest
+    with pytest.raises(ValueError, match="Perimetre appartement modifie"):
+        service.run("dims", [view], "type",
+                    diagnostic_room_uids=["A", "B"])
+    with pytest.raises(ValueError, match="2 a 12"):
+        service.run("dims", [view], "type",
+                    diagnostic_room_uids=[str(i) for i in range(13)])
+    with pytest.raises(ValueError, match="2 a 12"):
+        service.run("dims", [view], "type",
+                    diagnostic_room_uids=["A", "A"])
