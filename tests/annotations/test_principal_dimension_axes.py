@@ -94,7 +94,8 @@ def test_pas_de_paire_de_faces_pas_de_cotation():
     assert axes.principal_reference_indexes([(0., 0., 5., 0.)]) == set()
 
 
-def test_adaptateur_nutilise_pas_longueur_mur_de_secours():
+def test_adaptateur_utilise_longueur_mur_seulement_si_seconde_famille_absente():
+    """La longueur n'est une seconde cote que si elle a 2 References natives."""
     path = (LIB.parent / "OutilsTAA.tab" / "Annotations.panel" /
             "services" / "annotations_service.py")
     source = path.read_text(encoding="utf-8")
@@ -104,12 +105,12 @@ def test_adaptateur_nutilise_pas_longueur_mur_de_secours():
                and n.name == "GenericDimensions")
     method = next(n for n in cls.body if isinstance(n, ast.FunctionDef)
                   and n.name == "_fallback_length_indexes")
-    # Retourne une liste vide, independamment du nombre de paires initiales.
-    assert len(method.body) == 1
-    assert isinstance(method.body[0], ast.Return)
-    assert isinstance(method.body[0].value, ast.List)
-    assert len(method.body[0].value.elts) == 0
-
+    assert "self._length_fallback_room_allow" in ast.get_source_segment(
+        source, method)
+    assert "source_kind" in ast.get_source_segment(source, method)
+    assert "self._existing_dimension_reference_pairs()" in source
+    assert "candidate.length_references" in source
+    assert "super(GenericDimensions, self)._fallback_length_indexes" in source
 
 
 def test_directions_trop_proches_ne_sont_pas_les_deux_cotes():
