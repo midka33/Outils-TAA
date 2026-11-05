@@ -49,6 +49,25 @@ def _same_line_direction(left, right, tolerance_degrees=15.0):
     return dot >= math.cos(math.radians(tolerance_degrees))
 
 
+def _transverse_graphics(poly_a, poly_b, angle_degrees=20.0):
+    """Croisement ponctuel de deux traits/temoins de cotes, sans texte.
+
+    Comme dans les plans de vente, un simple croisement de traits est
+    normal sur deux dimensions principales perpendiculaires.
+    Deux traits paralleles ou superposes restent interdits.
+    """
+    import math
+    if len(poly_a) < 2 or len(poly_b) < 2:
+        return False
+    va = (poly_a[1][0]-poly_a[0][0], poly_a[1][1]-poly_a[0][1])
+    vb = (poly_b[1][0]-poly_b[0][0], poly_b[1][1]-poly_b[0][1])
+    na, nb = math.hypot(*va), math.hypot(*vb)
+    if na < 1e-9 or nb < 1e-9:
+        return False
+    dot = abs((va[0]*vb[0]+va[1]*vb[1])/(na*nb))
+    return dot < math.cos(math.radians(angle_degrees))
+
+
 def _compatible(left, right):
     """Autorise uniquement le croisement simple de deux traits de cote.
 
@@ -68,7 +87,13 @@ def _compatible(left, right):
         for j, poly_b in enumerate(right.polygons):
             if not _overlap(poly_a, poly_b):
                 continue
-            if i == 0 and j == 0 and not _same_line_direction(left, right):
+            # Ne jamais relaxer une intersection impliquant le texte.
+            # placement_conflicts() a deja refuse tout texte contre
+            # n'importe quel trait ou temoin de l'autre cote.
+            left_graphic = i == 0 or i > len(left.text_polygons)
+            right_graphic = j == 0 or j > len(right.text_polygons)
+            if left_graphic and right_graphic and _transverse_graphics(
+                    poly_a, poly_b):
                 continue
             return False
     return True
@@ -131,6 +156,12 @@ def select_collision_free_placements(candidate_groups, rails=(),
             if not getattr(candidate, "text_inside", True):
                 candidate.warnings.append(
                     "texte de cote partiellement hors piece faute de place (controle visuel)"
+                )
+            if getattr(candidate, "external_compact", False):
+                candidate.warnings.append(
+                    "REPLI PETITE PIECE : cote placee legerement hors de la "
+                    "piece avec les REFERENCES NATIVES conservees ; "
+                    "controler sa lisibilite et les pieces voisines"
                 )
             if candidate.outside_count:
                 candidate.warnings.append(
