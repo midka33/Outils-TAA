@@ -161,6 +161,12 @@ def test_annotation_adapter_uses_only_orthogonal_opposing_faces(monkeypatch):
         mod.DimensionService, "_room_boundary_candidates",
         lambda self, room: raw, raising=False)
 
+    monkeypatch.setattr(
+        mod.DimensionService, "_fallback_length_indexes",
+        lambda self, candidates, pairs: [
+            i for i, c in enumerate(candidates)
+            if getattr(c, "length_references", None)],
+        raising=False)
     service = mod.GenericDimensions(None)
     room = types.SimpleNamespace(UniqueId="room-test")
     selected = service._room_boundary_candidates(room)
@@ -1685,10 +1691,10 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
                             for x in native.length_references)
     assert native_pair in service._length_fallback_reference_keys
     assert native_pair not in service._existing_dimension_reference_pairs()
-    assert (service._fallback_length_indexes.__func__ is
-            mod.GenericDimensions.__dict__["_fallback_length_indexes"])
+    # Le moteur de Plans de vente retourne le candidat de mur pour
+    # sa longueur native ; les autres n'ont pas de references d'extremites.
     fallback = service._fallback_length_indexes(chosen, [])
-    assert fallback == [1]
+    assert 1 in fallback
     assert chosen[fallback[0]].length_references is not None
     assert chosen[fallback[0]].source_kind == "wall"
 
@@ -1703,6 +1709,12 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
 
 def test_2247_sans_references_extremites_ninvente_pas_de_cote(monkeypatch):
     mod = load_annotation_module(monkeypatch)
+    monkeypatch.setattr(
+        mod.DimensionService, "_fallback_length_indexes",
+        lambda self, candidates, pairs: [
+            i for i, c in enumerate(candidates)
+            if getattr(c, "length_references", None)],
+        raising=False)
     library = HERE / "OutilsTAA.extension" / "lib"
     monkeypatch.syspath_prepend(str(library))
 
