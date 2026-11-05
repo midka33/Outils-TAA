@@ -1010,9 +1010,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             refs = [self._stable_reference(ref)
                     for ref in candidate.length_references]
             if (len(refs) != 2 or not all(refs)
-                    or frozenset(refs) in previous
-                    or frozenset(refs) not in
-                    self._length_fallback_reference_keys):
+                    or refs[0] == refs[1]
+                    or frozenset(refs) in previous):
                 continue
             filtered.append(index)
         return filtered
