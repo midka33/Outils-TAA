@@ -906,6 +906,15 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             minimum_relative_length=self.MINIMUM_RELATIVE_LENGTH,
             placement_fraction=self.PLACEMENT_FRACTION,
         )
+        if len(pairs) < 2:
+            self._guardrail_warnings.append(
+                "{} : seulement {} orientation(s) de faces opposees "
+                "fiable(s) detectee(s) sur {} limite(s). "
+                "Aucune deuxieme cote inventee a partir d'un petit mur ; "
+                "controler les limites de piece et les references natives."
+                .format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                    len(pairs), len(candidates)))
         # Ne sonder le garde-corps que lorsque la direction retenue
         # pour une vraie dimension comporte une séparation non résolue.
         selected_indexes = set(
@@ -1090,6 +1099,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             aligned_candidates, collinear_line_overlap)
         from annotations.strict_dimension_positioning import (
             SkippedPlacement, select_collision_free_placements)
+        from annotations.compact_dimension_positioning import (
+            external_candidates)
 
         if not lines:
             return []
@@ -1150,6 +1161,50 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             chosen = select_collision_free_placements(
                 groups, rails=rails, max_neighbor_gap=near_gap,
                 snap_tolerance=snap_tolerance)
+            # Plans de vente 06F sait coter les petites pieces en
+            # choisissant une position parfois exterieure a la piece.
+            # Cotation auto refuse a raison les textes qui se heurtent :
+            # completer le MEME moteur de candidats PDV par quatre
+            # positions laterales legerement exterieures, puis refaire
+            # la selection stricte sans collision avec les etiquettes
+            # et les textes de cotes deja poses.
+            if any(isinstance(item, SkippedPlacement) for item in chosen):
+                expanded = []
+                added = 0
+                for line, anchor, region, group in zip(
+                        lines, anchors, regions, groups):
+                    extra = external_candidates(
+                        line, region or points, contains, settings,
+                        tag_boxes=tags, dimension_boxes=dimensions,
+                        equipment_boxes=equipment, witness_anchors=anchor,
+                        text_axis=text_axis)
+                    for candidate in extra:
+                        if collinear_line_overlap(
+                                (candidate.line_start, candidate.line_end),
+                                rails, offset_tolerance=paper(.5)):
+                            candidate.dimension_hits += 1
+                    expanded.append(group + extra)
+                    added += len(extra)
+                if added:
+                    fallback = select_collision_free_placements(
+                        expanded, rails=rails, max_neighbor_gap=near_gap,
+                        snap_tolerance=snap_tolerance)
+                    before = sum(not isinstance(x, SkippedPlacement)
+                                 for x in chosen)
+                    after = sum(not isinstance(x, SkippedPlacement)
+                                for x in fallback)
+                    if after > before:
+                        chosen = fallback
+                        groups = expanded
+                        warnings.append(
+                            "{} : placement complementaire petites pieces "
+                            "issu du moteur graphique PDV : {} / {} "
+                            "orientation(s) au lieu de {}. "
+                            "Verifier visuellement les cotes hors piece."
+                            .format(self._room_label(room), after,
+                                    len(lines), before))
+                    else:
+                        groups = expanded
             for i, choice in enumerate(chosen):
                 if isinstance(choice, SkippedPlacement):
                     group = groups[i]
@@ -1157,10 +1212,19 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                         min_tags = min(c.tag_hits for c in group)
                         min_dims = min(c.dimension_hits for c in group)
                         inside = sum(int(c.text_inside) for c in group)
-                        detail = ("{} position(s), {} texte(s) dans piece,"
-                                  " minimum {} collision(s) etiquette,"
-                                  " {} cote(s)").format(
-                                      len(group), inside, min_tags, min_dims)
+                        eligible = sum(not c.tag_hits and not c.dimension_hits
+                                       for c in group)
+                        ext = sum(bool(getattr(c, "external_compact", False))
+                                  for c in group)
+                        detail = ("{} position(s) (dont {} exterieures), "
+                                  "{} texte(s) dans piece, {} candidate(s) "
+                                  "sans obstacle preexistant, minimum "
+                                  "{} collision(s) etiquette, {} cote(s). "
+                                  "Conflit possible entre les textes des "
+                                  "deux orientations ou traits paralleles"
+                                  ).format(
+                                      len(group), ext, inside, eligible,
+                                      min_tags, min_dims)
                     else:
                         detail = "aucun candidat de placement"
                     warnings.append(
