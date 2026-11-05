@@ -1359,3 +1359,75 @@ documentaire. Le nouvel algorithme de petites pièces n'a PAS
 encore été validé dans Revit.** La sécurité des références natives,
 les transactions par pièce et les corrections de garde-corps
 antérieures sont conservées.
+
+
+## Deux cotes interieures et secours mur pour 2247 — 5 novembre 2026
+
+### Retour de la seconde recette appartement
+
+L'utilisateur a relance la cotation de `Collectifs A_Niveau 1` :
+**23 annotations pour 12 pieces**, contre 18 avant le
+correctif BUG-COMMON-026. Les cinq pieces 2249, 2251, 2252,
+2253 et 2256 obtiennent desormais deux orientations, parfois
+par un repli de placement **en dehors du contour**.
+**2247 conserve une seule cote**, ce qui motive le correctif
+BUG-COMMON-027.
+
+### Regles metier retenues
+
+- **Deux mesures par piece des qu'elles sont physiquement
+  possibles**, avec Reference Revit valide et pas de seconde
+  dimension artificielle.
+- **Les deux lignes de cote doivent rester dans le volume en plan
+  de la piece**, y compris quand le local est tres etroit.
+  Le point d'ancrage du texte doit rester lui aussi dans la piece.
+  Si la largeur physique du texte est trop grande, le texte peut
+  deborder et se superposer : avertissement dans le rapport.
+- **Les collisions sont admises en dernier recours dans les
+  petites pieces**, meme avec etiquettes, cotes existantes et
+  temoins. Les solutions sans collisions sont toujours prioritaires.
+  Le module ne cree jamais de dimensions sur References inventees.
+- **La detection de garde-corps est reservee aux limites
+  selectionnees qui ne sont pas des murs**, plus precisement
+  aux limites `separator` dont aucune reference de face murale
+  n'est disponible. Toute piece avec uniquement des limites
+  `wall` court-circuite ce sondage. Les garde-corps 2238 et 2240
+  conservent leurs gardes-fous natifs.
+- **Pour une piece comme 2247**, si le moteur ne trouve qu'une
+  paire de faces opposees, il tente en complement une cote
+  de **longueur reelle d'un mur** a partir des deux References
+  natives de ses extremites, exactement comme dans Plans de
+  vente. L'ancienne neutralisation systematique des secours
+  de longueur du module Annotations est supprimee.
+  Sans References natives fiables, le rapport conserve
+  explicitement une seule cote et signale la limite du modele.
+
+### Recette Revit a effectuer
+
+- [ ] **REV-ANN-117** — Mettre a jour la branche beta et
+  relancer sur une copie de l'appartement de 12 pieces. La
+  premiere cote par piece doit etre correcte et la seconde
+  apparaitre pour les six pieces cibles quand des References
+  natives le permettent.
+- [ ] **REV-ANN-118** — Pour 2247, verifier le rapport :
+  `Recherche d'une longueur complementaire de mur`,
+  puis la longueur native effectivement creee ou le message
+  `aucune longueur de mur native complementaire`. Verifier
+  que la cote correspond aux extremites reelles du mur.
+- [ ] **REV-ANN-119** — Les deux lignes de chaque piece
+  doivent rester a l'interieur, meme si les textes se
+  superposent dans un petit WC, cellier ou degagement.
+  Verifier les avertissements `COTATION INTERIEURE` et
+  `SUPERPOSITION INTERIEURE AUTORISEE`.
+- [ ] **REV-ANN-120** — Dans les pieces entourees
+  exclusivement de murs, aucune ligne `filtrage GC`,
+  `rail filant` ou `GC retenu` ne doit apparaitre.
+  Une piece non murale type loggia doit continuer a
+  utiliser ses garde-corps quand c'est necessaire.
+- [ ] **REV-ANN-121** — Relancer une seconde fois pour
+  confirmer l'absence de doublons, notamment sur la cote
+  de longueur native de 2247 et les cinq petites pieces.
+
+**Statut : implementation beta et tests hors Revit ; validation
+de ce nouveau mode interieur et du secours 2247 dans Revit
+encore en attente.** Ne pas fusionner dans `main` a ce stade.
