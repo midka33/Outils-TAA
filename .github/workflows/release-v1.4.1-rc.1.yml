@@ -51,9 +51,9 @@ jobs:
           mkdir -p dist
           git archive --format=zip --output=dist/Outils-TAA_v1.4.1-rc.1.zip HEAD OutilsTAA.extension
           cp .github/release/INSTALLER_Outils_TAA_v1.4.1-rc.1.cmd dist/
-          cp docs/release/Tutoriel_Export_v1.4.1-rc.1.md dist/
-          cp docs/release/Tutoriel_Calculs_Pieces_v1.4.1-rc.1.md dist/
-          cp docs/release/Tutoriel_Plans_de_Vente_v1.4.1-rc.1.md dist/
+          cp docs/release/Tutoriel_Export_v1.4.0.md dist/Tutoriel_Export_v1.4.1-rc.1.md
+          cp docs/release/Tutoriel_Calculs_Pieces_v1.4.0.md dist/Tutoriel_Calculs_Pieces_v1.4.1-rc.1.md
+          cp docs/release/Tutoriel_Plans_de_Vente_v1.4.0.md dist/Tutoriel_Plans_de_Vente_v1.4.1-rc.1.md
           python - <<'PY'
           import pathlib
           import zipfile
