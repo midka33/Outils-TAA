@@ -252,6 +252,20 @@ de leurs mises en page.
 - [ ] Définir le modèle de mise en page et les règles de nommage.
 - [ ] Préparer le workflow de génération, mise à jour et contrôle avant développement.
 
+## Giration des véhicules — refonte expérimentale
+
+**Branche :** `refactor/giration-fiabilisation` — **à tester sur Revit 2025.4**.
+Spécification active : [`docs/25_Giration_Vehicules.md`](docs/25_Giration_Vehicules.md).
+
+- [x] Reprise isolée du moteur géométrique, des conventions d'essieu, des tests Python, du catalogue non vérifié.
+- [x] Prototype WPF/pyRevit de tracé par points et courbes de détails (code écrit, non testé dans Revit).
+- [ ] **P0 bloquant** : interactions continues avec la souris et aperçu dynamique, validation dans Revit.
+- [ ] Enveloppe balayée réelle avec contours internes et externes vérifiés.
+- [ ] Fiches de véhicules constructeur/SDIS avec documents et conventions de rayon confirmées.
+- [ ] Styles, persistance, édition et validation PDF/DWG dans Revit.
+
+**Ne pas intégrer cette branche à `main` sans validation Revit et corrections d'éventuelles régressions.**
+
 ## Phase 5 — Industrialisation
 
 - [ ] Ajouter tests automatisés hors Revit lorsque possible.
