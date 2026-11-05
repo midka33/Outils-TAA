@@ -295,13 +295,14 @@ class FullGenerationService(object):
                 str(getattr(main_info.view, "Name", "") or "sans nom")
             ),
         )
-        add_viewport(
-            location_info,
-            "location_view",
-            "Repérage — {}".format(
-                str(getattr(location_info.view, "Name", "") or "sans nom")
-            ),
-        )
+        if location_info is not None:
+            add_viewport(
+                location_info,
+                "location_view",
+                "Repérage — {}".format(
+                    str(getattr(location_info.view, "Name", "") or "sans nom")
+                ),
+            )
 
         known_ids = set([main_info.viewport.Id])
         if location_info is not None:
