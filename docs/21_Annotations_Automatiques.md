@@ -1580,3 +1580,89 @@ testé automatiquement ; recette réelle
 du logement encore en attente.**
 Ne pas fusionner dans `main` avant
 cette validation.
+
+
+## BUG-COMMON-028 — preuve API du blocage et correction dedup-04 (5 novembre 2026)
+
+**Nouveau retour d'un appartement de 12 pieces :**
+version `2026-11-05-apartment-room-dedup-03`,
+toujours **23 cotes sur 24**. La chambre **2247**
+annonce explicitement **2 axes geometriques**,
+**1 axe suppose deja cote**, 1 axe retenu.
+En amont, les **six cotes precedentes** sont
+classees `a position indeterminee conservees
+par securite`. Les compteurs des pieces
+suivantes continuent a augmenter :
+2, 4, 6, 7, 9, 11, etc. Aucune
+cote de chambre voisine n'est effectivement
+reconnue comme `hors piece`.
+
+**Erreur verifiee :** la methode de detection
+essayait `dimension.Curve.GetEndPoint(0/1)`.
+Or la documentation officielle Revit API 2025
+precise que `Dimension.Curve` est **non bornee**,
+donc ne fournit pas d'extremites.
+`Dimension.Origin` est le milieu de la ligne
+de cote a un segment. L'ancien diagnostic
+renvoyait `None` pour toutes les dimensions
+et maintenait le blocage global, ce qui
+explique la difference entre un lancement
+2247 seule et en appartement.
+
+**Correction sur `feature/annotations-automatiques-beta` :**
+la revision passe a
+`2026-11-05-apartment-room-dedup-04`.
+L'anti-doublon exploite `Dimension.Origin`
+en XY et le sondage `Room.IsPointInRoom`
+dans **la piece cible**.
+Une cote de chambre voisine est ignoree
+pour cette chambre ; une cote existante
+dans la meme chambre reste protegee.
+Une origine illisible ou une cote
+multisegment restent classees
+`indeterminees` (pas de duplication
+tente en l'absence de preuve).
+Le secours `GetEndPoint` ne s'applique
+qu'aux courbes explicitement **bornees**,
+notamment les doubles hors Revit.
+
+**Tests automatises : 472 reussis**, dont
+des simulations de `Dimension.Curve`
+non bornee et de chambres mitoyennes
+avec references partagees.
+Le module Plans de vente reste inchange.
+
+### Recette REV-ANN-124 — derniere verification Revit
+
+- [ ] Fermer Revit, mettre a jour la
+  branche, puis relancer sur une **copie**
+  du meme appartement.
+- [ ] Verifier la revision
+  `2026-11-05-apartment-room-dedup-04`.
+- [ ] Lire pour **2247** :
+  `COTES DEJA PRESENTES` avec des positions
+  `d'autres pieces ignorees` si des
+  chambres voisines ont deja leurs cotes,
+  et `CONTROLE DOUBLONS PAR PIECE`
+  avec les deux orientations correctement
+  attribuees.
+- [ ] Verifier **2,62 m** et **3,33 m**
+  sur les bons nus finis de 2247,
+  les deux cotes a l'interieur,
+  ainsi que l'absence de doublons
+  sur les onze autres pieces.
+- [ ] Pour une copie **sans cotes**, objectif
+  **24 cotes creees / 12 pieces**.
+  Pour une copie **deja cotee**,
+  le nombre de cotes nouvellement creees
+  doit etre seulement le nombre manquant :
+  le rapport ne donne PAS le cumul
+  des cotes anciennes et nouvelles.
+- [ ] Relancer une seconde fois
+  sans effacer les cotes et verifier
+  l'absence d'ajout supplementaire
+  ou de crash.
+
+**Statut : correction hors Revit validee
+en tests automatisees, recette Revit
+de dedup-04 encore en attente.**
