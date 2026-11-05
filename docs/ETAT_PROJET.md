@@ -69,3 +69,12 @@ Ne pas modifier le code stable ni les fonctionnalités validées sans analyse de
 ## Clarification architecture — 05/11/2026
 
 La PR #37 développe **deux outils autonomes distincts**, `Cotation auto` et `Étiquetage auto`, dans le panneau `Annotations`, à partir des moteurs déjà employés par **Plans de vente**. Ils disposent de boutons et de parcours indépendants, partagent certains adaptateurs et une bibliothèque géométrique. Les services d'origine de Plans de vente ne sont pas modifiés par la bêta d'après `docs/21_Annotations_Automatiques.md` sur la branche de développement. Les tests BUG-COMMON-025 et BUG-COMMON-028 décrits ci-dessus concernent **Cotation auto**, et ne constituent pas une validation générale de l'outil **Étiquetage auto**. Les deux outils restent en développement et nécessitent des recettes distinctes avant fusion.
+
+## Décision d'architecture cible — mutualisation des moteurs (05/11/2026)
+
+**Décision utilisateur confirmée :** à terme, **Plans de vente**, **Cotation automatique** et **Étiquetage automatique** doivent utiliser **les mêmes moteurs communs de cotation et d'étiquetage**, et non trois implémentations distinctes.
+
+- Extraire progressivement la logique géométrique, de recherche de références Revit, de placement et de collisions dans des services partagés, avec des interfaces stables.
+- Conserver des adaptateurs et politiques propres à chaque outil (vues de plans de vente, vues ordinaires, groupes, réglages et contraintes graphiques) : mutualiser le moteur ne signifie pas uniformiser tous les comportements.
+- **Ne pas refactoriser immédiatement la bêta** : achever d'abord les recettes en cours (dont REV-ANN-124) et protéger Plans de vente V1.1 par des tests de non-régression.
+- La migration des services de Plans de vente vers la bibliothèque commune est **une étape future à planifier et tester** ; elle n'est ni implémentée ni validée par cette décision.
