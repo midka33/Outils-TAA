@@ -1002,6 +1002,11 @@ class ExportWindow(forms.WPFWindow):
         if getattr(self, "_sheet_explorer", None):
             self._sheet_explorer.selection_changed(args)
 
+    def SheetExplorerClearSelection_Click(self, sender, args):
+        explorer = getattr(self, "_sheet_explorer", None)
+        if explorer is not None:
+            explorer.clear_selection()
+
     def SheetExplorerAdd_Click(self, sender, args):
         explorer = getattr(self, "_sheet_explorer", None)
         if explorer is not None:
