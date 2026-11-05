@@ -567,7 +567,7 @@ def test_balcon_second_lancement_reconnait_cote_existante_avec_proxy(monkeypatch
     monkeypatch.setattr(
         mod.DimensionService, "_room_boundary_candidates",
         lambda self, room: list(raw), raising=False)
-    service._existing_dimension_reference_pairs = lambda: set()
+    service._existing_dimension_reference_pairs = lambda room=None: set()
     assert service._existing_proxy_dimensions() == [(3.12, [(0., 1.81)])]
     # Les faces gauche/droite mesurent deja 3,12 m. Ne proposer que
     # les faces haut/bas pour la cote de 3,62 m restante.
@@ -739,8 +739,8 @@ def test_guardrail_native_reference_reconnue_au_second_lancement(monkeypatch):
     railing_id = types.SimpleNamespace(Value=2002)
     service._nearby_guardrail_edges = lambda room, boundaries: [
         ((0., 3.62, 0., 0.), Ref("garde-corps"), railing_id, 3.)]
-    service._existing_proxy_dimensions = lambda: []
-    service._existing_dimension_reference_pairs = lambda: {
+    service._existing_proxy_dimensions = lambda room=None: []
+    service._existing_dimension_reference_pairs = lambda room=None: {
         frozenset(("droite", "garde-corps"))}
     room = types.SimpleNamespace(
         UniqueId="2238",
@@ -1674,8 +1674,8 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
         raising=False)
 
     service = mod.GenericDimensions(None)
-    service._existing_dimension_reference_pairs = lambda: set()
-    service._existing_proxy_dimensions = lambda: []
+    service._existing_dimension_reference_pairs = lambda room=None: set()
+    service._existing_proxy_dimensions = lambda room=None: []
     service._nearby_guardrail_edges = lambda *args: (_ for _ in ()).throw(
         AssertionError("GC interdit dans la piece limitee par murs"))
     room = FakeRoom(FakeLevel())
@@ -1705,7 +1705,7 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
     # Le lancement suivant ne doit jamais ajouter de deuxieme
     # cote de longueur identique lorsqu'elle existe deja.
     measured = frozenset(("longueur-reelle-start", "longueur-reelle-end"))
-    service._existing_dimension_reference_pairs = lambda: {measured}
+    service._existing_dimension_reference_pairs = lambda room=None: {measured}
     again = service._room_boundary_candidates(room)
     assert len(again) == 2
     assert not [i for i in service._fallback_length_indexes(again, [])
@@ -1740,8 +1740,8 @@ def test_2247_sans_references_extremites_ninvente_pas_de_cote(monkeypatch):
         mod.DimensionService, "_room_boundary_candidates",
         lambda self, room: list(raw), raising=False)
     service = mod.GenericDimensions(None)
-    service._existing_dimension_reference_pairs = lambda: set()
-    service._existing_proxy_dimensions = lambda: []
+    service._existing_dimension_reference_pairs = lambda room=None: set()
+    service._existing_proxy_dimensions = lambda room=None: []
     chosen = service._room_boundary_candidates(FakeRoom(FakeLevel()))
     assert len(chosen) == 2
     assert service._fallback_length_indexes(chosen, []) == []
@@ -1769,7 +1769,7 @@ def test_aucune_exploration_garde_corps_quand_limites_toutes_murs(monkeypatch):
 
 def test_revision_beta_affichee_dans_rapport_cotation(monkeypatch):
     mod = load_annotation_module(monkeypatch)
-    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-2247-native-fallback-02"
+    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-apartment-room-dedup-03"
     service = mod.AnnotationService(object())
     import pytest
     with pytest.raises(ValueError, match="Mode diagnostic obligatoire"):
