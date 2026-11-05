@@ -108,7 +108,7 @@ def test_adaptateur_reutilise_le_repli_pdv_sans_le_redefinir():
                    for n in cls.body)
     assert "_length_fallback_reference_keys" in source
     assert "candidate.length_references = None" in source
-    assert "self._existing_dimension_reference_pairs()" in source
+    assert "self._existing_dimension_reference_pairs(room)" in source
 
 
 def test_directions_trop_proches_ne_sont_pas_les_deux_cotes():
