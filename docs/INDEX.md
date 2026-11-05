@@ -54,6 +54,10 @@ Les anciennes étapes, audits et recettes de campagne sont sous
 La spécification de développement détaillée des étapes 01 à 09 est archivée dans
 `archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`.
 
+## Giration des véhicules (prototype expérimental)
+
+**Spécification fonctionnelle et état de validation :** `25_Giration_Vehicules.md`. Le module a un moteur cinématique réécrit et un prototype de tracé par points. **La prévisualisation et le pilotage continu Vehicle Tracking ne sont pas réalisés.** Aucune validation dans Revit 2025.4. Voir aussi le registre `bugs/GIRATION.md`.
+
 ## Release courante
 
 Le dossier `release/` ne contient que les documents utiles à la release

@@ -1,83 +1,97 @@
 # -*- coding: utf-8 -*-
-"""
-Point d'entrée pour le module Giration des véhicules.
+"""TAA Giration - prototype de trace par clics (non dynamique).
 
-Ce script est exécuté par pyRevit lorsque l'utilisateur clique sur le bouton
-"Tracer Giration" dans l'onglet Outils TAA.
+Ce point d'entree est volontairement ASCII pour le parseur pyRevit.
+Cible : Revit 2025.4, moteur IronPython de pyRevit 5.x.
 """
-
+import math
 import os
 import sys
 
-# Configuration des chemins pour l'import
-CURRENT_DIR = os.path.dirname(__file__)
-EXTENSION_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "..", "..", ".."))
-PANEL_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-MODEL_DIR = os.path.join(PANEL_DIR, "models")
-SERVICE_DIR = os.path.join(PANEL_DIR, "services")
-UI_DIR = os.path.join(PANEL_DIR, "ui")
-LIB_DIR = os.path.join(EXTENSION_DIR, "lib")
-
-# Ajout des chemins au sys.path
-for path in (EXTENSION_DIR, PANEL_DIR, MODEL_DIR, SERVICE_DIR, UI_DIR):
-    if path not in sys.path:
-        sys.path.append(path)
+CURRENT = os.path.dirname(os.path.abspath(__file__))
+PANEL = os.path.abspath(os.path.join(CURRENT, '..'))
+UI_DIR = os.path.join(PANEL, 'ui')
+EXTENSION = os.path.abspath(os.path.join(PANEL, '..', '..'))
+for path in (EXTENSION, PANEL, UI_DIR):
+    if path in sys.path:
+        sys.path.remove(path)
+    sys.path.insert(0, path)
 
 from pyrevit import revit, forms
-from lib.common import logger
+from Autodesk.Revit import DB
+from Autodesk.Revit.UI.Selection import ObjectSnapTypes
+from Autodesk.Revit.Exceptions import OperationCanceledException
 
-# Import du module de giration
-try:
-    from ui.giration_main_window import GirationMainWindow
-    from giration_controller import GirationController
-    GIRATION_AVAILABLE = True
-except ImportError as e:
-    logger.get_logger().error("Erreur de chargement du module Giration: {0}".format(e))
-    GIRATION_AVAILABLE = False
+from lib.giration.data.vehicles import get_all_vehicles
+from lib.giration.geometry.vector2d import Vector2D
+from lib.giration.services.kinematics import TrajectoryPoint
+from lib.giration.services.manual_solver import segment_to_rear_axle
+from lib.giration.revit.detail_graphics import create_graphics
+from giration_main_window import GirationMainWindow
+
+
+def _metres(feet):
+    return DB.UnitUtils.ConvertFromInternalUnits(feet, DB.UnitTypeId.Meters)
+
+
+def _position(point):
+    return Vector2D(_metres(point.X), _metres(point.Y))
 
 
 def main():
-    """
-    Fonction principale exécutée lors du clic sur le bouton.
-    """
-    if not GIRATION_AVAILABLE:
-        forms.alert(
-            "Le module Giration des véhicules n'est pas disponible. "
-            "Vérifiez que tous les fichiers sont correctement installés.",
-            title="Erreur - Giration"
-        )
+    if not revit.doc or not revit.uidoc:
+        forms.alert('Ouvrez un projet Revit.', title='TAA - Giration')
         return
-    
-    # Vérifier que nous sommes dans un document Revit
-    if not revit.doc:
-        forms.alert(
-            "Aucun document Revit actif. Ouvrez un projet Revit pour utiliser cet outil.",
-            title="Giration - Erreur"
-        )
+    view = revit.doc.ActiveView
+    if view.ViewType not in (DB.ViewType.FloorPlan, DB.ViewType.CeilingPlan,
+                             DB.ViewType.EngineeringPlan, DB.ViewType.AreaPlan):
+        forms.alert('Ouvrez une vue en plan.', title='TAA - Giration')
         return
-    
-    # Créer le contrôleur
+    dialog = GirationMainWindow(get_all_vehicles())
+    if not dialog.ShowDialog() or not dialog.vehicle:
+        return
+    selected = dialog.vehicle
+    reverse = dialog.reverse
+    selection = revit.uidoc.Selection
     try:
-        controller = GirationController(revit.doc)
-    except Exception as e:
-        logger.get_logger().exception("Erreur lors de la création du contrôleur Giration")
-        forms.alert(
-            "Erreur lors de l'initialisation: {0}".format(e),
-            title="Giration - Erreur"
-        )
+        origin = selection.PickPoint(getattr(ObjectSnapTypes, 'None'), 'TAA : origine du pare-chocs arriere')
+        direction = selection.PickPoint(getattr(ObjectSnapTypes, 'None'), 'TAA : indiquez le sens avant du vehicule')
+        dx = direction.X - origin.X
+        dy = direction.Y - origin.Y
+        if dx * dx + dy * dy < 1e-5:
+            raise ValueError('Orientation initiale non definie')
+        theta = math.atan2(dy, dx)
+        trajectory = [TrajectoryPoint(_position(origin), theta)]
+        while True:
+            try:
+                point = selection.PickPoint(getattr(ObjectSnapTypes, 'None'),
+                    'TAA : cible ESSIEU ARRIERE suivant; Echap = terminer')
+            except OperationCanceledException:
+                break
+            try:
+                extension = segment_to_rear_axle(selected, trajectory[-1],
+                                                  _position(point), reverse=reverse)
+                trajectory.extend(extension[1:])
+            except ValueError as exc:
+                forms.alert(str(exc), title='Giration - segment refuse')
+    except OperationCanceledException:
         return
-    
-    # Ouvrir la fenêtre principale
+    except Exception as exc:
+        forms.alert(str(exc), title='Giration - entree')
+        return
+    if len(trajectory) < 2:
+        forms.alert('Aucun segment trace.', title='Giration')
+        return
     try:
-        window = GirationMainWindow(controller)
-        window.ShowDialog()
-    except Exception as e:
-        logger.get_logger().exception("Erreur lors de l'ouverture de la fenêtre Giration")
-        forms.alert(
-            "Erreur lors de l'ouverture de la fenêtre: {0}".format(e),
-            title="Giration - Erreur"
-        )
+        with forms.ProgressBar(title='TAA Giration - creation : {value}/{max_value}', cancellable=False) as bar:
+            ids = create_graphics(revit.doc, view, selected, trajectory,
+                                  progress=bar.update_progress)
+        forms.alert('{0} courbes de detail creees (prototype non certifie).'.format(len(ids)),
+                    title='Giration')
+    except Exception as exc:
+        forms.alert('Echec de la creation Revit: {0}'.format(exc), title='Giration')
+        raise
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
