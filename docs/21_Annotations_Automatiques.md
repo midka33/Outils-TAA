@@ -1481,3 +1481,24 @@ nombre de secours eligibles apres filtrage anti-doublon.
 apres ajout du marqueur de version et des diagnostics 2247.
 **Statut :** 2247 encore non validee dans Revit sur cette revision.
 Ne pas fusionner dans `main` avant la recette.
+ 
+
+## Validation ciblee REV-ANN-122 — piece 2247 (5 novembre 2026)
+
+**Compte-rendu Revit fourni par l'utilisateur :** une vue `Collectifs A_Niveau 1`, une piece hors groupe (2247), **2 annotations creees**. La ligne de version indique exactement `REVISION COTATION BETA : 2026-11-05-2247-native-fallback-02`. La capture montre la largeur **2,62 m** et la cote verticale **3,33 m**, toutes deux tracees dans la chambre 3.
+
+Le rapport confirme :
+- `2247 : COTATION INTERIEURE : 2 / 2 axe(s) place(s) a l'interieur (ancien choix : 1)` ;
+- `SUPERPOSITION INTERIEURE AUTORISEE avec une etiquette` ;
+- `SUPERPOSITION INTERIEURE AUTORISEE entre les deux cotes (texte : 0, traits/temoins : 1)` ;
+- deux messages de proximite equipement et une emprise de cote proche d'une etiquette ; **aucune erreur ni cote refusee**.
+
+**Conclusion et portee exacte :** `REV-ANN-122` est **VALIDE** pour (a) chargement de la bonne revision, (b) production de **deux cotes** dans la piece 2247 et (c) placement **interieur** avec superposition autorisee. Le journal ne contient ni `Recherche d'une longueur complementaire de mur` ni `DIAGNOSTIC 2247`, ce qui **n'est pas une erreur** : ces lignes ne sont emises que lorsque le moteur n'a pas deja obtenu deux paires de faces opposees. On **ne peut pas conclure** d'apres ce rapport que la cote verticale provient du secours d'extremite de mur. Ne pas le presenter comme verifie.
+
+**A confirmer avant cloture globale :**
+- [ ] Comparer dans le modele les valeurs **2,62 m** et **3,33 m** aux **nus interieurs finis reels** (la capture confirme l'affichage, pas un controle metrique independant).
+- [ ] Relancer 2247 sans supprimer ses deux cotes : aucune cote en double.
+- [ ] Relancer l'appartement complet : viser **24 cotes sur 12 pieces** seulement si chaque piece possede deux mesures valides ; verifier qu'aucune cote des onze autres pieces n'a regresse.
+- [ ] Tester la visibilite de la cote si les etiquettes de piece sont masquees et controler la lisibilite de la superposition sur la chambre 3.
+
+**Etat projet :** correction graphique 2247 validee en Revit sur cet essai cible ; **recette complete d'appartement et anti-doublons encore ouvertes**. Ne pas fusionner `feature/annotations-automatiques-beta` dans `main` sur cette seule preuve.
