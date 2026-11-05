@@ -7,8 +7,8 @@ Ces tests vérifient les propriétés géométriques et les calculs des véhicul
 
 import pytest
 import math
-from lib.giration.models.vehicle import Vehicle
-from lib.giration.geometry.vector2d import Vector2D
+from giration.models.vehicle import Vehicle
+from giration.geometry.vector2d import Vector2D
 
 
 class TestVehicleInitialization:
