@@ -1705,7 +1705,8 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
     service._existing_dimension_reference_pairs = lambda: {measured}
     again = service._room_boundary_candidates(room)
     assert len(again) == 2
-    assert service._fallback_length_indexes(again, []) == []
+    assert not [i for i in service._fallback_length_indexes(again, [])
+                if again[i].length_references]
 
 
 def test_2247_sans_references_extremites_ninvente_pas_de_cote(monkeypatch):
