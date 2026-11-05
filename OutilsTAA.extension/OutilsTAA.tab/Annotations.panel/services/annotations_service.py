@@ -1068,10 +1068,6 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                   len(result), len(same_level), len(nearby_level)))
         return result
 
-    def _fallback_length_indexes(self, boundary_candidates, pairs):
-        # Aucune longueur de mur en remplacement des portees opposees.
-        return []
-
     def _alignment_rails(self, view):
         """Segments des cotes Revit deja creees dans la vue.
 
