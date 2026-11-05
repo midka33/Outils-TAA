@@ -12,7 +12,7 @@ MAX_APARTMENT_ROOMS = 12
 
 
 def normalize(value):
-    return str(value or "").strip()
+    return "" if value is None else str(value).strip()
 
 
 def _read_value(parameter):
