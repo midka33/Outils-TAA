@@ -16,6 +16,10 @@ from plans_vente.housing import Housing, RoomSnapshot
 from dimension_service import DimensionService
 from room_tag_service import RoomTagService
 
+# Marqueur lisible dans le rapport : permet de detecter une autre copie
+# de l'extension ou un cache pyRevit/IronPython encore charge.
+ANNOTATIONS_BETA_REVISION = "2026-11-05-2247-native-fallback-02"
+
 
 def id_value(element_id):
     value = getattr(element_id, "Value", None)
@@ -968,6 +972,30 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     continue
                 fallback_indices.append(index)
                 self._length_fallback_reference_keys.add(keys)
+            # Donner la RAISON observable de la seconde cote manquante :
+            # un mur present dans les limites n'a pas necessairement deux
+            # references d'extremites Revit utilisables. Cette ligne ne
+            # declenche aucune nouvelle lecture geometrie/API.
+            by_source = {}
+            native_candidates = 0
+            for item in candidates:
+                category = getattr(item, "source_kind", "inconnu")
+                by_source[category] = by_source.get(category, 0) + 1
+                if (category == "wall"
+                        and getattr(item, "length_references", None)):
+                    native_candidates += 1
+            source_summary = ", ".join(
+                "{}={}".format(name, by_source[name])
+                for name in sorted(by_source))
+            self._guardrail_warnings.append(
+                "{} : DIAGNOSTIC 2247 : {} limite(s) candidates "
+                "({}), {} mur(s) avec deux references "
+                "d'extremites presentes, {} secours de longueur "
+                "mur autorise(s) apres filtrage anti-doublon."
+                .format(
+                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                    len(candidates), source_summary,
+                    native_candidates, len(fallback_indices)))
             if not fallback_indices:
                 self._guardrail_warnings.append(
                     "{} : aucune longueur de mur native complementaire "
@@ -1713,6 +1741,9 @@ class AnnotationService(object):
         avec cache et journal d'execution reinitialises.
         """
         report, total = [], 0
+        if kind == "dims":
+            report.append("REVISION COTATION BETA : {}".format(
+                ANNOTATIONS_BETA_REVISION))
         apartment_mode = kind == "dims" and diagnostic_room_uids is not None
         expected_ids = None
         if kind == "dims":
