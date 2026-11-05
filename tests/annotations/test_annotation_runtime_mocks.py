@@ -1691,6 +1691,9 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
                             for x in native.length_references)
     assert native_pair in service._length_fallback_reference_keys
     assert native_pair not in service._existing_dimension_reference_pairs()
+    assert any("DIAGNOSTIC 2247" in w
+               and "1 secours de longueur mur autorise(s)" in w
+               for w in service._guardrail_warnings)
     # Le moteur de Plans de vente retourne le candidat de mur pour
     # sa longueur native ; les autres n'ont pas de references d'extremites.
     fallback = service._fallback_length_indexes(chosen, [])
@@ -1744,6 +1747,9 @@ def test_2247_sans_references_extremites_ninvente_pas_de_cote(monkeypatch):
     assert service._fallback_length_indexes(chosen, []) == []
     assert any("aucune longueur de mur native complementaire" in w
                for w in service._guardrail_warnings)
+    assert any("DIAGNOSTIC 2247" in w
+               and "0 secours de longueur mur autorise(s)" in w
+               for w in service._guardrail_warnings)
 
 
 def test_aucune_exploration_garde_corps_quand_limites_toutes_murs(monkeypatch):
@@ -1759,3 +1765,18 @@ def test_aucune_exploration_garde_corps_quand_limites_toutes_murs(monkeypatch):
             reference=object(), length_references=None)]
     assert service._upgrade_separator_guardrail(
         FakeRoom(FakeLevel()), candidates) is candidates
+
+
+def test_revision_beta_affichee_dans_rapport_cotation(monkeypatch):
+    mod = load_annotation_module(monkeypatch)
+    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-2247-native-fallback-02"
+    service = mod.AnnotationService(object())
+    import pytest
+    with pytest.raises(ValueError, match="Mode diagnostic obligatoire"):
+        # La revision est annoncee au debut du rapport, mais les
+        # protections du mode une seule vue restent inchangees.
+        service.run("dims", [], "type")
+    source = (HERE / "OutilsTAA.extension/OutilsTAA.tab/Annotations.panel"
+              / "services/annotations_service.py").read_text(encoding="utf-8")
+    assert "REVISION COTATION BETA : {}" in source
+    assert "DIAGNOSTIC 2247" in source
