@@ -99,7 +99,6 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         self._guardrail_native_parents = {}
         self._length_fallback_room_allow = False
         self._length_fallback_reference_keys = set()
-        self._fallback_debug = ["not_called"]
 
     def _stable_reference(self, reference):
         if reference is None:
@@ -988,38 +987,45 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         # des References ; les candidats complementaires apportent
         # seulement leurs references D'EXTREMITES de mur.
         indexes.update(fallback_indices)
-        return [candidate for index, candidate in enumerate(candidates)
-                if index in indexes]
+        selected = [candidate for index, candidate in enumerate(candidates)
+                    if index in indexes]
+        # Une piece ayant deux couples de faces fiables ne peut jamais
+        # recevoir une cote supplementaire de longueur en relance.
+        # Les longueurs deja mesurees sont elles aussi neutralisees ;
+        # les References de face sont conservees.
+        for candidate in selected:
+            pair = getattr(candidate, "length_references", None)
+            if not pair:
+                continue
+            refs = [self._stable_reference(ref) for ref in pair]
+            if (len(pairs) >= 2 or len(refs) != 2
+                    or not all(refs) or frozenset(refs) in existing):
+                candidate.length_references = None
+        return selected
 
     def _fallback_length_indexes(self, boundary_candidates, pairs):
-        """Repli longueur native de mur, conserve depuis Plans de vente.
+        """Reutiliser les longueurs de murs natives de Plans de vente.
 
-        Seulement quand la geometrie initiale ne donnait pas 2 paires
-        opposees fiables. Ne jamais dupliquer une Reference deja cotee.
+        Les candidats standards dont deux couples de faces existaient
+        voient leurs length_references desactivees AVANT cette methode.
+        Appliquer l'anti-doublon par StableReference et rester sur les murs.
         """
-        self._fallback_debug = ["entered", self._length_fallback_room_allow]
-        if not self._length_fallback_room_allow:
-            return []
         indexes = super(GenericDimensions, self)._fallback_length_indexes(
             boundary_candidates, pairs)
-        previous = self._existing_dimension_reference_pairs()
-        filtered = []
-        self._fallback_debug.append(("parent_indexes", tuple(indexes)))
+        existing = self._existing_dimension_reference_pairs()
+        valid = []
         for index in indexes:
             candidate = boundary_candidates[index]
             if (getattr(candidate, "source_kind", "") != "wall"
                     or not getattr(candidate, "length_references", None)):
                 continue
-            refs = [self._stable_reference(ref)
-                    for ref in candidate.length_references]
-            self._fallback_debug.append((index, tuple(refs),
-                                         frozenset(refs) in previous))
-            if (len(refs) != 2 or not all(refs)
-                    or refs[0] == refs[1]
-                    or frozenset(refs) in previous):
-                continue
-            filtered.append(index)
-        return filtered
+            refs = [self._stable_reference(r)
+                    for r in candidate.length_references]
+            if (len(refs) == 2 and all(refs)
+                    and refs[0] != refs[1]
+                    and frozenset(refs) not in existing):
+                valid.append(index)
+        return valid
 
     def _is_exterior_annex(self, room):
         """Selection du mode murs / garde-corps / 2D pour les annexes."""
