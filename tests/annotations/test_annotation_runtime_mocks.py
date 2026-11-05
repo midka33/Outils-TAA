@@ -1678,6 +1678,13 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
     chosen = service._room_boundary_candidates(room)
     assert len(chosen) == 3
     assert service._length_fallback_room_allow
+    native = chosen[1]
+    assert native.source_kind == "wall"
+    assert native.length_references is not None
+    native_pair = frozenset(service._stable_reference(x)
+                            for x in native.length_references)
+    assert native_pair in service._length_fallback_reference_keys
+    assert native_pair not in service._existing_dimension_reference_pairs()
     fallback = service._fallback_length_indexes(chosen, [])
     assert len(fallback) == 1, {
         "parents": mod.DimensionService._fallback_length_indexes(
