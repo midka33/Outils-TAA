@@ -16,7 +16,7 @@ def _xyz(point, elevation):
     return DB.XYZ(_feet(point.x), _feet(point.y), elevation)
 
 
-def _draw_polyline(document, view, points, z, line_style=None):
+def _draw_polyline(document, view, points, z, line_style=None, progress=None):
     results = []
     for p1, p2 in zip(points[:-1], points[1:]):
         a, b = _xyz(p1, z), _xyz(p2, z)
@@ -27,11 +27,13 @@ def _draw_polyline(document, view, points, z, line_style=None):
         if line_style is not None:
             curve.LineStyle = line_style
         results.append(curve)
+        if progress is not None:
+            progress(1)
     return results
 
 
 def create_graphics(document, view, vehicle, trajectory, show_wheels=True,
-                    show_vehicle=True, show_corner_tracks=True):
+                    show_vehicle=True, show_corner_tracks=True, progress=None):
     """Creer seulement des DetailCurves dans la vue cible, en une transaction.
 
     N'ecrit RIEN dans les vues autres que celle selectionnee.
@@ -42,6 +44,17 @@ def create_graphics(document, view, vehicle, trajectory, show_wheels=True,
         raise ValueError('Vue ou trajectoire incorrecte')
     engine = AckermannKinematics(vehicle)
     z = view.Origin.Z
+    total_steps = (len(trajectory) - 1) * (1 + (4 if show_wheels else 0)
+                   + (4 if show_corner_tracks else 0)) + (8 if show_vehicle else 0)
+    processed = [0]
+    if progress is not None:
+        progress(0, max(1, total_steps))
+
+    def advance(amount):
+        processed[0] += amount
+        if progress is not None and processed[0] % 20 == 0:
+            progress(processed[0], max(1, total_steps))
+
     transaction = DB.Transaction(document, 'TAA - Giration prototype')
     transaction.Start()
     elements = []
@@ -52,21 +65,23 @@ def create_graphics(document, view, vehicle, trajectory, show_wheels=True,
             from ..geometry.vector2d import Vector2D
             rear_axle.append(state.position + Vector2D.from_angle(
                 state.angle, vehicle.rear_overhang))
-        elements.extend(_draw_polyline(document, view, rear_axle, z))
+        elements.extend(_draw_polyline(document, view, rear_axle, z, progress=advance))
         if show_wheels:
             for line in engine.calculate_wheel_trajectories(trajectory).values():
-                elements.extend(_draw_polyline(document, view, line, z))
+                elements.extend(_draw_polyline(document, view, line, z, progress=advance))
         if show_corner_tracks:
             footprints = engine.calculate_swept_area(trajectory)
             for i in range(4):
                 elements.extend(_draw_polyline(document, view,
-                                               [corners[i] for corners in footprints], z))
+                                               [corners[i] for corners in footprints], z, progress=advance))
         if show_vehicle:
             footprints = engine.calculate_swept_area(trajectory)
             for corners in (footprints[0], footprints[-1]):
                 ring = list(corners) + [corners[0]]
-                elements.extend(_draw_polyline(document, view, ring, z))
+                elements.extend(_draw_polyline(document, view, ring, z, progress=advance))
         transaction.Commit()
+        if progress is not None:
+            progress(total_steps, max(1, total_steps))
         return [element.Id for element in elements]
     except Exception:
         transaction.RollBack()
