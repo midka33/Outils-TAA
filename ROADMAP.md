@@ -319,6 +319,22 @@ contrôlé du périmètre**, exclusivement sur la branche
 - [x] Conserver une transaction et un journal par pièce ; arrêter
   préventivement le lot au premier échec technique et laisser les autres
   pièces non traitées. Aucune suppression automatique de cotes existantes.
+- [x] **REV-ANN-104 — premier essai :** appartement 12 pièces hors groupe,
+  vue `Collectifs A_Niveau 1` : 18 cotes créées, 6 pièces avec
+  une seule cote (2247, 2249, 2251, 2252, 2253, 2256).
+- [x] **BUG-COMMON-026 — repli graphique petites pièces :** après
+  comparaison avec Plans de vente, conserver ses références et
+  positions de base ; autoriser les croisements non textuels de
+  témoins, et essayer 4 positions extérieures bornées seulement
+  lorsque le placement strict laisse une orientation vide.
+  Ne jamais forcer une collision de texte ni fabriquer une
+  deuxième référence de face manquante.
+- [x] Tests automatiques de l'adaptateur Annotations et non-régression
+  Plans de vente : **460 réussis** sur le correctif.
+- [ ] **REV-ANN-112 à 116 :** relancer sur la copie en
+  conservant les 18 cotes ; tester les cinq petites pièces,
+  diagnostiquer 2247, contrôler les éventuels textes hors pièces
+  et vérifier l'absence de doublons (voir `docs/21_Annotations_Automatiques.md`).
 - [ ] **REV-ANN-104 à 111 :** recette Revit sur une **copie de projet**,
   appartement de 3 à 8 pièces, anti-doublons, textes de cote, groupes
   et séparation par bâtiment (voir `docs/21_Annotations_Automatiques.md`).
