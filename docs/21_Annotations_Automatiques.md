@@ -1283,3 +1283,79 @@ et le traitement de masse restent désactivés pour la cotation.
 **Statut : code bêta et tests Python à vérifier en CI, essais Revit
 sur appartement complet NON encore validés.** Aucune fusion dans `main`
 et aucun déploiement sur la maquette de production à cette étape.
+
+
+## Retour appartement complet — petites pièces et repli PDV (5 novembre 2026)
+
+**Premier essai réel :** vue `Collectifs A_Niveau 1`,
+**12 pièces hors groupe**, **18 cotes** produites dans un seul
+appartement. La capture révèle que plusieurs petits WC/celliers
+et dégagements n'ont qu'une cote. Le rapport donne une seule cote
+pour **2247, 2249, 2251, 2252, 2253 et 2256**.
+
+**Analyse des cinq orientations explicitement refusées :**
+2249, 2251, 2252, 2253 et 2256 ont de 8 à 10 positions candidates,
+dont zéro à trois avec texte entièrement intérieur. Le problème
+n'est pas un défaut mesuré des références de faces : le
+**filtre strict de présentation** ne trouve pas de combinaison
+des deux cotes sans conflit de texte/traits, alors que la variante
+Plans de vente privilégie les deux mesures en signalant les
+éventuelles collisions. Pour **2247**, le rapport ne contient pas
+`orientation 2 ignoree` ; la nouvelle journalisation précisera
+si une seconde paire de faces opposées existe réellement.
+
+**BUG-COMMON-026 — amélioration sur la branche bêta :**
+- Le moteur Plans de vente reste la source canonique des
+  **références physiques**, des positions initiales et du type
+  `DimensionPlacement`. Aucun fichier de Plans de vente n'est modifié.
+- Le filtre propre à Annotations accepte désormais des **croisements
+  ponctuels de traits et témoins** non parallèles, jamais des
+  collisions impliquant un texte.
+- Seulement si le filtre précédent ne produit pas toutes les
+  orientations, le module essaie au plus **4 translations
+  supplémentaires par orientation**, à une ou deux hauteurs
+  de texte juste **à l'extérieur** des limites de la pièce.
+  Il sélectionne ces positions uniquement si elles augmentent
+  le nombre de cotes et qu'elles ne touchent pas les étiquettes
+  ni les textes des cotes existantes.
+- Un avertissement **`REPLI PETITE PIECE`** prévient lorsque le
+  placement extérieur est retenu : vérifier la lisibilité et
+  les éventuelles interactions avec le logement ou le couloir
+  voisin. Le moteur ne prétend pas maîtriser les collisions
+  finales de typographie native Revit sans recette visuelle.
+- La conservation du placement initial est obligatoire si le
+  calcul complémentaire échoue ; une pièce ne perdra pas
+  sa première cote du seul fait du nouveau repli.
+- Un diagnostic `seulement N orientation(s) de faces opposees`
+  distingue les problèmes géométriques des problèmes graphiques.
+
+### Recette ciblée après correctif (sur copie du même appartement)
+
+- [x] **REV-ANN-104 — premier essai :** une vue, un appartement,
+  12 pièces hors groupe, 18 cotes créées, aucune autre vue traitée
+  selon le rapport. Les détails de justesse/placement restent à confirmer.
+- [ ] **REV-ANN-112** — Recharger la dernière branche bêta,
+  **conserver les 18 cotes précédentes**, relancer le même appartement.
+  Relever le nombre de cotes ajoutées et les numéros des pièces.
+  Aucune duplication des 18 cotes existantes.
+- [ ] **REV-ANN-113** — Contrôler les pièces 2249, 2251,
+  2252, 2253 et 2256 : la seconde cote est-elle ajoutée ?
+  Si repli, journal `placement complementaire petites pieces`
+  et/ou `REPLI PETITE PIECE` ; valeur et nu corrects.
+- [ ] **REV-ANN-114** — Si une cote est placée hors pièce :
+  vérifier qu'elle reste lisible, ne heurte pas les étiquettes
+  ou chiffres de cotes du couloir/des voisins, et reste visible
+  après masquage des séparations de pièces.
+- [ ] **REV-ANN-115** — Pour 2247, transmettre
+  `seulement N orientation(s) de faces opposees` ou le
+  message de refus s'il existe ; conserver une cote seulement
+  si la seconde direction n'a pas deux références fiables.
+- [ ] **REV-ANN-116** — Troisième lancement de contrôle
+  anti-doublon, et vérifier les cotes des deux loggias déjà
+  validées 2238/2240 si présentes dans le périmètre.
+
+**Statut : 460 tests automatisés réussis avant mise à jour
+documentaire. Le nouvel algorithme de petites pièces n'a PAS
+encore été validé dans Revit.** La sécurité des références natives,
+les transactions par pièce et les corrections de garde-corps
+antérieures sont conservées.
