@@ -32,7 +32,7 @@ def contains(point):
 
 def test_positions_exterieures_bornees_et_dimensions_inchangees():
     line = ((0., .60), (1., .60))
-    original = list(line)
+    original = tuple(line)
     candidates = external_candidates(
         line, room_polygon(), contains, SETTINGS, text_axis=(1., 0.))
     assert len(candidates) == 4
@@ -73,6 +73,10 @@ def _rect(x0, y0, x1, y1):
     return [(x0,y0), (x1,y0), (x1,y1), (x0,y1)]
 
 
+def _vertical_band(x0, y0, x1, y1):
+    return [(x0,y0), (x0,y1), (x1,y1), (x1,y0)]
+
+
 class Candidate:
     def __init__(self, line, label, witness, key):
         self.line_start, self.line_end = key
@@ -91,7 +95,7 @@ def test_croisement_ponctuel_de_deux_temoins_est_acceptable():
     # pas une cote. Les deux textes restent volontairement eloignes.
     a = Candidate(_rect(0, 3, 4, 3.02),
                   _rect(3, 3.5, 4, 3.7),
-                  _rect(.99, 0, 1.01, 2),
+                  _vertical_band(.99, 0, 1.01, 2),
                   ((0, 3), (4, 3)))
     b = Candidate(_rect(5, 0, 5.02, 3),
                   _rect(5.5, 2, 6.5, 2.2),
@@ -105,11 +109,11 @@ def test_croisement_ponctuel_de_deux_temoins_est_acceptable():
 def test_temoins_et_lignes_paralleles_superposes_restes_interdits():
     a = Candidate(_rect(0, 3, 4, 3.02),
                   _rect(3, 3.5, 4, 3.7),
-                  _rect(.99, 0, 1.01, 2),
+                  _vertical_band(.99, 0, 1.01, 2),
                   ((0, 3), (4, 3)))
     b = Candidate(_rect(5, 0, 5.02, 3),
                   _rect(5.5, 2, 6.5, 2.2),
-                  _rect(.99, 0, 1.01, 2),
+                  _vertical_band(.99, 0, 1.01, 2),
                   ((5, 0), (5, 3)))
     assert not _compatible(a, b)
     result = select_collision_free_placements([[a], [b]])
@@ -119,7 +123,7 @@ def test_temoins_et_lignes_paralleles_superposes_restes_interdits():
 def test_toute_intersection_avec_un_texte_reste_interdite():
     a = Candidate(_rect(0, 3, 4, 3.02),
                   _rect(0.9, 0.9, 1.1, 1.1),
-                  _rect(.99, 0, 1.01, 2),
+                  _vertical_band(.99, 0, 1.01, 2),
                   ((0, 3), (4, 3)))
     b = Candidate(_rect(5, 0, 5.02, 3),
                   _rect(5.5, 2, 6.5, 2.2),
