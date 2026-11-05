@@ -1431,3 +1431,53 @@ BUG-COMMON-027.
 **Statut : implementation beta et tests hors Revit ; validation
 de ce nouveau mode interieur et du secours 2247 dans Revit
 encore en attente.** Ne pas fusionner dans `main` a ce stade.
+
+
+## Diagnostiquer la version effectivement chargee — loggia et chambre 2247 (5 novembre 2026)
+
+**Troisieme retour utilisateur :** la cotation des petites pieces est
+maintenant INTERIEURE, avec deux dimensions pour 2249, 2251, 2252,
+2253 et 2256, superpositions acceptees et averties. **23 annotations
+sur 12 pieces : 2247 reste a une cote.** La capture montre une chambre
+dont la largeur cotee est **2,62 m** ; la seconde direction attendue
+correspond a la profondeur vers la facade. Le contour haut est marque
+par le placard et la porte vers le degagement : il n'est pas etabli que
+deux longues faces murales y soient simultanement referencables.
+
+**Probleme de tracabilite :** le rapport recu ne comporte pas le message
+`2247 : 1 axe(s) entre faces opposees detecte(s). Recherche d'une
+longueur complementaire de mur...`, present dans le code depuis le
+correctif de secours natif. Il est donc **probable** que le Revit de
+ce test utilise encore un etat precedant ce correctif ou une autre
+copie de l'extension. Cela ne prouve pas que le correctif fonctionne
+dans la chambre : il doit etre reteste reellement.
+
+Pour lever toute ambiguite, le rapport commence maintenant par :
+`REVISION COTATION BETA : 2026-11-05-2247-native-fallback-02`.
+Lorsque moins de deux paires de faces opposees sont exploitable,
+une ligne supplementaire `DIAGNOSTIC 2247` indique :
+nombre et nature des limites candidates (wall, separator, autres),
+nombre de murs avec deux references natives d'extremites,
+nombre de secours eligibles apres filtrage anti-doublon.
+
+**Recette ciblee REV-ANN-122 :**
+- [ ] Fermer completement Revit, mettre a jour le depot sur
+  `feature/annotations-automatiques-beta`, puis rouvrir Revit
+  2025.4 et pyRevit depuis la copie installee de l'extension.
+- [ ] Lancer la cotation **sur 2247 seulement**, de preference sur une
+  copie du projet, et confirmer la presence de `REVISION COTATION
+  BETA : 2026-11-05-2247-native-fallback-02` dans le rapport.
+- [ ] Transmettre les lignes `Recherche d'une longueur complementaire
+  de mur` et `DIAGNOSTIC 2247` afin de verifier si Revit expose
+  les references natives du mur utile. Si elles ne sont pas presentes,
+  ne **pas** creer de fausse cote de profondeur ou decaler une ligne
+  hors piece.
+- [ ] Si la deuxieme cote est creee, comparer sa valeur a la profondeur
+  finie entre les limites reelles de la chambre et verifier que les
+  deux cotes restent a l'interieur. Relancer pour confirmer
+  l'absence de doublon.
+
+**Automatisation hors Revit :** 468 tests valides en CI sur la branche
+apres ajout du marqueur de version et des diagnostics 2247.
+**Statut :** 2247 encore non validee dans Revit sur cette revision.
+Ne pas fusionner dans `main` avant la recette.
