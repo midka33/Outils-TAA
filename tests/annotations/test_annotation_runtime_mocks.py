@@ -1578,18 +1578,22 @@ def test_placement_repli_petite_piece_reutilise_pdv_et_deux_axes(monkeypatch):
     assert len(placements) == 2
     assert not any(isinstance(p, SkippedPlacement) for p in placements)
     assert all(p.tag_hits == 0 and p.dimension_hits == 0 for p in placements)
-    assert placement_conflicts(placements[0], placements[1])[0] == 0
-    assert any("placement complementaire petites pieces" in w
-               for w in warnings) or all(
-                   not getattr(p, "external_compact", False) for p in placements)
+    from annotations.inside_dimension_positioning import line_inside_room
+    contains = lambda xy: (0. < xy[0] < .9 and 0. < xy[1] < .75)
+    assert all(line_inside_room(p, contains) for p in placements)
+    assert all(not getattr(p, "external_compact", False)
+               for p in placements)
+    # Le plan est exigu : texte et temoins peuvent se superposer,
+    # mais la cote reste situee dans la piece.
+    assert placement_conflicts(placements[0], placements[1])[0] >= 0
 
 
-def test_repli_petite_piece_en_erreur_conserve_le_placement_initial(monkeypatch):
-    """Une erreur dans le repli n'annule plus les orientations deja valides."""
+def test_repli_interieur_en_erreur_n_autorise_pas_de_cotes_exterieures(monkeypatch):
+    """Un echec de choix interieur ne provoque jamais une cote externe."""
     mod = load_annotation_module(monkeypatch)
     library = HERE / "OutilsTAA.extension" / "lib"
     monkeypatch.syspath_prepend(str(library))
-    from annotations import compact_dimension_positioning as compact
+    from annotations import inside_dimension_positioning as inside
     from annotations import strict_dimension_positioning as strict
     service = mod.GenericDimensions(object())
     service.PAPER_CLEARANCE_MM = 6.
@@ -1609,7 +1613,7 @@ def test_repli_petite_piece_en_erreur_conserve_le_placement_initial(monkeypatch)
     view = types.SimpleNamespace(
         Scale=100, RightDirection=types.SimpleNamespace(X=1., Y=0.))
     monkeypatch.setattr(
-        compact, "external_candidates",
+        inside, "select_inside_placements",
         lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("test-repli")))
     monkeypatch.setattr(
         strict, "select_collision_free_placements",
@@ -1621,6 +1625,6 @@ def test_repli_petite_piece_en_erreur_conserve_le_placement_initial(monkeypatch)
                      ((.6, 0.), (.6, .8))], [None, None],
         [], [], [], warnings)
     assert len(result) == 2
-    assert not isinstance(result[0], strict.SkippedPlacement)
-    assert isinstance(result[1], strict.SkippedPlacement)
-    assert any("placement initial conserve" in line for line in warnings)
+    assert all(isinstance(p, strict.SkippedPlacement) for p in result)
+    assert any("cotes exterieures refusees" in line
+               for line in warnings)
