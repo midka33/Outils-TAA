@@ -148,6 +148,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         if view is None:
             return set()
         result = set()
+        scope_stats = {"inside": 0, "outside": 0, "unknown": 0}
+        self._dimension_scope_stats = scope_stats
         try:
             dimensions = (DB.FilteredElementCollector(self.document, view.Id)
                           .OfCategory(DB.BuiltInCategory.OST_Dimensions)
@@ -159,10 +161,18 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                     # Le meme couple de faces peut etre cote dans une
                     # chambre VOISINE. La Reference seule ne suffit pas
                     # a deduire qu'une piece possede deja sa cote.
-                    if (room is not None
-                            and self._dimension_ownership_in_room(
-                                dimension, room) is False):
-                        continue
+                    if room is not None:
+                        ownership = self._dimension_ownership_in_room(
+                            dimension, room)
+                        if ownership is False:
+                            scope_stats["outside"] += 1
+                            continue
+                        elif ownership is True:
+                            scope_stats["inside"] += 1
+                        else:
+                            # Cote sans courbe lisible : ne pas inventer
+                            # l'appartenance a la piece ni risquer un doublon.
+                            scope_stats["unknown"] += 1
                     keys = [self._stable_reference(reference)
                             for reference in dimension.References]
                     if len(keys) == 2 and all(keys) and keys[0] != keys[1]:
@@ -1057,6 +1067,17 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             indexes.add(pair.first_index)
             indexes.add(pair.second_index)
         if len(pairs) >= 2:
+            scope_stats = getattr(self, "_dimension_scope_stats", {})
+            if scope_stats.get("outside", 0) or scope_stats.get("unknown", 0):
+                self._guardrail_warnings.append(
+                    "{} : COTES DEJA PRESENTES : {} dans cette piece, "
+                    "{} d'autres pieces ignorees, {} a position "
+                    "indeterminee conservees par securite."
+                    .format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                        scope_stats.get("inside", 0),
+                        scope_stats.get("outside", 0),
+                        scope_stats.get("unknown", 0)))
             self._guardrail_warnings.append(
                 "{} : CONTROLE DOUBLONS PAR PIECE : {} axe(s) geometriques, "
                 "{} deja cote(s) dans CETTE piece, {} deja cote(s) "
