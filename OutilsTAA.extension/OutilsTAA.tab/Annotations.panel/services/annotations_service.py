@@ -1002,6 +1002,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             boundary_candidates, pairs)
         previous = self._existing_dimension_reference_pairs()
         filtered = []
+        self._fallback_debug = []
         for index in indexes:
             candidate = boundary_candidates[index]
             if (getattr(candidate, "source_kind", "") != "wall"
@@ -1009,6 +1010,8 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 continue
             refs = [self._stable_reference(ref)
                     for ref in candidate.length_references]
+            self._fallback_debug.append((index, tuple(refs),
+                                         frozenset(refs) in previous))
             if (len(refs) != 2 or not all(refs)
                     or refs[0] == refs[1]
                     or frozenset(refs) in previous):
