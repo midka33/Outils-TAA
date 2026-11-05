@@ -105,12 +105,11 @@ def test_adaptateur_utilise_longueur_mur_seulement_si_seconde_famille_absente():
                and n.name == "GenericDimensions")
     method = next(n for n in cls.body if isinstance(n, ast.FunctionDef)
                   and n.name == "_fallback_length_indexes")
-    assert "self._length_fallback_room_allow" in ast.get_source_segment(
-        source, method)
-    assert "source_kind" in ast.get_source_segment(source, method)
-    assert "self._existing_dimension_reference_pairs()" in source
-    assert "candidate.length_references" in source
-    assert "super(GenericDimensions, self)._fallback_length_indexes" in source
+    contract = ast.get_source_segment(source, method)
+    assert "source_kind" in contract
+    assert "self._existing_dimension_reference_pairs()" in contract
+    assert "length_references" in contract
+    assert "valid.sort(key=segment_length, reverse=True)" in contract
 
 
 def test_directions_trop_proches_ne_sont_pas_les_deux_cotes():
