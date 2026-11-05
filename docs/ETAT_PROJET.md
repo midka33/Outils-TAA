@@ -103,3 +103,9 @@ La PR #37 développe **deux outils autonomes distincts**, `Cotation auto` et `É
 ## Étiquetage auto — deuxième lancement (05/11/2026)
 
 Sur `Collectifs A_Niveau 1`, 44 pièces hors groupe détectées, **0 nouvelle étiquette créée** au second passage ; 44 messages génériques « annotations deja presentes ou vues non cotables ». Ceci est **compatible avec l'absence de doublons** après le premier passage à 44/44, mais l'état des étiquettes visibles et de leur association à chaque pièce n'a pas été confirmé explicitement. **Ne pas déclarer un test anti-doublons intégralement validé sur la base du seul compteur 0.** Améliorer ultérieurement le diagnostic « déjà présente » vs « impossible / vue non admissible », avec formulation spécifique à l'étiquetage.
+
+## Validation Revit — anti-doublons Étiquetage auto (05/11/2026)
+
+**Confirmation explicite de l'utilisateur :** après un premier lancement ayant créé **44 étiquettes pour 44 pièces** dans `Collectifs A_Niveau 1`, le deuxième lancement a créé **0 annotation supplémentaire**, et **les 44 étiquettes initiales sont toujours visibles**. **Test anti-doublons validé sur cette vue**, sans suppression des étiquettes existantes. Ne pas extrapoler aux groupes de modèle, aux autres vues ou aux autres types d'étiquettes non testés.
+
+Amélioration non bloquante à prévoir : remplacer le message répété « annotations deja presentes ou vues non cotables » par une indication spécifique et comptabilisée (« étiquette déjà présente »), distincte des vrais refus.
