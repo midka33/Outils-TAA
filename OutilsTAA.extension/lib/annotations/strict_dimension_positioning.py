@@ -147,7 +147,7 @@ def select_collision_free_placements(candidate_groups, rails=(),
         if candidate is None:
             group = groups[index]
             reason = ("aucune position sans chevauchement avec etiquettes/cotes"
-                      " et avec texte de cote entierement dans la piece")
+                      " et sans conflit entre les deux orientations")
             if not group:
                 reason = "aucune position candidate disponible"
             result.append(SkippedPlacement(reason))
