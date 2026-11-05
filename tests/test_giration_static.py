@@ -1,6 +1,6 @@
 from pathlib import Path
 import ast
-from lxml import etree
+from xml.etree import ElementTree as etree
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'OutilsTAA.extension'
@@ -13,8 +13,9 @@ def test_entry_ascii_clean():
 
 
 def test_all_python_parses():
-    for file in SRC.rglob('*.py'):
-        ast.parse(file.read_text(encoding='utf-8'))
+    for base in (SRC / 'lib/giration', SRC / 'OutilsTAA.tab/Giration.panel'):
+        for file in base.rglob('*.py'):
+            ast.parse(file.read_text(encoding='utf-8'))
 
 
 def test_xaml_wellformed_and_no_unresolved_static_resources():
