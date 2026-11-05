@@ -1685,7 +1685,15 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
         "keys": service._length_fallback_reference_keys,
         "selected": [(c.source_kind, c.length_references)
                      for c in chosen],
-        "existing": service._existing_dimension_reference_pairs()
+        "existing": service._existing_dimension_reference_pairs(),
+        "checks": [
+            (x.source_kind == "wall",
+             bool(x.length_references),
+             (frozenset(service._stable_reference(ref)
+                        for ref in x.length_references)
+              in service._length_fallback_reference_keys)
+             if x.length_references else None)
+            for x in chosen]
     }
     assert chosen[fallback[0]].length_references is not None
     assert chosen[fallback[0]].source_kind == "wall"
