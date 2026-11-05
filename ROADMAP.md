@@ -404,3 +404,13 @@ Voir `docs/21_Annotations_Automatiques.md`.
 - [ ] Ne pas fusionner dans `main`
   avant validation reelle et controle
   des cotes de garde-corps.
+
+
+### REV-ANN-124 — correctif de la localisation des cotes Revit (5 novembre 2026)
+
+- [x] **Rapport dedup-03 :** 23/24, chambre 2247 a 2 axes mais 1 rejete comme deja cote ; 6 cotes anterieures classees position indeterminee.
+- [x] **Cause confirmee par l'API Revit 2025 :** `Dimension.Curve` est NON BORNEE, donc la lecture historique de `Curve.GetEndPoint(0/1)` echoue sur les cotes lineaires. Cela desactivait le dedoublonnage spatial introduit dans dedup-03.
+- [x] **Correction dedup-04 :** utiliser `Dimension.Origin` comme point milieu de la cote simple, verifie avec `Room.IsPointInRoom`, sans changer les References ou les cotes generees ; origine non localisable reste un verrou conservateur.
+- [x] **Anti-regression :** tests simulant Dimension.Curve non bornee (GetEndPoint interdit), dimension deja presente dans la chambre et references communes a des chambres mitoyennes ; 472 tests CI valides avant actualisation documentaire.
+- [ ] **Recette Revit :** relancer l'appartement sur copie avec la revision `2026-11-05-apartment-room-dedup-04` ; confirmer deux cotes intérieures 2,62 m / 3,33 m en 2247, total objectif 24/24 sur copie sans cotes, aucun doublon sur second lancement. Examiner le compteur `d'autres pieces ignorees` dans le rapport.
+- [ ] Ne pas fusionner dans `main` ni considerer le module generalisable a toutes les vues avant cette validation.
