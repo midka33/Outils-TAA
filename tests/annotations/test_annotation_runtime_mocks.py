@@ -1769,7 +1769,7 @@ def test_aucune_exploration_garde_corps_quand_limites_toutes_murs(monkeypatch):
 
 def test_revision_beta_affichee_dans_rapport_cotation(monkeypatch):
     mod = load_annotation_module(monkeypatch)
-    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-apartment-room-dedup-03"
+    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-apartment-room-dedup-04"
     service = mod.AnnotationService(object())
     import pytest
     with pytest.raises(ValueError, match="Mode diagnostic obligatoire"):
@@ -1805,6 +1805,8 @@ def test_appartement_2247_reference_partagee_voisine_ne_supprime_pas_deuxieme_ax
             self.X, self.Y, self.Z = x, y, 0.
 
     class Curve:
+        IsBound = True
+
         def __init__(self, start, end):
             self.points = [Point(*start), Point(*end)]
 
@@ -1942,7 +1944,7 @@ def test_appartement_2247_reference_non_localisable_reste_protegee(monkeypatch):
 
 def test_2247_revision_beta_appartement_et_journal_doublons_par_piece(monkeypatch):
     mod = load_annotation_module(monkeypatch)
-    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-apartment-room-dedup-03"
+    assert mod.ANNOTATIONS_BETA_REVISION == "2026-11-05-apartment-room-dedup-04"
     text = (HERE / "OutilsTAA.extension/OutilsTAA.tab"
             / "Annotations.panel/services/annotations_service.py").read_text(
                 encoding="utf-8")
