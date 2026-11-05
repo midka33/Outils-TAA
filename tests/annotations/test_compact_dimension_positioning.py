@@ -139,7 +139,8 @@ def test_le_repli_utilise_le_moteur_pdv_sans_modifier_son_code():
                "Annotations.panel/services/annotations_service.py")
     src = service.read_text(encoding="utf-8")
     assert "from plans_vente.dimension_positioning import placement_candidates" in src
-    assert "from annotations.compact_dimension_positioning import" in src
-    assert "external_candidates(" in src
+    assert "from annotations.inside_dimension_positioning import" in src
+    assert "select_inside_placements(" in src
+    assert "external_candidates(" not in src
     assert "apres" not in src or "deux" in src
     ast.parse(src)
