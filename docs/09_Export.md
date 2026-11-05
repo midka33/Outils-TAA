@@ -498,6 +498,20 @@ Les références durables doivent privilégier `UniqueId`. L'`ElementId` courant
 
 Le moteur de publication travaille sur les éléments résolus, jamais directement sur les règles de sélection.
 
+### 3.3.1 Métadonnées d'affichage des mises en page
+
+Le `UniqueId` reste la référence durable d'une mise en page persistante.
+`sheet_number`, `sheet_name` et l'`ElementId` sérialisés sont des snapshots
+de secours.
+
+À chaque ouverture/rafraîchissement d'Export, si le `UniqueId` existe toujours
+dans le document Revit courant, l'interface utilise en mémoire le numéro, le nom
+et l'`ElementId` actuels de la feuille. Un renommage effectué dans Revit doit
+donc être visible dans l'arborescence Export sans supprimer/réajouter la feuille.
+
+Cette resynchronisation d'affichage ne provoque pas à elle seule d'écriture dans
+le fichier de configuration.
+
 ### 3.4 Ordre des éléments
 
 L'ordre d'un carnet est une propriété métier persistée.
