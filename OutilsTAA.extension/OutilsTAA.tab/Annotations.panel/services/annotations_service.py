@@ -18,7 +18,7 @@ from room_tag_service import RoomTagService
 
 # Marqueur lisible dans le rapport : permet de detecter une autre copie
 # de l'extension ou un cache pyRevit/IronPython encore charge.
-ANNOTATIONS_BETA_REVISION = "2026-11-05-apartment-room-dedup-03"
+ANNOTATIONS_BETA_REVISION = "2026-11-05-apartment-room-dedup-04"
 
 
 def id_value(element_id):
@@ -113,25 +113,45 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             return None
 
     def _dimension_ownership_in_room(self, dimension, room):
-        """True si la ligne de cote traverse l'interieur de CETTE piece.
+        """Situer UNE cote dans une piece pour l'anti-doublon.
 
-        False : ligne localisee hors piece, non pertinente pour eviter
-        une cote native dans cette piece (par ex. chambre voisine).
-        None : localisation indisponible => conserver le verrou ancien
-        contre les doublons plutot qu'inventer une cote.
+        Dimension.Curve est NON BORNEE dans l'API Revit : GetEndPoint
+        echoue sur les dimensions lineaires. Pour une cote a un segment,
+        Dimension.Origin est le milieu REEL de sa ligne de cote.
+        Pour une cote non localisable, renvoyer None (verrou conservateur).
         """
         if room is None:
             return None
         try:
+            # Le moteur TAA ne cree que des cotes lineaires a deux refs.
+            # Une cote multi-segments demande un traitement specifique.
+            segments = getattr(dimension, "Segments", None)
+            if segments is not None and int(segments.Size) > 1:
+                return None
+        except Exception:
+            return None
+        try:
+            origin = dimension.Origin
+            if origin is not None:
+                z = self._probe_z(room)
+                return bool(room.IsPointInRoom(
+                    self._xyz(float(origin.X), float(origin.Y), z)))
+        except Exception:
+            pass
+        # Cas des doubles de test ou de courbes BORNEES seulement.
+        # Revit renvoie une dimension.Curve NON BORNEE : NE PAS appeler
+        # GetEndPoint dans ce cas.
+        try:
             curve = dimension.Curve
+            if curve is None or not curve.IsBound:
+                return None
             p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)
-            x0, y0 = float(p0.X), float(p0.Y)
-            x1, y1 = float(p1.X), float(p1.Y)
             z = self._probe_z(room)
             for fraction in (.2, .5, .8):
                 point = self._xyz(
-                    x0 + (x1-x0)*fraction,
-                    y0 + (y1-y0)*fraction, z)
+                    float(p0.X) + (float(p1.X)-float(p0.X))*fraction,
+                    float(p0.Y) + (float(p1.Y)-float(p0.Y))*fraction,
+                    z)
                 if room.IsPointInRoom(point):
                     return True
             return False
