@@ -1695,8 +1695,9 @@ def test_2247_deuxieme_cote_utilise_vraie_longueur_de_mur_pdv(monkeypatch):
     # sa longueur native ; les autres n'ont pas de references d'extremites.
     fallback = service._fallback_length_indexes(chosen, [])
     assert 1 in fallback
-    assert chosen[fallback[0]].length_references is not None
-    assert chosen[fallback[0]].source_kind == "wall"
+    eligible = [i for i in fallback if chosen[i].length_references]
+    assert eligible == [1]
+    assert chosen[eligible[0]].source_kind == "wall"
 
     # Le lancement suivant ne doit jamais ajouter de deuxieme
     # cote de longueur identique lorsqu'elle existe deja.
