@@ -1302,3 +1302,91 @@ Ne pas fusionner dans `main` avant validation.
 
 
 **Recette ciblée sur 2247, 5 novembre 2026 — RESOLU pour la création/positionnement :** la révision effectivement chargée est `2026-11-05-2247-native-fallback-02`. Rapport Revit : **deux annotations créées** dans la chambre 3 (`Collectifs A_Niveau 1`), deux axes intérieurs selon le moteur, largeur affichée **2,62 m**, profondeur affichée **3,33 m**. Superposition de témoins autorisée (texte : 0 ; traits : 1), et emprise proche d'une étiquette signalée. **Aucune cote refusée**. Les messages de diagnostic du secours de longueur native ne figurent pas dans cette exécution : le succès des deux axes ne prouve donc **pas** que ce secours a servi ; il peut s'agir de deux paires de faces opposées. La confirmation métrique des deux nus finis, l'anti-doublon sur relance et la recette 24/24 de l'appartement entier restent ouverts. Le moteur Plans de vente est inchangé ; pas de fusion dans `main`.
+
+
+---
+
+### BUG-COMMON-028 — 2247 : deux cotes seule, une seule dans l'appartement (23/24)
+
+**Retour utilisateur du 5 novembre 2026 :** dans la meme maquette
+Revit 2025.4, la piece **2247 (Chambre 3)** cree **2 cotes
+interieures** lorsqu'elle est seule (2,62 m et 3,33 m), mais
+seulement **1 cote** lorsqu'elle est la quatrieme piece de
+l'appartement de **12 pieces** (total 23/24). Les onze autres
+pieces atteignent deux cotes. La revision du journal est
+`2026-11-05-2247-native-fallback-02` dans les deux modes.
+Le rapport appartement n'affiche ni exception ni refus
+graphique pour 2247 : seule la ligne finale de cotation
+partielle apparait.
+
+**Cause logicielle mise en evidence (hypothese a confirmer en Revit) :**
+`GenericDimensions._existing_dimension_reference_pairs()`
+balayait **toutes les cotes de la vue** et considerait qu'un
+couple de `Reference` Revit deja utilise interdisait cette
+paire de faces pour TOUTES les autres pieces. Deux chambres
+mitoyennes peuvent avoir des murs/References partagees mais
+doivent posseder leurs propres cotes localisees **a
+l'interieur de leur piece**. L'ordre de traitement
+(2216, 2239, 2246 avant 2247) pouvait donc priver
+2247 de sa seconde orientation, alors que les deux
+paires de faces sont accessibles si elle est lancee seule.
+Cette cause est reproductible en test hors Revit ;
+la correspondance exacte des References du modele n'a
+pas encore ete mesuree independamment.
+
+**Correctif beta exclusivement Annotations :**
+- Avant de retenir un couple de References comme deja
+  cote, regarder la **ligne de la Dimension Revit existante**
+  (`Dimension.Curve`) et tester trois points internes
+  (20 %, 50 %, 80 %) dans la piece courante avec
+  `Room.IsPointInRoom` a l'altitude de sondage validee.
+- **Dimension entierement hors piece :** ignorer son
+  couple de references dans l'anti-doublon de cette
+  piece, sans supprimer ni modifier la cote voisine.
+- **Dimension croisant l'interieur :** conserver
+  son couple de References comme deja cote dans
+  cette piece.
+- **Position non lisible** (courbe absente, API
+  inaccessible) : conserver l'ancien verrou global
+  pour ne pas creer de doublons par approximation.
+- Appliquer le meme controle spatial aux cotes
+  de substitution par reperes 2D.
+- Exposer au rapport les compteurs
+  `COTES DEJA PRESENTES` (dans la piece,
+  voisines ignorees, position indeterminee)
+  et `CONTROLE DOUBLONS PAR PIECE`
+  (deux axes, axes deja cotes, axes retenus).
+  Nouvelle revision visible :
+  `2026-11-05-apartment-room-dedup-03`.
+
+**Anti-regression :** test de deux chambres voisines
+partageant les References des murs avec une premiere
+cote en chambre A, puis recherche de deux axes
+en chambre B (2247), exclusion seulement d'une
+cote propre a B et rejet d'un troisieme duplicata.
+Une courbe Revit illisible garde le verrou conservative.
+**471 tests automatises Annotations et Plans de vente
+reussis** (GitHub Actions, 5 novembre 2026).
+
+**Recette Revit en attente :**
+1. Sur une copie de projet, **garder les cotes existantes**
+   et relancer d'abord **2247 seule** pour confirmer
+   qu'une cote existante n'est pas reproduite.
+2. Sur une copie equivalentement preparee, relancer
+   l'appartement complet en conservant les cotes
+   deja produites ; la chambre 2247 doit retrouver
+   ses deux dimensions sans reprendre celles
+   des chambres voisines ni provoquer de doublons.
+3. Fournir les nouvelles lignes de diagnostic
+   `COTES DEJA PRESENTES` et
+   `CONTROLE DOUBLONS PAR PIECE`
+   pour 2247. Un total de 24/24 n'est
+   pas une preuve suffisante si les valeurs ou
+   les positions des cotes sont fausses.
+4. Verifier les nus finis, les lignes
+   interieures, les collisions acceptees et
+   la non-regression des garde-corps 2239, 2238, 2240.
+
+**Statut : correction beta testee hors Revit ;
+validation du traitement appartement encore
+necessaire avant fusion dans `main`.**
