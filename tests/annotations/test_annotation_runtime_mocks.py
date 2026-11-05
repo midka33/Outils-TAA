@@ -1582,3 +1582,45 @@ def test_placement_repli_petite_piece_reutilise_pdv_et_deux_axes(monkeypatch):
     assert any("placement complementaire petites pieces" in w
                for w in warnings) or all(
                    not getattr(p, "external_compact", False) for p in placements)
+
+
+def test_repli_petite_piece_en_erreur_conserve_le_placement_initial(monkeypatch):
+    """Une erreur dans le repli n'annule plus les orientations deja valides."""
+    mod = load_annotation_module(monkeypatch)
+    library = HERE / "OutilsTAA.extension" / "lib"
+    monkeypatch.syspath_prepend(str(library))
+    from annotations import compact_dimension_positioning as compact
+    from annotations import strict_dimension_positioning as strict
+    service = mod.GenericDimensions(object())
+    service.PAPER_CLEARANCE_MM = 6.
+    service.PAPER_TEXT_WIDTH_MM = 12.
+    service.PAPER_TEXT_HEIGHT_MM = 3.
+    service.PAPER_PADDING_MM = .3
+    service.PAPER_WITNESS_MM = 1.5
+    service._millimeters_to_internal = lambda mm: mm / 1000.
+    service._placement_room_points = lambda r: [
+        (0., 0.), (1.2, 0.), (1.2, .8), (0., .8)]
+    service._probe_z = lambda r: 1.
+    service._xyz = lambda x, y, z: types.SimpleNamespace(X=x, Y=y, Z=z)
+    service._room_label = lambda r: "Petite piece"
+    service._alignment_rails = lambda v: []
+    room = types.SimpleNamespace(IsPointInRoom=lambda p: (
+        0. < p.X < 1.2 and 0. < p.Y < .8))
+    view = types.SimpleNamespace(
+        Scale=100, RightDirection=types.SimpleNamespace(X=1., Y=0.))
+    monkeypatch.setattr(
+        compact, "external_candidates",
+        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("test-repli")))
+    monkeypatch.setattr(
+        strict, "select_collision_free_placements",
+        lambda groups, **kw: [groups[0][0],
+                              strict.SkippedPlacement("orientation difficile")])
+    warnings = []
+    result = service._plan_graphics(
+        room, view, [((0., .4), (1.2, .4)),
+                     ((.6, 0.), (.6, .8))], [None, None],
+        [], [], [], warnings)
+    assert len(result) == 2
+    assert not isinstance(result[0], strict.SkippedPlacement)
+    assert isinstance(result[1], strict.SkippedPlacement)
+    assert any("placement initial conserve" in line for line in warnings)
