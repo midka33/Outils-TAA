@@ -1390,3 +1390,53 @@ reussis** (GitHub Actions, 5 novembre 2026).
 **Statut : correction beta testee hors Revit ;
 validation du traitement appartement encore
 necessaire avant fusion dans `main`.**
+
+
+**Correctif de la cause racine confirme par le rapport du 5 novembre 2026 :**
+la revision `2026-11-05-apartment-room-dedup-03` affiche
+pour 2247 **2 axes geometriques**, **1 deja cote** et **1 retenu** ;
+les **6 cotes precedentes** ont toutes une position
+`indeterminee`. Les autres pieces affichent a leur tour
+2, 4, 7, 9... cotes `indeterminees` : le controle spatial
+n'est en pratique JAMAIS applique aux cotes Revit reelles.
+
+**Cause exacte documentee par Autodesk (Revit API 2025) :**
+`Dimension.Curve` est une courbe **non bornee** ; le code
+appelait `GetEndPoint(0)` et `GetEndPoint(1)` sur
+cette courbe. Cet acces echoue et la fonction retournait
+`None` pour chaque cote, conservant le verrou global
+sur les References des pieces voisines. Le mode 2247
+seul fonctionnait car la cote voisine n'avait pas encore
+ete creee. L'API expose `Dimension.Origin` comme milieu
+de la ligne pour une dimension simple.
+
+**Correction suivante, revision
+`2026-11-05-apartment-room-dedup-04` :** utiliser
+`Dimension.Origin` en XY, tester ce milieu avec
+`Room.IsPointInRoom` a l'altitude valide de sondage.
+Lire `NumberOfSegments` sans imposer l'acces a
+`Segments` sur les dimensions simples ; conserver
+`None` pour les cotes multisegments ou
+impossibles a positionner. Un test de simulation
+utilise des dimensions **Curve.IsBound=False**,
+qui interdisent `GetEndPoint` et portent une
+`Origin` dans/hors chambre. Les References
+d'une cote hors piece cessent de bloquer
+cette piece ; un duplicata a l'interieur
+reste bloque. Le correctif n'alterne
+ni les References de la cote, ni la valeur,
+ni le moteur Plans de vente.
+
+**Preuve automatique :** **472 tests passes** sur
+la branche beta (5 novembre 2026).
+**Recette Revit a faire :** verifier la revision
+`...dedup-04`, puis dans le rapport de 2247
+une baisse du compteur `position indeterminee`
+et l'absence de suppression de la seconde direction.
+Attendu sur une copie vierge de cotes :
+24 cotes sur les 12 pieces si les deux
+nu interieurs de chacune sont disponibles.
+Sur une copie deja cotee, ne compter que
+les **nouvelles** cotes creees, verifier
+que les anciennes restent toutes uniques.
+Aucun merge dans `main`.
