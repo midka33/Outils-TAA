@@ -91,3 +91,11 @@ La PR #37 développe **deux outils autonomes distincts**, `Cotation auto` et `É
 **Décision métier :** une étiquette doit être créée dans chaque pièce qui possède un point d'ancrage intérieur valide, même si le texte chevauche des éléments ou déborde graphiquement ; l'utilisateur assurera ensuite les ajustements de lisibilité. Ne pas appliquer cette règle au module Plans de vente sans décision explicite.
 
 **Implémenté sur `feature/annotations-automatiques-beta` :** suppression du refus de collision dans l'adaptateur `GenericRoomTags`, commit `71ff96a3a75ac85c9b59449ec610fb2e3aa9207f` ; documentation de branche actualisée dans `docs/21_Annotations_Automatiques.md`, commit `6aa916f4327f2f1a291f149185925d39fd60835b`. Moteur d'étiquetage Plans de vente non modifié. **Validation Revit des 44 pièces encore en attente ; tests automatisés non exécutés dans cette intervention.**
+
+## Recette Étiquetage — 44 pièces (05/11/2026)
+
+**Retour de test utilisateur sous Revit 2025.4, module Étiquetage automatique bêta :** vue `Collectifs A_Niveau 1`, **44 pièces détectées (0 en groupe)**, **44 étiquettes créées**. Le précédent résultat de 37/44 est résolu sur ce cas après suppression du refus systématique des collisions dans l'adaptateur.
+
+**Avertissements acceptés par décision métier :** emprise graphique débordante pour les pièces 2222, 2223, 2250, 2252 ; collision non résolue et meilleure position intérieure conservée pour 2249, 2251, 2252, 2253. Ces avertissements n'empêchent pas la création ; l'utilisateur repositionne les étiquettes illisibles.
+
+**Statut précis :** génération 44/44 **validée sur cette vue**, pas validation globale du module. Reste à tester : étiquettes existantes / seconde exécution sans doublons, plusieurs vues, groupes de modèle et non-régression Plans de vente. Ne pas confondre validation de cette recette et fusion de la PR #37.
