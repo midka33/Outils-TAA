@@ -905,3 +905,15 @@ rafraîchie depuis l'élément courant lorsque celui-ci existe.
 rafraîchissement nom/numéro/ElementId sans écriture repository et la conservation
 du snapshot si la feuille n'existe plus.
 
+
+### BUG-EXPORT-063 — Impossible de vider volontairement une sélection cumulée entre filtres
+
+**Symptôme :** la sélection cumulative de feuilles à travers différents filtres est utile, mais aucun bouton ne permet d'effacer explicitement les feuilles sélectionnées, notamment celles qui sont masquées par le filtre courant.
+
+**Cause racine :** l'explorateur expose le compteur et l'ajout, mais aucune commande utilisateur de remise à zéro de `selected_ids`.
+
+**Correction :** bouton « Effacer la sélection » directement au-dessus d'« Ajouter ». Son action vide la sélection globale, désélectionne la liste visible sous garde `_rendering`, puis actualise le compteur et les états des deux boutons. Elle ne modifie pas les filtres.
+
+**Règle préventive :** lorsqu'une sélection survit à des changements de filtre, offrir une action explicite pour vider l'ensemble, y compris les objets masqués, sans supprimer le comportement cumulatif.
+
+**Anti-régression :** `tests/test_export_sheet_explorer_clear_selection.py` vérifie le câblage XAML/handler, l'effacement global et le maintien du comportement de sélection cumulative.
