@@ -1502,3 +1502,81 @@ Le rapport confirme :
 - [ ] Tester la visibilite de la cote si les etiquettes de piece sont masquees et controler la lisibilite de la superposition sur la chambre 3.
 
 **Etat projet :** correction graphique 2247 validee en Revit sur cet essai cible ; **recette complete d'appartement et anti-doublons encore ouvertes**. Ne pas fusionner `feature/annotations-automatiques-beta` dans `main` sur cette seule preuve.
+
+
+## Recette appartement — references partagees de 2247 (5 novembre 2026)
+
+**Nouveau retour utilisateur :** la **meme revision**
+`2026-11-05-2247-native-fallback-02` donne **2 cotes
+interieures** quand 2247 est lancee seule, mais seulement
+**1 cote** lorsque 2247 est la quatrieme piece d'un
+appartement de 12 pieces. Total de lot : **23
+annotations**, une par orientation sauf 2247.
+
+**Risque confirme dans le code :** avant la modification,
+`_existing_dimension_reference_pairs()` traitait la liste
+des References de **toutes les dimensions de la vue**
+comme si une paire de faces deja utilisee dans
+une chambre voisine signifiait que la meme paire
+etait deja cotee dans la chambre en cours.
+
+**Correction experimentale BUG-COMMON-028 :**
+`GenericDimensions._existing_dimension_reference_pairs(room)`
+et `_existing_proxy_dimensions(room)` ignorent
+desormais les dimensions dont la **ligne Revit**
+est localisee **hors de la piece en cours**.
+La methode `_dimension_ownership_in_room`
+sonde `Dimension.Curve` aux fractions 20/50/80 %
+et `Room.IsPointInRoom` pour determiner
+l'appartenance a la piece. Un element dont
+la position est **illisible** reste retenu
+dans le verrou anti-doublon conservateur.
+Les cotes des autres pieces ne sont jamais supprimees.
+
+**Diagnostic beta revision :**
+`2026-11-05-apartment-room-dedup-03`.
+Le rapport indique `COTES DEJA PRESENTES`
+(positions dans/hors piece/indeterminees)
+et `CONTROLE DOUBLONS PAR PIECE`
+(axes geometriques, axes deja mesures, axes retenus).
+Une simulation hors Revit reproduit le cas
+d'une dimension de chambre A avec les memes
+References que la chambre 2247 :
+la cote de A ne bloque plus la seconde
+direction de 2247, mais une dimension
+de 2247 bloque toujours son propre duplicata.
+**471 tests hors Revit valides sur la branche beta.**
+
+### Recette ciblee — REV-ANN-123
+
+- [ ] Fermer Revit puis actualiser la branche
+  `feature/annotations-automatiques-beta` et
+  confirmer `REVISION COTATION BETA :
+  2026-11-05-apartment-room-dedup-03`.
+- [ ] Sur une **copie du meme projet**, lancer
+  le mode **Un appartement** sur les 12
+  pieces, conserver les autres cotes de
+  l'appartement (ne pas les supprimer pour
+  cette verification anti-doublon).
+- [ ] Relever pour la chambre 2247 les
+  lignes `COTES DEJA PRESENTES` et
+  `CONTROLE DOUBLONS PAR PIECE`.
+  Attendu : deux axes geometriques reconnus
+  et aucun couple de murs de la chambre
+  voisine n'empeche la deuxieme cote.
+- [ ] Confirmer **deux cotes interieures** sur
+  2247, dimensions en nu fini
+  **2,62 m et 3,33 m** si la maquette
+  n'a pas change, et **aucun nouveau doublon**
+  sur les onze autres pieces.
+- [ ] Relancer une deuxieme fois sans
+  nettoyage de cotes et verifier
+  aucune cote supplementaire ; controler
+  la stabilite des loggias GC 2238/2240
+  et du logement 2239.
+
+**Statut : correctif de dedoublonnage spatial
+testé automatiquement ; recette réelle
+du logement encore en attente.**
+Ne pas fusionner dans `main` avant
+cette validation.
