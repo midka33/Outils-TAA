@@ -1720,6 +1720,16 @@ class AnnotationService(object):
             original_type = id_value(group.GetTypeId())
             created = self.doc.Create.NewGroup(ids)
             self.doc.Regenerate()
+            # Le NewGroup mixte peut creer une nouvelle structure de groupe
+            # de modele au lieu d'attacher des details au groupe existant.
+            # Ne jamais valider une telle transformation silencieusement.
+            if created is None or not created.IsValidObject:
+                raise RuntimeError(
+                    "Revit n'a pas cree de groupe valide : annulation.")
+            if (id_value(created.Id) == id_value(group.Id)
+                    or id_value(created.GetTypeId()) == original_type):
+                raise RuntimeError(
+                    "Resultat NewGroup ambigu : groupe de modele protege.")
             available = set(id_value(x) for x in
                             group.GetAvailableAttachedDetailGroupTypeIds())
             new_ids = available - previous
@@ -1731,7 +1741,23 @@ class AnnotationService(object):
             if not new_ids:
                 raise RuntimeError(
                     "L'API n'a pas cree de groupe de details attache au groupe initial.")
+            if len(new_ids) != 1:
+                raise RuntimeError(
+                    "Plusieurs types de details attaches crees : annulation.")
             group_type_id = self.doc.GetElement(next(iter(new_ids))).Id
+            # La creation d'un type attache est insuffisante : une instance
+            # effectivement rattachee au groupe initial doit etre retrouvee.
+            attached_instances = [
+                item for item in DB.FilteredElementCollector(self.doc, view.Id)
+                .OfClass(DB.Group).WhereElementIsNotElementType().ToElements()
+                if bool(getattr(item, "IsAttached", False))
+                and id_value(item.GetTypeId()) == id_value(group_type_id)
+                and id_value(item.AttachedParentId) == id_value(group.Id)
+            ]
+            if not attached_instances:
+                raise RuntimeError(
+                    "Aucun detail attache a l'instance de groupe initiale : "
+                    "annulation de securite.")
             name = ("TAA - Etiquettes" if kind == "tags" else "TAA - Cotations")
             name += " - {}".format(safe_name(group.GroupType, "Groupe"))
             self.doc.GetElement(group_type_id).Name = name
