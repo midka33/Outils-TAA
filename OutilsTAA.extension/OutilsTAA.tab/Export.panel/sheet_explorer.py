@@ -336,11 +336,22 @@ class SheetExplorer(object):
             self._update_count()
             args.Handled = True
 
+    def clear_selection(self):
+        """Efface la sélection globale, y compris les feuilles filtrées."""
+        self.selected_ids.clear()
+        self._rendering = True
+        try:
+            self.window.SheetExplorerList.UnselectAll()
+        finally:
+            self._rendering = False
+        self._update_count()
+
     def _update_count(self):
         count = len(self.selected_ids)
         self.window.SheetExplorerSelectionInfo.Text = "{0} feuille(s) sélectionnée(s)".format(count)
         self.window.SheetExplorerAddButton.Content = "Ajouter ({0})".format(count)
         self.window.SheetExplorerAddButton.IsEnabled = count > 0
+        self.window.SheetExplorerClearSelectionButton.IsEnabled = count > 0
 
     def _build_context_menu(self):
         menu = ContextMenu()

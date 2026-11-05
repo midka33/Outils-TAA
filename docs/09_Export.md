@@ -7,6 +7,10 @@
 
 ---
 
+## Effacement explicite de la sélection cumulée (correctif candidat)
+
+La sélection de mises en page est conservée lorsque les filtres changent : une feuille masquée par le filtre actif reste sélectionnée pour l'ajout. Un bouton **Effacer la sélection**, placé entre le compteur et **Ajouter**, vide volontairement l'ensemble des feuilles sélectionnées, visibles et masquées, sans changer les filtres. Le compteur existant indique le total sélectionné. Après un ajout réussi, la sélection est toujours remise à zéro. Correctif BUG-EXPORT-063, à valider sous Revit 2025.4 avant publication.
+
 ## État actuel — Export validé pour Outils TAA v1.4.0 (3 novembre 2026)
 
 **Version publiée : Outils TAA v1.4.0 (3 novembre 2026, tag `21336b3d`).** Le module Export de la **PR #39** est fusionné dans `main` (commit `5a37be83e3d5893156399b242b838f4a9805ef58`), après les six campagnes de recette **EXPORT-01 à EXPORT-06** validées par l'utilisateur sous Revit 2025.4 / pyRevit 5.x.

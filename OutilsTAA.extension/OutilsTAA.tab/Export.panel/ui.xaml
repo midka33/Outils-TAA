@@ -44,6 +44,7 @@
           <ListBox x:Name="SheetExplorerList" Grid.Row="4" SelectionMode="Extended" SelectionChanged="SheetExplorerSelection_Changed" PreviewMouseLeftButtonDown="SheetExplorerMouseDown" PreviewMouseMove="SheetExplorerMouseMove" MouseDoubleClick="SheetExplorerDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
           <StackPanel Grid.Row="5" Margin="0,8,0,0">
             <TextBlock x:Name="SheetExplorerSelectionInfo" Text="0 feuille sélectionnée" Margin="0,0,0,5"/>
+            <Button x:Name="SheetExplorerClearSelectionButton" Content="Effacer la sélection" Click="SheetExplorerClearSelection_Click" IsEnabled="False" MinHeight="28" Margin="0,0,0,5" ToolTip="Désélectionner toutes les feuilles, même celles masquées par les filtres"/>
             <Button x:Name="SheetExplorerAddButton" Content="Ajouter (0)" Click="SheetExplorerAdd_Click" IsEnabled="False" MinHeight="30"/>
           </StackPanel>
         </Grid>
