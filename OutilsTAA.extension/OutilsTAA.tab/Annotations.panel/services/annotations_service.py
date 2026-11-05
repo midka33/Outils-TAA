@@ -122,14 +122,24 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
         """
         if room is None:
             return None
+        # Le moteur TAA ne cree que des cotes lineaires a deux refs.
+        # NumberOfSegments est 0 pour une cote a un seul segment dans
+        # l'API Revit. Ne pas acceder a Segments sur une cote simple :
+        # cet acces peut lever une exception .NET selon le type.
         try:
-            # Le moteur TAA ne cree que des cotes lineaires a deux refs.
-            # Une cote multi-segments demande un traitement specifique.
-            segments = getattr(dimension, "Segments", None)
-            if segments is not None and int(segments.Size) > 1:
-                return None
+            segments_count = getattr(dimension, "NumberOfSegments", None)
+            if segments_count is not None:
+                if int(segments_count) > 1:
+                    return None
+            else:
+                # Compatibilite des doubles de tests / objets externes.
+                segments = getattr(dimension, "Segments", None)
+                if segments is not None and int(segments.Size) > 1:
+                    return None
         except Exception:
-            return None
+            # Sans preuve d'une dimension multi-segments, essayer Origin
+            # (qui demeure le mecanisme Revit standard a un segment).
+            pass
         try:
             origin = dimension.Origin
             if origin is not None:
