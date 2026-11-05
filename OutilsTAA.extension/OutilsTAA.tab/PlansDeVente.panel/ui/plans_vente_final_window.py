@@ -53,8 +53,10 @@ class PlansVenteFinalWindow(forms.WPFWindow):
 
     UI_BUILD = "linked-rooms-v1.1"
 
-    def __init__(self, controller):
+    def __init__(self, controller, settings_service=None):
         self.controller = controller
+        self._settings_service = settings_service
+        self._project_settings_loaded = False
         self._parameter_choices = []
         self._active_descriptor = None
         self._all_housings = []
@@ -152,6 +154,35 @@ class PlansVenteFinalWindow(forms.WPFWindow):
             self._parameter_choices
         ):
             preferred_index = 0
+
+        if (
+            self._settings_service is not None
+            and not self._project_settings_loaded
+        ):
+            try:
+                saved = self._settings_service.load()
+                self._settings.update(dict(saved.get("settings") or {}))
+                restored = self._settings_service.match_descriptor(
+                    saved.get("active_parameter"),
+                    context.parameters,
+                )
+                if restored is not None:
+                    for index, choice in enumerate(self._parameter_choices):
+                        candidate = getattr(choice, "descriptor", None)
+                        if (
+                            candidate is restored
+                            or getattr(candidate, "identity_key", None)
+                            == getattr(restored, "identity_key", None)
+                        ):
+                            preferred_index = index
+                            break
+            except Exception as error:
+                self._analysis_warnings.append(
+                    "Options avancées non restaurées : {}".format(
+                        str(error) or repr(error)
+                    )
+                )
+            self._project_settings_loaded = True
 
         self._active_descriptor = (
             self._parameter_choices[preferred_index].descriptor
@@ -788,6 +819,21 @@ class PlansVenteFinalWindow(forms.WPFWindow):
 
         self._settings = dict(dialog.settings)
         self._active_descriptor = new_descriptor
+
+        if self._settings_service is not None:
+            try:
+                self._settings_service.save(
+                    self._settings,
+                    self._active_descriptor,
+                )
+            except Exception as error:
+                forms.alert(
+                    "Les options ont été appliquées mais n'ont pas pu être "
+                    "mémorisées pour ce projet :\n\n{}"
+                    .format(str(error) or repr(error)),
+                    title="Plans de vente — Options avancées",
+                    warn_icon=True,
+                )
 
         new_index = self._parameter_choice_index(
             new_descriptor
