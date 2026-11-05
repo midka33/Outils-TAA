@@ -1176,7 +1176,7 @@ une référence géométrique de cote.
 - [x] **REV-ANN-100 — complément :** utilisateur confirme les deux valeurs correctes et l'absence de repères 2D substitutifs sur la loggia 2238.
 - [x] **REV-ANN-101 :** utilisateur confirme que les **nus intérieurs physiques** des GC 16141871 et 8951804 sont alignés malgré le décalage de 33 mm de leurs axes.
 - [x] **REV-ANN-102 — partie 2238 :** deux cotes toujours visibles avec `Séparations de pièces` masquées, deuxième lancement sans doublon ni plantage, selon confirmation utilisateur.
-- [ ] **REV-ANN-102 — non-régression 2240 :** à recetter séparément dans la pièce 2240 après BUG-COMMON-025.
+- [x] **REV-ANN-102 — non-régression 2240 :** validée le 5 novembre 2026 : deux références natives, contrôle des dimensions/nus, visibilité sans séparations, seconde exécution sans doublon ni crash ; écart de 19,3 mm sur la deuxième arête native, recouvrement 63 %.
 - [ ] **REV-ANN-103 :** décision de généralisation / maintien bêta après la non-régression sur 2240 et les autres scénarios critiques.
 
 **Décision :** conserver le **mode diagnostic une pièce/une vue** et **ne pas fusionner dans `main`** sur la seule base de ce rapport. L'associativité native identifie une référence réelle, mais ne garantit pas l'associativité à la totalité de deux ouvrages successifs.
@@ -1191,4 +1191,17 @@ L'utilisateur a répondu **« tout est ok »** aux quatre vérifications propos�
 3. **Visibilité :** les deux cotes demeurent visibles après masquage de la catégorie **Séparations de pièces**.
 4. **Deuxième exécution :** absence de doublon et de plantage rapportée.
 
-**Bilan : BUG-COMMON-025 validé fonctionnellement sur la loggia 2238 en Revit 2025.4.** La preuve repose sur le retour utilisateur et le journal précédent ; aucune capture ou mesure géométrique indépendante n'est archivée. La cote partielle ne reste associative qu'au **GC 16141871**, pas au GC 8951804. La solution demeure **bêta** en raison de la non-régression encore à effectuer sur la pièce **2240** et sur les autres configurations de garde-corps avant un éventuel merge dans `main`.
+**Bilan : BUG-COMMON-025 validé fonctionnellement sur la loggia 2238 en Revit 2025.4.** La preuve repose sur le retour utilisateur et le journal précédent ; aucune capture ou mesure géométrique indépendante n'est archivée. La cote partielle ne reste associative qu'au **GC 16141871**, pas au GC 8951804. La solution demeure **bêta** : la non-régression **2240 a ensuite été validée le 5 novembre 2026**, mais les autres configurations de garde-corps et la recette globale restent nécessaires avant un éventuel merge dans `main`.
+
+
+### Non-régression après BUG-COMMON-025 — pièce 2240 (5 novembre 2026)
+
+**Retour utilisateur :** validation des contrôles 1, 2, 4 et 5, puis transmission du rapport correct pour la pièce **2240** (le premier rapport copié concernait encore 2238). Vue `Collectifs A_Niveau 1`, une pièce hors groupe, deux annotations créées.
+
+- 3 garde-corps candidats retenus parmi 4 chemins de pièces ; 2 TopRail accessibles et un GC sans TopRail (type à 4 lisses non continues), 24 arêtes examinées, 8 références candidates.
+- **Première limite :** arête native de garde-corps retenue, écart **0 mm**, recouvrement **100 %**.
+- **Deuxième limite :** arête native retenue par la règle **normale** (aucune ligne `RECUPERATION BETA`), écart **19,3 mm**, recouvrement **63 %** (au-dessus de 60 %). L'écart est la distance entre arête native et limite de pièce, **pas** une erreur déduite sur la valeur de cote ; l'utilisateur a confirmé les dimensions et les nus.
+- **Deux cotes visibles** lorsque les séparations de pièces sont masquées, et **aucun doublon ni plantage** au second lancement d'après l'utilisateur.
+- **Aucune ligne de repli 2D** dans le rapport fourni ; aucun message de récupération par axes décalés pour 2240.
+
+**Résultat : REV-ANN-102 — non-régression sur 2240 VALIDÉE (5/5).** Avec 2238 validée, le traitement expérimental BUG-COMMON-025 n'a pas perturbé cette configuration auparavant fonctionnelle. **Ne pas assimiler ce résultat à une validation globale de cotation automatique** : les pièces atypiques, la génération multi-pièces, la gestion des groupes et les autres scénarios de risques de la recette bêta restent ouverts. La cote sur deux garde-corps successifs demeure associative à une seule arête native, sans garantie de mise à jour si l'autre garde-corps change.
