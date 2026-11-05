@@ -1571,11 +1571,37 @@ class AnnotationService(object):
             self.dims.target_view = None
 
     def run(self, kind, views, annotation_type_id, line_style=None,
-            diagnostic_room_uid=None):
+            diagnostic_room_uid=None, diagnostic_room_uids=None):
+        """Cotation beta : une piece OU un appartement (2 a 12 pieces).
+
+        Jamais de traitement de toutes les pieces d'une vue, ni multi-vue.
+        Chaque piece est geree par _run_unit dans son TransactionGroup,
+        avec cache et journal d'execution reinitialises.
+        """
         report, total = [], 0
+        apartment_mode = kind == "dims" and diagnostic_room_uids is not None
+        expected_ids = None
         if kind == "dims":
-            # Crash 2026-10-22 : le traitement de masse est suspendu.
-            if not diagnostic_room_uid or len(views) != 1:
+            # Crash historique : le mode multi-vues et tous les groupes
+            # restent interdits. Le scope appartement est une liste
+            # explicite de pieces previsualisees par le lanceur.
+            if len(views) != 1:
+                raise ValueError("Mode diagnostic obligatoire : une vue et une piece.")
+            if apartment_mode:
+                if diagnostic_room_uid is not None:
+                    raise ValueError(
+                        "Choisir UNE piece ou UN appartement, pas les deux.")
+                expected_ids = [str(x) for x in diagnostic_room_uids]
+                if (len(expected_ids) < 2 or len(expected_ids) > 12
+                        or any(not x for x in expected_ids)
+                        or len(set(expected_ids)) != len(expected_ids)):
+                    raise ValueError(
+                        "Appartement invalide : 2 a 12 pieces distinctes requises.")
+                report.append(
+                    "MODE BETA APPARTEMENT : {} pieces dans une seule vue ; "
+                    "une transaction et un journal par piece ; "
+                    "aucun groupe Revit.".format(len(expected_ids)))
+            elif not diagnostic_room_uid:
                 raise ValueError(
                     "Mode diagnostic obligatoire : une vue et une piece."
                 )
@@ -1591,13 +1617,29 @@ class AnnotationService(object):
                     safe_name(view, "Vue"), type(exc).__name__, exc, traceback.format_exc()))
                 continue
             if kind == "dims":
-                rooms = [room for room in rooms
-                         if str(room.UniqueId) == diagnostic_room_uid]
-                if len(rooms) != 1:
-                    raise ValueError("Piece choisie introuvable dans la vue.")
-                if rooms[0].GroupId != DB.ElementId.InvalidElementId:
-                    raise ValueError(
-                        "Groupes attaches suspendus en diagnostic apres crash.")
+                if apartment_mode:
+                    selected = set(expected_ids)
+                    rooms = [room for room in rooms
+                             if str(room.UniqueId) in selected]
+                    if len(rooms) != len(expected_ids):
+                        raise ValueError(
+                            "Perimetre appartement modifie depuis l'apercu : "
+                            "{} pieces trouvees sur {}. Aucune cote creee."
+                            .format(len(rooms), len(expected_ids)))
+                    if any(room.GroupId != DB.ElementId.InvalidElementId
+                           for room in rooms):
+                        raise ValueError(
+                            "Appartement contenant une piece en groupe : "
+                            "aucune cote creee. Les groupes attaches "
+                            "restent suspendus apres crash.")
+                else:
+                    rooms = [room for room in rooms
+                             if str(room.UniqueId) == diagnostic_room_uid]
+                    if len(rooms) != 1:
+                        raise ValueError("Piece choisie introuvable dans la vue.")
+                    if rooms[0].GroupId != DB.ElementId.InvalidElementId:
+                        raise ValueError(
+                            "Groupes attaches suspendus en diagnostic apres crash.")
             grouped, singles = {}, []
             for room in rooms:
                 gid = room.GroupId
@@ -1611,13 +1653,36 @@ class AnnotationService(object):
                         report.append("{} : groupe introuvable.".format(room.Number))
             report.append("{} : {} piece(s) dans la vue, {} dans un groupe, {} hors groupe.".format(
                 safe_name(view, "Vue"), len(rooms), len(rooms)-len(singles), len(singles)))
-            # Une piece impossible n'annule pas toutes les autres pieces du plan.
-            for room in singles:
+            # Isoler toutes les pieces de l'appartement. Si une transaction
+            # echoue techniquement, les precedentes restent valides,
+            # les nouvelles de la piece echouee sont annulees et la boucle
+            # s'arrete pour ne pas reproduire le meme crash.
+            for index, room in enumerate(singles):
                 count, warnings = self._run_unit(
                     view, [room], kind, annotation_type_id, None, line_style)
                 total += count
                 report.extend(warnings)
-            # Reutiliser le type de detail deja cree pour les autres occurrences.
+                if apartment_mode:
+                    label = room_value(
+                        room, DB.BuiltInParameter.ROOM_NUMBER,
+                        str(room.UniqueId))
+                    report.append(
+                        "APPARTEMENT : piece {} ({}/{}) : "
+                        "{} annotation(s) creee(s).".format(
+                            label, index+1, len(singles), count))
+                    if any("annule sans annotation isolee" in str(w)
+                           for w in warnings):
+                        remaining = len(singles) - index - 1
+                        report.append(
+                            "ARRET PREVENTIF : echec technique sur {}. "
+                            "{} piece(s) restante(s) non traitee(s). "
+                            "Verifier le journal avant reprise."
+                            .format(label, remaining))
+                        trace("BATCH_STOP", safe_name(view), label,
+                              "remaining={}".format(remaining))
+                        break
+            # Etiquetage : groupes conserves. Les cotations ne peuvent
+            # jamais atteindre cette section en mode beta.
             for key in sorted(grouped):
                 group, room_set = grouped[key]
                 existing = self._available_type(group, kind)
