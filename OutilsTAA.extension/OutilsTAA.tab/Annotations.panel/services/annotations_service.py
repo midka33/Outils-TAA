@@ -1003,36 +1003,10 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 candidate.length_references = None
         return selected
 
-    def _fallback_length_indexes(self, boundary_candidates, pairs):
-        """Secours PDV : deux extremites NATIVES d'un mur, sans doublon.
-
-        Les candidats standards avec deux axes de faces opposees ont
-        leurs length_references neutralisees dans _room_boundary_candidates.
-        Le moteur PDV appellera ensuite _length_dimension_line sur les
-        indices retournes, comme dans Plans de vente.
-        """
-        raise RuntimeError("DEBUG_FALLBACK_METHOD_ENTERED")
-        existing = self._existing_dimension_reference_pairs()
-        valid = []
-        for index, candidate in enumerate(boundary_candidates):
-            if getattr(candidate, "source_kind", "") != "wall":
-                continue
-            references = getattr(candidate, "length_references", None)
-            if not references or len(references) != 2:
-                continue
-            keys = [self._stable_reference(reference)
-                    for reference in references]
-            if (len(keys) != 2 or not all(keys) or keys[0] == keys[1]
-                    or frozenset(keys) in existing):
-                continue
-            valid.append(index)
-        # Prioriser les limites longues comme Plans de vente ; les
-        # References remain natives and must both exist.
-        def segment_length(index):
-            x0, y0, x1, y1 = boundary_candidates[index].segment
-            return (x1-x0)**2 + (y1-y0)**2
-        valid.sort(key=segment_length, reverse=True)
-        return valid
+    # Le secours par longueur conserve DESORMAIS l'implementation validee
+    # de DimensionService (Plans de vente), sans override ici. Les seules
+    # longueurs admises sont bornees par _room_boundary_candidates : les
+    # murs avec deux References natives et sans cote deja existante.
 
     def _is_exterior_annex(self, room):
         """Selection du mode murs / garde-corps / 2D pour les annexes."""
