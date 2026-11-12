@@ -1440,3 +1440,16 @@ Sur une copie deja cotee, ne compter que
 les **nouvelles** cotes creees, verifier
 que les anciennes restent toutes uniques.
 Aucun merge dans `main`.
+
+
+### BUG-COMMON-029 — Groupe attaché refusé par un contrôle de type trop strict
+
+**Reproduction utilisateur (Revit 2025.4, bêta) :** vue `Niveau 0`, 8 pièces, toutes dans `Groupe 1` et `Groupe 2` ; 0 étiquette créée et deux rollbacks `RuntimeError: Resultat NewGroup ambigu : groupe de modele protege.` déclenchés dans `GenericAnnotations._attach`.
+
+**Cause immédiate identifiée dans le code :** le contrôle ajouté précédemment rejetait `created.GetTypeId() == original_type` après `Document.Create.NewGroup`. Cette égalité ne prouve pas à elle seule une altération du groupe initial : `NewGroup` peut retourner un groupe de modèle. L'invariance des membres et du type du groupe initial doit être vérifiée directement ; la création du groupe de détails doit être prouvée séparément.
+
+**Correction expérimentale :** suppression du rejet fondé sur l'égalité des types ; maintien des contrôles sur l'identité du groupe retourné, sur les membres et le type du groupe original, sur un unique nouveau type de détails attachés et sur la présence d'une instance attachée au parent attendu. Rollback en cas de preuve insuffisante. Commit `1eb32ce35798a545a9f155b4e3626f4eb0a6b0eb`.
+
+**Règle préventive :** ne pas déduire d'un type de groupe égal que les détails ne sont pas attachés ; vérifier `IsAttached`, `AttachedParentId` et l'intégrité du groupe original. Ne pas créer un groupe de détails ordinaire non associé par simple contournement.
+
+**Anti-régression en attente :** test ciblé Revit sur copie, 2 groupes, contrôle de l'existence du groupe attaché et de sa réutilisation sur autre occurrence ; valider l'absence de modifications du groupe d'origine et l'absence de doublons. **Pas de tests automatisés exécutés lors de ce changement ; validation Revit en attente.**
