@@ -1453,3 +1453,16 @@ Aucun merge dans `main`.
 **Règle préventive :** ne pas déduire d'un type de groupe égal que les détails ne sont pas attachés ; vérifier `IsAttached`, `AttachedParentId` et l'intégrité du groupe original. Ne pas créer un groupe de détails ordinaire non associé par simple contournement.
 
 **Anti-régression en attente :** test ciblé Revit sur copie, 2 groupes, contrôle de l'existence du groupe attaché et de sa réutilisation sur autre occurrence ; valider l'absence de modifications du groupe d'origine et l'absence de doublons. **Pas de tests automatisés exécutés lors de ce changement ; validation Revit en attente.**
+
+
+## Second retour Revit sur les groupes — 12 novembre 2026
+
+**Reproduction :** vue `Niveau 0`, 8 pièces dont 8 dans `Groupe 1` et `Groupe 2`, 0 nouvelle étiquette. Le correctif précédent aboutissait à `RuntimeError: NewGroup a retourne le groupe initial : creation de details non prouvee.` dans `_attach()`, avec annulation des deux transactions.
+
+**Diagnostic confirmé :** `Document.Create.NewGroup` retourne une instance de groupe de modèle lorsque des éléments de modèle et des annotations sont associés (guide Autodesk Revit API). L'égalité de l'identifiant retourné avec celui du groupe initial **n'est pas une preuve suffisante d'échec**. En revanche, ce retour ne prouve pas non plus la création d'un groupe de détails attaché.
+
+**Correction expérimentale (branche `feature/annotations-automatiques-beta`) :** commit `5635fd5d2c59e3b09dfab15720ed21c257b64103`. Ne plus rejeter le seul retour du groupe initial ; vérifier à la place (1) l'invariance du type et des membres du groupe modèle, (2) la création d'un seul nouveau type de détails attachés, (3) l'existence d'une instance `Group.IsAttached` reliée au parent attendu via `AttachedParentId`, (4) l'appartenance de **toutes les nouvelles étiquettes** au groupe de détails. Recherche des groupes attachés au niveau du document pour éviter d'exclure ceux non encore visibles dans la vue. En cas de preuve manquante, rollback des opérations.
+
+**Vérifications statiques ciblées :** présence du contrôle de parent, des membres, du rollback et de l'exigence d'un type unique ; absence du rejet direct sur `created.Id == group.Id`. Cela ne remplace **ni pytest ni la recette Revit**.
+
+**Recette à refaire sur une copie de la maquette :** mettre la branche à jour, relancer Étiquetage auto sur `Niveau 0`, vérifier que les huit pièces sont étiquetées dans des groupes de détails attachés à `Groupe 1` et `Groupe 2`, que les groupes d'origine sont intacts et que la réutilisation sur une deuxième occurrence fonctionne. Si un nouveau garde-fou bloque, fournir le rapport complet et ne pas contourner les contrôles. **Cotation dans les groupes toujours désactivée ; Plans de vente non modifié.**
