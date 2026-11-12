@@ -129,3 +129,14 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Statut :** procédure documentée uniquement ; aucun changement de code ni du package d'installation, aucun test automatisé ni test supplémentaire Revit effectué dans cette mise à jour. Les faits terrain sont déclaratifs ; les précautions opérationnelles (maintenance, sauvegarde, redémarrage et retour arrière) restent à éprouver lors du prochain déploiement.
 
 **Référence :** [`docs/26_Deploiement_Agence.md`](26_Deploiement_Agence.md). **Prochain contrôle :** recette de mise à jour/retour arrière sur poste pilote ; matrice Revit 2025.4 + pyRevit 5.x / 7.0.0, sans modifier les fonctionnalités métier validées.
+
+
+## Retour de recette des groupes — refus NewGroup et correctif (12 novembre 2026)
+
+**Rapport utilisateur :** `Niveau 0` : 8 pièces dont 8 en groupe, aucune hors groupe ; `Groupe 1` et `Groupe 2` : refus `Resultat NewGroup ambigu : groupe de modele protege`, 0 annotation créée, traitement annulé sans annotation isolée.
+
+**Diagnostic :** exception levée par le contrôle de l'adaptateur, pas une exception Revit directe. Le test `created.GetTypeId() == original_type` était trop strict : il ne démontre pas une altération du modèle groupé.
+
+**Correctif ciblé sur la branche :** suppression de ce seul rejet d'égalité de type (commit `1eb32ce35798a545a9f155b4e3626f4eb0a6b0eb`) ; contrôle du groupe d'origine, de l'unicité du type de détails attachés et de son parent maintenus. Aucune modification du moteur Plans de vente, ni réactivation de la cotation dans les groupes.
+
+**Statut : implémenté, tests automatisés non exécutés, recette Revit non réalisée pour cette révision.** Reprendre le même test sur une **copie de la maquette**, et fournir le rapport ; en cas de succès vérifier les groupes d'origine inchangés, la présence de détails attachés et la visibilité dans une seconde occurrence.
