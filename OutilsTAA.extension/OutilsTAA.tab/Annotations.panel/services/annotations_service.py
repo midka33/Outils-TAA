@@ -1726,10 +1726,15 @@ class AnnotationService(object):
             if created is None or not created.IsValidObject:
                 raise RuntimeError(
                     "Revit n'a pas cree de groupe valide : annulation.")
-            if (id_value(created.Id) == id_value(group.Id)
-                    or id_value(created.GetTypeId()) == original_type):
+            # NewGroup peut retourner une instance de groupe modele.
+            # Son type peut legitimement etre celui du groupe de depart :
+            # ne pas confondre ce cas avec une modification du groupe.
+            # La preuve de securite vient des membres/types invariants
+            # du groupe original et du rattachement reel verifie plus bas.
+            if id_value(created.Id) == id_value(group.Id):
                 raise RuntimeError(
-                    "Resultat NewGroup ambigu : groupe de modele protege.")
+                    "NewGroup a retourne le groupe initial : "
+                    "creation de details non prouvee.")
             available = set(id_value(x) for x in
                             group.GetAvailableAttachedDetailGroupTypeIds())
             new_ids = available - previous
