@@ -60,6 +60,10 @@ La spécification de développement détaillée des étapes 01 à 09 est archiv�
 
 **État :** cadrage fonctionnel validé ; développement non démarré ; faisabilité de l'interaction dynamique sous pyRevit à tester en priorité. [Suivi GitHub #40](https://github.com/midka33/Outils-TAA/issues/40).
 
+## Déploiement en agence
+
+**Référence actuelle :** [`26_Deploiement_Agence.md`](26_Deploiement_Agence.md) — extension unique sur serveur, chemins pyRevit référencés sur les postes, mises à jour centralisées, précautions de redémarrage, sauvegarde et retour arrière. Mode de déploiement de référence confirmé le 12/11/2026 ; installateur CMD conservé comme alternative.
+
 ## Release courante
 
 **Outils TAA v1.4.0 — Export** : explorateur de mises en page, publications PDF/DWG multi-dossiers et options de sortie séparées. La recette **EXPORT-01 à EXPORT-06** est validée par l'utilisateur dans Revit 2025.4 ; voir la [PR #39](https://github.com/midka33/Outils-TAA/pull/39).
