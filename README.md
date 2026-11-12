@@ -81,6 +81,14 @@ Les anciens noms ne doivent plus être utilisés pour désigner les modules dans
 - Autodesk Revit 2025.4
 - pyRevit 5.x
 
+## Déploiement en agence — dossier réseau commun
+
+**Depuis le 12 novembre 2026, le mode de déploiement de référence de l'agence est centralisé :** une seule copie du dossier `OutilsTAA.extension` est hébergée sur un serveur et chaque poste configure son chemin dans pyRevit. Les mises à jour se font sur le serveur, **sans installation locale de l'extension sur chaque ordinateur**. Redémarrer Revit après l'ajout du chemin ou une mise à jour ; le ruban ne se recharge pas nécessairement dans une session déjà ouverte.
+
+L'installateur CMD proposé avec les releases reste une **alternative**, mais n'est pas employé pour le déploiement courant de l'agence. Préserver une copie de la version précédente et éviter toute mise à jour pendant l'exécution des outils. Les essais sous pyRevit 7.0.0 sont encourageants mais ne constituent pas encore une validation complète ; pyRevit 5.x reste la cible documentée.
+
+Voir le [guide de déploiement réseau de l'agence](docs/26_Deploiement_Agence.md) pour l'architecture, la mise à jour, la recette et le retour arrière.
+
 ## Structure
 
 ```text
