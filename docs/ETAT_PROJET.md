@@ -119,3 +119,13 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Statut exact :** correction de sécurité implémentée, **aucun test automatisé ni test Revit exécuté** sur cette modification. L'API `NewGroup` mixte peut ne pas rattacher des détails à un groupe de modèle déjà existant ; les garde-fous peuvent donc refuser l'opération, ce qui est attendu tant que la faisabilité n'est pas prouvée. **Aucune fonctionnalité groupe déclarée validée.**
 
 **Recette prioritaire sur une COPIE de maquette :** un groupe modèle ne contenant qu'une ou deux pièces, lancer d'abord **Étiquetage auto** ; vérifier absence de modification du groupe d'origine, création effective d'un groupe de détails attaché et possibilité d'afficher ce type sur une autre occurrence. Après une relance, aucun doublon. En cas de refus, collecter le rapport complet ; ne pas supprimer ou dégrouper l'original. La recette cotation en groupe est séparée et suspendue.
+
+## Déploiement agence — décision et observation du 12/11/2026
+
+**Méthode de référence confirmée par l'utilisateur :** le dossier `OutilsTAA.extension` est hébergé en une copie commune sur le serveur de l'agence. Chaque poste possède Revit/pyRevit et référence l'emplacement réseau de l'extension dans ses chemins pyRevit. Les mises à jour de l'extension sont opérées **sur le serveur** ; l'installateur CMD des releases n'est pas utilisé pour la distribution quotidienne et reste une alternative.
+
+**Observation de déploiement :** après ajout du chemin réseau pendant une session Revit déjà ouverte, le ruban Outils TAA ne s'affiche pas immédiatement ; après redémarrage, il apparaît. Les postes équipés de pyRevit 7.0.0 semblent charger les outils, mais aucune recette complète 7.0.0 n'est consignée. Revit 2023 est également installé sur certains postes, où apparaît l'avertissement pyRevit `Ambiguous host product "23.1.10.4"` ; ne pas le traiter comme un bug Outils TAA confirmé.
+
+**Statut :** procédure documentée uniquement ; aucun changement de code ni du package d'installation, aucun test automatisé ni test supplémentaire Revit effectué dans cette mise à jour. Les faits terrain sont déclaratifs ; les précautions opérationnelles (maintenance, sauvegarde, redémarrage et retour arrière) restent à éprouver lors du prochain déploiement.
+
+**Référence :** [`docs/26_Deploiement_Agence.md`](26_Deploiement_Agence.md). **Prochain contrôle :** recette de mise à jour/retour arrière sur poste pilote ; matrice Revit 2025.4 + pyRevit 5.x / 7.0.0, sans modifier les fonctionnalités métier validées.
