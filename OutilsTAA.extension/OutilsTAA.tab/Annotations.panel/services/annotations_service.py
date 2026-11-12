@@ -1726,15 +1726,13 @@ class AnnotationService(object):
             if created is None or not created.IsValidObject:
                 raise RuntimeError(
                     "Revit n'a pas cree de groupe valide : annulation.")
-            # NewGroup peut retourner une instance de groupe modele.
-            # Son type peut legitimement etre celui du groupe de depart :
-            # ne pas confondre ce cas avec une modification du groupe.
-            # La preuve de securite vient des membres/types invariants
-            # du groupe original et du rattachement reel verifie plus bas.
-            if id_value(created.Id) == id_value(group.Id):
-                raise RuntimeError(
-                    "NewGroup a retourne le groupe initial : "
-                    "creation de details non prouvee.")
+            # NewGroup renvoie un groupe de modele lorsque des elements
+            # de modele et des annotations sont fournis. Son identite
+            # peut donc correspondre a celle du groupe existant.
+            # Ne pas conclure a un echec a partir de l'Id retourne :
+            # verifier les nouveaux details attaches et leurs membres.
+            returned_group_id = id_value(created.Id)
+            parent_group_id = id_value(group.Id)
             available = set(id_value(x) for x in
                             group.GetAvailableAttachedDetailGroupTypeIds())
             new_ids = available - previous
@@ -1745,24 +1743,43 @@ class AnnotationService(object):
                     "Le groupe initial serait modifie : annulation de securite.")
             if not new_ids:
                 raise RuntimeError(
-                    "L'API n'a pas cree de groupe de details attache au groupe initial.")
+                    "Aucun nouveau type de details attaches apres NewGroup "
+                    "(retour {}, parent {}, types avant {}, apres {})."
+                    .format(returned_group_id, parent_group_id,
+                            len(previous), len(available)))
             if len(new_ids) != 1:
                 raise RuntimeError(
                     "Plusieurs types de details attaches crees : annulation.")
             group_type_id = self.doc.GetElement(next(iter(new_ids))).Id
             # La creation d'un type attache est insuffisante : une instance
             # effectivement rattachee au groupe initial doit etre retrouvee.
+            # Chercher aussi les groupes attaches non encore affiches
+            # dans la vue. Le collector limite a view.Id peut exclure
+            # une instance masquee juste apres sa creation.
             attached_instances = [
-                item for item in DB.FilteredElementCollector(self.doc, view.Id)
+                item for item in DB.FilteredElementCollector(self.doc)
                 .OfClass(DB.Group).WhereElementIsNotElementType().ToElements()
                 if bool(getattr(item, "IsAttached", False))
                 and id_value(item.GetTypeId()) == id_value(group_type_id)
-                and id_value(item.AttachedParentId) == id_value(group.Id)
+                and id_value(item.AttachedParentId) == parent_group_id
             ]
             if not attached_instances:
                 raise RuntimeError(
-                    "Aucun detail attache a l'instance de groupe initiale : "
-                    "annulation de securite.")
+                    "Nouveau type trouve, mais aucun groupe de details "
+                    "n'est attache au parent {} : annulation."
+                    .format(parent_group_id))
+            # Le nouveau groupe doit contenir les annotations produites.
+            # Un type disponible sans ses etiquettes ne suffit pas.
+            grouped_members = set()
+            for attached in attached_instances:
+                grouped_members.update(id_value(member)
+                                       for member in attached.GetMemberIds())
+            missing = set(id_value(item) for item in annotation_ids) - grouped_members
+            if missing:
+                raise RuntimeError(
+                    "{} annotation(s) non rattachee(s) au groupe de "
+                    "details du parent {} : annulation."
+                    .format(len(missing), parent_group_id))
             name = ("TAA - Etiquettes" if kind == "tags" else "TAA - Cotations")
             name += " - {}".format(safe_name(group.GroupType, "Groupe"))
             self.doc.GetElement(group_type_id).Name = name
