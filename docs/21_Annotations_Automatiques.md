@@ -1709,3 +1709,14 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Statut exact :** correction de sécurité implémentée, **aucun test automatisé ni test Revit exécuté** sur cette modification. L'API `NewGroup` mixte peut ne pas rattacher des détails à un groupe de modèle déjà existant ; les garde-fous peuvent donc refuser l'opération, ce qui est attendu tant que la faisabilité n'est pas prouvée. **Aucune fonctionnalité groupe déclarée validée.**
 
 **Recette prioritaire sur une COPIE de maquette :** un groupe modèle ne contenant qu'une ou deux pièces, lancer d'abord **Étiquetage auto** ; vérifier absence de modification du groupe d'origine, création effective d'un groupe de détails attaché et possibilité d'afficher ce type sur une autre occurrence. Après une relance, aucun doublon. En cas de refus, collecter le rapport complet ; ne pas supprimer ou dégrouper l'original. La recette cotation en groupe est séparée et suspendue.
+
+
+## Retour de recette des groupes — refus NewGroup et correctif (12 novembre 2026)
+
+**Rapport utilisateur :** `Niveau 0` : 8 pièces dont 8 en groupe, aucune hors groupe ; `Groupe 1` et `Groupe 2` : refus `Resultat NewGroup ambigu : groupe de modele protege`, 0 annotation créée, traitement annulé sans annotation isolée.
+
+**Diagnostic :** exception levée par le contrôle de l'adaptateur, pas une exception Revit directe. Le test `created.GetTypeId() == original_type` était trop strict : il ne démontre pas une altération du modèle groupé.
+
+**Correctif ciblé sur la branche :** suppression de ce seul rejet d'égalité de type (commit `1eb32ce35798a545a9f155b4e3626f4eb0a6b0eb`) ; contrôle du groupe d'origine, de l'unicité du type de détails attachés et de son parent maintenus. Aucune modification du moteur Plans de vente, ni réactivation de la cotation dans les groupes.
+
+**Statut : implémenté, tests automatisés non exécutés, recette Revit non réalisée pour cette révision.** Reprendre le même test sur une **copie de la maquette**, et fournir le rapport ; en cas de succès vérifier les groupes d'origine inchangés, la présence de détails attachés et la visibilité dans une seconde occurrence.
