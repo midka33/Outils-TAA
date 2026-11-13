@@ -1499,3 +1499,16 @@ Aucun merge dans `main`.
 **Validé dans ce périmètre :** l'outil reconnaît les groupes de détails attachés qu'il a créés et ne recrée pas d'étiquettes sur les **mêmes occurrences, dans la même vue**, lors du second lancement. La création initiale 8/8 avait été validée dans le test précédent.
 
 **Toujours en attente :** vérification visuelle des étiquettes sur une **autre occurrence** de chaque groupe de modèle, contrôles d'intégrité des groupes et cotation automatique dans les groupes. Ne pas confondre deuxième lancement au même endroit et propagation/réutilisation sur une occurrence distincte. Pas de fusion PR #37 sur ce seul résultat.
+
+
+## Prévention — première activation de la cotation groupée (13 novembre 2026)
+
+**Contexte :** le moteur `Cotation automatique` était limité aux pièces/appartements **hors groupe** après un crash natif de Revit. Les groupes de détails attachés sont désormais **validés pour les étiquettes**, mais cette validation n'est pas transférable sans essai aux dimensions ni à leurs références natives.
+
+**Risque :** `Document.Create.NewGroup` mélange un modèle groupé et des dimensions `ViewSpecific` ; leurs références vers des ouvrages **hors groupe** peuvent rendre la création de détails attachés impossible, provoquer un rollback ou dans le pire cas un crash natif Revit. Un repère 2D créé puis non utilisé ne doit jamais rester dans la maquette ni dans le groupe de détails attaché.
+
+**Garde-fous implémentés :** mode explicite **un groupe, une vue, 1 à 12 pièces** avec confirmation ; utilisation du moteur `GenericDimensions` et des petites lignes 2D non associatives existantes ; mémorisation du secours par longueur **par pièce** ; contrôle des références des dimensions réellement créées ; suppression transactionnelle des repères inutilisés avant groupement ; vérification de la présence de toutes les nouvelles cotes **et des repères conservés** dans le groupe de détails attaché ; refus si l'identité/membres/type du groupe d'origine changent. Réutilisation du groupe de détails `TAA - Cotations` existant sans duplication.
+
+**Tests anti-régression ajoutés :** `tests/test_annotations_group_dimensions_beta.py` couvre le filtrage des repères utilisés, le refus de références illisibles et le périmètre ciblé. **Tests automatisés non exécutés dans cette intervention et validation Revit 2025.4 non réalisée.** Le dispositif de rollback Python ne garantit pas la récupération après crash natif de Revit.
+
+**Règle préventive :** aucun traitement de masse des groupes ni fusion de la PR #37 avant une recette manuelle sur copie, d'abord un groupe simple, puis un groupe avec murs extérieurs non inclus ; vérification des dimensions/nus intérieurs, des groupes d'origine, de l'absence de doublons et de la réutilisation sur une deuxième occurrence.
