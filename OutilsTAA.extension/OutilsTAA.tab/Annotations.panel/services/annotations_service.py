@@ -19,7 +19,7 @@ from room_tag_service import RoomTagService
 # Marqueur lisible dans le rapport : permet de detecter une autre copie
 # de l'extension ou un cache pyRevit/IronPython encore charge.
 ANNOTATIONS_BETA_REVISION = "2026-11-05-apartment-room-dedup-04"
-GROUP_DIMENSIONS_BETA_REVISION = "2026-11-13-group-dimensions-01"
+GROUP_DIMENSIONS_BETA_REVISION = "2026-11-13-group-dimensions-02"
 
 
 def id_value(element_id):
@@ -1081,7 +1081,7 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 "{}={}".format(name, by_source[name])
                 for name in sorted(by_source))
             self._guardrail_warnings.append(
-                "{} : DIAGNOSTIC 2247 : {} limite(s) candidates "
+                "{} : DIAGNOSTIC LIMITES : {} limite(s) candidates "
                 "({}), {} mur(s) avec deux references "
                 "d'extremites presentes, {} secours de longueur "
                 "mur autorise(s) apres filtrage anti-doublon."
@@ -1147,10 +1147,46 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 candidate.length_references = None
         return selected
 
-    # Le secours par longueur conserve DESORMAIS l'implementation validee
-    # de DimensionService (Plans de vente), sans override ici. Les seules
-    # longueurs admises sont bornees par _room_boundary_candidates : les
-    # murs avec deux References natives et sans cote deja existante.
+    def _fallback_length_indexes(self, boundary_candidates, pairs):
+        # Politique historique intacte pour les pieces hors groupe et PDV.
+        if not getattr(self, "_group_dimension_mode", False):
+            return super(GenericDimensions, self)._fallback_length_indexes(
+                boundary_candidates, pairs)
+
+        # Groupes biaises : ne pas completer artificiellement deux cotes
+        # par deux murs presque paralleles. Les seuls secours cotables
+        # restent des longueurs de murs a deux references d'extremites
+        # natives, deja filtrees par _room_boundary_candidates.
+        from annotations.group_length_axes import select_group_length_fallbacks
+        segments = [c.segment for c in boundary_candidates]
+        eligible = [
+            index for index, candidate in enumerate(boundary_candidates)
+            if (getattr(candidate, "source_kind", None) == "wall"
+                and getattr(candidate, "length_references", None))
+        ]
+        existing_lines = [
+            (pair.line_start[0], pair.line_start[1],
+             pair.line_end[0], pair.line_end[1])
+            for pair in pairs
+        ]
+        selected = select_group_length_fallbacks(
+            segments, eligible,
+            existing_dimension_lines=existing_lines,
+            max_results=2,
+            min_axis_angle_degrees=30.0)
+        self._guardrail_warnings.append(
+            "GROUPE / SECOURS LONGUEURS DE MURS : {} paire(s) entre "
+            "faces opposees ; {} direction(s) de longueur de mur "
+            "selectionnee(s) parmi {} candidate(s). "
+            "Une longueur de mur n'est PAS une largeur entre deux "
+            "nus opposes ; verifier et completer manuellement les "
+            "pieces biaises si necessaire."
+            .format(len(pairs), len(selected), len(eligible)))
+        if len(pairs) == 0 and len(selected) < 2:
+            self._guardrail_warnings.append(
+                "GROUPE : deux dimensions distinctes indisponibles ; "
+                "aucune seconde cote de mur quasi parallele ajoutee.")
+        return selected
 
     def _is_exterior_annex(self, room):
         """Selection du mode murs / garde-corps / 2D pour les annexes."""
@@ -1873,6 +1909,7 @@ class AnnotationService(object):
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
+        self.dims._group_dimension_mode = bool(kind == "dims" and group)
         self.dims._group_length_fallback_state = {}
         self.dims._guardrail_cache = {}
         self.dims._guardrail_warnings = []
@@ -1945,6 +1982,7 @@ class AnnotationService(object):
                 traceback.format_exc())]
         finally:
             self.dims.proxy_candidates = {}
+            self.dims._group_dimension_mode = False
             self.dims._group_length_fallback_state = {}
             self.dims._guardrail_cache = {}
             self.dims._guardrail_warnings = []
