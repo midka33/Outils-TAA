@@ -168,3 +168,12 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Anti-régression :** test stdlib `tests/test_annotations_attached_group_elementid.py` ajouté au commit `a841b597948112f5e69742c591698462dc3a59e6` : extrait les affectations réelles de `_attach()` et vérifie avec un faux `Document.GetElement` strict qu'un `ElementId` natif est transmis. **Test non exécuté dans cet environnement ; validation réelle Revit en attente.**
 
 **Recette :** sur copie de maquette, relancer les deux groupes de la vue `Niveau 0` ; vérifier la création des étiquettes, leur appartenance effective à un groupe de détails attachés et la conservation des groupes de modèle. Ne pas fusionner la PR #37 avant validation. Le moteur Plans de vente est inchangé, cotation groupée toujours suspendue.
+
+
+## Validation Revit — Étiquetage dans deux groupes de modèle (13 novembre 2026)
+
+**Rapport utilisateur sous Revit 2025.4 après le correctif `ElementId` (`826a02db8efe401367c4be37d1b8e54c4258f403`) :** commande `Étiquetage automatique - version beta`, vue **`Niveau 0`**, **8 pièces détectées**, **8 pièces dans des groupes de modèle**, **0 hors groupe**, **8 annotations créées**. **Aucune erreur bloquante.** Une seule réserve de présentation sur la **pièce 27** : emprise graphique de l'étiquette partiellement hors pièce, acceptée selon la règle métier (ancrage intérieur, repositionnement manuel autorisé).
+
+**Validation confirmée :** le traitement groupé produit les **8 étiquettes attendues** pour les deux groupes précédemment identifiés (`Groupe 1` et `Groupe 2`) dans cette vue, sans exception signalée. **Ne pas surinterpréter :** le rapport de création ne démontre pas visuellement la réutilisation sur une autre occurrence du groupe, l'intégrité structurelle vérifiée par l'utilisateur, ni l'absence de doublons au deuxième lancement. Les contrôles de sécurité implémentés dans `_attach()` restent actifs ; à vérifier dans la maquette et lors d'une seconde exécution.
+
+**Recettes restantes :** afficher les détails attachés sur une **autre occurrence de chaque groupe** ; vérifier le regroupement et les étiquettes dans cette occurrence ; relancer `Étiquetage automatique` pour confirmer la réutilisation sans doublons et l'intégrité des groupes modèles. **Cotation dans les groupes toujours non validée / désactivée en bêta**. **Plans de vente non modifié.** PR #37 à maintenir en brouillon.
