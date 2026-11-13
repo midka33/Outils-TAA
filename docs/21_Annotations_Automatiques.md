@@ -1777,3 +1777,12 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Limite de preuve :** ce rapport confirme la reconnaissance et l'appel à l'affichage de groupes attachés, **mais pas à lui seul le contrôle visuel de l'emplacement et de la visibilité effective des 8 étiquettes sur Niveau 1**. Ne pas déclarer ce dernier contrôle accompli sans retour explicite. Vérifier également l'intégrité du modèle et les cas de groupes atypiques si nécessaire.
 
 **Suite :** traiter la cotation automatique dans les groupes de modèle (encore suspendue après crash historique), sur branche bêta et copie de maquette, avec non-régression sur la cotation hors groupes et le moteur stable Plans de vente. La PR #37 reste en brouillon.
+
+
+## Validation Revit — visibilité sur seconde occurrence, Niveau 1 (13 novembre 2026)
+
+**Confirmation explicite de l'utilisateur :** après la recette `Niveau 1` du module **Étiquetage automatique**, les étiquettes des deux groupes de détails attachés (`Groupe 1` et `Groupe 2`) sont **visibles et correctement positionnées sur la seconde occurrence**. Le rapport correspondant indiquait 8 pièces appartenant à des groupes, 0 nouvelle annotation créée, et la réutilisation des groupes de détails attachés pour Groupe 1 et Groupe 2.
+
+**Statut : VALIDÉ DANS REVIT 2025.4 sur les occurrences testées.** Chaîne vérifiée : génération initiale de 8 étiquettes sur `Niveau 0`, relance sans doublons sur `Niveau 0`, reconnaissance et réutilisation sur `Niveau 1`, puis confirmation utilisateur de l'affichage correct sur la seconde occurrence. Cette validation couvre ces deux groupes et ces deux niveaux, sans généraliser à tous les cas de groupes ni à la cotation automatique dans les groupes.
+
+**Suite :** développer et recetter séparément la cotation automatique dans les groupes (encore suspendue en bêta), en protégeant les moteurs validés et la version stable Plans de vente. Ne pas fusionner la PR #37 sur le seul fondement de cette validation.
