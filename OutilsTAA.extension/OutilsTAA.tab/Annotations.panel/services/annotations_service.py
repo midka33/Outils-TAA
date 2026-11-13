@@ -19,7 +19,7 @@ from room_tag_service import RoomTagService
 # Marqueur lisible dans le rapport : permet de detecter une autre copie
 # de l'extension ou un cache pyRevit/IronPython encore charge.
 ANNOTATIONS_BETA_REVISION = "2026-11-05-apartment-room-dedup-04"
-GROUP_DIMENSIONS_BETA_REVISION = "2026-11-13-group-dimensions-02"
+GROUP_DIMENSIONS_BETA_REVISION = "2026-11-13-group-room-boundary-03"
 
 
 def id_value(element_id):
@@ -1779,6 +1779,60 @@ class AnnotationService(object):
             tx.RollBack()
             raise
 
+    def _verify_group_local_dimensions(self, view, dimension_ids):
+        """Refuser les dimensions de secours mesurant un mur complet.
+
+        Le couple des deux references 2D doit correspondre exactement au
+        meme BoundarySegment Revit de la meme piece. L'API Revit fournit
+        ensuite la valeur creee ; elle doit rester egale a cette limite.
+        """
+        expected = getattr(self.dims, "_group_local_expected", {})
+        if not expected:
+            return
+        from annotations.group_length_axes import local_boundary_value_matches
+        margin = DB.UnitUtils.ConvertToInternalUnits(
+            5.0, DB.UnitTypeId.Millimeters)
+        all_markers = set(marker for pair in expected for marker in pair)
+        for dimension in self._elements(view, "dims"):
+            if id_value(dimension.Id) not in dimension_ids:
+                continue
+            refs = getattr(dimension, "References", None)
+            if refs is None:
+                raise RuntimeError(
+                    "References des cotations locales inaccessibles.")
+            ref_ids = frozenset(id_value(ref.ElementId) for ref in refs)
+            has_markers = bool(ref_ids.intersection(all_markers))
+            if not has_markers:
+                continue
+            if ref_ids not in expected or len(ref_ids) != 2:
+                raise RuntimeError(
+                    "La cote locale emploie des references de pieces "
+                    "differentes : annulation du groupe.")
+            length, room, number = expected[ref_ids]
+            value = getattr(dimension, "Value", None)
+            if not local_boundary_value_matches(value, length, margin):
+                raise RuntimeError(
+                    "Piece {} : cote Revit {:.3f} ft differente de la "
+                    "limite de piece {:.3f} ft : annulation."
+                    .format(number,
+                            float(value) if value is not None else -1.,
+                            length))
+            origin = getattr(dimension, "Origin", None)
+            if origin is None:
+                raise RuntimeError(
+                    "Piece {} : origine de cote illisible, annulation."
+                    .format(number))
+            point = DB.XYZ(float(origin.X), float(origin.Y),
+                           self.dims._probe_z(room))
+            if not bool(room.IsPointInRoom(point)):
+                raise RuntimeError(
+                    "Piece {} : centre de cote hors de SA piece ; "
+                    "annulation du groupe.".format(number))
+            self.dims._guardrail_warnings.append(
+                "{} : COTE LOCALE VERIFIEE : {:.3f} m ; "
+                "bonne piece et longueur egale au segment fini."
+                .format(number, length * 0.3048))
+
     def _cleanup_unused_group_proxies(self, view, proxy_ids, dimension_ids):
         """Ne rattacher au groupe que les reperes effectivement cotes.
 
@@ -1978,6 +2032,7 @@ class AnnotationService(object):
         scope.Start()
         self.dims.proxy_candidates = {}
         self.dims._group_dimension_mode = bool(kind == "dims" and group)
+        self.dims._group_local_expected = {}
         self.dims._group_length_fallback_state = {}
         self.dims._guardrail_cache = {}
         self.dims._guardrail_warnings = []
@@ -2018,6 +2073,7 @@ class AnnotationService(object):
                       "created={}".format(result.created_count))
             new_ids = self._ids(view, kind) - before
             if group and kind == "dims":
+                self._verify_group_local_dimensions(view, new_ids)
                 proxy_ids = self._cleanup_unused_group_proxies(
                     view, proxy_ids, new_ids)
             if group and new_ids:
@@ -2051,6 +2107,7 @@ class AnnotationService(object):
         finally:
             self.dims.proxy_candidates = {}
             self.dims._group_dimension_mode = False
+            self.dims._group_local_expected = {}
             self.dims._group_length_fallback_state = {}
             self.dims._guardrail_cache = {}
             self.dims._guardrail_warnings = []
