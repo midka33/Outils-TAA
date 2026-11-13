@@ -186,3 +186,14 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Validé dans ce périmètre :** l'outil reconnaît les groupes de détails attachés qu'il a créés et ne recrée pas d'étiquettes sur les **mêmes occurrences, dans la même vue**, lors du second lancement. La création initiale 8/8 avait été validée dans le test précédent.
 
 **Toujours en attente :** vérification visuelle des étiquettes sur une **autre occurrence** de chaque groupe de modèle, contrôles d'intégrité des groupes et cotation automatique dans les groupes. Ne pas confondre deuxième lancement au même endroit et propagation/réutilisation sur une occurrence distincte. Pas de fusion PR #37 sur ce seul résultat.
+
+
+## Recette Revit — seconde occurrence des groupes, Niveau 1 (13 novembre 2026)
+
+**Retour utilisateur sous Revit 2025.4 :** test du module **Étiquetage automatique** sur une **seconde occurrence** dans la vue `Niveau 1` (distincte de la recette initiale sur `Niveau 0`). Rapport : **8 pièces**, toutes dans des groupes de modèle, **0 étiquette nouvellement créée** ; `Groupe 1 : details attaches reutilises.` et `Groupe 2 : details attaches reutilises.`. **Aucune erreur signalée.**
+
+**Validé sur ce scénario :** le module reconnaît et réutilise les deux types de groupes de détails attachés sur cette autre occurrence/vue, sans recréer d'annotations. Cela complète la création initiale **8/8** sur Niveau 0 et la relance **0** dans la même vue.
+
+**Limite de preuve :** ce rapport confirme la reconnaissance et l'appel à l'affichage de groupes attachés, **mais pas à lui seul le contrôle visuel de l'emplacement et de la visibilité effective des 8 étiquettes sur Niveau 1**. Ne pas déclarer ce dernier contrôle accompli sans retour explicite. Vérifier également l'intégrité du modèle et les cas de groupes atypiques si nécessaire.
+
+**Suite :** traiter la cotation automatique dans les groupes de modèle (encore suspendue après crash historique), sur branche bêta et copie de maquette, avec non-régression sur la cotation hors groupes et le moteur stable Plans de vente. La PR #37 reste en brouillon.
