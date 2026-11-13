@@ -1786,3 +1786,39 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Statut : VALIDÉ DANS REVIT 2025.4 sur les occurrences testées.** Chaîne vérifiée : génération initiale de 8 étiquettes sur `Niveau 0`, relance sans doublons sur `Niveau 0`, reconnaissance et réutilisation sur `Niveau 1`, puis confirmation utilisateur de l'affichage correct sur la seconde occurrence. Cette validation couvre ces deux groupes et ces deux niveaux, sans généraliser à tous les cas de groupes ni à la cotation automatique dans les groupes.
 
 **Suite :** développer et recetter séparément la cotation automatique dans les groupes (encore suspendue en bêta), en protégeant les moteurs validés et la version stable Plans de vente. Ne pas fusionner la PR #37 sur le seul fondement de cette validation.
+
+
+## Nouvelle bêta — Cotation automatique dans UN groupe de modèle (13 novembre 2026)
+
+**Statut : implémenté sur la branche `feature/annotations-automatiques-beta`, non encore testé dans Revit.** Aucun changement des moteurs `PlansDeVente.panel/services/dimension_service.py` ou `lib/plans_vente`. La cotation hors groupe (pièce et appartement) et l'étiquetage dans les groupes restent disponibles.
+
+### Périmètre du premier essai
+
+- Menu **Cotation automatique → « Un groupe de modèle dans cette vue (bêta, 12 pièces max.) »**.
+- Une seule vue en plan, **une seule occurrence de groupe de modèle** explicitement choisie, de **1 à 12 pièces visibles** ; prévisualisation des numéros et noms de toutes les pièces et confirmation supplémentaire sur copie sauvegardée.
+- Aucun traitement simultané des autres groupes de la vue, aucun lancement sur toutes les vues ni activation implicite du mode appartement pour les groupes.
+- Marqueur dans le rapport : `MODE BETA GROUPE : 2026-11-13-group-dimensions-01` ; le marqueur appartement hors groupe `2026-11-05-apartment-room-dedup-04` reste disponible.
+
+### Implémentation et protections
+
+- Réutilisation du moteur de cotation de Plans de vente via `GenericDimensions`, sans modification du module stable. Les cotes recherchent des références natives sur les faces finies des éléments du groupe lorsque disponibles.
+- Le service `_create_proxies` prépare de **petites lignes de détail (au plus 5 mm)** sur les limites nécessaires lorsque la référence native choisie est **hors du groupe**. Ces repères sont **non associatifs à l'élément extérieur** ; la géométrie doit être contrôlée après déplacement d'une façade extérieure.
+- État des références complémentaires et du secours par longueur conservé **par pièce**, même lorsque plusieurs pièces sont préparées avant le moteur. Les repères créés mais non utilisés par les cotes sont supprimés avant l'attachement, après lecture de `Dimension.References` ; si cette lecture est impossible, **annulation**.
+- Réutilisation du mécanisme `_attach()` **validé dans Revit pour les étiquettes**, mais **pas encore pour les cotes** : `TransactionGroup` sur le groupe complet ; si Revit ne crée pas un groupe de détails attaché contenant **toutes les nouvelles cotes et tous les repères nécessaires**, annulation du groupe, sans laisser d'annotations isolées. Contrôle d'intégrité des membres et du type du groupe de modèle initial.
+- Lorsqu'un type **`TAA - Cotations`** est déjà disponible pour ce groupe, l'outil tente de le réafficher sur l'occurrence au lieu de recréer les cotes.
+- Un crash natif Revit reste possible avant l'intervention de `except`/rollback Python : **projet copié et sauvegardé obligatoire pour cette recette**. Journal : `%TEMP%\\OutilsTAA_Annotations_crashtrace.log`.
+
+### Recettes spécifiques — à exécuter sous Revit 2025.4
+
+- [ ] **REV-ANN-GDIM-01** — Sur copie, un groupe modèle avec **une pièce** et des références natives internes ; vérifier que 1 à 2 cotes sont produites dans la pièce aux **nus finis**, avec valeurs correctes, et réellement attachées au groupe.
+- [ ] **REV-ANN-GDIM-02** — Un groupe avec plusieurs pièces : deux orientations principales lorsque la géométrie les permet, aucune cote d'une autre pièce prise pour un doublon ; aucune altération du groupe de modèle.
+- [ ] **REV-ANN-GDIM-03** — Façade ou séparation **hors groupe** : repère 2D court du style choisi et cote le référencant ; repères non utilisés supprimés ; aucune dépendance supposée au mur extérieur.
+- [ ] **REV-ANN-GDIM-04** — Relance sur le **même groupe dans la même vue** : 0 cote supplémentaire, type de détails attachés réutilisé et toutes les cotes préexistantes conservées.
+- [ ] **REV-ANN-GDIM-05** — Deuxième occurrence d'un même type de groupe dans une **autre vue** : réutilisation du groupe de détails attaché, lisibilité et valeurs confirmées visuellement, sans nouvelle cote.
+- [ ] **REV-ANN-GDIM-06** — Défaillance simulée/manque de références : annulation sans lignes ni cotes isolées, aucun changement de type ou de membres du groupe initial ; ne pas insister après un crash natif.
+- [ ] **REV-ANN-GDIM-07** — Non-régression : cotation hors groupe 24/24 sur logement témoin, étiquetage groupé Niveau 0/1, étiquetage hors groupe 44/44 et Plans de vente V1.1.
+
+### Tests hors Revit
+
+- Le fichier `tests/test_annotations_group_dimensions_beta.py` introduit des vérifications de structure et des tests isolés du nettoyage des repères inutilisés (faux objets `ElementId`, dimensions et transactions). Commande prévue : `python -m unittest discover -s tests -p 'test_annotations_group_dimensions_beta.py'`.
+- **Tests ajoutés mais non exécutés dans cette intervention** ; aucune validation native Revit du nouveau mode et aucun merge de la PR #37.
