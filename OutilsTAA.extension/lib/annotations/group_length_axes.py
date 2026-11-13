@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Choix prudent de longueurs de murs dans les groupes de modele.
+"""Choix de directions et limites de piece pour les groupes de modele.
 
-Utilise seulement les references d'extremites natives deja autorisees
-par l'adaptateur de cotation. Ne pretend pas remplacer une distance
-entre deux faces opposees par une largeur inventee.
-Aucune dependance Revit : compatible IronPython 2.7 et Python 3.
+Les segments numeriques proviennent de Room.GetBoundarySegments(Finish)
+dans l'adaptateur : les extrémités du mur physique NE sont pas des
+références valables pour une limite tronquée par une autre pièce.
+Deux repères de détail 2D non associatifs placés aux bornes de la limite
+de la pièce permettent le secours ; la valeur Revit est vérifiée ensuite.
+Ne prétend jamais mesurer des faces opposées non parallèles.
+Aucune dépendance Revit : compatible IronPython 2.7 et Python 3.
 """
 
 import math
