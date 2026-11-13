@@ -177,3 +177,12 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Validation confirmée :** le traitement groupé produit les **8 étiquettes attendues** pour les deux groupes précédemment identifiés (`Groupe 1` et `Groupe 2`) dans cette vue, sans exception signalée. **Ne pas surinterpréter :** le rapport de création ne démontre pas visuellement la réutilisation sur une autre occurrence du groupe, l'intégrité structurelle vérifiée par l'utilisateur, ni l'absence de doublons au deuxième lancement. Les contrôles de sécurité implémentés dans `_attach()` restent actifs ; à vérifier dans la maquette et lors d'une seconde exécution.
 
 **Recettes restantes :** afficher les détails attachés sur une **autre occurrence de chaque groupe** ; vérifier le regroupement et les étiquettes dans cette occurrence ; relancer `Étiquetage automatique` pour confirmer la réutilisation sans doublons et l'intégrité des groupes modèles. **Cotation dans les groupes toujours non validée / désactivée en bêta**. **Plans de vente non modifié.** PR #37 à maintenir en brouillon.
+
+
+## Validation Revit — relance au même endroit des groupes attachés (13 novembre 2026)
+
+**Retour utilisateur, Revit 2025.4 :** deuxième exécution du module **Étiquetage automatique** dans la **même vue** `Niveau 0` et sur les **mêmes occurrences de groupes** que lors du test précédent. Rapport : **8 pièces détectées, 8 en groupe, 0 hors groupe ; 0 nouvelle annotation** ; messages explicites `Groupe 1 : details attaches reutilises.` et `Groupe 2 : details attaches reutilises.`. Aucune exception signalée.
+
+**Validé dans ce périmètre :** l'outil reconnaît les groupes de détails attachés qu'il a créés et ne recrée pas d'étiquettes sur les **mêmes occurrences, dans la même vue**, lors du second lancement. La création initiale 8/8 avait été validée dans le test précédent.
+
+**Toujours en attente :** vérification visuelle des étiquettes sur une **autre occurrence** de chaque groupe de modèle, contrôles d'intégrité des groupes et cotation automatique dans les groupes. Ne pas confondre deuxième lancement au même endroit et propagation/réutilisation sur une occurrence distincte. Pas de fusion PR #37 sur ce seul résultat.
