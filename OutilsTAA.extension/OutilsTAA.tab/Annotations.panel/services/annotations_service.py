@@ -1175,12 +1175,12 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             max_results=2,
             min_axis_angle_degrees=30.0)
         self._guardrail_warnings.append(
-            "GROUPE / SECOURS LONGUEURS DE MURS : {} paire(s) entre "
-            "faces opposees ; {} direction(s) de longueur de mur "
-            "selectionnee(s) parmi {} candidate(s). "
-            "Une longueur de mur n'est PAS une largeur entre deux "
-            "nus opposes ; verifier et completer manuellement les "
-            "pieces biaises si necessaire."
+            "GROUPE / SECOURS LIMITES DE PIECE : {} paire(s) "
+            "de faces opposees, {} direction(s) de limite(s) "
+            "interieure(s) selectionnee(s) parmi {}. "
+            "Ces mesures sont delimitees par Room.GetBoundarySegments "
+            "et DEUX reperes 2D locaux, pas par les extremites du mur "
+            "entier. Elles restent non associatives aux ouvrages."
             .format(len(pairs), len(selected), len(eligible)))
         if len(pairs) == 0 and len(selected) < 2:
             self._guardrail_warnings.append(
