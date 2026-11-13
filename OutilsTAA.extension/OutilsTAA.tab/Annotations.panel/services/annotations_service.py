@@ -1575,35 +1575,45 @@ class AnnotationService(object):
         return filtered
 
     def _create_proxies(self, view, rooms, group, line_style):
-        """5 mm sur la face finie des parois exterieures au groupe.
+        """References de groupe : faces opposees OU limites propres a la piece.
 
-        Les references sont volontairement non associatives avec ces parois.
+        Pour une longueur de mur de secours, les references aux extremites
+        physiques du MUR sont interdites : le mur peut traverser deux pieces.
+        Deux reperes 2D perpendiculaires sont places aux extremites du
+        BoundarySegment Revit propre a la piece. Ces references sont
+        NON associatives aux changements de geometrie du modele.
         """
         if line_style is None:
-            raise ValueError("Choisir le style des lignes 2D de reference.")
+            raise ValueError("Choisir le style des reperes 2D.")
+        from annotations.principal_dimension_axes import principal_pairs
+        from annotations.group_length_axes import (
+            select_group_length_fallbacks, room_boundary_end_markers)
+
         member_ids = set(id_value(x) for x in group.GetMemberIds())
+        half_marker = DB.UnitUtils.ConvertToInternalUnits(
+            2.5, DB.UnitTypeId.Millimeters)
         created = []
-        tx = DB.Transaction(self.doc, "TAA - References 2D")
+        tx = DB.Transaction(self.doc, "TAA - References locales par piece")
         tx.Start()
         try:
             for room in rooms:
-                candidates = self.dims._room_boundary_candidates(room)
-                from plans_vente.dimension_geometry import dominant_dimension_pairs
+                candidates = list(self.dims._room_boundary_candidates(room))
                 segments = [c.segment for c in candidates]
-                pairs = dominant_dimension_pairs(
+                pairs = principal_pairs(
                     segments,
                     angle_tolerance_degrees=self.dims.ANGLE_TOLERANCE_DEGREES,
                     minimum_relative_length=self.dims.MINIMUM_RELATIVE_LENGTH,
-                    placement_fraction=self.dims.PLACEMENT_FRACTION,
-                    max_results=2)
-                required = set()
-                for pair in pairs:
-                    required.add(pair.first_index)
-                    required.add(pair.second_index)
-                # Interdire les references de longueur de murs hors groupe.
-                for index, c in enumerate(candidates):
-                    if c.element_id_value not in member_ids:
-                        c.length_references = None
+                    placement_fraction=self.dims.PLACEMENT_FRACTION)
+                required = set(index for pair in pairs for index in (
+                    pair.first_index, pair.second_index))
+
+                # Une reference de longueur issue du mur entier est TOUJOURS
+                # invalide pour le secours d'une piece groupee.
+                for c in candidates:
+                    c.length_references = None
+
+                # Les paires de faces opposees conservent leurs references
+                # natives si le mur appartient au groupe. Sinon, repere 2D.
                 for index, c in enumerate(candidates):
                     if index not in required or c.element_id_value in member_ids:
                         continue
@@ -1612,8 +1622,7 @@ class AnnotationService(object):
                     length = (dx*dx + dy*dy)**0.5
                     if length < 1e-7:
                         continue
-                    half = min(length * 0.25, DB.UnitUtils.ConvertToInternalUnits(
-                        2.5, DB.UnitTypeId.Millimeters))
+                    half = min(length * 0.25, half_marker)
                     mx, my = (x0+x1)*0.5, (y0+y1)*0.5
                     ux, uy = dx/length, dy/length
                     z = room.Level.Elevation
@@ -1621,17 +1630,76 @@ class AnnotationService(object):
                         DB.XYZ(mx-ux*half, my-uy*half, z),
                         DB.XYZ(mx+ux*half, my+uy*half, z))
                     detail = self.doc.Create.NewDetailCurve(view, line)
+                    if detail is None:
+                        raise RuntimeError("Repere 2D de face introuvable.")
                     detail.LineStyle = line_style
                     self.doc.Regenerate()
-                    # Une cote native doit pointer vers la geometrie de la ligne.
                     ref = detail.GeometryCurve.Reference
                     if ref is None:
-                        raise ValueError("Reference de ligne 2D indisponible.")
+                        raise RuntimeError("Reference du repere de face indisponible.")
                     c.reference = ref
                     c.element_id_value = id_value(detail.Id)
-                    c.length_references = None
                     c.source_kind = "proxy"
                     created.append(detail.Id)
+
+                if len(pairs) < 2:
+                    # Les cotes de secours doivent mesurer SEULEMENT les
+                    # segments reels issus de GetBoundarySegments(room).
+                    eligible = [
+                        i for i, c in enumerate(candidates)
+                        if getattr(c, "source_kind", None) == "wall"
+                    ]
+                    existing_lines = [
+                        (pair.line_start[0], pair.line_start[1],
+                         pair.line_end[0], pair.line_end[1])
+                        for pair in pairs
+                    ]
+                    selected = select_group_length_fallbacks(
+                        segments, eligible,
+                        existing_dimension_lines=existing_lines,
+                        max_results=2,
+                        min_axis_angle_degrees=30.0)
+                    for index in selected:
+                        c = candidates[index]
+                        first, second, length = room_boundary_end_markers(
+                            c.segment, half_marker)
+                        refs = []
+                        ids = []
+                        for segment in (first, second):
+                            x0, y0, x1, y1 = segment
+                            curve = DB.Line.CreateBound(
+                                DB.XYZ(x0, y0, room.Level.Elevation),
+                                DB.XYZ(x1, y1, room.Level.Elevation))
+                            detail = self.doc.Create.NewDetailCurve(view, curve)
+                            if detail is None:
+                                raise RuntimeError(
+                                    "Repere d'extremite de piece non cree.")
+                            detail.LineStyle = line_style
+                            ids.append(detail.Id)
+                            created.append(detail.Id)
+                            refs.append(detail)
+                        self.doc.Regenerate()
+                        references = [detail.GeometryCurve.Reference
+                                      for detail in refs]
+                        if any(ref is None for ref in references):
+                            raise RuntimeError(
+                                "References des extremites de piece indisponibles.")
+                        c.length_references = tuple(references)
+                        self.dims._group_local_expected[
+                            frozenset(id_value(item) for item in ids)] = (
+                                length, room,
+                                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"))
+                        self.dims._guardrail_warnings.append(
+                            "{} : LONGUEUR LOCALE PIECE : cote de secours "
+                            "sur limite finie de {:.3f} m ; deux reperes "
+                            "2D non associatifs, AUCUNE mesure du mur entier."
+                            .format(
+                                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                                length * 0.3048))
+                    self.dims._length_fallback_reference_keys = set(
+                        frozenset(self.dims._stable_reference(ref)
+                                  for ref in c.length_references)
+                        for c in candidates if c.length_references)
                 key = str(room.UniqueId)
                 self.dims.proxy_candidates[key] = candidates
                 self.dims._group_length_fallback_state[key] = (
