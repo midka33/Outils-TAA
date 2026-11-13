@@ -99,3 +99,37 @@ def select_group_length_fallbacks(segments, eligible_indexes,
     # Une seule direction utilisable : une cote, jamais deux paralleles.
     eligible.sort(key=lambda item: (-item[1][2], item[0]))
     return [eligible[0][0]]
+
+
+def room_boundary_end_markers(segment, half_length):
+    """Deux traits perpendiculaires aux extremites de la limite de piece.
+
+    Le trait de cote correspondant mesure EXACTEMENT la longueur de
+    BoundarySegment propre a la piece, jamais le mur porteur complet.
+    Les marques 2D sont non associatives aux ouvrages.
+    """
+    axis = _axis(segment)
+    if axis is None:
+        raise ValueError("Limite de piece de longueur nulle.")
+    dx, dy, expected_length = axis
+    nx, ny = -dy, dx
+    half = min(float(half_length), expected_length * 0.25)
+    if half <= 1e-8:
+        raise ValueError("Repere de limite trop court.")
+    x0, y0, x1, y1 = [float(x) for x in segment]
+    first = (x0 - nx * half, y0 - ny * half,
+             x0 + nx * half, y0 + ny * half)
+    second = (x1 - nx * half, y1 - ny * half,
+              x1 + nx * half, y1 + ny * half)
+    return first, second, expected_length
+
+
+def local_boundary_value_matches(actual, expected, tolerance):
+    """Refuser une cote qui mesure au-dela de la limite de cette piece."""
+    if actual is None or expected is None:
+        return False
+    value = float(actual)
+    target = float(expected)
+    return (math.isfinite(value) if hasattr(math, "isfinite")
+            else not (math.isnan(value) or math.isinf(value))) and (
+                target > 0 and abs(value - target) <= float(tolerance))
