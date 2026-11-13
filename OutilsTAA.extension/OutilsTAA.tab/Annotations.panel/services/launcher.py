@@ -70,6 +70,7 @@ def run(kind):
 
     diagnostic_room_uid = None
     diagnostic_room_uids = None
+    diagnostic_group_uid = None
     chosen_scope = "room"
     apartment_description = ""
     if kind == "dims":
@@ -87,6 +88,7 @@ def run(kind):
         scope = _choose_one([
             ("room", "Une piece (diagnostic securise)"),
             ("apartment", "Un appartement dans cette vue (beta, 12 pieces max.)"),
+            ("group", "Un groupe de modele dans cette vue (beta, 12 pieces max.)"),
         ], "Cotation beta : choisir le perimetre")
         if scope is None:
             return
@@ -105,6 +107,50 @@ def run(kind):
             if chosen_room is None:
                 return
             diagnostic_room_uid = chosen_room.value
+        elif chosen_scope == "group":
+            # Prototype volontairement limite a UNE occurrence d'un groupe,
+            # pour ne pas reintroduire le crash natif lors d'un lot massif.
+            grouped = {}
+            for room in test_rooms:
+                if room.GroupId == DB.ElementId.InvalidElementId:
+                    continue
+                group = doc.GetElement(room.GroupId)
+                if group is None:
+                    continue
+                key = str(group.UniqueId)
+                grouped.setdefault(key, (group, []))[1].append(room)
+            options = sorted(grouped.items(), key=lambda item: (
+                safe_name(item[1][0].GroupType, "Groupe"),
+                str(item[0])))
+            options = [(key, "{} - {} piece(s) - occurrence {}".format(
+                safe_name(group.GroupType, "Groupe"), len(members),
+                str(group.Id)))
+                for key, (group, members) in options if (
+                    len(members) >= 1 and len(members) <= MAX_APARTMENT_ROOMS)]
+            chosen_group = _choose_one(
+                options, "Cotation beta : choisir UN groupe de modele")
+            if chosen_group is None:
+                return
+            diagnostic_group_uid = chosen_group.value
+            group, selected_rooms = grouped[diagnostic_group_uid]
+            labels = ["{} - {}".format(
+                room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                room_value(room, DB.BuiltInParameter.ROOM_NAME, "Piece"))
+                for room in selected_rooms]
+            apartment_description = (
+                "Groupe : {} (occurrence {})\n"
+                "Vue : {}\n"
+                "Pieces traitees ({} / {} maximum) :\n - {}"
+            ).format(
+                safe_name(group.GroupType, "Groupe"), str(group.Id),
+                safe_name(views[0], "Vue"), len(selected_rooms),
+                MAX_APARTMENT_ROOMS, "\n - ".join(labels))
+            if not forms.alert(
+                    "VALIDER LE PERIMETRE DU GROUPE\n\n"
+                    + apartment_description
+                    + "\n\nGarder ce seul groupe pour le test sur COPIE ?",
+                    title=title, yes=True, no=True):
+                return
         else:
             # Ne jamais deviner le numero de logement a partir du numero
             # de piece. Choix explicite du parametre d'instance Revit.
@@ -229,7 +275,20 @@ def run(kind):
             return
 
     if kind == "dims":
-        if chosen_scope == "apartment":
+        if chosen_scope == "group":
+            question = (
+                "MODE BETA COTATION GROUPE - APRES CRASH REVIT\n"
+                "{}\n\n"
+                "UN SEUL groupe de modele, dans UNE SEULE vue.\n"
+                "Les cotes seront regroupees en details attaches si "
+                "Revit confirme le rattachement.\n"
+                "Echec : annulation de l'operation sur ce groupe.\n"
+                "Un crash natif ne peut pas etre intercepte.\n"
+                "Tester sur une COPIE sauvegardee du projet.\n"
+                "Journal : {}\n"
+                "Lancer cet essai ?"
+            ).format(apartment_description, TRACE_PATH)
+        elif chosen_scope == "apartment":
             question = (
                 "MODE BETA APPARTEMENT APRES CRASH REVIT\n"
                 "{}\n\n"
@@ -257,7 +316,8 @@ def run(kind):
     count, report = service.run(
         kind, views, picked.value, style,
         diagnostic_room_uid=diagnostic_room_uid,
-        diagnostic_room_uids=diagnostic_room_uids)
+        diagnostic_room_uids=diagnostic_room_uids,
+        diagnostic_group_uid=diagnostic_group_uid)
     out = script.get_output()
     out.print_md("## {} - version beta".format(title))
     out.print_md("**{} annotation(s) creee(s) dans {} vue(s).**".format(
