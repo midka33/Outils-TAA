@@ -1733,8 +1733,14 @@ class AnnotationService(object):
             # verifier les nouveaux details attaches et leurs membres.
             returned_group_id = id_value(created.Id)
             parent_group_id = id_value(group.Id)
-            available = set(id_value(x) for x in
-                            group.GetAvailableAttachedDetailGroupTypeIds())
+            # Comparer les valeurs numeriques uniquement, mais conserver
+            # les vrais ElementId fournis par l'API Revit pour GetElement.
+            # Revit 2025 / IronPython n'accepte pas un int a sa place.
+            available_type_ids = {
+                id_value(element_id): element_id
+                for element_id in group.GetAvailableAttachedDetailGroupTypeIds()
+            }
+            available = set(available_type_ids)
             new_ids = available - previous
             if (not group.IsValidObject or
                     id_value(group.GetTypeId()) != original_type or
@@ -1750,7 +1756,10 @@ class AnnotationService(object):
             if len(new_ids) != 1:
                 raise RuntimeError(
                     "Plusieurs types de details attaches crees : annulation.")
-            group_type_id = self.doc.GetElement(next(iter(new_ids))).Id
+            group_type_id = available_type_ids[next(iter(new_ids))]
+            if self.doc.GetElement(group_type_id) is None:
+                raise RuntimeError(
+                    "Type de details attaches introuvable : annulation.")
             # La creation d'un type attache est insuffisante : une instance
             # effectivement rattachee au groupe initial doit etre retrouvee.
             # Chercher aussi les groupes attaches non encore affiches
