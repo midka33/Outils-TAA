@@ -1466,3 +1466,18 @@ Aucun merge dans `main`.
 **Vérifications statiques ciblées :** présence du contrôle de parent, des membres, du rollback et de l'exigence d'un type unique ; absence du rejet direct sur `created.Id == group.Id`. Cela ne remplace **ni pytest ni la recette Revit**.
 
 **Recette à refaire sur une copie de la maquette :** mettre la branche à jour, relancer Étiquetage auto sur `Niveau 0`, vérifier que les huit pièces sont étiquetées dans des groupes de détails attachés à `Groupe 1` et `Groupe 2`, que les groupes d'origine sont intacts et que la réutilisation sur une deuxième occurrence fonctionne. Si un nouveau garde-fou bloque, fournir le rapport complet et ne pas contourner les contrôles. **Cotation dans les groupes toujours désactivée ; Plans de vente non modifié.**
+
+
+## BUG-COMMON-030 — TypeError ElementId/int lors du rattachement des groupes (13 novembre 2026)
+
+**Retour Revit 2025.4 :** Étiquetage auto sur `Niveau 0`, 8 pièces dans `Groupe 1` et `Groupe 2`, 0 étiquette créée. Les deux unités sont annulées dans `_attach()` par `TypeError: expected ElementId, got int` lors de `self.doc.GetElement(next(iter(new_ids))).Id`.
+
+**Cause certaine :** la différence d'ensembles `new_ids = available - previous` utilise des valeurs Python `int` issues de `id_value()`. `Document.GetElement` exige un `DB.ElementId`, pas un entier. L'exécution franchissait les contrôles du groupe initial et trouvait exactement un nouveau type attaché avant cet appel.
+
+**Correction ciblée, commit `826a02db8efe401367c4be37d1b8e54c4258f403` :** construire `available_type_ids = {id_value(element_id): element_id for element_id in group.GetAvailableAttachedDetailGroupTypeIds()}`, utiliser les clés entières pour la différence d'ensembles, puis récupérer le vrai `ElementId` avec `available_type_ids[next(iter(new_ids))]`. Contrôles du parent, des membres et de rollback conservés.
+
+**Prévention :** toute conversion d'un `DB.ElementId` en entier doit être réservée aux comparaisons/logs ; conserver l'objet natif pour les API Revit qui attendent `ElementId`.
+
+**Anti-régression :** test stdlib `tests/test_annotations_attached_group_elementid.py` ajouté au commit `a841b597948112f5e69742c591698462dc3a59e6` : extrait les affectations réelles de `_attach()` et vérifie avec un faux `Document.GetElement` strict qu'un `ElementId` natif est transmis. **Test non exécuté dans cet environnement ; validation réelle Revit en attente.**
+
+**Recette :** sur copie de maquette, relancer les deux groupes de la vue `Niveau 0` ; vérifier la création des étiquettes, leur appartenance effective à un groupe de détails attachés et la conservation des groupes de modèle. Ne pas fusionner la PR #37 avant validation. Le moteur Plans de vente est inchangé, cotation groupée toujours suspendue.
