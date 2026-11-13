@@ -19,6 +19,7 @@ from room_tag_service import RoomTagService
 # Marqueur lisible dans le rapport : permet de detecter une autre copie
 # de l'extension ou un cache pyRevit/IronPython encore charge.
 ANNOTATIONS_BETA_REVISION = "2026-11-05-apartment-room-dedup-04"
+GROUP_DIMENSIONS_BETA_REVISION = "2026-11-13-group-dimensions-01"
 
 
 def id_value(element_id):
@@ -1897,7 +1898,8 @@ class AnnotationService(object):
             self.dims.target_view = None
 
     def run(self, kind, views, annotation_type_id, line_style=None,
-            diagnostic_room_uid=None, diagnostic_room_uids=None):
+            diagnostic_room_uid=None, diagnostic_room_uids=None,
+            diagnostic_group_uid=None):
         """Cotation beta : une piece OU un appartement (2 a 12 pieces).
 
         Jamais de traitement de toutes les pieces d'une vue, ni multi-vue.
@@ -1909,6 +1911,7 @@ class AnnotationService(object):
             report.append("REVISION COTATION BETA : {}".format(
                 ANNOTATIONS_BETA_REVISION))
         apartment_mode = kind == "dims" and diagnostic_room_uids is not None
+        group_mode = kind == "dims" and diagnostic_group_uid is not None
         expected_ids = None
         if kind == "dims":
             # Crash historique : le mode multi-vues et tous les groupes
@@ -1917,7 +1920,7 @@ class AnnotationService(object):
             if len(views) != 1:
                 raise ValueError("Mode diagnostic obligatoire : une vue et une piece.")
             if apartment_mode:
-                if diagnostic_room_uid is not None:
+                if diagnostic_room_uid is not None or group_mode:
                     raise ValueError(
                         "Choisir UNE piece ou UN appartement, pas les deux.")
                 expected_ids = [str(x) for x in diagnostic_room_uids]
@@ -1930,6 +1933,16 @@ class AnnotationService(object):
                     "MODE BETA APPARTEMENT : {} pieces dans une seule vue ; "
                     "une transaction et un journal par piece ; "
                     "aucun groupe Revit.".format(len(expected_ids)))
+            elif group_mode:
+                if diagnostic_room_uid is not None:
+                    raise ValueError(
+                        "Choisir UN groupe OU UNE piece, jamais les deux.")
+                if not str(diagnostic_group_uid or ""):
+                    raise ValueError("Identifiant de groupe manquant.")
+                report.append(
+                    "MODE BETA GROUPE : {} ; UNE seule occurrence, "
+                    "UNE vue, 12 pieces maximum ; aucun traitement "
+                    "des autres groupes.".format(GROUP_DIMENSIONS_BETA_REVISION))
             elif not diagnostic_room_uid:
                 raise ValueError(
                     "Mode diagnostic obligatoire : une vue et une piece."
@@ -1961,6 +1974,22 @@ class AnnotationService(object):
                             "Appartement contenant une piece en groupe : "
                             "aucune cote creee. Les groupes attaches "
                             "restent suspendus apres crash.")
+                elif group_mode:
+                    # Selection explicite : ne jamais coter les autres groupes
+                    # de la meme vue au cours d'un essai beta.
+                    candidates = []
+                    for room in rooms:
+                        if room.GroupId == DB.ElementId.InvalidElementId:
+                            continue
+                        group = self.doc.GetElement(room.GroupId)
+                        if group is not None and (
+                                str(group.UniqueId) == str(diagnostic_group_uid)):
+                            candidates.append(room)
+                    if not candidates or len(candidates) > 12:
+                        raise ValueError(
+                            "Perimetre groupe modifie ou introuvable "
+                            "(1 a 12 pieces) : aucune cote creee.")
+                    rooms = candidates
                 else:
                     rooms = [room for room in rooms
                              if str(room.UniqueId) == diagnostic_room_uid]
@@ -1968,7 +1997,8 @@ class AnnotationService(object):
                         raise ValueError("Piece choisie introuvable dans la vue.")
                     if rooms[0].GroupId != DB.ElementId.InvalidElementId:
                         raise ValueError(
-                            "Groupes attaches suspendus en diagnostic apres crash.")
+                            "Groupe interdit en mode piece hors groupe ; "
+                            "choisir le mode beta groupe.")
             grouped, singles = {}, []
             for room in rooms:
                 gid = room.GroupId
@@ -2010,8 +2040,9 @@ class AnnotationService(object):
                         trace("BATCH_STOP", safe_name(view), label,
                               "remaining={}".format(remaining))
                         break
-            # Etiquetage : groupes conserves. Les cotations ne peuvent
-            # jamais atteindre cette section en mode beta.
+            # Etiquetage : traitements groupes valides dans Revit.
+            # Cotation : UN SEUL groupe explicitement confirme en beta,
+            # aucun autre groupe de la vue ne peut etre touche.
             for key in sorted(grouped):
                 group, room_set = grouped[key]
                 existing = self._available_type(group, kind)
@@ -2028,5 +2059,11 @@ class AnnotationService(object):
                     view, room_set, kind, annotation_type_id, group, line_style)
                 total += count
                 report.extend(warnings)
+                if group_mode:
+                    report.append(
+                        "GROUPE BETA : {} piece(s), {} cote(s) creee(s), "
+                        "groupe {}.".format(
+                            len(room_set), count,
+                            safe_name(group.GroupType, "Groupe")))
         trace("RUN_END", "", "", "created={}".format(total))
         return total, report
