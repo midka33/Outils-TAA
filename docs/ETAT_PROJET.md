@@ -206,3 +206,16 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Statut : VALIDÉ DANS REVIT 2025.4 sur les occurrences testées.** Chaîne vérifiée : génération initiale de 8 étiquettes sur `Niveau 0`, relance sans doublons sur `Niveau 0`, reconnaissance et réutilisation sur `Niveau 1`, puis confirmation utilisateur de l'affichage correct sur la seconde occurrence. Cette validation couvre ces deux groupes et ces deux niveaux, sans généraliser à tous les cas de groupes ni à la cotation automatique dans les groupes.
 
 **Suite :** développer et recetter séparément la cotation automatique dans les groupes (encore suspendue en bêta), en protégeant les moteurs validés et la version stable Plans de vente. Ne pas fusionner la PR #37 sur le seul fondement de cette validation.
+
+
+## Développement cotation automatique par groupe — 13 novembre 2026
+
+**Branche de développement :** `feature/annotations-automatiques-beta` ; **PR #37 brouillon** (non fusionnée). Étape suivante après validation Revit de l'étiquetage groupé sur `Niveau 0` et `Niveau 1`.
+
+**Correction implémentée (non validée dans Revit) :** dans **Cotation automatique**, nouveau mode bêta **« Un groupe de modèle dans cette vue (12 pièces max.) »**. Le lanceur demande une seule vue, un seul groupe explicitement choisi et affiche les pièces retenues pour confirmation. Le moteur partagé de cotation Plans de vente reste inchangé. Pour les références natives extérieures au groupe, des repères 2D courts (non associatifs au mur extérieur) peuvent être créés ; les repères inutilisés sont supprimés. La réutilisation et le rattachement des groupes de détails `TAA - Cotations` emploient les garde-fous validés par Étiquetage : protection de l'intégrité du groupe de modèle, présence de toutes les cotes et repères utiles dans les détails attachés, annulation en cas de doute.
+
+**Commits de code :** `e74bfc9` (lanceur), `6231963` (périmètre ciblé), `0b8ee07` (références et nettoyage), `09729c1` (clarification de portée). **Test automatisé ajouté** : `tests/test_annotations_group_dimensions_beta.py` (commit `f7815b9`), **mais non exécuté dans cette intervention**. La revue statique de présence des garde-fous ne vaut pas test automatique ni validation Revit.
+
+**Recette prochaine :** sous Revit 2025.4, **sur copie sauvegardée**, tester **un seul groupe simple** en choisissant le nouveau mode, vérifier cotes natives, valeurs et nus finis, groupes d'origine inchangés et groupe de détails réellement attaché. Ensuite seulement : plusieurs pièces, façade hors groupe / repères 2D, relance sans doublons, deuxième occurrence, non-régression de cotation hors groupe 24/24, étiquetage 44/44 et étiquetage groupé. **La PR #37 reste brouillon ; aucun traitement de masse autorisé avant recette.**
+
+**Traçabilité PR :** ce fichier est ajouté également sur la branche bêta pour satisfaire l'instruction de suivi par PR. Le fichier a été créé initialement sur `main` après la divergence de cette branche ; **vérifier un éventuel conflit de fusion de ce fichier au moment de préparer la PR**, ne pas écraser le suivi plus récent de `main`.
