@@ -1017,14 +1017,24 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
                 getattr(c, "source_kind", None) == "wall" and
                 getattr(c, "length_references", None))
                 for c in candidates)
-            self._guardrail_warnings.append(
-                "{} : {} axe(s) entre faces opposees detecte(s). "
-                "Recherche d'une longueur complementaire de mur "
-                "avec DEUX references d'extremites natives "
-                "({} mur(s) possible(s)), selon le repli Plans de vente."
-                .format(
-                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
-                    len(pairs), count_native))
+            if getattr(self, "_group_dimension_mode", False):
+                self._guardrail_warnings.append(
+                    "{} : {} axe(s) entre faces opposees detecte(s). "
+                    "Mode groupe : les references d'extremites des "
+                    "MURS ENTIERS seront neutralisees ; secours par "
+                    "DEUX petits reperes aux bornes de la limite "
+                    "de CETTE piece.".format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                        len(pairs)))
+            else:
+                self._guardrail_warnings.append(
+                    "{} : {} axe(s) entre faces opposees detecte(s). "
+                    "Recherche d'une longueur complementaire de mur "
+                    "avec DEUX references d'extremites natives "
+                    "({} mur(s) possible(s)), selon le repli Plans de vente."
+                    .format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                        len(pairs), count_native))
         # Ne sonder le garde-corps que lorsque la direction retenue
         # pour une vraie dimension comporte une séparation non résolue.
         selected_indexes = set(
@@ -1080,15 +1090,26 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             source_summary = ", ".join(
                 "{}={}".format(name, by_source[name])
                 for name in sorted(by_source))
-            self._guardrail_warnings.append(
-                "{} : DIAGNOSTIC LIMITES : {} limite(s) candidates "
-                "({}), {} mur(s) avec deux references "
-                "d'extremites presentes, {} secours de longueur "
-                "mur autorise(s) apres filtrage anti-doublon."
-                .format(
-                    room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
-                    len(candidates), source_summary,
-                    native_candidates, len(fallback_indices)))
+            if getattr(self, "_group_dimension_mode", False):
+                self._guardrail_warnings.append(
+                    "{} : DIAGNOSTIC LIMITES : {} limite(s) candidates "
+                    "({}) ; {} references natives de murs entiers "
+                    "ignorees en mode groupe. Selection locale "
+                    "a partir de BoundarySegment."
+                    .format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                        len(candidates), source_summary,
+                        len(fallback_indices)))
+            else:
+                self._guardrail_warnings.append(
+                    "{} : DIAGNOSTIC LIMITES : {} limite(s) candidates "
+                    "({}), {} mur(s) avec deux references "
+                    "d'extremites presentes, {} secours de longueur "
+                    "mur autorise(s) apres filtrage anti-doublon."
+                    .format(
+                        room_value(room, DB.BuiltInParameter.ROOM_NUMBER, "?"),
+                        len(candidates), source_summary,
+                        native_candidates, len(fallback_indices)))
             if not fallback_indices:
                 self._guardrail_warnings.append(
                     "{} : aucune longueur de mur native complementaire "
@@ -1153,10 +1174,9 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
             return super(GenericDimensions, self)._fallback_length_indexes(
                 boundary_candidates, pairs)
 
-        # Groupes biaises : ne pas completer artificiellement deux cotes
-        # par deux murs presque paralleles. Les seuls secours cotables
-        # restent des longueurs de murs a deux references d'extremites
-        # natives, deja filtrees par _room_boundary_candidates.
+        # Groupes biaises : directions distinctes uniquement, sur les
+        # limites de pieces. Les references de secours sont désormais
+        # DEUX DetailCurve courtes par limite (et NON les bouts du mur).
         from annotations.group_length_axes import select_group_length_fallbacks
         segments = [c.segment for c in boundary_candidates]
         eligible = [
