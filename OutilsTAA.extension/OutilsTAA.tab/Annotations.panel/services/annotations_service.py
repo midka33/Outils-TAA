@@ -989,6 +989,14 @@ class GenericDimensions(_GenericViewMixin, DimensionService):
     def _room_boundary_candidates(self, room):
         cached = self.proxy_candidates.get(str(room.UniqueId))
         if cached is not None:
+            # La preparation groupe calcule toutes les pieces avant le
+            # moteur PDV. Restaurer les parametres de secours propres a
+            # chacune : ne pas heriter ceux de la derniere piece preparee.
+            state = getattr(self, "_group_length_fallback_state", {}).get(
+                str(room.UniqueId))
+            if state is not None:
+                self._length_fallback_room_allow = state[0]
+                self._length_fallback_reference_keys = set(state[1])
             return cached
 
         # Reutiliser les references de faces finies du moteur PDV.
@@ -1584,10 +1592,15 @@ class AnnotationService(object):
                     if ref is None:
                         raise ValueError("Reference de ligne 2D indisponible.")
                     c.reference = ref
+                    c.element_id_value = id_value(detail.Id)
                     c.length_references = None
                     c.source_kind = "proxy"
                     created.append(detail.Id)
-                self.dims.proxy_candidates[str(room.UniqueId)] = candidates
+                key = str(room.UniqueId)
+                self.dims.proxy_candidates[key] = candidates
+                self.dims._group_length_fallback_state[key] = (
+                    bool(self.dims._length_fallback_room_allow),
+                    set(self.dims._length_fallback_reference_keys))
             tx.Commit()
             return created
         except Exception:
@@ -1661,6 +1674,43 @@ class AnnotationService(object):
         except Exception:
             tx.RollBack()
             raise
+
+    def _cleanup_unused_group_proxies(self, view, proxy_ids, dimension_ids):
+        """Ne rattacher au groupe que les reperes effectivement cotes.
+
+        Une reference Revit incertaine interdit de supprimer les lignes :
+        annuler le TransactionGroup au lieu de laisser un repere orphelin.
+        """
+        if not proxy_ids:
+            return []
+        if not dimension_ids:
+            raise RuntimeError(
+                "Aucune cote creee : annulation des reperes du groupe.")
+        used = set()
+        for dimension in self._elements(view, "dims"):
+            if id_value(dimension.Id) not in dimension_ids:
+                continue
+            references = getattr(dimension, "References", None)
+            if references is None:
+                raise RuntimeError(
+                    "References de cote groupe non verifiables.")
+            for reference in references:
+                used.add(id_value(reference.ElementId))
+        kept = [element_id for element_id in proxy_ids
+                if id_value(element_id) in used]
+        unused = [element_id for element_id in proxy_ids
+                  if id_value(element_id) not in used]
+        if unused:
+            tx = DB.Transaction(self.doc, "TAA - Nettoyer reperes groupe")
+            tx.Start()
+            try:
+                for element_id in unused:
+                    self.doc.Delete(element_id)
+                tx.Commit()
+            except Exception:
+                tx.RollBack()
+                raise
+        return kept
 
     def _cleanup_unused_separator_proxies(self, view, proxy_ids, dimension_ids):
         """Ne pas laisser de lignes 2D non utilisees apres cotation partielle.
@@ -1784,11 +1834,13 @@ class AnnotationService(object):
             for attached in attached_instances:
                 grouped_members.update(id_value(member)
                                        for member in attached.GetMemberIds())
-            missing = set(id_value(item) for item in annotation_ids) - grouped_members
+            expected_members = set(
+                id_value(item) for item in list(annotation_ids) + list(proxy_ids))
+            missing = expected_members - grouped_members
             if missing:
                 raise RuntimeError(
-                    "{} annotation(s) non rattachee(s) au groupe de "
-                    "details du parent {} : annulation."
+                    "{} element(s) de details (cotes ou reperes) "
+                    "non rattache(s) au groupe parent {} : annulation."
                     .format(len(missing), parent_group_id))
             name = ("TAA - Etiquettes" if kind == "tags" else "TAA - Cotations")
             name += " - {}".format(safe_name(group.GroupType, "Groupe"))
@@ -1821,6 +1873,7 @@ class AnnotationService(object):
         scope = DB.TransactionGroup(self.doc, "TAA {} - {}".format(kind, name))
         scope.Start()
         self.dims.proxy_candidates = {}
+        self.dims._group_length_fallback_state = {}
         self.dims._guardrail_cache = {}
         self.dims._guardrail_warnings = []
         self.dims._guardrail_paths = {}
@@ -1859,6 +1912,9 @@ class AnnotationService(object):
                 trace("AFTER_DIMENSION_ENGINE", safe_name(view), room_id,
                       "created={}".format(result.created_count))
             new_ids = self._ids(view, kind) - before
+            if group and kind == "dims":
+                proxy_ids = self._cleanup_unused_group_proxies(
+                    view, proxy_ids, new_ids)
             if group and new_ids:
                 self._attach(group, view,
                              [e.Id for e in self._elements(view, kind)
@@ -1889,6 +1945,7 @@ class AnnotationService(object):
                 traceback.format_exc())]
         finally:
             self.dims.proxy_candidates = {}
+            self.dims._group_length_fallback_state = {}
             self.dims._guardrail_cache = {}
             self.dims._guardrail_warnings = []
             self.dims._guardrail_paths = {}
