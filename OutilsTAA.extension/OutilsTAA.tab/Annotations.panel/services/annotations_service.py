@@ -1957,11 +1957,11 @@ class AnnotationService(object):
     def run(self, kind, views, annotation_type_id, line_style=None,
             diagnostic_room_uid=None, diagnostic_room_uids=None,
             diagnostic_group_uid=None):
-        """Cotation beta : une piece OU un appartement (2 a 12 pieces).
+        """Cotation beta : une piece, un appartement ou un groupe confirme.
 
-        Jamais de traitement de toutes les pieces d'une vue, ni multi-vue.
-        Chaque piece est geree par _run_unit dans son TransactionGroup,
-        avec cache et journal d'execution reinitialises.
+        Une seule vue par lancement, jamais toute la vue en mode cotation.
+        Un groupe : un seul groupe de modele (1 a 12 pieces) dans
+        un TransactionGroup atomique, avec details attaches verifies.
         """
         report, total = [], 0
         if kind == "dims":
@@ -1971,15 +1971,16 @@ class AnnotationService(object):
         group_mode = kind == "dims" and diagnostic_group_uid is not None
         expected_ids = None
         if kind == "dims":
-            # Crash historique : le mode multi-vues et tous les groupes
-            # restent interdits. Le scope appartement est une liste
-            # explicite de pieces previsualisees par le lanceur.
+            # Crash historique : le mode multi-vues et les groupes de
+            # masse restent interdits. Groupe individuel teste uniquement
+            # par choix explicite ; l'appartement reste hors groupes.
             if len(views) != 1:
-                raise ValueError("Mode diagnostic obligatoire : une vue et une piece.")
+                raise ValueError(
+                    "Mode beta cotation : une seule vue par lancement.")
             if apartment_mode:
                 if diagnostic_room_uid is not None or group_mode:
                     raise ValueError(
-                        "Choisir UNE piece ou UN appartement, pas les deux.")
+                        "Choisir UNE piece, UN appartement OU UN groupe.")
                 expected_ids = [str(x) for x in diagnostic_room_uids]
                 if (len(expected_ids) < 2 or len(expected_ids) > 12
                         or any(not x for x in expected_ids)
