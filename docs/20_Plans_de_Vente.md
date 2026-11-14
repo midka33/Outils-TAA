@@ -251,8 +251,7 @@ génération. La vue logement et le repérage n'acceptent que des gabarits de pl
 d'étage du document hôte ; les étiquettes et cotes utilisent les types du
 document hôte.
 
-Ces choix restent pour l'instant mémorisés pendant la session de la fenêtre
-Plans de vente. Leur persistance par projet fait l'objet d'un correctif séparé.
+Depuis la PR #45 fusionnée, ces choix sont enregistrés localement par projet via `PlansVenteSettingsService`, dans `%APPDATA%\\Outils-TAA\\PlansDeVente\\Projects\\<project_key>.json`. Les quatre sélecteurs conservent les `UniqueId` des objets Revit choisis et sont restaurés à la réouverture. L'identité du projet privilégie le chemin du fichier central, puis le chemin du RVT ; un document non enregistré utilise une identité limitée à la session. Les tests automatisés vérifient l'aller-retour JSON et l'isolation entre projets ; une recette utilisateur Revit distincte reste à consigner si nécessaire.
 
 ## 13. Progression, transactions et rapport
 

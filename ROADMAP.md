@@ -9,7 +9,7 @@
 - **Plans de vente :** V1.1 fichiers liés stable, livrée depuis v1.3.0 ; pas de nouvelle fonction dans v1.4.0.
 - **Cotations, Étiquettes, Légendes, Giration :** développer sur leurs branches ou dans leurs jalons dédiés ; **aucun travail non fusionné n'est inclus dans v1.4.0**.
 
-Les cases historiques restées ouvertes ci-dessous ne sont pas des échecs de la recette v1.4.0 : elles correspondent à des campagnes anciennes ou à des tests ciblés non exécutés isolément.
+Les TEST-01 à TEST-30 historiques ont tous été exécutés et validés dans Revit 2025.4 (confirmation utilisateur du 5 novembre 2026). Leur historique reste archivé, sans nouvelle campagne de rejeu. Les autres cases ouvertes concernent uniquement des tests ciblés distincts ou de futurs développements.
 
 ## Phase 1 — Socle architectural
 
@@ -50,7 +50,7 @@ Les cases historiques restées ouvertes ci-dessous ne sont pas des échecs de la
 - [x] Supprimer les deux initialisations redondantes du glisser-déposer.
 - [x] Actualiser les tests et capitaliser les bugs 020 à 024.
 - [x] TEST-14 validé par l'utilisateur le 2026-09-29 dans Revit 2025.4 : profils, PDF combinés/séparés, noms et contenu des fichiers (dont `PC 09*`), code `7bb533c`. Voir `docs/archive/export-tests/17_Export_Preparation_TEST14.md`.
-- [ ] Recontrôler TEST-04 et un déplacement multiple après suppression des doublons.
+- [x] TEST-04 et les tests historiques Export TEST-01 à TEST-30 : campagne entièrement exécutée et validée dans Revit 2025.4 (confirmation utilisateur du 5 novembre 2026). Aucun rejeu global à prévoir.
 - [ ] Consolider la surcouche `stage07` après validation réelle.
 
 ### V1 — Sélection multiple et tutoriel (2026-10-05)
@@ -366,3 +366,15 @@ La branche `feature/export-explorateur-feuilles` a été intégrée à `main` pa
 - [x] Contrôles CI de release sur le SHA exact de `main` : 375 Export + 3 ruban + 79 Calculs + 297 Plans de vente ; ZIP de 191 entrées vérifié.
 - [x] Tag Git et [release GitHub `v1.4.0`](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) publiés, six actifs vérifiés, SHA `21336b3d`.
 - [ ] Recette d'installation de l'installateur v1.4.0 sur Windows.
+
+
+## Correctifs récents — état au 5 novembre 2026
+
+- [x] Export : saisie libre du nommage DWG en PDF combiné — PR #43 fusionnée ; BUG-EXPORT-060.
+- [x] Plans de vente : quatre sélecteurs Revit fonctionnels dans Options avancées — PR #44 fusionnée ; BUG-PDV-031.
+- [x] Plans de vente : persistance des options par projet, y compris les quatre `UniqueId` des sélecteurs — PR #45 fusionnée ; BUG-PDV-032. La confirmation de fusion ne remplace pas la recette Revit spécifique si celle-ci n'est pas consignée.
+- [x] Plans de vente : diagnostic des feuilles modèles incomplètes — PR #47 fusionnée, validée sous Revit.
+- [ ] Export : réglages individuels par mise en page — besoin structurel distinct à spécifier et développer, avec migration de schéma JSON et maintien de l'héritage.
+- [ ] Export : correctifs BUG-EXPORT-061/062 — PR #48 encore ouverte en Draft au 5 novembre, tests Revit 1 et 2 validés par l'utilisateur ; fusion à effectuer séparément.
+
+**Tests historiques TEST-01 à TEST-30 : clôturés et retirés des actions en attente.**
