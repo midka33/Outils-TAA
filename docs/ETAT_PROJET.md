@@ -361,3 +361,13 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Implémentation sur branche `feat/calculs-group-mode-main-ui`, main non modifiée :** choix `auto` par défaut / `vary` / `uniform`, modèle de requête, contrôleur, workflow, revue WPF ; valeurs de référence dans la revue seulement si nécessaire, sécurité transactionnelle existante conservée. Tests de non-régression ajoutés. **Validation CI et Revit de cette évolution à effectuer**.
 
 **Action suivante :** vérifier la suite de tests Calculs et Export, examiner les résultats sur GitHub puis tester la fenêtre principale, notamment la sélection vary/uniform et l'absence de confirmation supplémentaire.
+
+## Validation utilisateur PR #57 — Gestion des groupes (16 novembre 2026)
+
+**Retour utilisateur Revit 2025.4 / pyRevit 5.x :** « parfait ça fonctionne bien tu peux valider », à la suite de l'ajout du sélecteur **GESTION DES GROUPES** dans la fenêtre principale. Ce retour valide l'ergonomie et le fonctionnement observé du nouveau réglage, avec autorisation explicite de fusionner.
+
+**Périmètre de preuve :** le retour valide le parcours testé mais ne fournit pas de résultats détaillés distincts pour les trois modes sur toutes les combinaisons de maquettes. Les scénarios historiques 2 à 8 ont été explicitement déclarés OK précédemment. Ne pas extrapoler à une recette exhaustive sur les cas rares.
+
+**CI vérifiée avant fusion :** PR #57, commit `fccc4fcb8bd2d4fb352f2e60155ac3f5dabc2468` : `Calculs des pièces — tests hors Revit` réussi (run `43899824241`, 103 tests) et `Export — tests hors Revit` réussi (run `43899824194`). Aucune fusion ni modification de `main` effectuée au moment de cette note.
+
+**Décision :** passer la PR #57 prête pour revue et fusionner dans `main`, sous réserve du contrôle GitHub de l'état mergeable, puis vérifier le commit de fusion et les contrôles de la branche principale.
