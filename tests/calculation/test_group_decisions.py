@@ -13,7 +13,7 @@ for folder in (SERVICES, LIB, os.path.dirname(__file__)):
     if folder not in sys.path:
         sys.path.insert(0, folder)
 
-from calculation_diagnostics import group_conflicts
+from calculation_diagnostics import group_conflicts, design_option_summary
 from test_grouped_parameters import (
     GroupedWorkflowTests, FakeElementId
 )
@@ -89,6 +89,61 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertEqual(10.0, self.target2.value)
         self.assertFalse(self.definition.VariesAcrossGroups)
         self.assertEqual([True, False], self.definition.calls)
+
+    def test_uniform_forbidden_if_one_instance_contains_distinct_apartments(self):
+        self.prepared.room_by_key["r2"].GroupId = FakeElementId(10)
+        self.prepared.group_conflicts = group_conflicts(
+            self.document, self.prepared.room_by_key, self.prepared.operations
+        )
+        self.assertFalse(self.prepared.group_conflicts[0]["uniform_safe"])
+        self.prepared.group_mode = "uniform"
+        self.prepared.uniform_values = {42: 10.0}
+        with self.assertRaises(ValidationError):
+            self.workflow.execute(self.prepared)
+
+    def test_variant_summary_counts_main_primary_and_secondary_rooms(self):
+        import types
+        class FakeOption(object):
+            def __init__(self, oid, name, primary):
+                self.Id = FakeElementId(oid)
+                self.Name = name
+                self.IsPrimary = primary
+
+        class FakeOptionsCollector(object):
+            def __init__(self, document):
+                self.document = document
+
+            def OfClass(self, _klass):
+                return self
+
+            def ToElements(self):
+                return self.document.options
+
+        option_a = FakeOption(1, "Variante A", True)
+        option_b = FakeOption(2, "Variante B", False)
+        self.document.options = [option_a, option_b]
+        rooms = [types.SimpleNamespace(DesignOption=None),
+                 types.SimpleNamespace(DesignOption=option_a),
+                 types.SimpleNamespace(DesignOption=option_b)]
+        original = {}
+        names = ("Autodesk", "Autodesk.Revit", "Autodesk.Revit.DB")
+        for name in names:
+            original[name] = sys.modules.get(name)
+            sys.modules[name] = types.ModuleType(name)
+        module = sys.modules["Autodesk.Revit.DB"]
+        module.FilteredElementCollector = FakeOptionsCollector
+        module.DesignOption = FakeOption
+        try:
+            report = design_option_summary(self.document, rooms)
+        finally:
+            for name in names:
+                if original[name] is None:
+                    del sys.modules[name]
+                else:
+                    sys.modules[name] = original[name]
+        self.assertTrue(any("Variante A (principale) : 1" in line for line in report))
+        self.assertTrue(any("Variante B (secondaire) : 1" in line for line in report))
+        self.assertTrue(any("Modele principal : 1" in line for line in report))
 
     def test_uniform_mode_rejects_unapproved_value(self):
         self.prepared.group_mode = "uniform"
