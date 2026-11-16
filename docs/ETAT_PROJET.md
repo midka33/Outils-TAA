@@ -417,3 +417,17 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Décision de sécurité :** ne pas fusionner PR #59 ; maintenir le mode valeurs différentes validé, et protéger le rollback. Aucun recours automatique à ungroup/regroup ou écriture forcée après `False`. Reconcevoir le mode uniforme en distinguant conservation de valeurs déjà alignées et définition d'une nouvelle valeur de référence, qui requiert potentiellement l'éditeur de groupes Revit (parcours assisté), sans prétendre que la valeur choisie dans la revue est forcément retenue.
 
 **Prochaine étape :** documenter/valider la provenance de la valeur de référence dans la première occurrence du type de groupe 5629042 ; concevoir ensuite un workflow de modification de la valeur du membre du type, avec validation explicite sur copie RVT et non-régression du mode valeurs différentes.
+
+## Refonte encadrée du mode « valeur commune » — PR #59 (16/11/2026)
+
+**Décision :** la PR #59 ne peut pas prétendre imposer automatiquement une nouvelle référence commune via `SetAllowVaryBetweenGroups(False)`. Les captures Revit démontrent que l'API remplace la valeur écrite selon la référence de groupe. Le mode « valeurs différentes » fonctionne sur la maquette et doit être préservé.
+
+**Nouvelle implémentation (sur branche de PR #59, `main` inchangée) :**
+1. En cas de conflit entre occurrences et d'une valeur commune demandée différente de la valeur actuelle portée par les membres du type, `RoomCalculationWorkflow.uniform_manual_guidance` construit un **guide sans modification** (type/ID, référence voulue, valeur présente, exemple pièce/groupe).
+2. `CalculationReviewWindow` utilise la même modale WPF et n'autorise pas la confirmation d'écriture pour ce cas ; demander l'édition manuelle du groupe via Revit puis une relance. Le contrôleur transmet ce diagnostic.
+3. Le moteur a le même garde-fou avant transaction pour des appels sans interface, afin de ne pas répéter le rollback de 36 écritures. Les situations déjà compatibles utilisent la transaction historique avec vérification des valeurs après réalignement.
+4. Les algorithmes de regroupement des variantes et le mode `vary` validé n'ont pas été modifiés. Pas de reconstruction/ungroup automatique.
+
+**Limite de portée :** cette première refonte est un **parcours assisté** pour définir une nouvelle valeur commune, pas une édition programmatique complète du groupe Revit. L'aide Autodesk sur les paramètres de projet explique que l'alignement prend la première occurrence ; elle ne démontre pas que chaque maquette accepte les autres écritures programmatiques. Contrôle post-réalignement et rollback restent obligatoires.
+
+**Tests :** cas supplémentaires intégrés dans `test_group_decisions.py` ; exécution CI et validation de l'affichage WPF/édition manuelle réelle encore nécessaires. **PR #59 maintenue en brouillon.**
