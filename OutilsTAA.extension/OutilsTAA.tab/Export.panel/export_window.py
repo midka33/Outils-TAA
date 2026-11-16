@@ -27,6 +27,8 @@ from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
 from publication_tree_drag_drop import PublicationTreeDragDrop
 from sheet_explorer import SheetExplorer
+from dynamic_sheet_groups import resolve_dynamic
+from publication_source import PublicationSource
 from manual_config_import import (
     ManualImportError,
     prepare_manual_import,
@@ -394,6 +396,11 @@ class ExportWindow(forms.WPFWindow):
     def _refresh_tree(self):
         """Construit une arborescence unique : tout conteneur est un dossier."""
         self._folders = self.controller.list_folders()
+        current_sheets = self.controller.export_service.get_sheets()
+        self.current_project_unique_ids = set(
+            str(sheet.UniqueId) for sheet in current_sheets
+            if sheet is not None and getattr(sheet, "UniqueId", None))
+        self._dynamic_errors = {}
         self._carnets = [
             value
             for value in self.controller.list_persistent()
@@ -402,6 +409,20 @@ class ExportWindow(forms.WPFWindow):
         for value in self.session_carnets:
             if self._belongs_to_current_project(value):
                 self._carnets.append(value)
+
+        generated = []
+        for publication in self._carnets:
+            if (getattr(getattr(publication, "source", None), "mode", None)
+                    != PublicationSource.DYNAMIC):
+                continue
+            try:
+                direct, children = resolve_dynamic(publication, current_sheets)
+                publication.items = direct
+                generated.extend(children)
+            except Exception as exc:
+                self._dynamic_errors[str(publication.id)] = str(exc)
+                publication.items = []
+        self._carnets.extend(generated)
 
         self._folders_by_id = dict(
             (str(folder.id), folder)
@@ -527,9 +548,16 @@ class ExportWindow(forms.WPFWindow):
             "TaaFolderIcon",
             True,
         )
-        node.ToolTip = "Dossier • {0} mise(s) en page".format(
-            len(carnet.items or [])
-        )
+        if getattr(carnet, "dynamic_virtual", False):
+            node.ToolTip = "Sous-dossier automatique — généré depuis Revit"
+        elif getattr(getattr(carnet, "source", None), "mode", None) == PublicationSource.DYNAMIC:
+            node.ToolTip = ("Dossier automatique — " +
+                            self._dynamic_errors.get(str(carnet.id),
+                                "Actualisé depuis les feuilles Revit"))
+        else:
+            node.ToolTip = "Dossier • {0} mise(s) en page".format(
+                len(carnet.items or [])
+            )
         node.ContextMenu = self._context_menu_for_folder(node.Tag)
         return node
 
@@ -995,7 +1023,9 @@ class ExportWindow(forms.WPFWindow):
             effective.separate_format_subfolders)
 
     def _save_selected_field(self, field):
-        if self._selected_set is None or self._loading_settings or field not in self.INHERITABLE_FIELDS:
+        if (self._selected_set is None or self._loading_settings
+                or getattr(self._selected_set, "dynamic_virtual", False)
+                or field not in self.INHERITABLE_FIELDS):
             return
         settings = self._selected_set.publication_settings or PublicationSettings()
         self._freeze_legacy_format_folder_setting(self._selected_set, settings, field)
@@ -1037,7 +1067,8 @@ class ExportWindow(forms.WPFWindow):
         self._load_folder_settings()
 
     def _apply_profile_values(self, values):
-        if not values or self._selected_set is None:
+        if (not values or self._selected_set is None
+                or getattr(self._selected_set, "dynamic_virtual", False)):
             return False
         settings = self._selected_set.publication_settings or PublicationSettings()
         settings.pdf_enabled = bool(values.get("pdf_enabled", True))
@@ -1119,6 +1150,12 @@ class ExportWindow(forms.WPFWindow):
         box.Focus()
 
     def Preview_Click(self, sender, args):
+        self._refresh_tree()
+        if getattr(self, "_dynamic_errors", None):
+            forms.alert("Publication dynamique indisponible :\n" +
+                        "\n".join(self._dynamic_errors.values()),
+                        title="Export")
+            return
         # Réutilise le constructeur d'aperçu actif, y compris le raccordement Stage 07.
         import publication_preview_integration as preview_flow
         targets = self._publication_targets()
@@ -1203,13 +1240,41 @@ class ExportWindow(forms.WPFWindow):
         """Chaque nœud possède son menu : aucun clic droit ambigu sur le TreeView."""
         if str(tag[1].id) == "default":
             return None
+        if getattr(tag[1], "dynamic_virtual", False):
+            return None
         menu = ContextMenu()
+        if (getattr(getattr(tag[1], "source", None), "mode", None)
+                == PublicationSource.DYNAMIC):
+            freeze = MenuItem()
+            freeze.Header = "Rendre ce dossier manuel (figer les feuilles)"
+            freeze.Tag = tag
+            freeze.Click += self.FreezeDynamic_Click
+            menu.Items.Add(freeze)
         rename = MenuItem()
         rename.Header = "Renommer (F2)"
         rename.Tag = tag
         rename.Click += self.RenameFolder_Click
         menu.Items.Add(rename)
         return menu
+
+    def FreezeDynamic_Click(self, sender, args):
+        tag = getattr(sender, "Tag", None)
+        if not isinstance(tag, tuple) or len(tag) < 2:
+            return
+        obj = tag[1]
+        if getattr(getattr(obj, "source", None), "mode", None) != PublicationSource.DYNAMIC:
+            return
+        if not forms.alert(
+                "Figer les feuilles et les sous-dossiers de « {} » ?"
+                "\nLes futures feuilles Revit ne seront plus ajoutées automatiquement."
+                .format(obj.name),
+                title="Export — rendre manuel", yes=True, no=True):
+            return
+        ok, _ = self._execute_storage_action(
+            lambda: self.controller.freeze_dynamic(obj),
+            "rendre ce dossier manuel")
+        if ok:
+            self._refresh_tree()
 
     def RenameFolder_Click(self, sender, args):
         # Le clic droit se rapporte au nœud sous le pointeur, même si la
