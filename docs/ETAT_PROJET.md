@@ -449,3 +449,11 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Correctif sur PR #59, main intacte :** `group_mode="auto"` dans l'accueil converti en `vary` en présence de paramètre aligné sur les groupes ; aucune sélection de référence de groupe dans la revue WPF ; la fenêtre de revue ne s'affiche plus que si un appartement existe dans plusieurs variantes, afin de confirmer le mode déjà choisi. Hors variantes partagées, calcul et écriture directe. Les fonctions de test historiques du mode uniforme restent dans le moteur mais ne sont plus appelées par le parcours utilisateur actuel.
 
 **Vérifications :** tests de non-régression adaptés à la nouvelle intention (vrais totaux distincts, absence de choix d'uniformisation, confirmation conditionnelle des variantes). Exécution CI à vérifier sur le dernier commit et validation réelle Revit à effectuer. Ne pas fusionner PR #59 sans accord.
+
+## Calculs — recette utilisateur positive et retrait de l'unité de sortie (16 novembre 2026)
+
+**Retour Revit 2025.4 :** « tout fonctionne bien » concernant le parcours actuel de Calculs des pièces de PR #59 (valeurs réelles par numéro d'appartement, variantes, gestion automatique du paramètre aligné, absence d'uniformisation de type). **Autorisation explicite donnée pour fusionner PR #59 dans `main`** après suppression de la ligne UNITÉ DE SORTIE.
+
+**Dernière modification de branche :** bloc UNITÉ DE SORTIE retiré du layout. `UnitCombo` masqué pour compatibilité technique, sortie automatique (`output_unit_type_id=None`) et non restauration d'un ancien choix manuel. Aucune modification des calculs ni des traitements de groupes. Les sélections manuelles d'unités vers texte/entier ne sont plus disponibles.
+
+**Qualification :** fonctionnement du parcours précédent **validé par utilisateur dans Revit**, suppression de ligne **implémentée** et couverte par tests automatiques, mais non re-testée sur écran Revit après modification. CI à vérifier sur tête de PR, puis PR prête et fusion dans `main`, vérification du SHA de fusion et des tests de la branche principale. Ne pas confondre tests automatisés GitHub et validation Revit.
