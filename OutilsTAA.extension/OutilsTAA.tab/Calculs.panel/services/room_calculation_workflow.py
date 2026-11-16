@@ -128,9 +128,9 @@ class RoomCalculationWorkflow(object):
         ):
             warnings.append(
                 "Le paramètre destination '{}' est aligné par type de groupe. "
-                "Outils TAA autorisera temporairement les valeurs variables "
-                "pendant l'écriture puis restaurera l'alignement avant de "
-                "valider la transaction.".format(request.target_parameter.name)
+                "Par défaut, Outils TAA le déverrouille temporairement puis "
+                "restaure l'alignement. En cas de divergence connue, un choix "
+                "explicite sera demandé avant écriture.".format(request.target_parameter.name)
             )
 
         conflicts = []
