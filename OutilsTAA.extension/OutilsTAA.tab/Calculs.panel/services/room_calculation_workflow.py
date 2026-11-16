@@ -50,6 +50,7 @@ class PreparedCalculation(object):
         self.uniform_values = {}
         self.uniform_extra_members = []
         self.uniform_covered_ids = set()
+        self.uniform_plan_error = None
 
 
 class RoomCalculationWorkflow(object):
@@ -182,16 +183,22 @@ class RoomCalculationWorkflow(object):
         )
         if group_mode != "auto":
             prepared.group_mode = group_mode
-        if group_mode == "uniform":
-            (prepared.uniform_extra_members,
-             prepared.uniform_covered_ids) = build_uniform_member_plan(
-                self.document, prepared.room_by_key, prepared.operations,
-                self.parameter_service, request.target_parameter,
-            )
+        if group_mode in ("uniform", "auto"):
+            try:
+                (prepared.uniform_extra_members,
+                 prepared.uniform_covered_ids) = build_uniform_member_plan(
+                    self.document, prepared.room_by_key, prepared.operations,
+                    self.parameter_service, request.target_parameter,
+                )
+            except ValidationError as error:
+                prepared.uniform_plan_error = str(error)
+                if group_mode == "uniform":
+                    raise
             if prepared.uniform_extra_members:
                 prepared.warnings.append(
-                    "Uniformisation du type de groupe : {} membre(s) homologue(s) "
-                    "supplementaire(s) seront ecrits, y compris hors du filtre."
+                    "Mode valeur commune : {} membre(s) correspondant(s) "
+                    "supplementaire(s) seront mis a jour dans d'autres "
+                    "occurrences du type de groupe, meme hors du filtre."
                     .format(len(prepared.uniform_extra_members))
                 )
         return prepared
@@ -222,6 +229,8 @@ class RoomCalculationWorkflow(object):
             )
         if prepared.group_mode not in ("restore", "vary", "uniform"):
             raise ValidationError("Mode de groupes non reconnu.")
+        if prepared.group_mode == "uniform" and prepared.uniform_plan_error:
+            raise ValidationError(prepared.uniform_plan_error)
         if prepared.group_mode == "uniform":
             required = set(item["type_key"] for item in prepared.group_conflicts)
             if set(prepared.uniform_values) != required:
@@ -328,6 +337,15 @@ class RoomCalculationWorkflow(object):
             ):
                 definitions = self._get_group_override_definitions(valid)
                 enabled_definitions = self._enable_group_override(definitions)
+                if prepared.group_mode == "uniform":
+                    extra_definitions = (
+                        self.grouped_parameter_service.get_varying_definitions(
+                            [(room, parameter)
+                             for op, room, value, parameter in valid]
+                        )
+                        if self.grouped_parameter_service is not None else []
+                    )
+                    enabled_definitions.extend(extra_definitions)
 
                 for operation, room, prepared_value, parameter in valid:
                     try:
