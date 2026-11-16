@@ -158,8 +158,43 @@ class UniformMemberTests(unittest.TestCase):
         definition.SetAllowVaryBetweenGroups = destructive
         report = workflow.execute(workflow.prepare(request))
         self.assertFalse(report.is_success)
-        self.assertIn("modifie la valeur attendue", report.transaction_error)
+        self.assertIn("Valeur commune non conservee", report.transaction_error)
+        self.assertIn("type de groupe", report.transaction_error)
+        self.assertIn("l'editeur de groupes Revit", report.transaction_error)
         self.assertTrue(transactions[0].rolled_back)
+
+    def test_preflight_rejects_two_values_for_same_member_position(self):
+        from group_member_alignment import validate_uniform_targets_by_member
+        from calculation.workflow_models import WriteOperation
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        operations = [
+            WriteOperation("r1", "B200", 380.286410009),
+            WriteOperation("r2", "B200", 324.979623715),
+        ]
+        document = workflow.document
+        with self.assertRaises(Exception) as caught:
+            validate_uniform_targets_by_member(
+                document, {"r1": rooms[0], "r2": rooms[1]}, operations,
+            )
+        self.assertIn("le même membre", str(caught.exception))
+        self.assertIn("380.286410009", str(caught.exception))
+        self.assertIn("324.979623715", str(caught.exception))
+        self.assertEqual([], transactions)
+
+    def test_preflight_accepts_matching_values_for_same_position(self):
+        from group_member_alignment import validate_uniform_targets_by_member
+        from calculation.workflow_models import WriteOperation
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        operations = [
+            WriteOperation("r1", "B200", 380.286410009),
+            WriteOperation("r2", "B200", 380.286410009),
+        ]
+        validate_uniform_targets_by_member(
+            workflow.document,
+            {"r1": rooms[0], "r2": rooms[1]},
+            operations,
+        )
+        self.assertEqual([], transactions)
 
     def test_rollback_report_does_not_repeat_one_error_per_room(self):
         report_path = os.path.join(
