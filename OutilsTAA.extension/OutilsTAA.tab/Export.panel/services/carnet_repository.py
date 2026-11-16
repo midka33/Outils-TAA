@@ -613,6 +613,9 @@ class CarnetRepository(object):
             ]
             data["sets"].append(target)
 
+        if (target.get("source") or {}).get("mode") == PublicationSource.DYNAMIC:
+            raise ValueError("Ce dossier est automatique : rendez-le manuel pour modifier ses feuilles.")
+
         existing = set(str(value.get("unique_id"))
                        for value in target.get("items", []))
         added = 0
@@ -1006,6 +1009,7 @@ class CarnetRepository(object):
             source_data.get("mode", PublicationSource.MANUAL),
             source_data.get("parameter_name"),
             source_data.get("parameter_value"),
+            source_data.get("group_parameter"),
         )
         items = [
             PublicationItem(
