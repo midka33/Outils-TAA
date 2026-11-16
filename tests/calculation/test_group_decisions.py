@@ -149,6 +149,17 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertFalse(self.transactions)
         self.assertEqual([], self.definition.calls)
 
+    def test_guidance_uses_display_units_for_manual_edit(self):
+        self.prepared.group_mode = "uniform"
+        self.prepared.uniform_values = {42: 10.0}
+        formatting = lambda value, request: "{:.3f} m²".format(value)
+        guide = self.workflow.uniform_manual_guidance(
+            self.prepared, {42: 10.0}, formatting
+        )
+        self.assertIn("10.000 m²", guide)
+        self.assertIn("0.000 m²", guide)
+        self.assertIn("Modifier le groupe", guide)
+
     def test_uniform_guidance_not_required_after_manual_group_edit(self):
         self.target1.value = 10.0
         self.target2.value = 10.0
@@ -167,8 +178,9 @@ class GroupConflictDecisionTests(unittest.TestCase):
         window = os.path.join(PANEL, "ui", "calculs_window.py")
         with open(window, "r", encoding="utf-8") as handle:
             caller = handle.read()
-        self.assertIn("uniform_guidance=self.controller.uniform_manual_guidance",
-                      caller)
+        self.assertIn("uniform_guidance=lambda prepared, values:", caller)
+        self.assertIn("self.controller.uniform_manual_guidance(", caller)
+        self.assertIn("self._format_group_value", caller)
 
     def test_uniform_forbidden_if_one_instance_contains_distinct_apartments(self):
         self.prepared.room_by_key["r2"].GroupId = FakeElementId(10)
