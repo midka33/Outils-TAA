@@ -9,6 +9,7 @@ from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
 from calculation_report_window import CalculationReportWindow
+from calculation_decision_window import choose_taa, confirm_taa
 
 
 class ParameterChoice(object):
@@ -27,6 +28,10 @@ class CalculsWindow(forms.WPFWindow):
         self._source_choices = []
         self._target_choices = []
         self._filter_choices = []
+        self._scope_choices = [
+            ParameterChoice("Variantes principales (tout le projet)", "primary"),
+            ParameterChoice("Pièces visibles dans la vue active", "view"),
+        ]
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "calculs_ui.xaml")
@@ -75,6 +80,8 @@ class CalculsWindow(forms.WPFWindow):
         self.SourceParameterCombo.ItemsSource = self._source_choices
         self.TargetParameterCombo.ItemsSource = self._target_choices
         self.FilterParameterCombo.ItemsSource = self._filter_choices
+        self.VariantScopeCombo.ItemsSource = self._scope_choices
+        self.VariantScopeCombo.SelectedIndex = 0
 
         if self._filter_choices:
             self.FilterParameterCombo.SelectedIndex = 0
@@ -215,6 +222,7 @@ class CalculsWindow(forms.WPFWindow):
             filter_parameter=filter_parameter,
             filter_value=filter_value,
             output_unit_type_id=self._selected_unit_type_id(),
+            variant_scope=self.VariantScopeCombo.SelectedItem.descriptor,
         )
 
     def Calculate_Click(self, sender, args):
@@ -255,7 +263,7 @@ class CalculsWindow(forms.WPFWindow):
                     return
 
             message = (
-                "{0} pièce(s) analysée(s)\n"
+                "{0} pièce(s) analysée(s) dans le projet\n"
                 "{1} pièce(s) après filtre\n"
                 "{2} groupe(s)\n"
                 "{3} écriture(s) prévues\n\n"
@@ -291,15 +299,11 @@ class CalculsWindow(forms.WPFWindow):
                     message += "- {}\n".format(warning)
                 message += "\n"
 
-            message += "Écrire ces résultats dans « {} » ?".format(
-                request.target_parameter.name
-            )
-
-            confirmed = forms.alert(
+            message += "Destination : {}".format(request.target_parameter.name)
+            confirmed = confirm_taa(
+                "Confirmer l'écriture dans Revit",
                 message,
-                title="Calculs des pièces — Confirmation",
-                yes=True,
-                no=True,
+                owner=self,
             )
             if not confirmed:
                 self.StatusText.Text = "Calcul annulé avant écriture."
@@ -348,56 +352,55 @@ class CalculsWindow(forms.WPFWindow):
 
     def _choose_group_conflict_mode(self, prepared):
         """Aucun changement de definition n'est fait sans decision explicite."""
-        vary_label = "Autoriser les valeurs différentes (modifier le paramètre)"
-        same_label = "Conserver l'alignement (choisir les valeurs communes)"
-        choices = [vary_label]
+        choices = [
+            ("Autoriser les valeurs différentes — modifier le paramètre", "vary"),
+        ]
         if all(item["uniform_safe"] for item in prepared.group_conflicts):
-            choices.append(same_label)
-        detail = (
-            "{} type(s) de groupe présentent des totaux divergents.\n"
-            "Le premier choix rend le paramètre variable durablement.\n"
-            "Le second conserve l'alignement et demande une valeur de "
-            "référence par type de groupe."
+            choices.append((
+                "Conserver l'alignement — choisir les valeurs communes", "uniform"
+            ))
+        details = (
+            "{} type(s) de groupe ont des résultats différents.\n\n"
+            "Modifier le paramètre : les valeurs peuvent différer entre "
+            "occurrences, y compris lors des prochains calculs.\n\n"
+            "Conserver l'alignement : choisir un total commun à chaque type "
+            "de groupe, sans changer le réglage permanent."
         ).format(len(prepared.group_conflicts))
-        selected = forms.CommandSwitchWindow.show(
-            choices,
-            message=detail,
-            title="Calculs des pièces — Conflits de groupes",
+        selected = choose_taa(
+            "Résoudre les conflits entre groupes", details, choices, owner=self
         )
-        if not selected:
+        if selected is None:
             return False
-        if selected == vary_label:
+        if selected == "vary":
             prepared.group_mode = "vary"
             return True
-        if selected != same_label:
+        if selected != "uniform":
             return False
 
         values = {}
         for conflict in prepared.group_conflicts:
-            labels = []
-            references = {}
-            # Proposer les valeurs vraiment calculees, et non inventer une moyenne.
-            for candidate in conflict["candidates"]:
-                label = "{} (occurrence {}) — {}".format(
-                    candidate["name"],
-                    candidate["instance_id"],
-                    self._format_group_value(candidate["value"], prepared.request),
+            choices = [
+                (
+                    "{} — {}".format(
+                        candidate["name"],
+                        self._format_group_value(candidate["value"], prepared.request),
+                    ),
+                    candidate["value"],
                 )
-                labels.append(label)
-                references[label] = candidate["value"]
-            if not labels:
+                for candidate in conflict["candidates"]
+            ]
+            if not choices:
                 return False
-            picked = forms.SelectFromList.show(
-                labels,
-                title="Valeur commune pour le type de groupe : {}".format(
-                    conflict["name"]
-                ),
-                button_name="Retenir cette valeur pour les occurrences",
-                multiselect=False,
+            picked = choose_taa(
+                "Valeur commune : {}".format(conflict["name"]),
+                "Sélectionnez la surface qui sera appliquée à toutes "
+                "les occurrences de ce type de groupe.",
+                choices,
+                owner=self,
             )
-            if picked not in references:
+            if picked is None:
                 return False
-            values[conflict["type_key"]] = references[picked]
+            values[conflict["type_key"]] = picked
         prepared.uniform_values = values
         prepared.group_mode = "uniform"
         return True
