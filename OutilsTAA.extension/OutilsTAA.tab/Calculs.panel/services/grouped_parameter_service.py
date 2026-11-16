@@ -70,6 +70,27 @@ class GroupedParameterService(object):
 
         return definitions
 
+    def get_varying_definitions(self, room_parameter_pairs):
+        """Définitions actuellement variables à réaligner sur demande.
+
+        À appeler AVANT tout déverrouillage temporaire afin de distinguer
+        l'état initial vrai des définitions rendues variables par l'outil.
+        """
+        result = []
+        seen = set()
+        for room, parameter in room_parameter_pairs or []:
+            if not self.is_grouped(room):
+                continue
+            definition = self._get_supported_definition(parameter)
+            if definition is None or not bool(definition.VariesAcrossGroups):
+                continue
+            key = self._definition_key(definition)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(definition)
+        return result
+
     def enable_temporary_override(self, definitions):
         """Autorise temporairement les valeurs différentes entre groupes."""
         enabled = []

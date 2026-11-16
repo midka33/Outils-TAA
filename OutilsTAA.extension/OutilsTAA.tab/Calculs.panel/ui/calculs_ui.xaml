@@ -180,38 +180,19 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="GESTION DES GROUPES"
+                                   Text="GROUPES REVIT"
                                    VerticalAlignment="Center"
                                    Style="{DynamicResource TAASectionTitle}"/>
-                        <ComboBox Grid.Column="1" x:Name="GroupModeCombo"
-                                  DisplayMemberPath="label"
-                                  Style="{DynamicResource TAAComboBox}"
-                                  ToolTip="Automatique : préserver le réglage du paramètre. Valeurs différentes : autoriser durablement la variation entre groupes. Valeur commune : conserver l'alignement avec choix des valeurs si nécessaire."/>
+                        <TextBlock Grid.Column="1" x:Name="GroupPolicyText"
+                                   Text="Si le paramètre cible suit les groupes, Outils TAA va désactiver cet alignement pour conserver les surfaces calculées. Ce changement sera conservé dans Revit."
+                                   TextWrapping="Wrap" Foreground="#555555"
+                                   VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
 
-                <Border Background="White"
-                        BorderBrush="{DynamicResource TAABorderBrush}"
-                        BorderThickness="1"
-                        Padding="10"
-                        Margin="0,0,0,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="170"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="UNITÉ DE SORTIE"
-                                   VerticalAlignment="Center"
-                                   Margin="0"
-                                   Style="{DynamicResource TAASectionTitle}"
-                                   ToolTip="Disponible uniquement lorsqu'une conversion explicite est pertinente."/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="UnitCombo"
-                                  DisplayMemberPath="label"
-                                  Style="{DynamicResource TAAComboBox}"/>
-                    </Grid>
-                </Border>
+                <!-- Controle technique invisible : conversion automatique conservee,
+                     sans option manuelle dans l'interface. -->
+                <ComboBox x:Name="UnitCombo" Visibility="Collapsed"/>
 
                 <Border Background="White"
                         BorderBrush="{DynamicResource TAABorderBrush}"

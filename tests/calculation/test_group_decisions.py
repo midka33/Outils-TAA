@@ -58,13 +58,18 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.request = fixture._request(self.parameter_service, rooms)
         self.prepared = self.workflow.prepare(self.request)
 
-    def test_group_mode_is_selectable_before_calculation(self):
+    def test_group_policy_is_explained_without_a_selector(self):
         import xml.etree.ElementTree as ET
         path = os.path.join(
             PANEL, "ui", "calculs_ui.xaml"
         )
         root = ET.parse(path).getroot()
         self.assertTrue(any(
+            name.endswith("}Name") and value == "GroupPolicyText"
+            for element in root.iter()
+            for name, value in element.attrib.items()
+        ))
+        self.assertFalse(any(
             name.endswith("}Name") and value == "GroupModeCombo"
             for element in root.iter()
             for name, value in element.attrib.items()
@@ -107,10 +112,13 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertEqual({10.0, 5.0},
                          set(candidate["value"] for candidate in item["candidates"]))
 
-    def test_no_implicit_writing_when_conflict_awaits_user(self):
-        with self.assertRaises(ValidationError):
-            self.workflow.execute(self.prepared)
-        self.assertFalse(self.transactions)
+    def test_automatic_group_mode_writes_real_apartment_totals(self):
+        self.assertEqual("vary", self.prepared.group_mode)
+        report = self.workflow.execute(self.prepared)
+        self.assertTrue(report.is_success)
+        self.assertEqual(10.0, self.target1.value)
+        self.assertEqual(5.0, self.target2.value)
+        self.assertTrue(self.definition.VariesAcrossGroups)
 
     def test_user_can_keep_distinct_values_and_parameter_setting(self):
         self.prepared.group_mode = "vary"
@@ -122,7 +130,9 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertEqual([True], self.definition.calls)
 
     def test_user_can_keep_alignment_using_selected_reference_value(self):
-        item = self.prepared.group_conflicts[0]
+        # Référence du type déjà mise à jour dans l'éditeur de groupes Revit.
+        self.target1.value = 10.0
+        self.target2.value = 10.0
         self.prepared.group_mode = "uniform"
         self.prepared.uniform_values = {42: 10.0}
         report = self.workflow.execute(self.prepared)
@@ -131,6 +141,55 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertEqual(10.0, self.target2.value)
         self.assertFalse(self.definition.VariesAcrossGroups)
         self.assertEqual([True, False], self.definition.calls)
+
+    def test_uniform_new_value_is_written_and_parameter_becomes_variable(self):
+        self.prepared.group_mode = "uniform"
+        self.prepared.uniform_values = {42: 10.0}
+        notice = self.workflow.uniform_alignment_notice(
+            self.prepared, self.prepared.uniform_values
+        )
+        self.assertIn("modifie durablement", notice)
+        self.assertIn("ID 42", notice)
+        report = self.workflow.execute(self.prepared)
+        self.assertTrue(report.is_success)
+        self.assertEqual(10.0, self.target1.value)
+        self.assertEqual(10.0, self.target2.value)
+        self.assertTrue(self.definition.VariesAcrossGroups)
+        self.assertEqual([True], self.definition.calls)
+        self.assertTrue(any(
+            "autoris" in str(warning).lower()
+            for warning in report.warnings
+        ))
+
+    def test_uniform_notice_uses_display_units(self):
+        formatter = lambda value, request: "{:.3f} m²".format(value)
+        notice = self.workflow.uniform_alignment_notice(
+            self.prepared, {42: 10.0}, formatter
+        )
+        self.assertIn("10.000 m²", notice)
+        self.assertIn("ne les maintiendra plus alignees", notice)
+
+    def test_uniform_aligned_reference_does_not_trigger_fallback(self):
+        self.target1.value = 10.0
+        self.target2.value = 10.0
+        self.assertEqual("", self.workflow.uniform_alignment_notice(
+            self.prepared, {42: 10.0}
+        ))
+
+    def test_single_review_warns_without_blocking_uniform_write(self):
+        p = os.path.join(PANEL, "ui", "calculation_review_window.py")
+        with open(p, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("self.GroupSection.Visibility = Visibility.Collapsed", source)
+        self.assertIn('group_mode = "vary"', source)
+        self.assertIn("self.DialogResult = True", source)
+        self.assertNotIn("self.ErrorText.Text = guidance", source)
+        ui = os.path.join(PANEL, "ui", "calculs_window.py")
+        with open(ui, "r", encoding="utf-8") as handle:
+            caller = handle.read()
+        self.assertIn('group_mode="auto"', caller)
+        self.assertIn("if prepared.shared_variant_apartments:", caller)
+        self.assertNotIn("self.GroupModeCombo", caller)
 
     def test_uniform_forbidden_if_one_instance_contains_distinct_apartments(self):
         self.prepared.room_by_key["r2"].GroupId = FakeElementId(10)
@@ -366,6 +425,18 @@ class GroupConflictDecisionTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             workflow.execute(prepared)
         self.assertEqual([], transactions)
+
+    def test_no_variant_overlap_skips_review_and_sets_no_group_uniformization(self):
+        ui = os.path.join(PANEL, "ui", "calculs_window.py")
+        with open(ui, "r", encoding="utf-8") as handle:
+            code = handle.read()
+        self.assertIn("if prepared.shared_variant_apartments:", code)
+        self.assertIn("prepared.variant_separation_confirmed", code)
+        review = os.path.join(PANEL, "ui", "calculation_review_window.py")
+        with open(review, "r", encoding="utf-8") as handle:
+            code = handle.read()
+        self.assertIn("self.GroupSection.Visibility = Visibility.Collapsed", code)
+        self.assertNotIn("self._build_uniform_choices()", code.split("    def GroupMode_Changed(", 1)[0])
 
     def test_invalid_variant_mode_is_rejected(self):
         self.request.variant_mode = "nonsense"

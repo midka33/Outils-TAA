@@ -595,3 +595,81 @@ La fenêtre principale WPF TAA propose maintenant **GESTION DES GROUPES** :
 **Sécurité :** choix invalide refusé dès la préparation ; aucun choix de référence fictif ou silencieux, transaction et rollback inchangés. Le mode n'est pas mémorisé et revient à « Automatique » à chaque ouverture. Aucun changement aux regroupements des variantes ni aux sommes.
 
 **Tests :** `tests/calculation/test_group_decisions.py` couvre le contrôle WPF, les trois modes, la validation précoce et le blocage sans valeur commune. Recette Revit requise avant fusion : choix manuel dans la fenêtre principale, confirmation unique, valeurs variables et uniformisation.
+
+### 7.3.7 Gestion des membres correspondants sans dégrouper (correctif du 16/11/2026)
+
+**Besoin utilisateur :** « Autoriser des valeurs différentes » doit rendre durablement le paramètre indépendant des occurrences de groupes ; « Conserver une valeur commune » doit modifier les pièces homologues de toutes les occurrences d'un même type et maintenir le paramètre aligné.
+
+**Approche API Revit 2025.4 :** pas d'ouverture automatisée du mode interactif « Modifier le groupe ». Le module utilise `Group.GetMemberIds()` dont **l'ordre identifie les membres correspondants entre occurrences du même type de groupe** (documentation de l'API Revit 2025). Pour chaque position d'un membre de pièce à écrire, il retrouve et prépare l'écriture du membre homologue dans **toutes les occurrences du même type**, y compris hors du filtre si nécessaire. Les pièces hors périmètre ne sont pas modifiées dans le mode « valeurs différentes ».
+
+En mode valeur commune, la préparation vérifie l'identité des membres homologues, l'existence du paramètre cible et la compatibilité des valeurs. La fenêtre unique annonce les écritures supplémentaires. Dans une seule transaction Revit, les membres homologues reçoivent la somme retenue ; le module restaure ou active l'alignement (`SetAllowVaryBetweenGroups(False)`) et **compare toutes les valeurs effectives après restauration aux valeurs attendues**. Les éléments réalignés rapportés par Revit ne sont acceptés que s'ils sont **dans le périmètre explicite des écritures** et conservent les valeurs attendues. Sinon, rollback intégral. Aucun groupe n'est dégroupé, recréé ou remplacé.
+
+L'option « autoriser des valeurs différentes » conserve `VariesAcrossGroups=True` après la transaction, y compris lorsque le paramètre était initialement aligné, et ne restaure pas automatiquement cet état. L'option « valeur commune » impose `VariesAcrossGroups=False` lorsque la définition était initialement variable. Le réglage est global à la définition dans le projet.
+
+**Limites :** les conflits reconnus comme dangereux (occurrences comprenant plusieurs appartements distincts avec totaux incompatibles) sont toujours bloqués avant écriture. Une correspondance de membre inaccessible, un paramètre absent ou un changement non prévu provoque un refus/rollback, jamais une correction silencieuse. Il ne s'agit pas d'une édition interactive du groupe ; l'équivalence fonctionnelle doit être vérifiée sur la maquette.
+
+**Aucun résultat calculé :** le message distingue désormais une clé de regroupement vide, une source non numérique ou un groupe inexploitable. Cette erreur est antérieure à toute opération de groupe et ne doit pas être attribuée à tort au choix « valeurs différentes ».
+
+**Recette obligatoire :** copie du RVT ; B200/B201, toutes occurrences du type, valeurs et paramètres, variantes, filtre, Undo. Vérifier les membres ajoutés au plan et leur concordance après réalignement, vérifier que l'option « valeurs différentes » ne modifie pas les autres pièces. Tests automatisés `tests/calculation/test_member_alignment.py` ; ce correctif n'est pas encore validé dans Revit.
+
+### 7.3.8 Correctif expérimental du rétablissement de l'alignement (16/11/2026)
+
+**Recette utilisateur :** mode valeurs différentes = **OK dans Revit 2025.4**. Mode valeur commune = **KO** : après écriture, l'API Revit a remplacé le résultat attendu 380.286410009 par 324.979623715 sur l'ID 5630105 lors du retour à `VariesAcrossGroups=False`. Les 36 écritures ont été annulées, sans conservation de valeurs. Ne pas présenter ce mode comme validé.
+
+**Comportement API :** `InternalDefinition.SetAllowVaryBetweenGroups(False)` réaligne automatiquement les valeurs des éléments correspondants ; l'écriture préalable des membres homologues n'impose pas nécessairement la valeur retenue par Revit. La cause effective de cette sélection de valeur nécessite une recette Revit ciblée.
+
+**Modification expérimentale sur PR #59 :** pré-contrôle des valeurs prévues pour chaque membre homologue identifié par type de groupe et position, puis, dans la transaction uniforme, `Document.Regenerate()` **avant** le passage du paramètre à `False`. La régénération permet à Revit de prendre en compte les écritures intermédiaires avant le réalignement mais n'offre pas à elle seule une garantie. Comparaison des valeurs réelles finales, rollback si différence, diagnostic du type de groupe et de l'ID, sans reconstruction de groupe.
+
+**Recette :** sur copie, répéter exactement B200 / `Surface logement` et contrôler ID 5630105, type de groupe, toutes occurrences, et Ctrl+Z. Si Revit réimpose 324.979623715, ne pas faire de second passage automatique ; rechercher l'état de référence interne du type et envisager une procédure d'édition de groupe Revit assistée.
+
+### 7.3.9 Double contrôle des valeurs avant/après réalignement (16/11/2026)
+
+Une nouvelle tentative Revit avec `Document.Regenerate()` **n'a pas permis l'uniformisation** : type 5629042 avec choix 35.330 m², type 5629531 avec choix 16.047 m², élément 5630105 remis à une autre valeur (324.979623715 en unités internes, au lieu de 380.286410009). La cause exacte de la valeur que Revit choisit reste inconnue.
+
+Le mode uniforme expérimental conserve le rollback et ajoute **deux mesures vérifiées dans la même transaction** : lecture du paramètre cible après régénération, avant `SetAllowVaryBetweenGroups(False)` ; puis lecture après l'appel. Si la valeur a déjà changé avant la restauration, l'erreur l'attribue à l'écriture/régénération ; sinon l'erreur signale le réalignement. Le rapport tente de résoudre l'ID du type même si son nom Revit est inaccessible.
+
+**Ce diagnostic n'est pas une correction métier de l'uniformisation**. Aucune opération de dégroupage/recréation ou écriture après restauration ne doit être appliquée pour forcer le succès. Une prochaine stratégie de modification des valeurs d'un type de groupe doit être testée indépendamment sur une copie RVT, notamment avec variantes de conception.
+
+### 7.3.10 Refonte prudente du mode « valeur commune » — valeur de référence Revit (16 novembre 2026)
+
+**Constat établi sur le RVT :** après écriture et régénération, la valeur demandée est correcte ; l'appel `InternalDefinition.SetAllowVaryBetweenGroups(False)` la remplace en suivant la référence de la première occurrence du groupe. Écrire toutes les occurrences puis réactiver l'alignement n'est donc **pas** une méthode fiable pour imposer arbitrairement une nouvelle valeur commune. Une copie de maquette a confirmé l'échec malgré 120 tests automatisés antérieurs.
+
+**Nouveau contrat UX / moteur pour les conflits détectés :**
+- **Valeurs différentes :** comportement validé conservé à l'identique, `VariesAcrossGroups=True` durable après écriture.
+- **Valeur commune déjà compatible avec les paramètres de pièces alignés :** conserver le parcours automatique du 6 octobre (déverrouillage temporaire, écriture, réalignement, contrôle intégral, rollback).
+- **Nouvelle valeur commune différente des valeurs actuellement portées par les pièces du type de groupe :** pas de transaction automatique hasardeuse. À la confirmation, dans la même fenêtre WPF, un guide non destructif identifie type de groupe (nom / ID), valeur cible et exemple de pièce et d'occurrence avec valeur actuelle. Le guide demande d'annuler la vérification, d'éditer le **type de groupe** par la commande Revit « Modifier le groupe », de renseigner le paramètre cible sur les membres concernés, de terminer l'édition, de contrôler les autres occurrences puis de relancer le calcul.
+- Le moteur impose également cette vérification avant transaction (elle ne dépend pas de l'interface). Aucun dégroupage/reconstruction automatique, aucune réécriture forcée après restauration.
+
+**Important :** le contrôle initial examine les membres dont les résultats diffèrent entre occurrences et leurs valeurs cibles actuelles ; il évite le conflit reproductible du 16/11 mais ne certifie pas la totalité des mécanismes de groupes complexes, notamment groupes imbriqués, variantes ou autres membres non couverts. Le contrôle post-restauration et le rollback sont maintenus. Le parcours manuel n'implique aucune modification du modèle par l'outil.
+
+**Tests :** `tests/calculation/test_group_decisions.py` couvre l'assistance sans transaction, le parcours compatible après édition de groupe, le maintien du comportement automatique historique, le routage de la vérification WPF, la conservation du mode valeurs différentes. Vérification réelle Revit requise avant fusion de PR #59.
+
+### 7.3.11 Gestion automatique des groupes, sans sélecteur principal (16 novembre 2026)
+
+**Décision utilisateur :** supprimer le sélecteur « Gestion des groupes » de la fenêtre principale et afficher à la place une explication concise de l'effet de l'outil lorsque le paramètre de destination suit les groupes. Le libellé WPF est « GROUPES REVIT » et le texte est : « Si le paramètre cible suit les groupes, Outils TAA peut désactiver cet alignement pour conserver les surfaces calculées. Ce changement sera conservé dans Revit. »
+
+**Parcours :** la requête issue de la fenêtre principale utilise `group_mode="auto"`. Quand les occurrences d'un type de groupe divergent et que l'uniformisation est sûre, l'unique revue WPF demande **la valeur commune par type** sans proposer de sélecteur de mode. Les membres homologues reçoivent cette valeur. Si le retour à l'alignement Revit écraserait une référence nouvellement choisie, le module **ne réactive pas l'alignement** : `VariesAcrossGroups=True` reste durable et les valeurs écrites restent identiques mais **ne sont plus garanties alignées automatiquement par Revit**. Le rapport confirme le changement de définition. En cas de regroupement dangereux/impossible à uniformiser, le module écrit les totaux individuels et autorise les valeurs différentes ; la revue en avertit.
+
+**Sécurité :** aucune édition interactive, suppression ni reconstruction des groupes. Sélection de valeurs obligatoires lorsque l'uniformisation sûre est possible ; transaction unique, rollback des écritures défaillantes, contrôle des valeurs après régénération, pré-contrôle des homologues. Les variantes et les traitements autres que l'alignement restent inchangés.
+
+**Validation :** tests automatiques mis à jour pour la disparition de `GroupModeCombo` en fenêtre principale, l'affichage `GroupPolicyText`, le comportement de repli en `VariesAcrossGroups=True` et la non-régression du parcours « valeur commune déjà compatible ». Essai Revit 2025.4 requis avant fusion de PR #59.
+
+### 7.3.12 Calculs individuels sans choix d'uniformisation dans l'interface (16/11/2026)
+
+**Dernière décision utilisateur :** la valeur écrite doit être **strictement le total calculé par numéro d'appartement, ventilé par variante lorsque le mode « séparées » est actif**, et non un total choisi par type de groupe. Aucune uniformisation automatique ni choix de référence par type de groupe dans l'UI. Retirer la revue de calcul lorsqu'aucune variante partagée n'exige de confirmation.
+
+**Comportement UI implémenté sur PR #59 :**
+- Dans la fenêtre principale, texte : « Si le paramètre cible suit les groupes, Outils TAA **va désactiver** cet alignement pour conserver les surfaces calculées. Ce changement sera conservé dans Revit. »
+- La requête utilise `group_mode="auto"`. Lors de la préparation, si le paramètre destination est actuellement aligné et que des pièces de groupes vont être écrites, le mode devient `vary` ; l'écriture conserve durablement `VariesAcrossGroups=True` et ne remplace aucun résultat par un choix commun. Sinon, le mode historique `restore` reste applicable aux paramètres non concernés.
+- La revue WPF n'est ouverte que si `shared_variant_apartments` n'est pas vide ; dans ce cas elle informe/valide seulement le choix de variantes (séparées ou additionnées). La section groupes est masquée. Hors de ce cas, l'écriture démarre sans revue supplémentaire et les flags de confirmation des variantes correspondent au réglage déjà choisi dans l'accueil.
+- Les pièces de même appartement dans le même scénario reçoivent la même somme **par conception du calcul** ; deux appartements différents du même type de groupe peuvent conserver des totaux différents.
+
+**Compatibilité :** API interne `group_mode=uniform` conservée provisoirement pour la non-régression historique, mais n'est pas exposée dans l'UI actuelle. Transactions, rollback, variantes et rapport restent disponibles. Cette nouvelle évolution n'est pas encore validée dans Revit 2025.4.
+
+### 7.3.13 Simplification finale de la fenêtre principale et unités automatiques (16/11/2026)
+
+**Demande et recette Revit 2025.4 de l'utilisateur :** le parcours actuel de Calculs des pièces **fonctionne bien**, avec valeurs par appartement, gestion automatique de l'alignement des groupes et écran simplifié. Retirer uniquement la ligne **UNITÉ DE SORTIE** de la fenêtre principale, puis autorisation explicite de fusionner PR #59.
+
+**Implémentation UI :** le bloc `UNITÉ DE SORTIE` est supprimé du layout visible. `UnitCombo` reste un contrôle technique WPF caché pour ne pas casser les handlers existants ; aucune option de conversion manuelle n'est désormais transmise à la requête (`output_unit_type_id=None`). Un ancien choix d'unité enregistré n'est plus restauré silencieusement. Les conversions automatiques du moteur (déduites des types source/destination) et les opérations d'aire en unités internes Revit ne sont pas modifiées. La possibilité de choisir manuellement une unité de sortie pour un paramètre texte/entier est **retirée de l'interface** : ce changement doit être pris en compte lors des futures évolutions.
+
+**Vérification :** tests statiques XAML et contrôleur WPF, suites CI Calculs/Export sur le commit final, puis recette du layout allégé non encore observée dans Revit au moment de cette note. Validation utilisateur du fonctionnement avant retrait de la ligne : **confirmée**, mais ne prouve pas spécifiquement la nouvelle interface.

@@ -336,6 +336,7 @@ class GroupedWorkflowTests(unittest.TestCase):
         request = self._request(parameter_service, rooms)
 
         prepared = workflow.prepare(request)
+        prepared.group_mode = "restore"  # Regression du parcours historique
         report = workflow.execute(prepared)
 
         self.assertTrue(report.is_success)
@@ -357,6 +358,7 @@ class GroupedWorkflowTests(unittest.TestCase):
         request = self._request(parameter_service, rooms)
 
         prepared = workflow.prepare(request)
+        prepared.group_mode = "restore"  # Proteger le rollback historique
         report = workflow.execute(prepared)
 
         self.assertFalse(report.is_success)

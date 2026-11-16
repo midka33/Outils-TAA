@@ -126,3 +126,91 @@ métadonnées Revit qu'une seule fois.
 **Correction proposée et implémentée sur `feat/calculs-group-mode-main-ui` :** `GESTION DES GROUPES` dans la fenêtre WPF principale, trois choix `auto/vary/uniform`, transmis `CalculationRequest → Controller → Workflow → revue WPF`. En mode manuel, ne pas redemander l'option à la confirmation ; en mode commun, demander uniquement les références nécessaires. Toujours refuser les uniformisations non sûres et les valeurs manquantes avant transaction.
 
 **Anti-régression :** tests ciblés `test_group_decisions.py` et CI Calculs + Export, validation Revit 2025.4 du sélecteur et des deux parcours de groupe. **Non validé dans Revit au moment du commit.**
+
+### BUG-CALCULS-012 — Uniformisation partielle des occurrences de groupe
+
+**Symptôme :** « Conserver une valeur commune entre groupes » peut échouer avec plusieurs dizaines d'éléments réalignés. Les opérations préparées ne couvraient que les pièces collectées/filtrées ; les éléments homologues situés dans d'autres occurrences du même type de groupe n'étaient pas comparés. En mode « valeurs différentes », une boîte « aucun résultat » pouvait apparaître avant transaction sans expliquer quelle donnée était absente.
+
+**Cause :** `group_conflicts` analyse seulement les écritures du calcul. La restauration `SetAllowVaryBetweenGroups(False)` agit à l'échelle de la définition du paramètre ; l'ancien contrôle rejetait systématiquement tout élément retourné par l'API, même s'il était attendu et conservait la bonne valeur.
+
+**Correction proposée/implémentée sur `fix/calculs-uniform-revit-groups-v2` :** plan des membres homologues par ordre documenté de `Group.GetMemberIds()`, récupération de toutes les occurrences du type, écritures supplémentaires explicites, restauration et vérification de toutes les valeurs post-restauration avant commit. Modification durable `VariesAcrossGroups=True` maintenue en mode « valeurs différentes ». Le mode uniforme rend aussi `VariesAcrossGroups=False` lorsque le paramètre était auparavant variable. Les validations historiques et rollback ne sont pas supprimés. Causes des sommes absentes détaillées sans transaction.
+
+**Règle préventive :** ne jamais considérer qu'un ensemble de pièces sélectionnées représente toutes les occurrences d'un type de groupe. Ne pas approuver un réalignement si le membre concerné n'a pas été explicitement préparé ou si la valeur finale diffère. Aucune suppression/reconstruction de groupe.
+
+**Tests :** `test_member_alignment.py` : écriture d'un membre homologue hors filtre, alignement précédemment variable, durabilité de valeurs différentes, retour d'ID attendu, ID hors plan et valeur modifiée entraînant rollback, diagnostic sources/groupes vides. CI puis validation Revit obligatoires.
+
+### BUG-CALCULS-013 — Uniformisation écrasée par le réalignement Revit malgré les membres homologues
+
+**Retour utilisateur Revit 2025.4 du 16/11/2026, PR #59 (non fusionnée) :** mode **« Autoriser des valeurs différentes » validé OK** ; mode **« Conserver une valeur commune » KO**. Pendant la restauration, l'élément ID **5630105** a vu son résultat prévu **380.286410009** remplacé par **324.979623715**. Transaction des 36 écritures annulée. Les valeurs sont des nombres en unités internes Revit dans le journal ; ne pas les qualifier arbitrairement de m².
+
+**Cause observée :** Revit remplace une valeur précédemment écrite au moment de `SetAllowVaryBetweenGroups(False)`. La documentation Autodesk confirme que cette méthode effectue un réalignement automatique ; l'ordre des membres homologues ne garantit pas à lui seul la valeur qu'elle retient. La cause précise de la valeur source 324.979623715 reste à identifier sur le RVT.
+
+**Correction expérimentale sur PR #59 :**
+- Pré-contrôle des consignes par couple `(ID du type de groupe, position de membre retournée par GetMemberIds())` : deux valeurs différentes au même emplacement sont refusées avant la transaction, avec type et pièces concernés.
+- `Document.Regenerate()` appelé **après les écritures et avant le rétablissement de l'alignement** du paramètre, seulement en mode uniforme, pour forcer les mises à jour différées. Hypothèse : Revit pouvait employer des valeurs/caches non encore régénérés. L'appel doit être testé dans Revit ; ce n'est **pas** une preuve de correction.
+- Si Revit remplace encore une valeur, erreur contextualisée avec ID et type de groupe et maintien du rollback. Aucune écriture forcée après le réalignement et aucune suppression/reconstruction de groupes.
+- Mode valeurs différentes validé laissé inchangé.
+
+**Règle préventive :** ne jamais considérer `SetAllowVaryBetweenGroups(False)` comme une simple propriété booléenne sans effet sur les données. Vérifier les valeurs effectives après régénération et réalignement et annuler dès qu'elles diffèrent. Ne jamais annoncer l'uniformisation comme résolue sans essai réel Revit.
+
+**Anti-régression :** `test_member_alignment.py` : conflit de valeurs homologues 380.286410009 / 324.979623715 avant transaction, restauration qui écrase une valeur, ordre `writes → Document.Regenerate → SetAllowVaryBetweenGroups(False)` simulé. Tests sur une copie du RVT obligatoires, en confirmant l'ID 5630105.
+
+**Complément BUG-CALCULS-013 — nouvelle recette Revit (captures utilisateur du 16/11/2026).** Le mode uniforme montre explicitement **2 types de groupes** : type ID `5629042`, choix « Groupe 1 — 35.330 m² » ; type ID `5629531`, choix « Groupe 2 — 16.047 m² ». Les 36 écritures sont une nouvelle fois annulées : pour l'élément `5630105`, attendu `380.286410009` (valeur interne correspondant à ≈35.33 m²), Revit impose `324.979623715` (≈30.19 m²) après le retour à `VariesAcrossGroups=False`. La régénération proposée lors du tour précédent **n'a pas suffi** : ne plus considérer l'hypothèse « régénération seule » comme corrective. Les captures indiquent que le diagnostic de type de groupe renvoyait `inconnu` malgré le fait que l'interface connaissait deux IDs de types.
+
+**Nouvelle correction instrumentée (PR #59, toujours en brouillon) :** relever pour chaque élément la valeur effective **après écritures et `Document.Regenerate()`, juste avant le réalignement**, refuser immédiatement les pertes de valeur survenues avant ce passage ; après `SetAllowVaryBetweenGroups(False)`, comparer de nouveau les valeurs attendues et les valeurs effectives. Sur échec, le message distingue les deux étapes et tente de remonter nom/ID du type depuis le groupe Revit ou à défaut le diagnostic de conflits préparé. Ce changement **ne prétend pas uniformiser** une maquette qui est réalignée d'autorité par Revit ; il maintient le rollback et ne touche pas au mode « valeurs différentes » validé.
+
+**Tests anti-régression :** simulation d'une valeur écrasée lors de régénération (pas d'appel `False`) ; simulation d'une valeur écrasée seulement par la restauration (capture de valeur avant/valeur après et ID du type). La validation Revit reste à réaliser.
+
+**Complément décisif BUG-CALCULS-013 — règle Autodesk retrouvée le 16/11/2026 :** [Documentation Autodesk — Create or Modify Project Parameters](https://help.autodesk.com/cloudhelp/2023/ENU/Revit-Model/files/GUID-28CBBEC2-6262-42D3-AE41-B36166E8318F.htm) précise explicitement que lorsqu'un paramètre passe de valeurs variables à valeurs alignées, **la valeur retenue par Revit est celle attribuée au membre dans la première occurrence du groupe**. La documentation [InternalDefinition.SetAllowVaryBetweenGroups](https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API-MainReference/files/html/6f5af0cc-2ab3-153a-e07d-78fbc12aefc1.htm) confirme que l'appel `False` réaligne les membres et peut modifier des éléments. Ceci explique le mécanisme du remplacement de 380.286410009 par 324.979623715, sans démontrer à lui seul de quelle occurrence provient cette valeur dans ce RVT.
+
+**Conséquence technique :** les modifications actuellement codées (écriture de tous les homologues, régénération puis `False`) **ne permettent pas de garantir la valeur commune explicitement sélectionnée**. Un simple changement d'ordre des écritures ou une nouvelle régénération ne résoudra pas ce contrat. Ne jamais déclarer le mode uniforme corrigé dans PR #59. Pour fixer arbitrairement la valeur du membre de groupe, Autodesk décrit l'édition interactive du groupe. L'API Revit ne fournit pas d'équivalent transactionnel simple et fiable de ce mode. Ne pas tenter d'ungroup/regroup automatique sans accord explicite et protocole d'intégrité/Undo.
+
+**Résultat final de la dernière recette :** type 5629042, élément 5630105, valeur voulue 380.286410009 et valeur imposée 324.979623715 ; valeur AVANT restauration = 380.286410009, donc seule la phase `SetAllowVaryBetweenGroups(False)` provoque le remplacement. Rollback des 36 écritures correct.
+
+**Prochaine conception :** dissocier « garder l'alignement existant » de « définir une nouvelle valeur commune ». Préférer pour le second un parcours assisté d'édition du groupe ou une proposition d'opération avancée séparée, explicitement approuvée. Préserver le mode valeurs différentes déjà validé.
+
+### BUG-CALCULS-014 — Choix d'une nouvelle valeur commune incompatible avec la valeur de référence Revit
+
+**Symptôme :** l'utilisateur choisit 35,330 m² pour le type 5629042, mais `SetAllowVaryBetweenGroups(False)` rétablit une valeur différente : élément 5630105 attendu 380.286410009 et obtenu 324.979623715 en unités internes. Le rollback protège le projet ; les tentatives d'écritures de membres homologues et `Document.Regenerate()` ne suffisent pas.
+
+**Cause confirmée du mécanisme :** Revit réutilise la valeur du membre de la première occurrence lorsqu'on désactive la variabilité du paramètre entre occurrences. Cette règle est documentée dans l'aide Autodesk relative aux paramètres de projet. L'identité de cette occurrence de référence dans le RVT doit encore être vérifiée.
+
+**Correction proposée et implémentée dans PR #59 (non fusionnée) :** contrôle **en lecture seule avant écriture** des valeurs actuelles du paramètre cible sur les membres des types où un conflit de surfaces est détecté. Si une nouvelle référence est demandée, la revue unique WPF affiche nom/ID du type, valeur cible, valeur actuelle et exemple d'ID pièce/groupe ; elle demande d'utiliser « Modifier le groupe » dans Revit, sans transaction. Même règle imposée par le moteur pour éviter un contournement de l'interface. Si les références existent déjà, le comportement historique validé le 6 octobre reste disponible, avec rollback si Revit impose tout de même un changement non prévu. Aucune modification du mode « valeurs différentes » (validé Revit).
+
+**Règle préventive :** ne pas assimiler l'écriture en mode temporairement variable à l'édition de la valeur de référence du type de groupe. Ne pas présenter une intervention manuelle comme une automatisation du mode uniforme. N'ajouter ni `UngroupMembers` ni régénération supplémentaire comme substitut à une édition de groupe.
+
+**Anti-régression :** test d'une nouvelle référence qui bloque **avant** toute transaction et vérifie le guide, test d'une référence déjà compatible et du chemin historique, vérification du raccordement de la fenêtre WPF, suite Calculs et Export. Validation dans Revit 2025.4 encore attendue.
+
+### BUG-CALCULS-015 — Sélecteur de groupes inutile et blocage d'une nouvelle valeur commune
+
+**Symptôme :** la fenêtre principale proposait trois modes de groupes, puis le parcours uniforme nécessitait une édition manuelle du groupe. L'utilisateur demande une gestion automatique avec explication visible de la modification du réglage du paramètre plutôt qu'un sélecteur.
+
+**Cause :** l'alignement `VariesAcrossGroups=False` par Revit peut remplacer la valeur commune nouvellement calculée. L'assistance précédente interdisait l'écriture alors que l'utilisateur accepte le changement durable de réglage du paramètre cible.
+
+**Correction implémentée en branche PR #59 :** retirer le `GroupModeCombo` de la fenêtre principale ; afficher une phrase informative `GroupPolicyText`. Le mode automatique conserve un choix de valeur commune par type uniquement si sûr. Si cette référence n'est pas déjà compatible avec l'alignement existant, l'outil écrit les valeurs communes mais **laisse `VariesAcrossGroups=True` durablement**, avec avertissement dans la fenêtre et dans le rapport. Les groupes non uniformisables passent par les écritures individuelles. Le mode de valeurs différentes déjà validé n'est pas modifié au niveau du moteur.
+
+**Règle préventive :** ne pas qualifier un paramètre de « suit les groupes » après le repli : l'égalité des valeurs écrites est un instantané, pas une contrainte Revit permanente. Toujours informer explicitement de la modification globale de la définition. Pas de dégroupage ni réactivation de `False` si cela écraserait la valeur choisie.
+
+**Tests :** contrat XAML fenêtre principale, choix auto + référence par type dans la revue unique, repli explicite et durabilité du réglage, cas historique encore aligné. CI Calculs et Export, recette Revit sur copie avant fusion.
+
+### BUG-CALCULS-016 — Revue inutile et uniformisation contraire au total de l'appartement
+
+**Retour utilisateur :** malgré le remplacement du sélecteur des groupes par une information, la fenêtre « Vérifier le calcul » montre encore deux listes de valeur commune pour les types `5629042` et `5629531`. Le besoin confirmé est **d'écrire le total exact du calcul par appartement**, jamais un total de référence fixé selon le type Revit.
+
+**Cause :** l'UI demande encore un `uniform` en présence de `group_conflicts`, bien que l'utilisateur ait supprimé ce choix. La revue était en outre affichée systématiquement sans décision de variante nécessaire.
+
+**Correction implémentée sur PR #59 :** l'UI prépare un mode `vary` si l'écriture touche un paramètre de groupe aligné ; écrit les valeurs `operation.value` de chaque appartement ; n'expose plus aucun choix de valeur commune par type. La revue ne subsiste que lorsque le même appartement se retrouve dans plusieurs variantes. La phrase de la fenêtre principale dit désormais « **va désactiver** » lorsque la cible suit les groupes.
+
+**Prévention :** ne pas réintroduire de sélection par type de groupe dans le parcours de calcul des appartements ; préserver la distinction entre regroupement par numéro d'appartement et type de groupe Revit. Garder la confirmation de variantes lorsque nécessaire, jamais en remplacement par une uniformisation.
+
+**Anti-régression :** `test_group_decisions.py` vérifie l'écriture de résultats distincts (10 et 5) sur deux occurrences de groupe de même type, l'état durable de `VariesAcrossGroups`, l'absence de combos de groupe dans la revue et la revue limitée aux variantes. Tests hors Revit et recette sur copie RVT obligatoires avant fusion.
+
+### BUG-CALCULS-017 — Ligne « Unité de sortie » superflue dans l'interface validée
+
+**Retour utilisateur Revit (16/11/2026) :** le calcul et la gestion automatique des groupes fonctionnent, mais la ligne UNITÉ DE SORTIE est jugée inutile. Demande de suppression et accord explicite de fusionner dans main.
+
+**Correction :** suppression du bloc visuel, conservation du contrôle `UnitCombo` masqué uniquement pour la compatibilité des événements WPF et de la logique existante ; le choix transmis à la requête reste automatiquement `None`, sans restaurer d'ancien choix persistant. Aucune modification de l'arithmétique du calcul, des variantes, des valeurs de groupes ou de la transaction. Les options de conversion manuelle auparavant offertes aux cibles String/Integer ne sont plus accessibles.
+
+**Prévention :** ne pas supprimer un contrôle encore référencé par les handlers lors d'un changement cosmétique, et ne jamais appliquer silencieusement un ancien réglage masqué. Tester le XAML, l'unité automatique et les autres fonctions validées.
+
+**Anti-régression :** `tests/calculation/test_ui_wiring.py::test_automatic_units_and_warnings_are_preserved`; suites Calculs et Export. Contrôle d'affichage Revit de la ligne supprimée conseillé après mise à jour de main.

@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
 from calculation.models import RoomCalculationItem
+from group_member_alignment import (build_uniform_member_plan,
+                                    validate_uniform_targets_by_member)
 from calculation_diagnostics import (group_conflicts, design_option_summary,
                                      variant_group_key, variant_group_label,
                                      shared_apartments_across_variants)
@@ -47,6 +49,9 @@ class PreparedCalculation(object):
         # Choix explicite par utilisateur; 'restore' preserve l'ancien comportement.
         self.group_mode = "restore"
         self.uniform_values = {}
+        self.uniform_extra_members = []
+        self.uniform_covered_ids = set()
+        self.uniform_plan_error = None
 
 
 class RoomCalculationWorkflow(object):
@@ -177,9 +182,101 @@ class RoomCalculationWorkflow(object):
                 separate_result, self.document
             ),
         )
-        if group_mode != "auto":
+        if group_mode == "auto":
+            # L'utilisateur a ete averti dans l'accueil : en presence d'un
+            # parametre de piece aligne entre groupes, conserver les sommes
+            # impose de permettre durablement des valeurs variables.
+            prepared.group_mode = (
+                "vary" if self._selection_requires_group_override(
+                    filtered, request.target_parameter
+                ) else "restore"
+            )
+        else:
             prepared.group_mode = group_mode
+        if group_mode == "uniform":
+            try:
+                (prepared.uniform_extra_members,
+                 prepared.uniform_covered_ids) = build_uniform_member_plan(
+                    self.document, prepared.room_by_key, prepared.operations,
+                    self.parameter_service, request.target_parameter,
+                )
+            except ValidationError as error:
+                prepared.uniform_plan_error = str(error)
+                if group_mode == "uniform":
+                    raise
+            if prepared.uniform_extra_members and group_mode == "uniform":
+                prepared.warnings.append(
+                    "Mode valeur commune : {} membre(s) correspondant(s) "
+                    "supplementaire(s) seront mis a jour dans d'autres "
+                    "occurrences du type de groupe, meme hors du filtre."
+                    .format(len(prepared.uniform_extra_members))
+                )
         return prepared
+
+    def uniform_alignment_notice(self, prepared, selected_values,
+                                 format_value=None):
+        """Annonce le repli automatique sur un parametre variant entre groupes.
+
+        Quand la valeur commune demandee differe des valeurs deja presentes,
+        le retour a VariesAcrossGroups=False risquerait de la remplacer selon
+        l'occurrence de reference choisie par Revit. Les ecritures restent
+        uniformes, mais la definition du parametre devient durablement variable.
+        """
+        if not prepared.group_conflicts:
+            return ""
+        lines = []
+        target = prepared.request.target_parameter
+        for conflict in prepared.group_conflicts:
+            type_key = conflict["type_key"]
+            if type_key not in selected_values:
+                continue
+            desired = selected_values[type_key]
+            proposed = self.writer.prepare_value(
+                prepared.request.source_parameter,
+                target, desired, prepared.request.output_unit_type_id,
+            )
+            differing = None
+            for room_key in conflict["room_keys"]:
+                room = prepared.room_by_key.get(room_key)
+                if room is None:
+                    continue
+                parameter = self.parameter_service.get_parameter(room, target)
+                if parameter is None:
+                    continue
+                current = self.parameter_service.read_parameter(parameter)
+                if not self._same_value(current, proposed):
+                    differing = current
+                    break
+            if differing is None:
+                continue
+            if format_value is not None and target.storage_type == "Double":
+                requested_label = format_value(desired, prepared.request)
+            else:
+                requested_label = str(proposed)
+            lines.append(
+                "{} (ID {}) : {}".format(
+                    conflict["name"], type_key, requested_label
+                )
+            )
+        if not lines:
+            return ""
+        return (
+            "Les valeurs communes suivantes seront ecrites automatiquement : "
+            "{}. Pour eviter que Revit les remplace lors du realignement, "
+            "le parametre '{}' sera modifie durablement : "
+            "'Autoriser les valeurs differentes entre occurrences de groupes'. "
+            "Les valeurs ecrites resteront identiques pour les membres "
+            "correspondants, mais Revit ne les maintiendra plus alignees "
+            "automatiquement."
+            .format("; ".join(lines), target.name)
+        )
+
+    # Compatibilite de l'interface et du controleur avec le nom historique.
+    def uniform_manual_guidance(self, prepared, selected_values,
+                                format_value=None):
+        return self.uniform_alignment_notice(
+            prepared, selected_values, format_value
+        )
 
     def execute(self, prepared, progress=None):
         valid = []
@@ -207,6 +304,8 @@ class RoomCalculationWorkflow(object):
             )
         if prepared.group_mode not in ("restore", "vary", "uniform"):
             raise ValidationError("Mode de groupes non reconnu.")
+        if prepared.group_mode == "uniform" and prepared.uniform_plan_error:
+            raise ValidationError(prepared.uniform_plan_error)
         if prepared.group_mode == "uniform":
             required = set(item["type_key"] for item in prepared.group_conflicts)
             if set(prepared.uniform_values) != required:
@@ -221,6 +320,19 @@ class RoomCalculationWorkflow(object):
                     uniform_by_room[room_key] = prepared.uniform_values[item["type_key"]]
         else:
             uniform_by_room = {}
+
+        uniform_relaxed = False
+        if prepared.group_mode == "uniform":
+            uniform_notice = self.uniform_alignment_notice(
+                prepared, prepared.uniform_values
+            )
+            uniform_relaxed = bool(uniform_notice)
+            validate_uniform_targets_by_member(
+                self.document,
+                prepared.room_by_key,
+                prepared.operations,
+                uniform_by_room,
+            )
 
         total_ops = len(prepared.operations)
         for index, operation in enumerate(prepared.operations, 1):
@@ -263,6 +375,39 @@ class RoomCalculationWorkflow(object):
             if progress is not None:
                 progress(index, total_ops)
 
+        if prepared.group_mode == "uniform":
+            # Les membres homologues d'autres occurrences doivent recevoir la
+            # meme somme. Sans cela, le retour a l'alignement peut modifier
+            # silencieusement les membres non selectionnes.
+            for room, raw_value, type_key in prepared.uniform_extra_members:
+                raw = prepared.uniform_values.get(type_key, raw_value)
+                member_id = self._room_key(room, len(valid))
+                operation = WriteOperation(
+                    member_id, "type de groupe {}".format(type_key), raw
+                )
+                try:
+                    prepared_value = self.writer.prepare_value(
+                        prepared.request.source_parameter,
+                        prepared.request.target_parameter,
+                        raw,
+                        prepared.request.output_unit_type_id,
+                    )
+                    parameter = self._validate_target_on_room(
+                        room, prepared.request.target_parameter,
+                    )
+                    valid.append((operation, room, prepared_value, parameter))
+                except Exception as error:
+                    failed.append(WriteResult(
+                        member_id, False, str(error), operation.group_value
+                    ))
+            if failed:
+                # Pas de transaction si un membre de groupe ne peut etre ecrit.
+                return CalculationExecutionReport(
+                    failed_results=failed,
+                    skipped=prepared.result.skipped,
+                    warnings=prepared.warnings,
+                )
+
         if not valid:
             return CalculationExecutionReport(
                 failed_results=failed,
@@ -272,7 +417,6 @@ class RoomCalculationWorkflow(object):
 
         successful = []
         temporary_success = []
-
         try:
             with RevitTransaction(
                 self.document,
@@ -280,7 +424,17 @@ class RoomCalculationWorkflow(object):
                 transaction_factory=self.transaction_factory,
             ):
                 definitions = self._get_group_override_definitions(valid)
+                initially_varying = []
+                if prepared.group_mode == "uniform" and self.grouped_parameter_service:
+                    initially_varying = (
+                        self.grouped_parameter_service.get_varying_definitions(
+                            [(room, parameter)
+                             for op, room, value, parameter in valid]
+                        )
+                    )
                 enabled_definitions = self._enable_group_override(definitions)
+                if initially_varying:
+                    enabled_definitions.extend(initially_varying)
 
                 for operation, room, prepared_value, parameter in valid:
                     try:
@@ -307,13 +461,35 @@ class RoomCalculationWorkflow(object):
                             )
                         )
 
-                if prepared.group_mode in ("restore", "uniform"):
+                if prepared.group_mode in ("vary", "uniform") and failed:
+                    raise ValidationError("Ecriture incomplete : annulation de securite.")
+                if prepared.group_mode == "uniform" and enabled_definitions:
+                    # Revit differe certaines mises a jour jusqu'a regeneration.
+                    # Synchroniser toutes les valeurs AVANT d'imposer a
+                    # nouveau l'alignement global du parametre de groupe.
+                    regenerate = getattr(self.document, "Regenerate", None)
+                    if regenerate is not None:
+                        regenerate()
+                values_before_alignment = {}
+                if prepared.group_mode == "uniform":
+                    values_before_alignment = self._snapshot_target_values(
+                        valid, prepared.request.target_parameter
+                    )
+                    self._verify_values_before_alignment(
+                        valid, values_before_alignment
+                    )
+                if prepared.group_mode in ("restore", "uniform") and not uniform_relaxed:
                     realigned = self._restore_group_alignment(enabled_definitions)
                 else:
                     realigned = []
-                if prepared.group_mode in ("vary", "uniform") and failed:
-                    raise ValidationError("Ecriture incomplete : annulation de securite.")
-                if realigned:
+                if prepared.group_mode == "uniform" and not uniform_relaxed:
+                    # Le parametre reste aligne seulement si Revit conserve
+                    # effectivement les valeurs souhaitees.
+                    self._verify_uniform_alignment(
+                        valid, realigned, prepared.request.target_parameter,
+                        values_before_alignment, prepared.group_conflicts
+                    )
+                elif realigned:
                     raise ValidationError(
                         "La restauration de l'alignement par type de groupe "
                         "aurait modifié {} élément(s). Les occurrences de groupe "
@@ -328,6 +504,15 @@ class RoomCalculationWorkflow(object):
                 prepared.warnings.append(
                     "Reglage du parametre conserve : valeurs differentes "
                     "autorisees entre occurrences de groupes."
+                )
+            elif prepared.group_mode == "uniform" and uniform_relaxed:
+                prepared.warnings.append(
+                    "Valeurs communes ecrites avec succes. Le parametre '{}' "
+                    "autorise desormais durablement des valeurs differentes "
+                    "entre occurrences de groupes : Revit ne maintiendra pas "
+                    "automatiquement leur egalite.".format(
+                        prepared.request.target_parameter.name
+                    )
                 )
             elif prepared.group_mode == "uniform" and prepared.group_conflicts:
                 prepared.warnings.append(
@@ -359,6 +544,143 @@ class RoomCalculationWorkflow(object):
             skipped=prepared.result.skipped,
             warnings=prepared.warnings,
         )
+
+    def _verify_values_before_alignment(self, valid, values):
+        """Refuse des valeurs deja ecrasees avant la restauration des groupes."""
+        for operation, room, expected, parameter in valid:
+            identifier = self._element_id_value(getattr(room, "Id", None))
+            if identifier is None:
+                continue
+            key = str(identifier)
+            if key not in values:
+                raise ValidationError(
+                    "Valeur non lisible apres ecriture sur l'element {}.".format(key)
+                )
+            actual = values[key]
+            if not self._same_value(actual, expected):
+                raise ValidationError(
+                    "L'element {} a deja perdu sa valeur avant le retour "
+                    "a l'alignement des groupes : {} au lieu de {}. "
+                    "Ecriture de groupe ou regeneration en cause ; "
+                    "transaction annulee.".format(key, actual, expected)
+                )
+
+    def _snapshot_target_values(self, valid, target_descriptor):
+        """Releve les valeurs apres ecriture/regeneration et avant realignement."""
+        values = {}
+        for operation, room, value, parameter in valid:
+            identifier = self._element_id_value(getattr(room, "Id", None))
+            if identifier is None:
+                continue
+            current = self.parameter_service.get_parameter(room, target_descriptor)
+            if current is not None:
+                values[str(identifier)] = self.parameter_service.read_parameter(current)
+        return values
+
+    def _verify_uniform_alignment(
+        self, valid, realigned, target_descriptor,
+        values_before_alignment=None, group_conflicts=None,
+    ):
+        """Valide toutes les valeurs apres restauration, sinon rollback.
+
+        L'API Revit peut signaler des elements realignes meme quand leur
+        nouvelle valeur est celle demandee. Seules les valeurs finales
+        attendues ET les identifiants explicitement couverts sont admis.
+        """
+        expected = {}
+        for operation, room, value, parameter in valid:
+            element_id = self._element_id_value(getattr(room, "Id", None))
+            if element_id is not None:
+                expected[str(element_id)] = (room, value)
+        for element_id in realigned:
+            identifier = str(self._element_id_value(element_id))
+            if identifier not in expected:
+                raise ValidationError(
+                    "L'alignement Revit modifierait un element hors du "
+                    "perimetre prepare (id {}). Transaction annulee."
+                    .format(identifier)
+                )
+        values_before_alignment = values_before_alignment or {}
+        conflict_by_room = {}
+        for conflict in group_conflicts or []:
+            for key in conflict.get("room_keys", []):
+                conflict_by_room[str(key)] = (
+                    str(conflict.get("name", "inconnu")),
+                    str(conflict.get("type_key", "?")),
+                )
+        for identifier, (room, value) in expected.items():
+            parameter = self.parameter_service.get_parameter(
+                room, target_descriptor
+            )
+            if parameter is None:
+                raise ValidationError(
+                    "Destination absente apres realignement (id {}).".format(
+                        identifier
+                    )
+                )
+            actual = self.parameter_service.read_parameter(parameter)
+            if not self._same_value(actual, value):
+                group_name = "inconnu"
+                group_type_id = "?"
+                group_id = getattr(room, "GroupId", None)
+                group = None
+                getter = getattr(self.document, "GetElement", None)
+                if getter is not None and group_id is not None:
+                    try:
+                        group = getter(group_id)
+                    except Exception:
+                        group = None
+                if group is not None:
+                    group_type = getattr(group, "GroupType", None)
+                    group_name = getattr(group_type, "Name", None) or "inconnu"
+                    type_id = getattr(group_type, "Id", None)
+                    if type_id is None:
+                        getter = getattr(group, "GetTypeId", None)
+                        if getter is not None:
+                            type_id = getter()
+                    if type_id is not None:
+                        group_type_id = str(self._element_id_value(type_id))
+                if group_name == "inconnu" or group_type_id == "?":
+                    for operation, candidate_room, unused_value, unused_parameter in valid:
+                        if candidate_room is room:
+                            cached = conflict_by_room.get(str(operation.room_key))
+                            if cached:
+                                group_name, group_type_id = cached
+                            break
+                before = values_before_alignment.get(identifier)
+                stage = (
+                    "apres regeneration et avant restauration : {}".format(before)
+                    if before is not None
+                    else "valeur avant restauration non disponible"
+                )
+                raise ValidationError(
+                    "Valeur commune non conservee par Revit sur l'element {} "
+                    "(type de groupe '{}', id de type {}) : "
+                    "valeur finale {}, attendue {} ; {}. "
+                    "Revit a impose une valeur incompatible apres "
+                    "SetAllowVaryBetweenGroups(False). "
+                    "La transaction a ete annulee. Ce cas peut necessiter "
+                    "une modification du contenu du type de groupe dans "
+                    "l'editeur de groupes Revit ; le module ne doit pas "
+                    "imposer une valeur apres realignement."
+                    .format(
+                        identifier, group_name, group_type_id,
+                        actual, value, stage
+                    )
+                )
+
+    @staticmethod
+    def _same_value(actual, expected):
+        if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+            return abs(actual - expected) <= 1e-7 * max(1.0, abs(expected))
+        return actual == expected
+
+    @staticmethod
+    def _element_id_value(element_id):
+        if element_id is None:
+            return None
+        return getattr(element_id, "Value",
+                       getattr(element_id, "IntegerValue", element_id))
 
     def _validate_target_on_room(self, room, target_descriptor):
         parameter = self.parameter_service.get_parameter(

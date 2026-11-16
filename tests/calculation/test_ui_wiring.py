@@ -116,12 +116,23 @@ def test_python_ui_files_are_syntax_valid():
     )))
 
 
-def test_unit_selector_is_contextual_and_warnings_are_shown_before_write():
+def test_automatic_units_and_warnings_are_preserved():
     window_path = os.path.join(UI_DIR, "calculs_window.py")
     text = _read(window_path)
 
     assert "TargetParameterChanged" in text
     assert 'target.storage_type in ("Integer", "String")' in text
+    assert "return None" in text.split("def _selected_unit_type_id(", 1)[1].split("def _create_request(", 1)[0]
+    assert 'selected_type_id=data.get("output_unit_type_id")' not in text
+    root = ET.parse(os.path.join(UI_DIR, "calculs_ui.xaml")).getroot()
+    ui = _read(os.path.join(UI_DIR, "calculs_ui.xaml"))
+    assert "UNITÉ DE SORTIE" not in ui
+    unit_controls = [
+        element for element in root.iter()
+        if element.attrib.get("{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "UnitCombo"
+    ]
+    assert len(unit_controls) == 1
+    assert unit_controls[0].attrib.get("Visibility") == "Collapsed"
     review_path = os.path.join(UI_DIR, "calculation_review_window.py")
     review = _read(review_path)
     # Avertissements pertinents visibles avant l'écriture, sans long rapport

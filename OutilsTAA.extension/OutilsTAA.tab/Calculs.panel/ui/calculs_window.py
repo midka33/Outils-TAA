@@ -10,6 +10,7 @@ from pyrevit import forms
 from common.wpf_resources import load_resource_dictionary
 from calculation_report_window import CalculationReportWindow
 from calculation_review_window import review_taa
+from calculation_diagnostics import empty_result_explanation
 
 
 class ParameterChoice(object):
@@ -33,11 +34,6 @@ class CalculsWindow(forms.WPFWindow):
         self._variant_choices = [
             ParameterChoice("Surfaces séparées par variante (défaut)", "separate"),
             ParameterChoice("Additionner toutes les surfaces des variantes", "combine"),
-        ]
-        self._group_mode_choices = [
-            ParameterChoice("Automatique — conserver les réglages (défaut)", "auto"),
-            ParameterChoice("Autoriser des valeurs différentes entre groupes", "vary"),
-            ParameterChoice("Conserver une valeur commune entre groupes", "uniform"),
         ]
 
         current_dir = os.path.dirname(__file__)
@@ -89,8 +85,6 @@ class CalculsWindow(forms.WPFWindow):
         self.FilterParameterCombo.ItemsSource = self._filter_choices
         self.VariantModeCombo.ItemsSource = self._variant_choices
         self.VariantModeCombo.SelectedIndex = 0
-        self.GroupModeCombo.ItemsSource = self._group_mode_choices
-        self.GroupModeCombo.SelectedIndex = 0
 
         if self._filter_choices:
             self.FilterParameterCombo.SelectedIndex = 0
@@ -151,9 +145,9 @@ class CalculsWindow(forms.WPFWindow):
         )
 
         self.FilterValueTextBox.Text = data.get("filter_value") or ""
-        self._refresh_unit_options(
-            selected_type_id=data.get("output_unit_type_id")
-        )
+        # L'unite de sortie n'est plus configurable dans l'interface.
+        # Ne pas reutiliser silencieusement un ancien choix persiste.
+        self._refresh_unit_options()
         self._update_unit_state()
 
     def _select_saved(self, combo, choices, saved_data):
@@ -195,8 +189,8 @@ class CalculsWindow(forms.WPFWindow):
         return getattr(item, "descriptor", None) if item is not None else None
 
     def _selected_unit_type_id(self):
-        option = self.UnitCombo.SelectedItem
-        return getattr(option, "type_id", None) if option is not None else None
+        # Conversion automatique selon les descripteurs source et destination.
+        return None
 
     def _create_request(self):
         group = self._selected_descriptor(self.GroupParameterCombo)
@@ -232,7 +226,7 @@ class CalculsWindow(forms.WPFWindow):
             filter_value=filter_value,
             output_unit_type_id=self._selected_unit_type_id(),
             variant_mode=self.VariantModeCombo.SelectedItem.descriptor,
-            group_mode=self.GroupModeCombo.SelectedItem.descriptor,
+            group_mode="auto",
         )
 
     def Calculate_Click(self, sender, args):
@@ -262,19 +256,26 @@ class CalculsWindow(forms.WPFWindow):
 
             if not prepared.operations:
                 forms.alert(
-                    "Aucun résultat écrivable n'a été produit. "
-                    "Vérifiez le regroupement et le paramètre source.",
+                    empty_result_explanation(prepared),
                     title="Calculs des pièces",
                     warn_icon=True,
                 )
-                self.StatusText.Text = "Aucun résultat à écrire."
+                self.StatusText.Text = "Aucun total calculé ; aucune écriture."
                 return
 
-            # Un seul dialogue WPF TAA : variantes, conflits de groupes
-            # et validation finale sont traités dans la même fenêtre.
-            if not review_taa(prepared, self._format_group_value, owner=self):
-                self.StatusText.Text = "Calcul annulé avant écriture."
-                return
+            # La gestion des groupes est automatique. La revue ne subsiste
+            # que si un appartement est present dans plusieurs variantes.
+            if prepared.shared_variant_apartments:
+                if not review_taa(prepared, self._format_group_value, owner=self):
+                    self.StatusText.Text = "Calcul annulé avant écriture."
+                    return
+            else:
+                prepared.variant_separation_confirmed = (
+                    request.variant_mode == "separate"
+                )
+                prepared.variant_combination_confirmed = (
+                    request.variant_mode == "combine"
+                )
 
             self.controller.save_settings(request)
             self.StatusText.Text = "Écriture dans Revit..."
