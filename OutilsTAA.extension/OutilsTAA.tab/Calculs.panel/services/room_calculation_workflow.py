@@ -6,7 +6,8 @@ from __future__ import unicode_literals
 from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
 from calculation.models import RoomCalculationItem
-from calculation_diagnostics import group_conflicts, design_option_summary
+from calculation_diagnostics import (group_conflicts, design_option_summary,
+                                     variant_group_key, variant_group_label)
 from calculation.workflow_models import (
     CalculationExecutionReport,
     WriteOperation,
@@ -79,14 +80,8 @@ class RoomCalculationWorkflow(object):
             raise ValidationError("\n".join(validation.errors))
 
         rooms = self.collector_service.collect_all_rooms()
-        scope = getattr(request, "variant_scope", "primary")
-        if hasattr(self.collector_service, "collect_rooms_for_scope"):
-            scoped_rooms = self.collector_service.collect_rooms_for_scope(scope)
-        else:
-            # Compatibilité avec les doubles des tests du moteur pur.
-            scoped_rooms = rooms
         filtered = self.room_filter.apply(
-            scoped_rooms,
+            rooms,
             parameter_name=request.filter_parameter,
             expected_value=request.filter_value,
             value_reader=self.parameter_service.read_value,
@@ -101,10 +96,13 @@ class RoomCalculationWorkflow(object):
             items.append(
                 RoomCalculationItem(
                     room_key,
-                    self.parameter_service.read_value(
+                    variant_group_key(
                         room,
-                        request.group_parameter,
-                        default=None,
+                        self.parameter_service.read_value(
+                            room,
+                            request.group_parameter,
+                            default=None,
+                        ),
                     ),
                     self.parameter_service.read_value(
                         room,
@@ -122,7 +120,7 @@ class RoomCalculationWorkflow(object):
                 operations.append(
                     WriteOperation(
                         room_key=room_key,
-                        group_value=group_value,
+                        group_value=variant_group_label(group_value, self.document),
                         value=total,
                     )
                 )
@@ -143,10 +141,7 @@ class RoomCalculationWorkflow(object):
         if self._selection_requires_group_override(filtered, request.target_parameter):
             conflicts = group_conflicts(self.document, room_by_key, operations)
         variants = design_option_summary(self.document, filtered)
-        if scope == "view":
-            variants.insert(0, "Portée : pièces visibles dans la vue active au lancement.")
-        else:
-            variants.insert(0, "Portée : modèle principal et variantes principales uniquement.")
+        variants.insert(0, "Les variantes secondaires sont calculées séparément.")
 
         return PreparedCalculation(
             request=request,
