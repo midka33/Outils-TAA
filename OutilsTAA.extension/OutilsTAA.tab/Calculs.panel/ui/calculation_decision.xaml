@@ -7,8 +7,8 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -19,7 +19,7 @@
         <Border Grid.Row="1" Background="White" BorderBrush="#D9D9D9"
                 BorderThickness="1" Padding="12" Margin="0,0,0,12">
             <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          MaxHeight="170">
+                          HorizontalScrollBarVisibility="Disabled">
                 <TextBlock x:Name="DetailsText" TextWrapping="Wrap"
                            Foreground="#252525"/>
             </ScrollViewer>
@@ -27,7 +27,7 @@
 
         <Border Grid.Row="2" x:Name="OptionsPanel"
                 BorderBrush="#D9D9D9" Background="White"
-                BorderThickness="1" Padding="10">
+                BorderThickness="1" Padding="10" MaxHeight="180" MinHeight="100">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
