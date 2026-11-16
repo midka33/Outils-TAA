@@ -58,6 +58,21 @@ class CalculationReviewWindow(forms.WPFWindow):
             )
         else:
             self.VariantsText.Text = "Surfaces séparées par variante."
+        self.WarningText.Text = ""
+        if prepared.warnings:
+            # Les détails restent dans le rapport facultatif ; les risques
+            # non déjà couverts par le choix de groupes sont visibles ici.
+            other_warnings = [
+                str(message) for message in prepared.warnings
+                if "aligné par type de groupe" not in str(message)
+            ]
+            if other_warnings:
+                warning = other_warnings[0]
+                self.WarningText.Text = (
+                    "Attention : " + warning[:180]
+                    + ("…" if len(warning) > 180 else "")
+                )
+                self.WarningText.ToolTip = "\n".join(other_warnings)
         self.ErrorText.Text = ""
 
         if not self._conflicts:
