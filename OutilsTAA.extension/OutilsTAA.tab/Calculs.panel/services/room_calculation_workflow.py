@@ -204,14 +204,14 @@ class RoomCalculationWorkflow(object):
                 )
         return prepared
 
-    def uniform_manual_guidance(self, prepared, selected_values,
-                                format_value=None):
-        """Detecte les valeurs de reference a modifier dans l'editeur Revit.
+    def uniform_alignment_notice(self, prepared, selected_values,
+                                 format_value=None):
+        """Annonce le repli automatique sur un parametre variant entre groupes.
 
-        Ne modifie rien. Si les occurrences du meme type sont en conflit
-        et qu'au moins une valeur existante ne correspond pas a la reference
-        choisie, l'alignement automatique ne peut pas garantir cette
-        reference : guider une edition manuelle plutot que lancer un rollback.
+        Quand la valeur commune demandee differe des valeurs deja presentes,
+        le retour a VariesAcrossGroups=False risquerait de la remplacer selon
+        l'occurrence de reference choisie par Revit. Les ecritures restent
+        uniformes, mais la definition du parametre devient durablement variable.
         """
         if not prepared.group_conflicts:
             return ""
@@ -224,11 +224,9 @@ class RoomCalculationWorkflow(object):
             desired = selected_values[type_key]
             proposed = self.writer.prepare_value(
                 prepared.request.source_parameter,
-                target,
-                desired,
-                prepared.request.output_unit_type_id,
+                target, desired, prepared.request.output_unit_type_id,
             )
-            samples = []
+            differing = None
             for room_key in conflict["room_keys"]:
                 room = prepared.room_by_key.get(room_key)
                 if room is None:
@@ -238,43 +236,37 @@ class RoomCalculationWorkflow(object):
                     continue
                 current = self.parameter_service.read_parameter(parameter)
                 if not self._same_value(current, proposed):
-                    group_id = self._element_id_value(
-                        getattr(room, "GroupId", None)
-                    )
-                    room_id = self._element_id_value(
-                        getattr(room, "Id", None)
-                    )
-                    samples.append((room_id, group_id, current))
-            if not samples:
+                    differing = current
+                    break
+            if differing is None:
                 continue
-            room_id, group_id, current = samples[0]
-            if (format_value is not None
-                    and target.storage_type == "Double"):
+            if format_value is not None and target.storage_type == "Double":
                 requested_label = format_value(desired, prepared.request)
-                current_label = format_value(current, prepared.request)
             else:
                 requested_label = str(proposed)
-                current_label = str(current)
             lines.append(
-                "- Type de groupe '{}' (ID {}) : valeur cible {}, "
-                "valeur existante {} sur piece ID {}, groupe ID {}."
-                .format(conflict["name"], type_key, requested_label,
-                        current_label, room_id, group_id)
+                "{} (ID {}) : {}".format(
+                    conflict["name"], type_key, requested_label
+                )
             )
         if not lines:
             return ""
         return (
-            "Une valeur commune differente de celle actuellement alignee "
-            "doit etre definie dans l'editeur de groupe Revit. "
-            "Le module ne peut pas garantir que Revit conservera la valeur "
-            "choisie lors du realignement.\n"
-            + "\n".join(lines)
-            + "\nAnnulez cette verification sans ecrire. Sur une copie "
-            "du RVT, selectionnez une occurrence du type indique, "
-            "utilisez Modifier le groupe, renseignez '{}' sur les pieces "
-            "concernees, puis Terminer. Verifiez les autres occurrences "
-            "et relancez Calculs des pieces. Aucun element n'a ete modifie."
-            .format(target.name)
+            "Les valeurs communes suivantes seront ecrites automatiquement : "
+            "{}. Pour eviter que Revit les remplace lors du realignement, "
+            "le parametre '{}' sera modifie durablement : "
+            "'Autoriser les valeurs differentes entre occurrences de groupes'. "
+            "Les valeurs ecrites resteront identiques pour les membres "
+            "correspondants, mais Revit ne les maintiendra plus alignees "
+            "automatiquement."
+            .format("; ".join(lines), target.name)
+        )
+
+    # Compatibilite de l'interface et du controleur avec le nom historique.
+    def uniform_manual_guidance(self, prepared, selected_values,
+                                format_value=None):
+        return self.uniform_alignment_notice(
+            prepared, selected_values, format_value
         )
 
     def execute(self, prepared, progress=None):
@@ -320,12 +312,12 @@ class RoomCalculationWorkflow(object):
         else:
             uniform_by_room = {}
 
+        uniform_relaxed = False
         if prepared.group_mode == "uniform":
-            manual_guidance = self.uniform_manual_guidance(
+            uniform_notice = self.uniform_alignment_notice(
                 prepared, prepared.uniform_values
             )
-            if manual_guidance:
-                raise ValidationError(manual_guidance)
+            uniform_relaxed = bool(uniform_notice)
             validate_uniform_targets_by_member(
                 self.document,
                 prepared.room_by_key,
@@ -477,13 +469,13 @@ class RoomCalculationWorkflow(object):
                     self._verify_values_before_alignment(
                         valid, values_before_alignment
                     )
-                if prepared.group_mode in ("restore", "uniform"):
+                if prepared.group_mode in ("restore", "uniform") and not uniform_relaxed:
                     realigned = self._restore_group_alignment(enabled_definitions)
                 else:
                     realigned = []
-                if prepared.group_mode == "uniform":
-                    # Un realignement ne peut etre admis que s'il touche des
-                    # membres explicitement prevus ET conserve leur valeur.
+                if prepared.group_mode == "uniform" and not uniform_relaxed:
+                    # Le parametre reste aligne seulement si Revit conserve
+                    # effectivement les valeurs souhaitees.
                     self._verify_uniform_alignment(
                         valid, realigned, prepared.request.target_parameter,
                         values_before_alignment, prepared.group_conflicts
@@ -503,6 +495,15 @@ class RoomCalculationWorkflow(object):
                 prepared.warnings.append(
                     "Reglage du parametre conserve : valeurs differentes "
                     "autorisees entre occurrences de groupes."
+                )
+            elif prepared.group_mode == "uniform" and uniform_relaxed:
+                prepared.warnings.append(
+                    "Valeurs communes ecrites avec succes. Le parametre '{}' "
+                    "autorise desormais durablement des valeurs differentes "
+                    "entre occurrences de groupes : Revit ne maintiendra pas "
+                    "automatiquement leur egalite.".format(
+                        prepared.request.target_parameter.name
+                    )
                 )
             elif prepared.group_mode == "uniform" and prepared.group_conflicts:
                 prepared.warnings.append(
