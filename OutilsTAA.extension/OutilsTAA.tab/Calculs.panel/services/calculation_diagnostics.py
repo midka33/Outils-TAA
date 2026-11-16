@@ -17,6 +17,58 @@ def element_id_value(element_id):
         return None
 
 
+def variant_group_key(room, group_value):
+    """Sépare les totaux métier par scénario de variante Revit.
+
+    Modèle principal et variantes principales : scénario de référence commun.
+    Variantes secondaires : chacune possède son scénario indépendant.
+    Les clés historiques du scénario principal restent inchangées.
+    """
+    from common.exceptions import ValidationError
+
+    try:
+        option = room.DesignOption
+    except AttributeError:
+        return group_value
+    except Exception as error:
+        raise ValidationError(
+            "Variante de conception illisible pour une pièce : {}.".format(error)
+        )
+    if option is None:
+        return group_value
+    try:
+        if bool(option.IsPrimary):
+            return group_value
+        option_id = element_id_value(option.Id)
+        if option_id is None:
+            raise ValueError("identifiant manquant")
+    except Exception as error:
+        raise ValidationError(
+            "Impossible de déterminer le scénario de variante : {}.".format(error)
+        )
+    # Marqueur explicite pour éviter toute collision avec une valeur métier.
+    return ("TAA-VARIANTE-SECONDAIRE", str(option_id), group_value)
+
+
+def variant_group_label(group_key, document=None):
+    if not (
+        isinstance(group_key, tuple)
+        and len(group_key) == 3
+        and group_key[0] == "TAA-VARIANTE-SECONDAIRE"
+    ):
+        return group_key
+    option_name = group_key[1]
+    if document is not None:
+        try:
+            from Autodesk.Revit.DB import ElementId
+            option = document.GetElement(ElementId(int(group_key[1])))
+            if option is not None:
+                option_name = getattr(option, "Name", option_name)
+        except (ImportError, AttributeError, ValueError, TypeError):
+            pass
+    return "{} — variante {}".format(group_key[2], option_name)
+
+
 def group_conflicts(document, room_by_key, operations):
     """Conflits entre valeurs calculees pour les occurrences d'un type de groupe.
 
