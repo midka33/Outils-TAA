@@ -95,3 +95,17 @@ def test_automatic_folders_use_distinct_icon():
     assert 'icon.Stroke = self.FindResource(brush_key)' in ui
     assert '"TaaAutoFolderIcon" if (is_dynamic or is_virtual)' in ui
     assert '"TaaFolderIcon"' in ui
+
+
+def test_freeze_single_child_command_is_separate_from_full_parent_freeze():
+    ui = read("export_window.py")
+    controller = read("services/carnet_controller.py")
+    repository = read("services/carnet_repository.py")
+    assert 'freeze_one.Header = "Figer uniquement ce sous-dossier"' in ui
+    assert "freeze_one.Click += self.FreezeDynamicGroup_Click" in ui
+    assert "def FreezeDynamicGroup_Click(self, sender, args):" in ui
+    assert "self.controller.freeze_dynamic_group(group)" in ui
+    assert "def freeze_dynamic_group(self, selected_group):" in controller
+    assert "def freeze_dynamic_group(self, parent_id, group):" in repository
+    assert 'freeze.Header = "Rendre ce dossier manuel (figer les feuilles)"' in ui
+    assert "def FreezeDynamic_Click(self, sender, args):" in ui
