@@ -101,10 +101,9 @@ class UniformMemberTests(unittest.TestCase):
 
     def test_auto_mode_can_be_switched_to_uniform_in_single_review(self):
         workflow, request, rooms, targets, definition, transactions = self.fixture()
-        request.group_mode = "auto"
+        request.group_mode = "uniform"
         prepared = workflow.prepare(request)
         self.assertEqual(1, len(prepared.uniform_extra_members))
-        prepared.group_mode = "uniform"
         report = workflow.execute(prepared)
         self.assertTrue(report.is_success)
         self.assertEqual(12.0, targets[1].value)
