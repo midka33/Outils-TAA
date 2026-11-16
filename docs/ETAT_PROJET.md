@@ -292,3 +292,11 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Tests CI :** GitHub Actions `Calculs des pièces — tests hors Revit`, run `43891349277` : **92 passed** au commit `01b9760540951190e80e10b781a40f6aaf42fa50` ; ce run inclut les nouveaux tests, les commits documentaires ultérieurs ne modifient pas le code. Vérifier le statut CI au SHA final avant validation.
 
 **Recette Revit 2025.4 / pyRevit 5.x :** non exécutée pour cette modification. Vérifier une paire B200 dans deux variantes, affichage des deux totaux, annulation, confirmation puis écriture conservant les deux surfaces différentes, ainsi qu'un cas sans doublon de scénario. La PR reste en brouillon.
+
+## Recette UI Calculs — boutons de confirmation masqués (16/11/2026)
+
+**Constat utilisateur en Revit 2025.4 :** fenêtre WPF « Surfaces indépendantes par variante » ouverte pour B200 ; deux scénarios affichent chacun 35,330 m². La présence de valeurs égales n'est pas une anomalie du calcul à elle seule. Problème confirmé : boutons d'action non visibles dans la fenêtre de confirmation. Le code forçait `Height=320` lorsque la liste de choix était absente ; le récapitulatif à plusieurs lignes ne laissait plus de place au pied d'actions.
+
+**Correction de branche PR #56 (non fusionnée) :** hauteur de la confirmation 440 unités WPF, zone de texte défilable, pied d'actions préservé, noms des variantes affichés sans « variante Variante 1 », scénario principal explicitement étiqueté « scénario de référence ». Aucune modification des totaux ni du comportement de confirmation/annulation. Tests statiques/diagnostics ajoutés dans `tests/calculation/test_group_decisions.py`.
+
+**Tests :** dernière CI verte connue sur `c3ead4a` (92 tests Calculs). Les tests de la correction UI ne sont pas encore confirmés sur le dernier SHA de cette branche. **Recette Revit : en attente** ; vérifier les deux boutons visibles et opérationnels, absence de troncature, confirmation et annulation sans écriture.
