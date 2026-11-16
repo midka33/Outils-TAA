@@ -396,6 +396,9 @@ class RoomCalculationWorkflow(object):
                     values_before_alignment = self._snapshot_target_values(
                         valid, prepared.request.target_parameter
                     )
+                    self._verify_values_before_alignment(
+                        valid, values_before_alignment
+                    )
                 if prepared.group_mode in ("restore", "uniform"):
                     realigned = self._restore_group_alignment(enabled_definitions)
                 else:
@@ -453,6 +456,26 @@ class RoomCalculationWorkflow(object):
             skipped=prepared.result.skipped,
             warnings=prepared.warnings,
         )
+
+    def _verify_values_before_alignment(self, valid, values):
+        """Refuse des valeurs deja ecrasees avant la restauration des groupes."""
+        for operation, room, expected, parameter in valid:
+            identifier = self._element_id_value(getattr(room, "Id", None))
+            if identifier is None:
+                continue
+            key = str(identifier)
+            if key not in values:
+                raise ValidationError(
+                    "Valeur non lisible apres ecriture sur l'element {}.".format(key)
+                )
+            actual = values[key]
+            if not self._same_value(actual, expected):
+                raise ValidationError(
+                    "L'element {} a deja perdu sa valeur avant le retour "
+                    "a l'alignement des groupes : {} au lieu de {}. "
+                    "Ecriture de groupe ou regeneration en cause ; "
+                    "transaction annulee.".format(key, actual, expected)
+                )
 
     def _snapshot_target_values(self, valid, target_descriptor):
         """Releve les valeurs apres ecriture/regeneration et avant realignement."""
