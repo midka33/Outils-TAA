@@ -154,6 +154,25 @@
 
                 <Border Background="White"
                         BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="GESTION DES VARIANTES"
+                                   VerticalAlignment="Center"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+                        <ComboBox Grid.Column="1" x:Name="VariantModeCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"
+                                  ToolTip="Séparées : un total par scénario. Additionnées : toutes les pièces portant le même numéro d'appartement sont cumulées, y compris les variantes secondaires."/>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
                         BorderThickness="1"
                         Padding="10"
                         Margin="0,0,0,8">
