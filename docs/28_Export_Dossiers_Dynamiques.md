@@ -84,3 +84,13 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 - DYN-11 : tester le maintien des champs de concurrence lorsqu'un backend partagé est activé ultérieurement.
 
 **Recette Revit : aucune exécution confirmée à ce stade.** Ne pas fusionner la PR avant validation réelle d'un dossier automatique, de son regroupement, de son actualisation et de sa conversion en manuel.
+
+## Retour Revit et correctif UI — 16 novembre 2026
+
+**Observation Revit 2025.4 :** le bouton de création automatique était placé à tort dans l'en-tête central de l'arborescence. Son clic provoquait une erreur de chargement WPF `System.Xaml.XamlObjectWriterException` / `UIElementCollection`, avant affichage de la fenêtre.
+
+**Cause confirmée dans le XAML :** caractères littéraux `\\n` placés entre les `RadioButton` `ModeDynamic` et `ModeManual` du `StackPanel`, interprétés comme un objet `String` au lieu d'un `UIElement`.
+
+**Correction implémentée sur la PR #55 :** suppression du texte parasite ; bouton « Dossier auto » déplacé dans « Mises en page Revit », sur la même ligne que « Ajouter », en conservant « Effacer la sélection ». Ajout d'un test de structure XAML et d'emplacement.
+
+**Statut :** correction proposée et implémentée, tests CI à vérifier sur SHA final, recette Revit à refaire ; aucune validation finale ni fusion.
