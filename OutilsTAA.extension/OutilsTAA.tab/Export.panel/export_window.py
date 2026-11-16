@@ -1261,6 +1261,21 @@ class ExportWindow(forms.WPFWindow):
             menu.Items.Add(freeze_one)
             return menu
         menu = ContextMenu()
+        # Un sous-dossier figé reste un dossier manuel persistant ; le parent
+        # indique sans ambiguïté s'il peut revenir au mode automatique.
+        parent = getattr(self, "_sets_by_id", {}).get(
+            str(getattr(tag[1], "folder_id", None)))
+        frozen = (getattr(getattr(parent, "source", None),
+                          "frozen_group_ids", None) or [])
+        if (parent is not None
+                and getattr(getattr(parent, "source", None), "mode", None)
+                == PublicationSource.DYNAMIC
+                and str(tag[1].id) in [str(value) for value in frozen]):
+            unfreeze = MenuItem()
+            unfreeze.Header = "Rendre ce sous-dossier automatique"
+            unfreeze.Tag = tag
+            unfreeze.Click += self.UnfreezeDynamicGroup_Click
+            menu.Items.Add(unfreeze)
         if (getattr(getattr(tag[1], "source", None), "mode", None)
                 == PublicationSource.DYNAMIC):
             freeze = MenuItem()
@@ -1274,6 +1289,34 @@ class ExportWindow(forms.WPFWindow):
         rename.Click += self.RenameFolder_Click
         menu.Items.Add(rename)
         return menu
+
+    def UnfreezeDynamicGroup_Click(self, sender, args):
+        """Réactive la règle du parent sur le sous-dossier figé sélectionné."""
+        tag = getattr(sender, "Tag", None)
+        if not isinstance(tag, tuple) or len(tag) < 2:
+            return
+        group = tag[1]
+        if not forms.alert(
+                "Rendre « {} » à nouveau automatique ?"
+                "\\nLe contenu manuel et les éventuels réglages propres à ce "
+                "sous-dossier seront remplacés par les paramètres Revit actuels."
+                "\\nLes autres sous-dossiers ne seront pas modifiés."
+                "\\nSi aucune feuille ne correspond, ce sous-dossier "
+                "réapparaîtra lorsqu'une feuille correspondra de nouveau."
+                .format(group.name),
+                title="Export — réactiver un sous-dossier",
+                yes=True, no=True):
+            return
+        try:
+            ok, _ = self._execute_storage_action(
+                lambda: self.controller.unfreeze_dynamic_group(group),
+                "rendre un sous-dossier automatique")
+        except Exception as exc:
+            forms.alert("Réactivation impossible : {}".format(exc),
+                        title="Export")
+            return
+        if ok:
+            self._refresh_tree()
 
     def FreezeDynamicGroup_Click(self, sender, args):
         """Convertit un groupe calculé en manuel et laisse les autres dynamiques."""
