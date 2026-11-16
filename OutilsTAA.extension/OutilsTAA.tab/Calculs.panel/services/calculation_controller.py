@@ -84,6 +84,7 @@ class CalculationController(object):
         filter_value=None,
         output_unit_type_id=None,
         variant_mode="separate",
+        group_mode="auto",
     ):
         return CalculationRequest(
             group_parameter=group_parameter,
@@ -93,6 +94,7 @@ class CalculationController(object):
             filter_value=filter_value,
             output_unit_type_id=output_unit_type_id,
             variant_mode=variant_mode,
+            group_mode=group_mode,
         )
 
     def prepare(self, request, progress=None):

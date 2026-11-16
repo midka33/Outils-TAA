@@ -116,3 +116,13 @@ métadonnées Revit qu'une seule fois.
 **Correction implémentée (PR #56, Revit non encore validé) :** une **revue WPF TAA unique** avant écriture, récapitulatif concis, avertissement court de double comptage, choix des groupes et des valeurs de référence à l'intérieur de cette fenêtre. Confirmation unique et refus d'écrire si les choix nécessaires sont absents. En cas de succès, état dans la fenêtre principale ; rapport détaillé accessible par bouton facultatif. Un échec conserve un rapport automatique.
 
 **Protection :** ne jamais modifier automatiquement `VariesAcrossGroups` en présence de divergences, ne pas perdre les confirmations de variante déjà imposées par le moteur et annuler sans transaction. **Anti-régression :** tests de contrat UI et suite `tests/calculation`, plus essais sous Revit 2025.4 (avec et sans conflit), non encore effectués.
+
+### BUG-CALCULS-010 — Choix de gestion des groupes absent de la fenêtre principale
+
+**Retour Revit utilisateur :** le choix de groupes n'est proposé qu'au moment de la confirmation lorsqu'un conflit est détecté. Demande d'un réglage de premier niveau comme pour les variantes. L'utilisateur confirme parallèlement les scénarios de recette **2 à 8 OK** du bilan de PR #56 ; le scénario 1 (autoriser les valeurs différentes durablement) n'est pas déclaré validé.
+
+**Cause :** le choix `group_mode` était défini au stade `PreparedCalculation` et uniquement géré par la revue conditionnelle.
+
+**Correction proposée et implémentée sur `feat/calculs-group-mode-main-ui` :** `GESTION DES GROUPES` dans la fenêtre WPF principale, trois choix `auto/vary/uniform`, transmis `CalculationRequest → Controller → Workflow → revue WPF`. En mode manuel, ne pas redemander l'option à la confirmation ; en mode commun, demander uniquement les références nécessaires. Toujours refuser les uniformisations non sûres et les valeurs manquantes avant transaction.
+
+**Anti-régression :** tests ciblés `test_group_decisions.py` et CI Calculs + Export, validation Revit 2025.4 du sélecteur et des deux parcours de groupe. **Non validé dans Revit au moment du commit.**

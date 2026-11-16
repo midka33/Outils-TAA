@@ -349,3 +349,25 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Périmètre PR #56 :** gestion des paramètres alignés par groupes (choix explicite), séparation / addition volontaire des variantes, confirmation synthétique WPF TAA, rapport à la demande en cas de succès et rapport automatique en cas d'erreur. Documentation `docs/10_Calculs_Pieces.md` et registre `docs/bugs/CALCULS.md` mis à jour.
 
 **Étape suivante :** vérifier tous les contrôles CI sur le dernier SHA ; fusionner PR #56 dans `main` à la demande explicite de l'utilisateur puis vérifier le SHA de fusion. Garder les cas limites en tests futurs si non couverts par la recette.
+
+## Calculs des pièces — réglage groupes dans la fenêtre principale (16/11/2026)
+
+**Base :** PR #56 fusionnée dans `main` (`9d2690f4cadb55105763e1ac9ab10795f34e83d5`), CI 99 tests Calculs + suites Export vertes, retour utilisateur positif sur la confirmation simplifiée.
+
+**Recette complémentaire communiquée par l'utilisateur :** scénarios **2 à 8 du bilan des scénarios restants testés et OK dans Revit** (valeur commune par type, addition des variantes, annulation avant écriture, Ctrl+Z, destination non modifiable/erreur, groupes à plusieurs appartements, rapport facultatif). **Le scénario 1 — autorisation durable de valeurs différentes — n'est pas encore confirmé dans ce retour**. Le scénario 9 (mise en page multi-tailles de la nouvelle revue) n'est pas couvert par cette déclaration.
+
+**Nouveau besoin :** ajouter `GESTION DES GROUPES` directement dans la fenêtre principale à la façon de `GESTION DES VARIANTES`, sans multiplier les fenêtres ni modifier les algorithmes validés.
+
+**Implémentation sur branche `feat/calculs-group-mode-main-ui`, main non modifiée :** choix `auto` par défaut / `vary` / `uniform`, modèle de requête, contrôleur, workflow, revue WPF ; valeurs de référence dans la revue seulement si nécessaire, sécurité transactionnelle existante conservée. Tests de non-régression ajoutés. **Validation CI et Revit de cette évolution à effectuer**.
+
+**Action suivante :** vérifier la suite de tests Calculs et Export, examiner les résultats sur GitHub puis tester la fenêtre principale, notamment la sélection vary/uniform et l'absence de confirmation supplémentaire.
+
+## Validation utilisateur PR #57 — Gestion des groupes (16 novembre 2026)
+
+**Retour utilisateur Revit 2025.4 / pyRevit 5.x :** « parfait ça fonctionne bien tu peux valider », à la suite de l'ajout du sélecteur **GESTION DES GROUPES** dans la fenêtre principale. Ce retour valide l'ergonomie et le fonctionnement observé du nouveau réglage, avec autorisation explicite de fusionner.
+
+**Périmètre de preuve :** le retour valide le parcours testé mais ne fournit pas de résultats détaillés distincts pour les trois modes sur toutes les combinaisons de maquettes. Les scénarios historiques 2 à 8 ont été explicitement déclarés OK précédemment. Ne pas extrapoler à une recette exhaustive sur les cas rares.
+
+**CI vérifiée avant fusion :** PR #57, commit `fccc4fcb8bd2d4fb352f2e60155ac3f5dabc2468` : `Calculs des pièces — tests hors Revit` réussi (run `43899824241`, 103 tests) et `Export — tests hors Revit` réussi (run `43899824194`). Aucune fusion ni modification de `main` effectuée au moment de cette note.
+
+**Décision :** passer la PR #57 prête pour revue et fusionner dans `main`, sous réserve du contrôle GitHub de l'état mergeable, puis vérifier le commit de fusion et les contrôles de la branche principale.

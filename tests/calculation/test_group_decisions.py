@@ -58,6 +58,48 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.request = fixture._request(self.parameter_service, rooms)
         self.prepared = self.workflow.prepare(self.request)
 
+    def test_group_mode_is_selectable_before_calculation(self):
+        import xml.etree.ElementTree as ET
+        path = os.path.join(
+            PANEL, "ui", "calculs_ui.xaml"
+        )
+        root = ET.parse(path).getroot()
+        self.assertTrue(any(
+            name.endswith("}Name") and value == "GroupModeCombo"
+            for element in root.iter()
+            for name, value in element.attrib.items()
+        ))
+        from calculation.workflow_models import CalculationRequest
+        request = CalculationRequest(
+            self.request.group_parameter,
+            self.request.source_parameter,
+            self.request.target_parameter,
+            group_mode="vary",
+        )
+        self.assertEqual("vary", request.group_mode)
+        self.assertEqual("auto", self.request.group_mode)
+
+    def test_explicit_vary_mode_is_applied_to_prepared_calculation(self):
+        self.request.group_mode = "vary"
+        prepared = self.workflow.prepare(self.request)
+        self.assertEqual("vary", prepared.group_mode)
+        report = self.workflow.execute(prepared)
+        self.assertTrue(report.is_success)
+        self.assertTrue(self.definition.VariesAcrossGroups)
+
+    def test_explicit_uniform_mode_still_requires_reference_values(self):
+        self.request.group_mode = "uniform"
+        prepared = self.workflow.prepare(self.request)
+        self.assertEqual("uniform", prepared.group_mode)
+        with self.assertRaises(ValidationError):
+            self.workflow.execute(prepared)
+        self.assertFalse(self.transactions)
+
+    def test_unknown_group_mode_rejected_early(self):
+        self.request.group_mode = "unknown"
+        with self.assertRaises(ValidationError):
+            self.workflow.prepare(self.request)
+
     def test_conflict_identified_by_group_type_not_group_instance(self):
         self.assertEqual(1, len(self.prepared.group_conflicts))
         item = self.prepared.group_conflicts[0]
