@@ -555,3 +555,5 @@ docs/18_Calculs_Pieces_Tests_Revit.md
 ```
 
 Le module est considéré comme validé pour intégration dans `main`.
+
+**Correctif ergonomique du 16/11/2026 (retour utilisateur dans Revit) :** la fenêtre de confirmation WPF des appartements multi-variantes affichait les surfaces, mais ses boutons étaient hors de la zone visible, car la hauteur était forcée à 320 unités WPF dans le mode sans liste. La hauteur a été rétablie à 440 unités WPF afin de réserver la place du pied d'actions ; le contenu long conserve son ScrollViewer. Les libellés distinguent désormais explicitement le « scénario de référence » et les variantes par leur nom exact (sans duplication « variante Variante 1 »). Vérification automatisée statique et contrôle réel en Revit à renouveler.
