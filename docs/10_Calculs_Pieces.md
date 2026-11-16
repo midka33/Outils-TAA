@@ -629,3 +629,17 @@ Une nouvelle tentative Revit avec `Document.Regenerate()` **n'a pas permis l'uni
 Le mode uniforme expérimental conserve le rollback et ajoute **deux mesures vérifiées dans la même transaction** : lecture du paramètre cible après régénération, avant `SetAllowVaryBetweenGroups(False)` ; puis lecture après l'appel. Si la valeur a déjà changé avant la restauration, l'erreur l'attribue à l'écriture/régénération ; sinon l'erreur signale le réalignement. Le rapport tente de résoudre l'ID du type même si son nom Revit est inaccessible.
 
 **Ce diagnostic n'est pas une correction métier de l'uniformisation**. Aucune opération de dégroupage/recréation ou écriture après restauration ne doit être appliquée pour forcer le succès. Une prochaine stratégie de modification des valeurs d'un type de groupe doit être testée indépendamment sur une copie RVT, notamment avec variantes de conception.
+
+### 7.3.10 Refonte prudente du mode « valeur commune » — valeur de référence Revit (16 novembre 2026)
+
+**Constat établi sur le RVT :** après écriture et régénération, la valeur demandée est correcte ; l'appel `InternalDefinition.SetAllowVaryBetweenGroups(False)` la remplace en suivant la référence de la première occurrence du groupe. Écrire toutes les occurrences puis réactiver l'alignement n'est donc **pas** une méthode fiable pour imposer arbitrairement une nouvelle valeur commune. Une copie de maquette a confirmé l'échec malgré 120 tests automatisés antérieurs.
+
+**Nouveau contrat UX / moteur pour les conflits détectés :**
+- **Valeurs différentes :** comportement validé conservé à l'identique, `VariesAcrossGroups=True` durable après écriture.
+- **Valeur commune déjà compatible avec les paramètres de pièces alignés :** conserver le parcours automatique du 6 octobre (déverrouillage temporaire, écriture, réalignement, contrôle intégral, rollback).
+- **Nouvelle valeur commune différente des valeurs actuellement portées par les pièces du type de groupe :** pas de transaction automatique hasardeuse. À la confirmation, dans la même fenêtre WPF, un guide non destructif identifie type de groupe (nom / ID), valeur cible et exemple de pièce et d'occurrence avec valeur actuelle. Le guide demande d'annuler la vérification, d'éditer le **type de groupe** par la commande Revit « Modifier le groupe », de renseigner le paramètre cible sur les membres concernés, de terminer l'édition, de contrôler les autres occurrences puis de relancer le calcul.
+- Le moteur impose également cette vérification avant transaction (elle ne dépend pas de l'interface). Aucun dégroupage/reconstruction automatique, aucune réécriture forcée après restauration.
+
+**Important :** le contrôle initial examine les membres dont les résultats diffèrent entre occurrences et leurs valeurs cibles actuelles ; il évite le conflit reproductible du 16/11 mais ne certifie pas la totalité des mécanismes de groupes complexes, notamment groupes imbriqués, variantes ou autres membres non couverts. Le contrôle post-restauration et le rollback sont maintenus. Le parcours manuel n'implique aucune modification du modèle par l'outil.
+
+**Tests :** `tests/calculation/test_group_decisions.py` couvre l'assistance sans transaction, le parcours compatible après édition de groupe, le maintien du comportement automatique historique, le routage de la vérification WPF, la conservation du mode valeurs différentes. Vérification réelle Revit requise avant fusion de PR #59.
