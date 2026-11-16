@@ -83,7 +83,7 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 - DYN-10 : fermeture/réouverture, aperçu et publication identiques au périmètre dynamique résolu.
 - DYN-11 : tester le maintien des champs de concurrence lorsqu'un backend partagé est activé ultérieurement.
 
-**Recette Revit : aucune exécution confirmée à ce stade.** Ne pas fusionner la PR avant validation réelle d'un dossier automatique, de son regroupement, de son actualisation et de sa conversion en manuel.
+**Recette Revit :** création, aperçu, identification graphique et actualisation confirmés fonctionnels par l'utilisateur le 16 novembre 2026. La conversion individuelle d'un sous-dossier nécessite encore une validation dans Revit avant fusion.
 
 ## Retour Revit et correctif UI — 16 novembre 2026
 
@@ -109,3 +109,25 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 **Recette Revit restante :** vérifier l'ouverture de la fenêtre sans radios, la mise à jour de l'aperçu lors du changement de valeur et de paramètre de sous-dossier, l'identification visuelle du dossier créé puis sa conversion manuelle (qui doit reprendre l'icône standard). La stabilité de l'actualisation déjà constatée ne doit pas être régressée.
 
 **Contrôle GitHub — 16/11/2026 :** 488 tests Export réussis et workflows « Export — configuration collaborative » / « Export ribbon contract » verts au commit `4111b9ca4de1be9f6d9a219a41e9170f3e23aca0`. La branche a été réalignée sur `main` (les évolutions récentes du module Calculs des pièces ont été conservées) ; recette UI sous Revit encore à confirmer.
+
+## Conversion individuelle d'un sous-dossier — 16 novembre 2026
+
+**Demande :** le clic droit sur le dossier parent fige actuellement tous les groupes ; pouvoir figer seulement l'un des sous-dossiers et conserver les autres automatiques.
+
+**Implémentation PR #55 :**
+- Clic droit sur un sous-dossier généré : **Figer uniquement ce sous-dossier**.
+- Le sous-dossier est résolu à nouveau depuis la maquette Revit, puis copié en dossier manuel dans le JSON partagé.
+- Dans **la même transaction**, le parent conserve sa règle dynamique et enregistre l'identifiant du groupe dans `source.frozen_group_ids`. Les recalculs suivants ignorent ce groupe : ni doublon, ni nouvelles feuilles ajoutées à ce sous-dossier.
+- Les autres sous-dossiers continuent à se recalculer depuis Revit ; le sous-dossier figé passe de l'icône synchronisée à l'icône dossier manuel.
+- Le clic droit sur le **parent** conserve l'action historique « Rendre ce dossier manuel », qui fige ensuite les autres groupes sans dupliquer ceux déjà manuels.
+- Le stockage conserve le schéma JSON 8 (champ optionnel), les anciens JSON restent lisibles, l'écriture reste atomique via `_mutate` pour le partage collaboratif.
+- Il n'existe pas encore de commande pour retransformer individuellement un groupe manuel en groupe automatique ; sa suppression ne retire pas automatiquement son exclusion du parent.
+
+**Recette supplémentaire :**
+- DYN-12 : créer un parent dynamique avec A, B et C. Figer uniquement B par clic droit. A et C restent synchronisés, B devient manuel.
+- DYN-13 : créer une nouvelle feuille Revit ayant la valeur B ; elle ne doit pas s'ajouter à B. Créer une nouvelle feuille de valeur C : elle doit apparaître dans C.
+- DYN-14 : renommer/renuméroter une feuille figée et réouvrir Export ; son libellé suit Revit, mais son appartenance à B ne change pas.
+- DYN-15 : fermer et rouvrir Export ; B reste manuel, sans doublon. Convertir ensuite le parent en manuel ; conserver A, B et C.
+- DYN-16 : sauvegarder les réglages du parent après un gel individuel ; ses exclusions doivent persister.
+
+**Statut :** code implémenté, suite automatisée à confirmer sur le dernier commit, validation Revit de ces nouveaux scénarios restante.
