@@ -109,3 +109,18 @@ def test_freeze_single_child_command_is_separate_from_full_parent_freeze():
     assert "def freeze_dynamic_group(self, parent_id, group):" in repository
     assert 'freeze.Header = "Rendre ce dossier manuel (figer les feuilles)"' in ui
     assert "def FreezeDynamic_Click(self, sender, args):" in ui
+
+
+def test_unfreeze_menu_only_for_frozen_children():
+    ui = read("export_window.py")
+    controller = read("services/carnet_controller.py")
+    repository = read("services/carnet_repository.py")
+    assert 'unfreeze.Header = "Rendre ce sous-dossier automatique"' in ui
+    assert "unfreeze.Click += self.UnfreezeDynamicGroup_Click" in ui
+    assert "def UnfreezeDynamicGroup_Click(self, sender, args):" in ui
+    assert "self.controller.unfreeze_dynamic_group(group)" in ui
+    assert 'str(tag[1].id) in [str(value) for value in frozen]' in ui
+    assert "def unfreeze_dynamic_group(self, selected_group):" in controller
+    assert "def unfreeze_dynamic_group(self, parent_id, group_id):" in repository
+    assert "self._mutate(mutation)" in repository
+    assert 'source["frozen_group_ids"]' in repository
