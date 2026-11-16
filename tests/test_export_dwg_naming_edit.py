@@ -118,7 +118,7 @@ def test_dwg_naming_fields_are_editable_on_publication_sets():
 def test_dwg_template_is_saved_before_combined_pdf_sync():
     """La règle saisie doit être transmise à la persistance puis relue."""
     selected = NS(
-        publication_settings=NS(dwg_filename_template=None),
+        publication_settings=NS(dwg_filename_template=None, output_directory=None),
         persistent=True,
         output_directory=None,
     )
