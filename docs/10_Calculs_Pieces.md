@@ -261,6 +261,19 @@ Le réglage de la définition de paramètre est **global au projet**, pas limit�
 
 **Anti-régression :** `tests/calculation/test_group_decisions.py` comporte les cas B200 dans plusieurs variantes et pièce à groupe vide ; exécuter `python -m pytest tests/calculation -q`. Les tests hors Revit ne remplacent pas cette recette.
 
+### 7.3.3 Gestion des variantes : séparation ou addition volontaire (16 novembre 2026)
+
+**Nouvelle fonctionnalité sur PR #56 (branche de test, non fusionnée).** La fenêtre principale propose une liste déroulante `GESTION DES VARIANTES` avec deux valeurs :
+
+- **Surfaces séparées par variante (par défaut)** : garde le comportement développé précédemment (scénario de référence partagé par modèle principal et variantes principales, variante secondaire avec un total indépendant).
+- **Additionner toutes les surfaces des variantes** : pour chaque numéro d'appartement, additionne les surfaces de **toutes les pièces**, y compris celles des variantes secondaires. La clé de regroupement redevient le seul numéro d'appartement, sans identifiant de variante. Le **même total cumulé est écrit dans toutes les pièces** correspondant à ce numéro, quelle que soit leur variante, sous réserve du traitement habituel des paramètres de groupes.
+
+Le choix est **volontaire et non mémorisé** : une nouvelle ouverture de l'outil revient au mode séparé. Le filtre métier optionnel existant s'applique toujours avant le regroupement, et le collecteur ne dépend pas de la vue Revit active. Si un appartement est présent dans plusieurs scénarios, une fenêtre WPF TAA liste les totaux par scénario. En mode addition, elle affiche aussi le total cumulé, avertit sur le risque de **double comptage de solutions alternatives** et exige une confirmation avant écriture. Une annulation ferme le parcours sans transaction. Le moteur refuse l'écriture sans cette confirmation, même si le dialogue était contourné. La confirmation finale d'écriture reste obligatoire.
+
+**Exemple :** B200 = 35,330 m² (référence) + 29,522 m² (Variante 1) : en mode séparé les deux résultats restent respectivement 35,330 et 29,522 m² ; en mode addition, **64,852 m² est écrit dans les pièces des deux scénarios**. Le calcul est une somme de paramètres de pièces déjà calculés par Revit, pas une fusion géométrique de variantes.
+
+**Anti-régression** : `tests/calculation/test_group_decisions.py`, cas B200 de deux variantes, écritures distinctes/cumulées, absence de confirmation, mode invalide. **Recette Revit 2025.4 à effectuer** : vérifier fenêtre et confirmation WPF, résultat des deux modes sur copie, valeurs dans toutes les pièces concernées, fonctionnement des groupes et Undo.
+
 ### 7.4 Performance d'ouverture
 
 À l'ouverture de la fenêtre, la découverte des paramètres est effectuée en **un seul
