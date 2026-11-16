@@ -222,3 +222,109 @@ def test_fallback_context_can_retry_and_return_to_shared_mode():
     assert not recovered.fallback_from_shared
     assert recovered.repository.shared_storage.known_revision == 7
     assert recovered.shared_config_path.endswith("export.json")
+
+
+def test_existing_legacy_configuration_belongs_only_to_its_original_central(tmp_path):
+    import json
+    from project_storage_resolver import ProjectStorageResolver
+    from shared_json_storage import SharedJsonStorage
+
+    class FakeDocument(object):
+        IsWorkshared = True
+
+        def __init__(self, central):
+            self.central = central
+
+        def GetWorksharingCentralModelPath(self):
+            return self.central
+
+    parent = tmp_path / "centrals"
+    parent.mkdir()
+    central_a = str(parent / "architecture.rvt")
+    central_b = str(parent / "structure.rvt")
+    # Resolving on Linux uses ntpath, so use real filesystem paths solely
+    # for storage, while the FakeResolver supplies canonical identities.
+    legacy = parent / "OutilsTAA" / "export.json"
+    legacy.parent.mkdir()
+    legacy.write_text(json.dumps({
+        "schema_version": 8,
+        "project_identity": "CENTRAL:architecture",
+        "storage_revision": 7,
+        "folders": [{"id": "a", "name": "ARCHI"}],
+        "sets": [],
+    }), encoding="utf-8")
+
+    def paths(identity, stem):
+        root = parent / "OutilsTAA" / stem
+        return StoragePaths(
+            StoragePaths.MODE_SHARED,
+            local_config_path=str(tmp_path / "local.json"),
+            central_path=identity,
+            project_identity=identity,
+            shared_config_path=str(root / "export.json"),
+            shared_lock_path=str(root / "export.lock"),
+            shared_backups_path=str(root / "backups"),
+            legacy_config_path=str(legacy),
+            legacy_lock_path=str(legacy.parent / "export.lock"),
+            legacy_backups_path=str(legacy.parent / "backups"),
+        )
+
+    a = build_export_storage(
+        object(), str(tmp_path / "local.json"), LOCAL_ID,
+        resolver=FakeResolver(paths("CENTRAL:architecture", "architecture_hash")),
+    )
+    assert a.is_shared
+    assert a.shared_config_path == str(legacy)
+    assert a.revision == 7
+
+    b = build_export_storage(
+        object(), str(tmp_path / "local.json"), LOCAL_ID,
+        resolver=FakeResolver(paths("CENTRAL:structure", "structure_hash")),
+    )
+    assert b.is_shared
+    assert b.shared_config_path != str(legacy)
+    assert b.revision == 0
+    assert legacy.exists()
+    assert json.loads(legacy.read_text(encoding="utf-8"))["storage_revision"] == 7
+
+
+def test_model_specific_json_precedes_legacy_config_even_if_legacy_matches(tmp_path):
+    import json
+
+    parent = tmp_path / "centrals" / "OutilsTAA"
+    scoped = parent / "architecture_hash"
+    scoped.mkdir(parents=True)
+    legacy = parent / "export.json"
+    legacy.write_text(json.dumps({
+        "schema_version": 8,
+        "project_identity": SHARED_ID,
+        "storage_revision": 3,
+        "folders": [], "sets": [],
+    }), encoding="utf-8")
+    scoped_json = scoped / "export.json"
+    scoped_json.write_text(json.dumps({
+        "schema_version": 8,
+        "project_identity": SHARED_ID,
+        "storage_revision": 8,
+        "folders": [], "sets": [],
+    }), encoding="utf-8")
+
+    paths = StoragePaths(
+        StoragePaths.MODE_SHARED,
+        local_config_path=str(tmp_path / "local.json"),
+        central_path=SHARED_ID,
+        project_identity=SHARED_ID,
+        shared_config_path=str(scoped_json),
+        shared_lock_path=str(scoped / "export.lock"),
+        shared_backups_path=str(scoped / "backups"),
+        legacy_config_path=str(legacy),
+        legacy_lock_path=str(parent / "export.lock"),
+        legacy_backups_path=str(parent / "backups"),
+    )
+    context = build_export_storage(
+        object(), str(tmp_path / "local.json"), LOCAL_ID,
+        resolver=FakeResolver(paths),
+    )
+    assert context.is_shared
+    assert context.revision == 8
+    assert context.shared_config_path == str(scoped_json)
