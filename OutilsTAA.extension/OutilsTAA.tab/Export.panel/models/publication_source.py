@@ -10,7 +10,9 @@ class PublicationSource(object):
     TEMPORARY = "TEMPORARY"
     DYNAMIC = "DYNAMIC"
 
-    def __init__(self, mode, parameter_name=None, parameter_value=None,\n                 group_parameter=None):
+    def __init__(self, mode, parameter_name=None, parameter_value=None,
+                 group_parameter=None):
         self.mode = mode
         self.parameter_name = parameter_name
-        self.parameter_value = parameter_value\n        self.group_parameter = group_parameter
+        self.parameter_value = parameter_value
+        self.group_parameter = group_parameter
