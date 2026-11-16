@@ -270,3 +270,15 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Validation Revit :** **non effectuée**. Ne pas fusionner sans test sur copie de maquette : (a) groupes identiques et résultats différents, (b) choix variable, (c) choix aligné avec valeur référence, (d) annulation et Undo, (e) groupes à plusieurs appartements, (f) variantes principales et secondaires, (g) fonctionnement historique sans conflits. Contrôler aussi le nombre de pièces et les valeurs affichées.
 
 **Action suivante :** déployer uniquement la branche sur un chemin pyRevit de test, jamais à la place de l'extension partagée stable ; tester d'abord les groupes de référence sur une copie du RVT et comparer `Surface logement` avant/après.
+
+## Reprise Calculs des pièces — variante B200 et charte TAA (16 novembre 2026)
+
+**Retour utilisateur Revit :** la version précédente de la PR #56 mélangeait les pièces de solutions de conception distinctes dans une même somme lorsque la clé de regroupement était identique (ex. `B200`). Les boîtes de dialogue pyRevit génériques tronquaient les textes et ne respectaient pas la charte graphique.
+
+**Décision corrigée :** il ne s'agit pas de filtrer les pièces par la vue active. Le module collecte les pièces du projet et calcule indépendamment les surfaces par **clé métier + scénario de variante** : modèle principal et variantes principales réunis dans le scénario de référence, chaque variante secondaire isolée. Le numéro `B200` peut ainsi produire plusieurs résultats sans mélange. La logique de conflit et de choix d'alignement des paramètres par groupes reste active.
+
+**Implémentation sur `fix/calculs-group-conflicts-design-options` :** `calculation_diagnostics.variant_group_key` ; raccordement avant agrégation dans `room_calculation_workflow.py` ; fenêtres WPF `calculation_decision.xaml`/`calculation_decision_window.py` ; `calculs_window.py` raccordée aux fenêtres TAA. L'option de collecte par vue active introduite pendant l'analyse a été supprimée avant livraison.
+
+**Validation automatisée :** GitHub Actions `tests/calculation` **90 tests réussis** sur commit `91dc988e02acd84c619405aafa88e57045fbfd81` (run 43890452365) ; suite Export également réussie (run 43890452374). Le registre `BUG-CALCULS-007` et `docs/10_Calculs_Pieces.md` sont à jour. Un commit documentaire complémentaire suit les tests.
+
+**Validation Revit 2025.4 :** **en attente**, malgré le retour initial démontrant que la version antérieure était chargée. Test requis sur copie RVT : deux appartements `B200` distincts dans deux variantes, vérifier deux sommes distinctes et écritures correspondantes ; confirmer l'affichage et l'annulation des dialogues WPF TAA ; contrôler modèle principal, variante principale et variantes secondaires, puis groupes alignés.
