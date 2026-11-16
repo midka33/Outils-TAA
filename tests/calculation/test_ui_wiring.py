@@ -122,8 +122,13 @@ def test_unit_selector_is_contextual_and_warnings_are_shown_before_write():
 
     assert "TargetParameterChanged" in text
     assert 'target.storage_type in ("Integer", "String")' in text
-    assert "if prepared.warnings:" in text
-    assert "Avertissements :" in text
+    review_path = os.path.join(UI_DIR, "calculation_review_window.py")
+    review = _read(review_path)
+    # Avertissements pertinents visibles avant l'écriture, sans long rapport
+    # technique dans la fenêtre de confirmation.
+    assert "if prepared.warnings:" in review
+    assert "self.WarningText.Text" in review
+    assert "review_taa(prepared," in text
 
 
 def test_main_window_is_compact_at_standard_resolution():

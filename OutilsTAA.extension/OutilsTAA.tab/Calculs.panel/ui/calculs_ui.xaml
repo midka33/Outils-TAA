@@ -2,9 +2,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Calculs des pièces"
-    Height="560"
+    Height="596"
     Width="860"
-    MinHeight="480"
+    MinHeight="500"
     MinWidth="760"
     WindowStartupLocation="CenterScreen"
     Background="#F7F7F7"
@@ -154,6 +154,25 @@
 
                 <Border Background="White"
                         BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="GESTION DES VARIANTES"
+                                   VerticalAlignment="Center"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+                        <ComboBox Grid.Column="1" x:Name="VariantModeCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"
+                                  ToolTip="Séparées : un total par scénario. Additionnées : toutes les pièces portant le même numéro d'appartement sont cumulées, y compris les variantes secondaires."/>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
                         BorderThickness="1"
                         Padding="10"
                         Margin="0,0,0,8">
@@ -219,16 +238,26 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <Button Grid.Column="1"
+                    x:Name="ReportButton"
+                    Content="Rapport"
+                    Click="Report_Click"
+                    IsEnabled="False"
+                    MinWidth="100"
+                    Margin="0,0,8,0"
+                    Style="{DynamicResource TAASecondaryButton}"/>
+
+            <Button Grid.Column="2"
                     Content="Fermer"
                     Click="Close_Click"
                     MinWidth="100"
                     Margin="0,0,8,0"
                     Style="{DynamicResource TAASecondaryButton}"/>
 
-            <Button Grid.Column="2"
+            <Button Grid.Column="3"
                     x:Name="CalculateButton"
                     Content="Calculer"
                     Click="Calculate_Click"

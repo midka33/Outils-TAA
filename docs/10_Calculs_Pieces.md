@@ -223,7 +223,56 @@ Sécurités :
 - si Revit doit réaligner un ou plusieurs éléments lors du retour à l'état initial, la transaction est annulée ;
 - les destinations réellement readonly pour une autre raison restent refusées.
 
-Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Le comportement a été validé dans Revit 2025.4 le 6 octobre 2026.
+Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. **Le comportement historique sans conflit** a été validé dans Revit 2025.4 le 6 octobre 2026.
+
+### 7.3.1 Divergences entre occurrences — correctif sur branche dédiée (16 novembre 2026)
+
+**Statut : implémenté sur `fix/calculs-group-conflicts-design-options`, tests Revit à effectuer.**
+
+La préparation du calcul repère, avant toute écriture, les types de groupes de modèle dont les différentes occurrences recevraient des totaux distincts. Le regroupement métier et la collecte de pièces restent inchangés. Les valeurs sont détectées avant conversion de sortie ; une différence très faible peut donc être signalée comme divergence.
+
+Si une divergence est identifiée, la transaction n'est pas ouverte sans choix explicite dans la fenêtre :
+
+1. **Autoriser les valeurs différentes** : `SetAllowVaryBetweenGroups(document, True)` demeure actif après une écriture réussie. Le changement est volontaire et durable pour la définition du paramètre de projet concernée ; l'utilisateur le confirme avant toute transaction.
+2. **Conserver l'alignement** : l'utilisateur choisit, **pour chaque type de groupe en conflit**, une valeur de référence parmi les totaux déjà calculés pour ses occurrences. Cette valeur est affectée aux pièces concernées du type puis l'alignement est restauré. Un contrôle exige que la restauration ne modifie aucun autre élément ; sinon rollback.
+
+**Garde-fous :** la seconde option n'est pas offerte si une même occurrence du type comporte plusieurs totaux de regroupements différents (écrasement de plusieurs logements). Une sélection incomplète ou incohérente est refusée. Le choix des valeurs ne change pas les pièces non groupées. Les écritures échouées lors de l'un de ces deux modes déclenchent l'annulation de la transaction. Les groupes dont la structure ne peut être lue restent protégés par l'ancien contrôle de restauration/rollback, mais une divergence non identifiable en préparation peut donc encore donner lieu à un refus.
+
+Le réglage de la définition de paramètre est **global au projet**, pas limité à une variante ou à un groupe. Un changement « autoriser les valeurs différentes » peut donc concerner d'autres occurrences de cette définition dans le modèle.
+
+### 7.3.2 Calcul indépendant des variantes de conception — correctif sur branche dédiée
+
+**Décision utilisateur du 16 novembre 2026 :** deux appartements portant la même clé métier (`B200`, par exemple) mais présents dans deux variantes différentes ne doivent **jamais** être additionnés ensemble. Le filtre métier optionnel existant reste inchangé. Le module collecte toujours les pièces de tout le projet, indépendamment de la vue Revit active.
+
+**Clé d'agrégation :**
+- **Scénario de référence :** les pièces du modèle principal et les pièces des variantes principales sont regroupées par leur seule clé métier historique, lorsque celle-ci est identique. Une variante principale par jeu contribue au scénario de référence.
+- **Scénario de variante secondaire :** chaque variante secondaire dispose de son propre espace de regroupement, identifié par l'ID de la variante + la clé métier. Deux appartements `B200` dans deux variantes secondaires différentes produisent deux sommes distinctes, tout comme un `B200` de variante secondaire et un `B200` du scénario de référence.
+- La somme est calculée sur les valeurs déjà calculées par Revit pour chacune de ses pièces. Aucune pièce ne participe à deux écritures, aucun filtrage implicite selon la vue, aucun nouveau calcul géométrique de limites de pièces.
+- Les pièces sans clé métier continuent d'être ignorées.
+- Le rapport et la confirmation détaillent les variantes présentes et les pièces retenues, avec rappel de la séparation des variantes secondaires.
+
+**Exemple :** `B200` du scénario de référence = 70 m² ; `B200` de « Variante 1 » = 65 m² ; `B200` de « Variante 2 » = 72 m². Ce sont trois totaux et non un total à 207 m².
+
+**Confirmation conditionnelle avant écriture :** si un même numéro d'appartement apparaît dans au moins deux scénarios distincts (référence/variante secondaire ou deux variantes secondaires), le module présente une fenêtre **WPF TAA** indiquant chaque scénario et son total indépendant. Le bouton de confirmation valide **la séparation des surfaces uniquement** ; il n'existe pas de choix pour les additionner. Le refus ou la fermeture annule la commande avant toute écriture. Ce contrôle précède la résolution éventuelle des conflits de paramètres de groupes et la confirmation générale. Il n'apparaît pas lorsqu'un appartement existe dans un seul scénario. Le workflow bloque aussi toute tentative d'écriture sans confirmation, même si l'interface était contournée.
+
+**Interface :** les décisions relatives aux groupes et la confirmation d'écriture utilisent désormais une fenêtre modale WPF TAA (`calculation_decision.xaml`, `calculation_decision_window.py`) avec thème central, libellés lisibles et choix non tronqués. Aucun choix de collecte par vue n'est conservé.
+
+**À valider dans Revit 2025.4 :** `Room.DesignOption`, séparation effective des totaux B200 entre variantes, pièce de variante principale, écriture des paramètres de groupes, fermeture/annulation WPF et non-régression sans variante.
+
+**Anti-régression :** `tests/calculation/test_group_decisions.py` comporte les cas B200 dans plusieurs variantes et pièce à groupe vide ; exécuter `python -m pytest tests/calculation -q`. Les tests hors Revit ne remplacent pas cette recette.
+
+### 7.3.3 Gestion des variantes : séparation ou addition volontaire (16 novembre 2026)
+
+**Nouvelle fonctionnalité sur PR #56 (branche de test, non fusionnée).** La fenêtre principale propose une liste déroulante `GESTION DES VARIANTES` avec deux valeurs :
+
+- **Surfaces séparées par variante (par défaut)** : garde le comportement développé précédemment (scénario de référence partagé par modèle principal et variantes principales, variante secondaire avec un total indépendant).
+- **Additionner toutes les surfaces des variantes** : pour chaque numéro d'appartement, additionne les surfaces de **toutes les pièces**, y compris celles des variantes secondaires. La clé de regroupement redevient le seul numéro d'appartement, sans identifiant de variante. Le **même total cumulé est écrit dans toutes les pièces** correspondant à ce numéro, quelle que soit leur variante, sous réserve du traitement habituel des paramètres de groupes.
+
+Le choix est **volontaire et non mémorisé** : une nouvelle ouverture de l'outil revient au mode séparé. Le filtre métier optionnel existant s'applique toujours avant le regroupement, et le collecteur ne dépend pas de la vue Revit active. Si un appartement est présent dans plusieurs scénarios, une fenêtre WPF TAA liste les totaux par scénario. En mode addition, elle affiche aussi le total cumulé, avertit sur le risque de **double comptage de solutions alternatives** et exige une confirmation avant écriture. Une annulation ferme le parcours sans transaction. Le moteur refuse l'écriture sans cette confirmation, même si le dialogue était contourné. La confirmation finale d'écriture reste obligatoire.
+
+**Exemple :** B200 = 35,330 m² (référence) + 29,522 m² (Variante 1) : en mode séparé les deux résultats restent respectivement 35,330 et 29,522 m² ; en mode addition, **64,852 m² est écrit dans les pièces des deux scénarios**. Le calcul est une somme de paramètres de pièces déjà calculés par Revit, pas une fusion géométrique de variantes.
+
+**Anti-régression** : `tests/calculation/test_group_decisions.py`, cas B200 de deux variantes, écritures distinctes/cumulées, absence de confirmation, mode invalide. **Recette Revit 2025.4 à effectuer** : vérifier fenêtre et confirmation WPF, résultat des deux modes sur copie, valeurs dans toutes les pièces concernées, fonctionnement des groupes et Undo.
 
 ### 7.4 Performance d'ouverture
 
@@ -519,3 +568,17 @@ docs/18_Calculs_Pieces_Tests_Revit.md
 ```
 
 Le module est considéré comme validé pour intégration dans `main`.
+
+**Correctif ergonomique du 16/11/2026 (retour utilisateur dans Revit) :** la fenêtre de confirmation WPF des appartements multi-variantes affichait les surfaces, mais ses boutons étaient hors de la zone visible, car la hauteur était forcée à 320 unités WPF dans le mode sans liste. La hauteur a été rétablie à 440 unités WPF afin de réserver la place du pied d'actions ; le contenu long conserve son ScrollViewer. Les libellés distinguent désormais explicitement le « scénario de référence » et les variantes par leur nom exact (sans duplication « variante Variante 1 »). Vérification automatisée statique et contrôle réel en Revit à renouveler.
+
+**Ajustement redimensionnement (retour utilisateur Revit du 16/11/2026) :** dans la fenêtre de décision WPF, le panneau blanc de détails demeurait de hauteur fixe lorsque l'utilisateur agrandissait la fenêtre. Cause : deuxième ligne du `Grid` définie en `Auto`, troisième ligne en `*` alors que le panneau de choix pouvait être masqué, et `ScrollViewer.MaxHeight=170`. Correction ciblée : ligne du récapitulatif en `*`, ligne des choix en `Auto`, retrait de la hauteur maximale du récapitulatif et limite du panneau de choix à 180 unités WPF. Le pied d'actions reste en ligne `Auto` hors du défilement. Aucun changement au calcul ni à la transaction. Vérification du redimensionnement dans Revit à effectuer après déploiement.
+
+### 7.3.4 Confirmation unique et information réduite — évolution UI (16 novembre 2026)
+
+**Nouvelle règle validée fonctionnellement par l'utilisateur, recette Revit en attente :** une seule fenêtre **WPF TAA** de revue avant écriture, au lieu d'une succession de dialogues « variantes », « groupes », puis « confirmation ». Son contenu se limite au nombre de pièces à écrire, au nombre de totaux, au paramètre de destination et à la situation des variantes. Le risque de double comptage est signalé en une phrase lorsque le mode **Additionner** est sélectionné.
+
+**Conflits entre groupes :** si une divergence entre occurrences est détectée, le choix entre « valeurs différentes » et « valeur commune par type de groupe » se fait dans **cette même fenêtre**, sans nouvelle fenêtre. Pour le mode uniforme, les valeurs de référence se sélectionnent directement en dessous pour chaque type de groupe. Aucune valeur ni modification de la définition du paramètre n'est retenue implicitement : un choix manquant bloque le bouton de confirmation, sans transaction. Le contrôle de transaction et les règles métier préexistantes sont conservés.
+
+**Rapport après calcul :** en cas de réussite, le rapport détaillé n'est plus ouvert systématiquement ; le résultat apparaît dans l'état de la fenêtre principale et le bouton **Rapport** permet de l'afficher à la demande. En cas d'échec de transaction ou d'écritures, le rapport reste affiché automatiquement. Les pièces ignorées sont signalées par leur nombre dans l'état, avec détails consultables dans le rapport.
+
+**Implémentation :** `ui/calculation_review.xaml` et `calculation_review_window.py`, `ui/calculs_window.py`, `ui/calculs_ui.xaml`. **Non fusionnée** (PR #56). Vérifier dans Revit 2025.4 : parcours sans conflit, avec conflit, sélection de valeur commune, mode d'addition des variantes, annulation, rapport facultatif et rapport d'erreurs. Le tests automatisés hors Revit ne valident pas l'affichage WPF réel.

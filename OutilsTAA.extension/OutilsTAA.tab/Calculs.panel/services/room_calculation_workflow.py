@@ -6,6 +6,9 @@ from __future__ import unicode_literals
 from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
 from calculation.models import RoomCalculationItem
+from calculation_diagnostics import (group_conflicts, design_option_summary,
+                                     variant_group_key, variant_group_label,
+                                     shared_apartments_across_variants)
 from calculation.workflow_models import (
     CalculationExecutionReport,
     WriteOperation,
@@ -25,6 +28,9 @@ class PreparedCalculation(object):
         total_rooms,
         filtered_rooms,
         warnings=None,
+        conflicts=None,
+        design_options=None,
+        shared_variant_apartments=None,
     ):
         self.request = request
         self.result = result
@@ -33,6 +39,14 @@ class PreparedCalculation(object):
         self.total_rooms = int(total_rooms)
         self.filtered_rooms = int(filtered_rooms)
         self.warnings = list(warnings or [])
+        self.group_conflicts = list(conflicts or [])
+        self.design_options = list(design_options or [])
+        self.shared_variant_apartments = list(shared_variant_apartments or [])
+        self.variant_separation_confirmed = False
+        self.variant_combination_confirmed = False
+        # Choix explicite par utilisateur; 'restore' preserve l'ancien comportement.
+        self.group_mode = "restore"
+        self.uniform_values = {}
 
 
 class RoomCalculationWorkflow(object):
@@ -70,6 +84,9 @@ class RoomCalculationWorkflow(object):
         if not validation.is_valid:
             raise ValidationError("\n".join(validation.errors))
 
+        mode = getattr(request, "variant_mode", "separate")
+        if mode not in ("separate", "combine"):
+            raise ValidationError("Mode de gestion des variantes inconnu.")
         rooms = self.collector_service.collect_all_rooms()
         filtered = self.room_filter.apply(
             rooms,
@@ -80,27 +97,32 @@ class RoomCalculationWorkflow(object):
 
         room_by_key = {}
         items = []
+        separate_items = []
 
         for index, room in enumerate(filtered):
             room_key = self._room_key(room, index)
             room_by_key[room_key] = room
-            items.append(
-                RoomCalculationItem(
-                    room_key,
-                    self.parameter_service.read_value(
-                        room,
-                        request.group_parameter,
-                        default=None,
-                    ),
-                    self.parameter_service.read_value(
-                        room,
-                        request.source_parameter,
-                        default=None,
-                    ),
-                )
+            group_value = self.parameter_service.read_value(
+                room, request.group_parameter, default=None
             )
+            source_value = self.parameter_service.read_value(
+                room, request.source_parameter, default=None
+            )
+            separate_key = variant_group_key(room, group_value)
+            separate_items.append(RoomCalculationItem(
+                room_key, separate_key, source_value
+            ))
+            items.append(RoomCalculationItem(
+                room_key,
+                group_value if mode == "combine" else separate_key,
+                source_value,
+            ))
 
         result = self.calculator.calculate(items, progress=progress)
+        separate_result = (
+            self.calculator.calculate(separate_items)
+            if mode == "combine" else result
+        )
         operations = []
 
         for group_value, total in result.totals.items():
@@ -108,7 +130,10 @@ class RoomCalculationWorkflow(object):
                 operations.append(
                     WriteOperation(
                         room_key=room_key,
-                        group_value=group_value,
+                        group_value=(
+                            group_value if mode == "combine"
+                            else variant_group_label(group_value, self.document)
+                        ),
                         value=total,
                     )
                 )
@@ -120,10 +145,20 @@ class RoomCalculationWorkflow(object):
         ):
             warnings.append(
                 "Le paramètre destination '{}' est aligné par type de groupe. "
-                "Outils TAA autorisera temporairement les valeurs variables "
-                "pendant l'écriture puis restaurera l'alignement avant de "
-                "valider la transaction.".format(request.target_parameter.name)
+                "Par défaut, Outils TAA le déverrouille temporairement puis "
+                "restaure l'alignement. En cas de divergence connue, un choix "
+                "explicite sera demandé avant écriture.".format(request.target_parameter.name)
             )
+
+        conflicts = []
+        if self._selection_requires_group_override(filtered, request.target_parameter):
+            conflicts = group_conflicts(self.document, room_by_key, operations)
+        variants = design_option_summary(self.document, filtered)
+        if mode == "combine":
+            variants.insert(0, "ATTENTION : toutes les variantes sont additionnées "
+                            "pour un même numéro d'appartement.")
+        else:
+            variants.insert(0, "Les variantes secondaires sont calculées séparément.")
 
         return PreparedCalculation(
             request=request,
@@ -133,11 +168,53 @@ class RoomCalculationWorkflow(object):
             total_rooms=len(rooms),
             filtered_rooms=len(filtered),
             warnings=warnings,
+            conflicts=conflicts,
+            design_options=variants,
+            shared_variant_apartments=shared_apartments_across_variants(
+                separate_result, self.document
+            ),
         )
 
     def execute(self, prepared, progress=None):
         valid = []
         failed = []
+
+        mode = getattr(prepared.request, "variant_mode", "separate")
+        if mode not in ("separate", "combine"):
+            raise ValidationError("Mode de gestion des variantes inconnu.")
+        if prepared.shared_variant_apartments:
+            if mode == "separate" and not prepared.variant_separation_confirmed:
+                raise ValidationError(
+                    "Confirmez explicitement la séparation des surfaces "
+                    "de cet appartement entre variantes avant écriture."
+                )
+            if mode == "combine" and not prepared.variant_combination_confirmed:
+                raise ValidationError(
+                    "Confirmez explicitement l'addition des surfaces "
+                    "des variantes avant écriture."
+                )
+
+        if prepared.group_conflicts and prepared.group_mode == "restore":
+            raise ValidationError(
+                "Conflits de valeurs entre occurrences : un choix utilisateur "
+                "est obligatoire avant l'ecriture."
+            )
+        if prepared.group_mode not in ("restore", "vary", "uniform"):
+            raise ValidationError("Mode de groupes non reconnu.")
+        if prepared.group_mode == "uniform":
+            required = set(item["type_key"] for item in prepared.group_conflicts)
+            if set(prepared.uniform_values) != required:
+                raise ValidationError("Une valeur commune doit etre choisie pour chaque type de groupe.")
+            for item in prepared.group_conflicts:
+                allowed = [candidate["value"] for candidate in item["candidates"]]
+                if not item["uniform_safe"] or prepared.uniform_values[item["type_key"]] not in allowed:
+                    raise ValidationError("Uniformisation non sure pour le type de groupe '{}' .".format(item["name"]))
+            uniform_by_room = {}
+            for item in prepared.group_conflicts:
+                for room_key in item["room_keys"]:
+                    uniform_by_room[room_key] = prepared.uniform_values[item["type_key"]]
+        else:
+            uniform_by_room = {}
 
         total_ops = len(prepared.operations)
         for index, operation in enumerate(prepared.operations, 1):
@@ -157,7 +234,7 @@ class RoomCalculationWorkflow(object):
                 prepared_value = self.writer.prepare_value(
                     prepared.request.source_parameter,
                     prepared.request.target_parameter,
-                    operation.value,
+                    uniform_by_room.get(operation.room_key, operation.value),
                     prepared.request.output_unit_type_id,
                 )
                 parameter = self._validate_target_on_room(
@@ -224,9 +301,12 @@ class RoomCalculationWorkflow(object):
                             )
                         )
 
-                realigned = self._restore_group_alignment(
-                    enabled_definitions
-                )
+                if prepared.group_mode in ("restore", "uniform"):
+                    realigned = self._restore_group_alignment(enabled_definitions)
+                else:
+                    realigned = []
+                if prepared.group_mode in ("vary", "uniform") and failed:
+                    raise ValidationError("Ecriture incomplete : annulation de securite.")
                 if realigned:
                     raise ValidationError(
                         "La restauration de l'alignement par type de groupe "
@@ -238,6 +318,16 @@ class RoomCalculationWorkflow(object):
                     )
 
             successful = temporary_success
+            if prepared.group_mode == "vary" and enabled_definitions:
+                prepared.warnings.append(
+                    "Reglage du parametre conserve : valeurs differentes "
+                    "autorisees entre occurrences de groupes."
+                )
+            elif prepared.group_mode == "uniform" and prepared.group_conflicts:
+                prepared.warnings.append(
+                    "Valeurs communes retenues par type de groupe, "
+                    "alignement du parametre preserve."
+                )
         except Exception as error:
             rollback_message = "Transaction annulée : {}.".format(error)
             for operation, room, prepared_value, parameter in valid:

@@ -72,3 +72,47 @@ Collecter une fois, dériver ensuite en mémoire.
 contexte n'appelle `get_parameter_descriptors()` qu'une seule fois ; un second test
 vérifie que deux occurrences partageant le même `Parameter.Id` ne relisent les
 métadonnées Revit qu'une seule fois.
+### BUG-CALCULS-007 — Divergences de valeurs entre occurrences et variantes non visibles
+
+**Symptôme :** sur une maquette avec variantes de conception et plusieurs occurrences de groupes, l'écriture dans `Surface logement` échoue. La restauration de l'alignement par type de groupe aurait modifié 9 éléments ; 898 écritures sont annulées dans le rapport de référence du 16 novembre 2026. L'utilisateur ne peut pas choisir d'autoriser des valeurs différentes ni une valeur commune par type de groupe. Les variantes prises en compte ne sont pas indiquées.
+
+**Cause racine confirmée pour l'écriture :** la logique de `BUG-CALCULS-005` rétablit systématiquement `VariesAcrossGroups=False`, y compris si différentes occurrences calculent des totaux incompatibles. Le rapport ne prouve pas, à lui seul, que les variantes sont la cause de la différence. La collecte documentée traite toutes les pièces du projet.
+
+**Correction implémentée (branche `fix/calculs-group-conflicts-design-options`) :**
+- Diagnostic en préparation des écarts de totaux entre les occurrences d'un même type de groupe ;
+- Choix utilisateur entre conserver `VariesAcrossGroups=True` de façon permanente ou retenir une valeur commune de référence et restaurer l'alignement ;
+- Interdiction d'uniformiser si plusieurs regroupements indépendants existent dans une même occurrence de groupe ;
+- Protection contre les écritures partielles, restauration qui modifie des éléments et choix incomplets ;
+- Affichage informatif des variantes existantes et des pièces collectées dans chaque variante, sans changer le calcul ni son périmètre.
+
+**Règle préventive :** ne pas modifier un réglage de définition de paramètre partagée par des groupes sans décision explicite lorsqu'une divergence est connue. N'uniformiser que des valeurs dont la correspondance par type de groupe est identifiée. Pour les variantes, expliciter quelles pièces sont lues sans prétendre recalculer une géométrie spécifique à une vue.
+
+**Anti-régression :** `tests/calculation/test_group_decisions.py`, puis suite `tests/calculation`. Revit 2025.4 : groupe type identique sur deux occurrences avec résultats différents, les deux choix, annulation, retour arrière, variante principale/secondaire, filtre, et cas historique sans divergence.
+
+**Complément BUG-CALCULS-007 — séparation des variantes et fenêtre TAA (retour utilisateur Revit du 16 novembre 2026) :** la capture montre 24 pièces du modèle principal, 8 de la variante principale et 4 de la variante secondaire. Ancien comportement : les pièces partageant un numéro d'appartement (exemple B200) pouvaient être additionnées indépendamment de leur variante, mélangeant les solutions de conception. Correction de la branche : clé de groupe métier inchangée pour le scénario principal, clé distincte pour chaque variante secondaire. Le filtrage par vue a été envisagé, puis explicitement rejeté par l'utilisateur et retiré. La boîte pyRevit `CommandSwitchWindow` tronquait les explications et contrevenait à `docs/04_UI_Guidelines.md` ; choix des conflits et confirmation désormais en WPF avec thème partagé. Anti-régression B200 sur deux variantes et clé de groupe vide ajoutée. Ces corrections nécessitent la recette dans Revit avant fusion.\n\n**Complément — confirmation WPF TAA des appartements multi-variantes :** un même appartement B200 détecté dans plusieurs scénarios doit être explicitement confirmé comme **séparé** avant écriture. La fenêtre donne les totaux indépendants par scénario et permet d'annuler sans aucune transaction. Le moteur refuse également l'écriture si la confirmation manque, sans modifier les agrégations ni les variantes. **Anti-régression** : confirmation absente bloque la transaction, confirmation présente conserve la logique existante, appartement d'une seule variante ne déclenche pas le dialogue ; tests ajoutés dans `test_group_decisions.py`. **Recette Revit : en attente.**\n\n**Statut au 16 novembre 2026 :** code et tests créés ; **tests automatisés non encore exécutés**, **validation Revit en attente**. Ne pas déclarer le bug clos avant recette.
+
+**Complément ergonomie BUG-CALCULS-007 (capture utilisateur du 16/11/2026) :** boutons Annuler / Confirmer absents de la fenêtre de confirmation multi-variantes : le code forçait une hauteur de 320 unités WPF, insuffisante pour l'en-tête, le récapitulatif et le pied d'actions. Correction : hauteur modale 440 unités WPF dans le mode confirmation ; texte long défilable, boutons hors du ScrollViewer. Libellé « variante Variante 1 » corrigé pour afficher le nom sans duplication et référence étiquetée. Anti-régression : tests de contrat de dimensionnement et libellés dans `test_group_decisions.py`. Validation visuelle en Revit 2025.4 toujours à refaire.
+
+**Complément BUG-CALCULS-007 — redimensionnement du panneau de détails :** après réapparition des boutons de confirmation, la recette Revit montre que le rectangle blanc contenant le texte ne suit pas l'agrandissement vertical de la fenêtre. Cause identifiée dans `calculation_decision.xaml` : `Grid.Row=1` dimensionnée `Auto`, rangée des choix masquée dimensionnée `*` et `ScrollViewer.MaxHeight=170`. Correction : détails `*` sans MaxHeight, choix `Auto` plafonnés, pied d'actions conservé hors zone de défilement. Test anti-régression : analyse XML/XAML dans `test_group_decisions.py` des définitions de lignes et de la hauteur du ScrollViewer. La validation visuelle finale Revit reste ouverte.
+
+### BUG-CALCULS-008 — Addition volontaire des surfaces de variantes (nouvelle option)
+
+**Besoin :** après validation du mode « surfaces séparées », l'utilisateur doit aussi pouvoir additionner toutes les surfaces d'un même numéro d'appartement, y compris celles situées dans plusieurs variantes. Le regroupement séparé était codé sans alternative accessible dans l'interface.
+
+**Cause :** `variant_group_key` distinguait systématiquement les variantes secondaires ; la fenêtre principale n'exposait aucun mode de regroupement alternatif.
+
+**Correction implémentée, non validée dans Revit :** liste `GESTION DES VARIANTES` WPF TAA (mode séparé par défaut ; mode addition explicite). En mode addition, clé de regroupement = numéro d'appartement sans variante ; **le total cumulé est écrit dans toutes les pièces du regroupement**. Détection des appartements multi-scénarios conservée à partir d'un second calcul *séparé* informatif ; avertissement sur le double comptage de variantes alternatives, détail des composantes, total cumulé, confirmation obligatoire avant transaction. Mode inconnu rejeté ; mode séparé inchangé ; aucun filtre selon la vue.
+
+**Règle préventive :** ne jamais additionner implicitement des solutions de conception différentes ; séparer par défaut et exiger confirmation pour l'addition lorsqu'un appartement appartient à plusieurs scénarios. Rappeler explicitement la portée de l'écriture dans toutes les variantes.
+
+**Anti-régression :** `tests/calculation/test_group_decisions.py` vérifie B200 en mode séparé, en mode addition, le total écrit à chaque pièce, la confirmation bloquante et les modes invalides. Exécuter la suite `tests/calculation` et la suite Export. **Validation dans Revit 2025.4 / pyRevit 5.x en attente.**
+
+### BUG-CALCULS-009 — Trop de fenêtres de confirmation / surcharge d'informations
+
+**Retour utilisateur :** le calcul pouvait ouvrir successivement une confirmation des variantes, un choix du mode groupes, une boîte par type de groupe lors d'une uniformisation, puis une confirmation générale et un rapport final. Le récapitulatif général affichait de nombreuses informations techniques non utiles à la décision.
+
+**Cause :** parcours WPF séquencé en boîtes indépendantes, et rapport modal imposé après toute exécution.
+
+**Correction implémentée (PR #56, Revit non encore validé) :** une **revue WPF TAA unique** avant écriture, récapitulatif concis, avertissement court de double comptage, choix des groupes et des valeurs de référence à l'intérieur de cette fenêtre. Confirmation unique et refus d'écrire si les choix nécessaires sont absents. En cas de succès, état dans la fenêtre principale ; rapport détaillé accessible par bouton facultatif. Un échec conserve un rapport automatique.
+
+**Protection :** ne jamais modifier automatiquement `VariesAcrossGroups` en présence de divergences, ne pas perdre les confirmations de variante déjà imposées par le moteur et annuler sans transaction. **Anti-régression :** tests de contrat UI et suite `tests/calculation`, plus essais sous Revit 2025.4 (avec et sans conflit), non encore effectués.

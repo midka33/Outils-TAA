@@ -9,6 +9,7 @@ from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
 from calculation_report_window import CalculationReportWindow
+from calculation_review_window import review_taa
 
 
 class ParameterChoice(object):
@@ -23,10 +24,16 @@ class CalculsWindow(forms.WPFWindow):
         self.controller = controller
         self._loading = True
         self._context = None
+        self._last_report = None
+        self._last_prepared = None
         self._group_choices = []
         self._source_choices = []
         self._target_choices = []
         self._filter_choices = []
+        self._variant_choices = [
+            ParameterChoice("Surfaces séparées par variante (défaut)", "separate"),
+            ParameterChoice("Additionner toutes les surfaces des variantes", "combine"),
+        ]
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "calculs_ui.xaml")
@@ -75,6 +82,8 @@ class CalculsWindow(forms.WPFWindow):
         self.SourceParameterCombo.ItemsSource = self._source_choices
         self.TargetParameterCombo.ItemsSource = self._target_choices
         self.FilterParameterCombo.ItemsSource = self._filter_choices
+        self.VariantModeCombo.ItemsSource = self._variant_choices
+        self.VariantModeCombo.SelectedIndex = 0
 
         if self._filter_choices:
             self.FilterParameterCombo.SelectedIndex = 0
@@ -215,11 +224,15 @@ class CalculsWindow(forms.WPFWindow):
             filter_parameter=filter_parameter,
             filter_value=filter_value,
             output_unit_type_id=self._selected_unit_type_id(),
+            variant_mode=self.VariantModeCombo.SelectedItem.descriptor,
         )
 
     def Calculate_Click(self, sender, args):
         self.CalculateButton.IsEnabled = False
         self.ProgressBar.Value = 0
+        self.ReportButton.IsEnabled = False
+        self._last_report = None
+        self._last_prepared = None
 
         try:
             request = self._create_request()
@@ -249,35 +262,9 @@ class CalculsWindow(forms.WPFWindow):
                 self.StatusText.Text = "Aucun résultat à écrire."
                 return
 
-            message = (
-                "{0} pièce(s) analysée(s)\n"
-                "{1} pièce(s) après filtre\n"
-                "{2} groupe(s)\n"
-                "{3} écriture(s) prévues\n\n"
-            ).format(
-                prepared.total_rooms,
-                prepared.filtered_rooms,
-                prepared.result.group_count,
-                len(prepared.operations),
-            )
-
-            if prepared.warnings:
-                message += "Avertissements :\n"
-                for warning in prepared.warnings:
-                    message += "- {}\n".format(warning)
-                message += "\n"
-
-            message += "Écrire ces résultats dans « {} » ?".format(
-                request.target_parameter.name
-            )
-
-            confirmed = forms.alert(
-                message,
-                title="Calculs des pièces — Confirmation",
-                yes=True,
-                no=True,
-            )
-            if not confirmed:
+            # Un seul dialogue WPF TAA : variantes, conflits de groupes
+            # et validation finale sont traités dans la même fenêtre.
+            if not review_taa(prepared, self._format_group_value, owner=self):
                 self.StatusText.Text = "Calcul annulé avant écriture."
                 return
 
@@ -306,11 +293,15 @@ class CalculsWindow(forms.WPFWindow):
                     )
                 )
 
-            CalculationReportWindow(
-                prepared,
-                report,
-                owner=self,
-            ).ShowDialog()
+            self._last_prepared = prepared
+            self._last_report = report
+            self.ReportButton.IsEnabled = True
+            if report.transaction_error or report.failed_count:
+                self.Report_Click(None, None)
+            elif report.skipped:
+                self.StatusText.Text += " {} pièce(s) ignorée(s).".format(
+                    len(report.skipped)
+                )
 
         except Exception as error:
             self.StatusText.Text = "Erreur : {}".format(error)
@@ -321,6 +312,22 @@ class CalculsWindow(forms.WPFWindow):
             )
         finally:
             self.CalculateButton.IsEnabled = True
+
+    @staticmethod
+    def _format_group_value(value, request):
+        # Les surfaces Revit sont internes (pieds carres); afficher m2
+        # uniquement si la source est bien un parametre d'aire.
+        data_type = str(getattr(request.source_parameter, "data_type_id", "") or "")
+        if "area" in data_type.lower():
+            try:
+                from Autodesk.Revit.DB import UnitUtils, UnitTypeId
+                area_m2 = UnitUtils.ConvertFromInternalUnits(
+                    float(value), UnitTypeId.SquareMeters
+                )
+                return "{:.3f} m²".format(area_m2)
+            except (ImportError, AttributeError, TypeError, ValueError):
+                pass
+        return "{} (unites internes Revit si Double)".format(value)
 
     def _calculation_progress(self, current, total):
         if total:
@@ -372,6 +379,13 @@ class CalculsWindow(forms.WPFWindow):
         self.UnitCombo.IsEnabled = manual_units_are_useful
         if not manual_units_are_useful and self.UnitCombo.Items.Count:
             self.UnitCombo.SelectedIndex = 0
+
+    def Report_Click(self, sender, args):
+        if self._last_report is None or self._last_prepared is None:
+            return
+        CalculationReportWindow(
+            self._last_prepared, self._last_report, owner=self
+        ).ShowDialog()
 
     def Close_Click(self, sender, args):
         self.Close()

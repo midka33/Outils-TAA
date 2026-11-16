@@ -252,3 +252,100 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Marqueur de version :** `2026-11-13-group-room-boundary-03`. **Commits bêta :** `3730394` (géométrie), `c4a5afe` (repères locaux), `2bc4e2d` (contrôle bloquant de valeur et pièce), `6537030` (diagnostic). **Test anti-régression ajouté** : `tests/test_annotations_group_room_boundary.py` (commit `bb03770`) avec scénario mur 7,20 m / limite de pièce 4,30 m et vérification du code de production par objets factices. **Tests non exécutés, validation Revit non effectuée.**
 
 **Recette :** partir d'une **copie antérieure aux groupes `TAA - Cotations` du précédent essai**, sans supprimer le groupe de modèle original. Sur `Niveau 1`, choisir `Groupe 1` et vérifier les valeurs dans **chaque pièce** et les textes ; contrôler le nouveau diagnostic `LONGUEUR LOCALE PIECE` et `COTE LOCALE VERIFIEE`. Si Revit refuse la cote à partir des courtes DetailCurve, **ne pas masquer cet échec par le retour aux références du mur entier** : la solution restera à développer, sans valider 8/8 sur fausses mesures. Second lancement et occurrence voisine seulement après mesures exactes. PR #37 maintenue en brouillon.
+
+## Calculs des pièces — conflits entre groupes et variantes (16 novembre 2026)
+
+**Sujet :** rapport utilisateur d'environ 898 écritures annulées ; restauration de l'alignement du paramètre `Surface logement` ayant détecté 9 éléments à réaligner. Conflit d'écriture confirmé, impact causal précis des variantes non démontré.
+
+**Branche :** `fix/calculs-group-conflicts-design-options` ; **PR #56** en brouillon, vers `main` ; pas de fusion.
+
+**Règles métier demandées :**
+1. Si plusieurs occurrences d'un même type de groupe exigent des valeurs différentes, demander à l'utilisateur s'il souhaite conserver durablement les valeurs variables ou maintenir l'alignement en choisissant une valeur de référence parmi les résultats calculés pour chaque type de groupe. Aucun choix implicite.
+2. Conserver le périmètre de calcul habituel (toutes les pièces du projet) ; indiquer les variantes détectées et le nombre de pièces issues de chacune. Le module lit les valeurs `Area` produites par Revit, sans changer la géométrie ni choisir une vue.
+
+**Implémentation :** diagnostics `calculation_diagnostics.py` ; logique de choix et garde-fous dans `room_calculation_workflow.py` ; interface `calculs_window.py` ; test `test_group_decisions.py` ; documentation module `docs/10_Calculs_Pieces.md` ; registre `BUG-CALCULS-007`. L'uniformisation est refusée si une occurrence porte plusieurs regroupements avec des totaux distincts ; le rollback reste actif.
+
+**Validation automatisée :** GitHub Actions PR #56, commit `062b5267790f6dbb8aedd8528a48b5f0520b04b9` : **88 passed** pour `python -m pytest tests/calculation -q` (run 43862479754) ; suite **Export verte** (run 43862479763). Un premier run avait échoué à cause de la mention textuelle `ActiveView` dans un commentaire, corrigée avant cette validation.
+
+**Validation Revit :** **non effectuée**. Ne pas fusionner sans test sur copie de maquette : (a) groupes identiques et résultats différents, (b) choix variable, (c) choix aligné avec valeur référence, (d) annulation et Undo, (e) groupes à plusieurs appartements, (f) variantes principales et secondaires, (g) fonctionnement historique sans conflits. Contrôler aussi le nombre de pièces et les valeurs affichées.
+
+**Action suivante :** déployer uniquement la branche sur un chemin pyRevit de test, jamais à la place de l'extension partagée stable ; tester d'abord les groupes de référence sur une copie du RVT et comparer `Surface logement` avant/après.
+
+## Reprise Calculs des pièces — variante B200 et charte TAA (16 novembre 2026)
+
+**Retour utilisateur Revit :** la version précédente de la PR #56 mélangeait les pièces de solutions de conception distinctes dans une même somme lorsque la clé de regroupement était identique (ex. `B200`). Les boîtes de dialogue pyRevit génériques tronquaient les textes et ne respectaient pas la charte graphique.
+
+**Décision corrigée :** il ne s'agit pas de filtrer les pièces par la vue active. Le module collecte les pièces du projet et calcule indépendamment les surfaces par **clé métier + scénario de variante** : modèle principal et variantes principales réunis dans le scénario de référence, chaque variante secondaire isolée. Le numéro `B200` peut ainsi produire plusieurs résultats sans mélange. La logique de conflit et de choix d'alignement des paramètres par groupes reste active.
+
+**Implémentation sur `fix/calculs-group-conflicts-design-options` :** `calculation_diagnostics.variant_group_key` ; raccordement avant agrégation dans `room_calculation_workflow.py` ; fenêtres WPF `calculation_decision.xaml`/`calculation_decision_window.py` ; `calculs_window.py` raccordée aux fenêtres TAA. L'option de collecte par vue active introduite pendant l'analyse a été supprimée avant livraison.
+
+**Validation automatisée :** GitHub Actions `tests/calculation` **90 tests réussis** sur commit `91dc988e02acd84c619405aafa88e57045fbfd81` (run 43890452365) ; suite Export également réussie (run 43890452374). Le registre `BUG-CALCULS-007` et `docs/10_Calculs_Pieces.md` sont à jour. Un commit documentaire complémentaire suit les tests.
+
+**Validation Revit 2025.4 :** **en attente**, malgré le retour initial démontrant que la version antérieure était chargée. Test requis sur copie RVT : deux appartements `B200` distincts dans deux variantes, vérifier deux sommes distinctes et écritures correspondantes ; confirmer l'affichage et l'annulation des dialogues WPF TAA ; contrôler modèle principal, variante principale et variantes secondaires, puis groupes alignés.
+
+## Calculs des pièces — confirmation des variantes séparées (16 novembre 2026)
+
+**Décision :** lorsque le même numéro d'appartement apparaît dans plusieurs scénarios de variantes, conserver les surfaces indépendantes et afficher **une confirmation WPF TAA** avant toute écriture ; ne pas proposer d'addition des variantes dans ce parcours. Aucune demande si un seul scénario est concerné.
+
+**Implémentation (PR #56, branche `fix/calculs-group-conflicts-design-options`, non fusionnée) :** diagnostic des clés de regroupement présentes dans plusieurs scénarios dans `services/calculation_diagnostics.py` ; propriété `shared_variant_apartments` et verrou `variant_separation_confirmed` dans `room_calculation_workflow.py` ; dialogue WPF TAA de confirmation dans `ui/calculs_window.py` utilisant `calculation_decision_window.py`. Annuler bloque la commande avant transaction. Les totaux séparés existants ne sont pas modifiés. Documentation `docs/10_Calculs_Pieces.md` et BUG-CALCULS-007 mis à jour.
+
+**Tests CI :** GitHub Actions `Calculs des pièces — tests hors Revit`, run `43891349277` : **92 passed** au commit `01b9760540951190e80e10b781a40f6aaf42fa50` ; ce run inclut les nouveaux tests, les commits documentaires ultérieurs ne modifient pas le code. Vérifier le statut CI au SHA final avant validation.
+
+**Recette Revit 2025.4 / pyRevit 5.x :** non exécutée pour cette modification. Vérifier une paire B200 dans deux variantes, affichage des deux totaux, annulation, confirmation puis écriture conservant les deux surfaces différentes, ainsi qu'un cas sans doublon de scénario. La PR reste en brouillon.
+
+## Recette UI Calculs — boutons de confirmation masqués (16/11/2026)
+
+**Constat utilisateur en Revit 2025.4 :** fenêtre WPF « Surfaces indépendantes par variante » ouverte pour B200 ; deux scénarios affichent chacun 35,330 m². La présence de valeurs égales n'est pas une anomalie du calcul à elle seule. Problème confirmé : boutons d'action non visibles dans la fenêtre de confirmation. Le code forçait `Height=320` lorsque la liste de choix était absente ; le récapitulatif à plusieurs lignes ne laissait plus de place au pied d'actions.
+
+**Correction de branche PR #56 (non fusionnée) :** hauteur de la confirmation 440 unités WPF, zone de texte défilable, pied d'actions préservé, noms des variantes affichés sans « variante Variante 1 », scénario principal explicitement étiqueté « scénario de référence ». Aucune modification des totaux ni du comportement de confirmation/annulation. Tests statiques/diagnostics ajoutés dans `tests/calculation/test_group_decisions.py`.
+
+**Tests :** dernière CI verte connue sur `c3ead4a` (92 tests Calculs). Les tests de la correction UI ne sont pas encore confirmés sur le dernier SHA de cette branche. **Recette Revit : en attente** ; vérifier les deux boutons visibles et opérationnels, absence de troncature, confirmation et annulation sans écriture.
+
+## Calculs des pièces — redimensionnement fenêtre de décision (16 novembre 2026)
+
+**Retour réel utilisateur Revit 2025.4 :** confirmation des variantes B200 réussie visuellement avec boutons présents ; dans la confirmation générale, l'agrandissement de la fenêtre n'étendait pas le panneau blanc de récapitulatif et laissait un grand espace gris vide.
+
+**Cause :** `calculation_decision.xaml` attribuait `Height=Auto` à la ligne des détails et `Height=*` à la ligne des choix (masquée dans une confirmation), tandis que le `ScrollViewer` des détails avait `MaxHeight=170`. La hauteur supplémentaire était attribuée à la mauvaise ligne.
+
+**Correction implémentée sur PR #56 en brouillon :** ligne des détails `*` et suppression de `MaxHeight=170`, ligne des choix `Auto` avec panneau limité à 180 unités WPF, pied de boutons séparé. Calculs, scénarios de variantes, valeurs et transactions inchangés. Test statique de contrat XAML ajouté dans `tests/calculation/test_group_decisions.py`.
+
+**Tests et recette :** tests automatisés CI à vérifier sur le commit de correction ; contrôle d'affichage à refaire dans Revit 2025.4, en redimensionnant les confirmations avec et sans choix tout en gardant Annuler / Confirmer visibles. **Ne pas considérer validé avant retour utilisateur.**
+
+## Calculs des pièces — addition optionnelle de toutes les variantes (16/11/2026)
+
+**Besoin confirmé :** permettre de choisir entre les surfaces par variante et l'addition de toutes les surfaces, y compris celles des variantes secondaires, pour un même numéro d'appartement. Le mode séparé doit rester le défaut afin d'éviter le double comptage involontaire.
+
+**PR #56 en brouillon, branche `fix/calculs-group-conflicts-design-options` ; main non modifiée.** Nouveau sélecteur WPF « Gestion des variantes » sur la fenêtre principale :
+- séparées (défaut, inchangé) : scénario principal et chaque variante secondaire indépendants ;
+- additionnées (explicite) : somme des surfaces de toutes les pièces portant le même numéro d'appartement, toutes variantes confondues. **Le résultat cumulé est écrit dans chaque pièce correspondante**, sans restriction de variante. Un avertissement détaille les totaux par variante et le cumul, puis exige une confirmation avant écriture lorsque plusieurs scénarios contribuent au même appartement. Annuler n'ouvre aucune transaction. Le filtre métier historique, les protections pour paramètres alignés par groupes et le rapport sont préservés.
+
+**Implémentation :** `calculation.workflow_models.CalculationRequest.variant_mode`, contrôleur, `services/room_calculation_workflow.py`, fenêtre `ui/calculs_window.py`/`calculs_ui.xaml` ; hauteur initiale ajustée pour maintenir la lisibilité. Les choix ne sont pas persistés : retour au mode séparé à chaque ouverture. Tests ajoutés dans `tests/calculation/test_group_decisions.py`. Documentation `docs/10_Calculs_Pieces.md`, registre BUG-CALCULS-008.
+
+**CI vérifiée :** commit `cc15044059a7e16c9c66edf899eddc112f602776`, run `43894637327` : **98 tests Calculs des pièces réussis** ; run `43894637619` : **Export réussi**. La correction de hauteur `b3ebe7972c14bb08b625b8783aa82025c9b73a8d` est postérieure à ces résultats et doit être couverte par les runs ultérieurs.
+
+**Validation Revit 2025.4 :** en attente pour cette option. Tester B200 = 35,330 + 29,522 m² : en mode séparé deux résultats indépendants ; en mode addition 64,852 m² dans toutes les pièces B200, avec confirmation ; Annuler sans écriture ; vérifier conflit de groupes, Undo et absence de doublons. Ne pas fusionner avant validation.
+
+## Calculs des pièces — revue unique avant écriture / interface épurée (16/11/2026)
+
+**Demande utilisateur :** réduire le nombre de fenêtres de confirmation et diminuer la quantité d'informations affichées. Aucun changement de calcul métier souhaité.
+
+**Branche de développement :** `fix/calculs-group-conflicts-design-options`, PR #56 en brouillon ; pas de fusion dans `main`.
+
+**Implémentation :** nouvelle fenêtre `ui/calculation_review.xaml` + `ui/calculation_review_window.py` regroupant en une seule validation WPF TAA (a) nombre de pièces/totaux et destination, (b) courte indication des variantes avec avertissement si cumul, (c) choix de réglage des groupes et, si nécessaire, choix de valeur commune par type au même endroit. Le verrou de confirmation des variantes et le refus d'écriture sans décision explicite restent contrôlés par le workflow. `calculs_window.py` n'ouvre désormais qu'une seule fenêtre de validation : plus de séquences de confirmations. En cas de succès, état synthétique dans la fenêtre principale et bouton `Rapport` facultatif ; en cas d'échec, ouverture automatique du rapport. La hauteur initiale de la fenêtre principale est ramenée de 624 à 596 unités WPF pour satisfaire la règle de compacité (maximum 600) ; `ScrollViewer` conservé pour les petits écrans.
+
+**Tests :** test statique de parcours unique et fenêtre WPF ajouté à `tests/calculation/test_group_decisions.py`. Un contrôle CI antérieur (run 43895465430) a échoué sur l'ancien `Height=624` (`1 failed, 97 passed`) ; hauteur corrigée, nouvelle CI à vérifier. Les tests automatisés ne constituent pas une validation visuelle Revit.
+
+**Recette Revit 2025.4 :** en attente : une seule fenêtre de confirmation pour B200 séparé/cumulé, avec/sans divergence de type de groupe, choix des valeurs de référence sans fenêtre supplémentaire, annulation sans transaction, succès sans rapport imposé, bouton Rapport, erreur avec rapport affiché. Conserver la PR en brouillon jusqu'à la recette.
+
+
+**Suivi CI complémentaire :** un run intermédiaire `43896244892` échouait sur deux exigences de tests : hauteur historique `624 > 600`, puis recherche obsolète de `if prepared.warnings` dans l'ancienne fenêtre. Hauteur ramenée à 596, et avertissements pertinents affichés de manière concise dans `calculation_review_window.py`, avec mise à jour du test `tests/calculation/test_ui_wiring.py`. Ces corrections sont implémentées ; **attente d'un run de tests vert au SHA final**. L'échec précédent ne doit pas être présenté comme une validation.\n
+
+## Préparation fusion PR #56 — retour Revit et correction CI (16 novembre 2026)
+
+**Retour utilisateur confirmé dans Revit 2025.4 / pyRevit 5.x :** « parfait ça marche très bien on peut fusionner » après test de la nouvelle interface à confirmation unique, d'informations allégées et de la gestion des variantes dans le module Calculs des pièces. Ce retour valide le parcours métier expérimenté par l'utilisateur, **sans preuve que tous les cas limites (groupes hétérogènes, cas d'erreur, Undo, modèles complexes) ont été retestés exhaustivement**.
+
+**Correction CI préalable à fusion :** le run 43896921445 (99 tests dont 98 passés) a échoué uniquement sur le contrat UI `MinHeight <= 500` (valeur 520). Correction ciblée de `calculs_ui.xaml` : `MinHeight=500`, en maintenant `Height=596`. Aucun changement au moteur de calcul. La fusion est conditionnée à une nouvelle CI verte sur le commit de tête.
+
+**Périmètre PR #56 :** gestion des paramètres alignés par groupes (choix explicite), séparation / addition volontaire des variantes, confirmation synthétique WPF TAA, rapport à la demande en cas de succès et rapport automatique en cas d'erreur. Documentation `docs/10_Calculs_Pieces.md` et registre `docs/bugs/CALCULS.md` mis à jour.
+
+**Étape suivante :** vérifier tous les contrôles CI sur le dernier SHA ; fusionner PR #56 dans `main` à la demande explicite de l'utilisateur puis vérifier le SHA de fusion. Garder les cas limites en tests futurs si non couverts par la recette.
