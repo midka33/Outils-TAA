@@ -18,7 +18,7 @@
     <StackPanel Grid.Row="1">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
         <RadioButton x:Name="ModeParameter" Content="Par paramètre" IsChecked="True" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
-        <RadioButton x:Name="ModeManual" Content="Manuel" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
+        <RadioButton x:Name="ModeDynamic" Content="Automatique" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />\n        <RadioButton x:Name="ModeManual" Content="Manuel" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
         <RadioButton x:Name="ModeTemporary" Content="Temporaire" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
       </StackPanel>
       <Grid x:Name="ParameterPanel">
@@ -33,6 +33,17 @@
         </StackPanel>
         <TextBlock Grid.Row="1" x:Name="ParameterInfo" TextWrapping="Wrap" Margin="0,8,0,8" />
       </Grid>
+      <StackPanel x:Name="DynamicPanel" Visibility="Collapsed" Margin="0,4,0,8">
+        <TextBlock Text="Nom du dossier automatique" FontWeight="Bold"/>
+        <TextBox x:Name="DynamicNameTextBox" MinHeight="28" Margin="0,3,0,7"/>
+        <TextBlock Text="Paramètre de sélection des mises en page" FontWeight="Bold"/>
+        <ComboBox x:Name="DynamicParameterCombo" MinHeight="28" Margin="0,3,0,7" SelectionChanged="DynamicParameter_Changed"/>
+        <TextBlock Text="Valeur recherchée (égalité exacte)" FontWeight="Bold"/>
+        <ComboBox x:Name="DynamicValueCombo" MinHeight="28" Margin="0,3,0,8"/>
+        <CheckBox x:Name="DynamicGroupCheck" Content="Créer des sous-dossiers selon un autre paramètre" Checked="DynamicGroup_Changed" Unchecked="DynamicGroup_Changed"/>
+        <ComboBox x:Name="DynamicGroupCombo" IsEnabled="False" MinHeight="28" Margin="0,4,0,4"/>
+        <TextBlock Text="Recalcul à l'ouverture, à l'actualisation et avant l'aperçu / publication. Conversion en manuel via clic droit." TextWrapping="Wrap" Foreground="{DynamicResource TaaSecondary}"/>
+      </StackPanel>
       <StackPanel x:Name="ManualPanel" Visibility="Collapsed">
         <TextBlock Text="Nom du dossier" FontWeight="Bold" Margin="0,0,0,5" />
         <TextBox x:Name="CarnetNameTextBox" />
