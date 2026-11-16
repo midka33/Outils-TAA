@@ -592,3 +592,36 @@ et maintien du fichier historique appartenant au central correct.
 
 **Statut :** correctif implémenté sur PR #30 ; tests CI à vérifier et recette
 réelle Revit 2025.4 sur deux centraux du même dossier **en attente**.
+
+
+## 12. Assistant d'import manuel d'un JSON Export (16 novembre 2026)
+
+**Besoin utilisateur :** lors de la première ouverture d'Export d'un nouveau
+central, pouvoir sélectionner une ancienne configuration (même provenant d'un
+central déplacé/renommé) comme base de la configuration partagée.
+
+- Bouton `Importer une configuration…` visible uniquement en mode partagé
+  et si le JSON cible n'existe pas.
+- Boîte de dialogue Windows permettant de choisir un fichier `.json`.
+- Lecture du fichier source avec compatibilité UTF-8 / BOM / CP1252 ;
+  validation du schéma métier et normalisation sans écriture sur la source.
+- Résumé avant confirmation : provenance et identité, dossiers, dossiers de
+  publication, feuilles trouvées / non retrouvées dans le modèle courant.
+- Création d'une **nouvelle identité cible** fondée sur le chemin central
+  actuellement ouvert. Seules les feuilles dont le `UniqueId` est dans la
+  maquette cible sont reprises. Les réglages et l'arborescence restent copiés.
+- Première écriture via `SharedJsonStorage.write` : revision 1, contrôle de
+  concurrence sous verrou SMB, refus si une configuration cible existe déjà.
+- Pas de fusion, pas d'effacement, pas de réécriture du fichier source.
+- L'offre initiale de migration locale historique est conservée ; l'assistant
+  manuel apporte un choix explicite depuis l'interface lorsqu'aucune
+  configuration partagée n'a été créée.
+
+**Risques contrôlés :** perte du fichier source, adoption silencieuse d'un
+JSON tiers, références de feuilles étrangères, concurrence entre deux
+créations simultanées, écrasement d'une configuration déjà existante.
+
+**Tests :** `tests/test_export_manual_config_import.py` ;
+recette Revit : sélection d'un JSON ancien, contrôle de l'aperçu, validation,
+révision 1, dossiers et réglages, filtrage des feuilles, redémarrage, absence
+du bouton une fois le fichier créé. La recette réelle reste à effectuer.
