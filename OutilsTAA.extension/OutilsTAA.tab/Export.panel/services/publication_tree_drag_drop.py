@@ -333,6 +333,18 @@ class PublicationTreeDragDrop(object):
         if not payload or not tag or len(tag) < 2:
             return None
 
+        # Un groupe calculé ne peut pas être une cible ni être déplacé
+        # manuellement. Figer d'abord son parent en mode manuel.
+        candidate = tag[2] if tag[0] == "SHEET" and len(tag) > 2 else tag[1]
+        if (getattr(candidate, "dynamic_virtual", False) or
+                getattr(getattr(candidate, "source", None), "mode", None)
+                == "DYNAMIC"):
+            return None
+        if any(":dyn:" in str(key) or str(key).startswith("CARNET:dyn:")
+               or str(key).startswith("SHEET:dyn:")
+               for key in (payload.get("items") or [])):
+            return None
+
         kind = payload.get("kind")
         keys = payload.get("items", [])
 
