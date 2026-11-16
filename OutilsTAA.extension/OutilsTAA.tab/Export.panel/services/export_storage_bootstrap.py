@@ -6,10 +6,13 @@ lorsqu'un central Windows exploitable est disponible, sinon conserve le dépôt
 local fourni par l'appelant.
 """
 
+import os
+
 from carnet_repository import CarnetRepository
 from project_storage_resolver import ProjectStorageResolver, StoragePaths
 from shared_json_storage import (
     SharedJsonStorage,
+    ProjectIdentityMismatchError,
     StorageAccessDeniedError,
     StorageUnavailableError,
 )
@@ -87,13 +90,40 @@ def build_export_storage(
     resolved = resolver.resolve(document, local_config_path)
 
     if resolved.uses_shared_storage:
-        storage = shared_storage_factory(
-            resolved.shared_config_path,
-            resolved.shared_lock_path,
-            resolved.shared_backups_path,
-            resolved.project_identity,
-        )
+        # Prefer an already-created per-model JSON. The historical folder-wide
+        # export.json remains authoritative ONLY for its original central.
+        # Never copy, delete or silently adopt it for another linked model.
+        config_path = resolved.shared_config_path
+        lock_path = resolved.shared_lock_path
+        backups_path = resolved.shared_backups_path
+        legacy_path = getattr(resolved, "legacy_config_path", None)
         try:
+            if (not os.path.exists(config_path)
+                    and legacy_path
+                    and os.path.exists(legacy_path)):
+                legacy = shared_storage_factory(
+                    legacy_path,
+                    resolved.legacy_lock_path,
+                    resolved.legacy_backups_path,
+                    resolved.project_identity,
+                )
+                try:
+                    # Verifies project_identity before adopting legacy storage.
+                    # An invalid file remains an explicit error, not a reset.
+                    legacy.probe_access()
+                except ProjectIdentityMismatchError:
+                    pass  # Belongs to a different central in this directory.
+                else:
+                    config_path = legacy_path
+                    lock_path = resolved.legacy_lock_path
+                    backups_path = resolved.legacy_backups_path
+
+            storage = shared_storage_factory(
+                config_path,
+                lock_path,
+                backups_path,
+                resolved.project_identity,
+            )
             storage.probe_access()
         except (StorageUnavailableError, StorageAccessDeniedError) as exc:
             repository = repository_factory(
@@ -106,7 +136,7 @@ def build_export_storage(
                 local_config_path,
                 local_project_identity,
                 central_path=resolved.central_path,
-                shared_config_path=resolved.shared_config_path,
+                shared_config_path=config_path,
                 warning=_shared_warning(exc),
                 fallback_from_shared=True,
             )
@@ -126,7 +156,7 @@ def build_export_storage(
             return context
 
         repository = repository_factory(
-            resolved.shared_config_path,
+            config_path,
             project_identity=resolved.project_identity,
             shared_storage=storage,
         )
@@ -136,7 +166,7 @@ def build_export_storage(
             local_config_path,
             resolved.project_identity,
             central_path=resolved.central_path,
-            shared_config_path=resolved.shared_config_path,
+            shared_config_path=config_path,
         )
 
     if prepare_local_callback is not None:
