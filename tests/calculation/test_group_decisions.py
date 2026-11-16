@@ -58,13 +58,18 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.request = fixture._request(self.parameter_service, rooms)
         self.prepared = self.workflow.prepare(self.request)
 
-    def test_group_mode_is_selectable_before_calculation(self):
+    def test_group_policy_is_explained_without_a_selector(self):
         import xml.etree.ElementTree as ET
         path = os.path.join(
             PANEL, "ui", "calculs_ui.xaml"
         )
         root = ET.parse(path).getroot()
         self.assertTrue(any(
+            name.endswith("}Name") and value == "GroupPolicyText"
+            for element in root.iter()
+            for name, value in element.attrib.items()
+        ))
+        self.assertFalse(any(
             name.endswith("}Name") and value == "GroupModeCombo"
             for element in root.iter()
             for name, value in element.attrib.items()
@@ -134,53 +139,53 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertFalse(self.definition.VariesAcrossGroups)
         self.assertEqual([True, False], self.definition.calls)
 
-    def test_uniform_with_new_reference_requires_group_editor_before_transaction(self):
+    def test_uniform_new_value_is_written_and_parameter_becomes_variable(self):
         self.prepared.group_mode = "uniform"
         self.prepared.uniform_values = {42: 10.0}
-        guide = self.workflow.uniform_manual_guidance(
+        notice = self.workflow.uniform_alignment_notice(
             self.prepared, self.prepared.uniform_values
         )
-        self.assertIn("ID 42", guide)
-        self.assertIn("Modifier le groupe", guide)
-        self.assertIn("Aucun element n'a ete modifie", guide)
-        with self.assertRaises(ValidationError) as error:
-            self.workflow.execute(self.prepared)
-        self.assertIn("Modifier le groupe", str(error.exception))
-        self.assertFalse(self.transactions)
-        self.assertEqual([], self.definition.calls)
+        self.assertIn("modifie durablement", notice)
+        self.assertIn("ID 42", notice)
+        report = self.workflow.execute(self.prepared)
+        self.assertTrue(report.is_success)
+        self.assertEqual(10.0, self.target1.value)
+        self.assertEqual(10.0, self.target2.value)
+        self.assertTrue(self.definition.VariesAcrossGroups)
+        self.assertEqual([True], self.definition.calls)
+        self.assertTrue(any(
+            "autoris" in str(warning).lower()
+            for warning in report.warnings
+        ))
 
-    def test_guidance_uses_display_units_for_manual_edit(self):
-        self.prepared.group_mode = "uniform"
-        self.prepared.uniform_values = {42: 10.0}
-        formatting = lambda value, request: "{:.3f} m²".format(value)
-        guide = self.workflow.uniform_manual_guidance(
-            self.prepared, {42: 10.0}, formatting
+    def test_uniform_notice_uses_display_units(self):
+        formatter = lambda value, request: "{:.3f} m²".format(value)
+        notice = self.workflow.uniform_alignment_notice(
+            self.prepared, {42: 10.0}, formatter
         )
-        self.assertIn("10.000 m²", guide)
-        self.assertIn("0.000 m²", guide)
-        self.assertIn("Modifier le groupe", guide)
+        self.assertIn("10.000 m²", notice)
+        self.assertIn("ne les maintiendra plus alignees", notice)
 
-    def test_uniform_guidance_not_required_after_manual_group_edit(self):
+    def test_uniform_aligned_reference_does_not_trigger_fallback(self):
         self.target1.value = 10.0
         self.target2.value = 10.0
-        guide = self.workflow.uniform_manual_guidance(
+        self.assertEqual("", self.workflow.uniform_alignment_notice(
             self.prepared, {42: 10.0}
-        )
-        self.assertEqual("", guide)
+        ))
 
-    def test_manual_guide_connected_to_single_review_wpf(self):
-        ui = os.path.join(PANEL, "ui", "calculation_review_window.py")
-        with open(ui, "r", encoding="utf-8") as handle:
+    def test_single_review_warns_without_blocking_uniform_write(self):
+        p = os.path.join(PANEL, "ui", "calculation_review_window.py")
+        with open(p, "r", encoding="utf-8") as handle:
             source = handle.read()
-        self.assertIn("uniform_guidance(prepared, selected_values)", source)
-        self.assertIn("self.ErrorText.Text = guidance", source)
-        self.assertIn("return", source)
-        window = os.path.join(PANEL, "ui", "calculs_window.py")
-        with open(window, "r", encoding="utf-8") as handle:
+        self.assertIn("self._automatic_uniform = True", source)
+        self.assertIn("self.WarningText.Text = notice", source)
+        self.assertIn("self.DialogResult = True", source)
+        self.assertNotIn("self.ErrorText.Text = guidance", source)
+        ui = os.path.join(PANEL, "ui", "calculs_window.py")
+        with open(ui, "r", encoding="utf-8") as handle:
             caller = handle.read()
-        self.assertIn("uniform_guidance=lambda prepared, values:", caller)
-        self.assertIn("self.controller.uniform_manual_guidance(", caller)
-        self.assertIn("self._format_group_value", caller)
+        self.assertIn('group_mode="auto"', caller)
+        self.assertNotIn("self.GroupModeCombo", caller)
 
     def test_uniform_forbidden_if_one_instance_contains_distinct_apartments(self):
         self.prepared.room_by_key["r2"].GroupId = FakeElementId(10)
