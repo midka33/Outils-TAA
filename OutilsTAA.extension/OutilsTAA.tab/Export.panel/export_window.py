@@ -27,6 +27,11 @@ from publication_profile_service import PublicationProfileService
 from settings_resolver import SettingsResolver
 from publication_tree_drag_drop import PublicationTreeDragDrop
 from sheet_explorer import SheetExplorer
+from manual_config_import import (
+    ManualImportError,
+    prepare_manual_import,
+    create_shared_from_manual_import,
+)
 from shared_json_storage import (
     ConcurrentModificationError,
     ProjectIdentityMismatchError,
@@ -124,6 +129,17 @@ class ExportWindow(forms.WPFWindow):
                 else "Actualiser"
             )
 
+        # Proposed only when a shared central is resolved and its JSON does
+        # not exist yet. Once a configuration has been created, never offer
+        # an import that might overwrite it.
+        shared_storage = getattr(repository, "shared_storage", None)
+        target = getattr(shared_storage, "config_path", None)
+        self.StorageImportButton.Visibility = (
+            Visibility.Visible
+            if is_shared and target and not os.path.exists(target)
+            else Visibility.Collapsed
+        )
+
         context_warning = getattr(context, "warning", None)
         self.StorageWarningText.Text = (
             warning
@@ -219,6 +235,78 @@ class ExportWindow(forms.WPFWindow):
             self._update_storage_status(
                 "Vérification du serveur impossible : {0}".format(exc)
             )
+
+    def StorageImport_Click(self, sender, args):
+        """Crée explicitement une configuration centrale depuis un JSON choisi."""
+        context = self.storage_context
+        storage = getattr(self.repository, "shared_storage", None)
+        if not getattr(context, "is_shared", False) or storage is None:
+            return
+        if os.path.exists(storage.config_path):
+            forms.alert(
+                "Une configuration existe déjà pour ce projet. "
+                "L'import n'est autorisé qu'à la première ouverture.",
+                title="Export — migration",
+            )
+            self._update_storage_status()
+            return
+
+        from Microsoft.Win32 import OpenFileDialog
+        dialog = OpenFileDialog()
+        dialog.Title = "Choisir une configuration Export comme base"
+        dialog.Filter = "Configuration Export (export.json)|export.json|Fichiers JSON (*.json)|*.json"
+        dialog.CheckFileExists = True
+        dialog.Multiselect = False
+        if not dialog.ShowDialog():
+            return
+
+        try:
+            preview = prepare_manual_import(
+                dialog.FileName,
+                context.project_identity,
+                self.current_project_unique_ids,
+            )
+        except ManualImportError as exc:
+            forms.alert(str(exc), title="Export — import impossible")
+            return
+
+        summary = (
+            "Configuration choisie :\n{0}\n\n"
+            "Identité source : {1}\n\n"
+            "{2} dossier(s), {3} dossier(s) de publication.\n"
+            "{4} mise(s) en page dans la source, dont {5} "
+            "retrouvée(s) dans le projet ouvert.\n\n"
+            "Les mises en page absentes du projet cible ne seront "
+            "pas importées. Les dossiers et réglages sont conservés.\n"
+            "Le JSON source restera intact.\n\n"
+            "Créer la configuration partagée de ce projet ?"
+        ).format(
+            preview["source_path"],
+            preview["source_identity"],
+            preview["folder_count"],
+            preview["publication_count"],
+            preview["source_sheet_count"],
+            preview["matching_sheet_count"],
+        )
+        if not forms.alert(
+                summary, title="Export — migration vers ce projet",
+                yes=True, no=True):
+            return
+
+        try:
+            create_shared_from_manual_import(preview, storage)
+            self.repository.refresh()
+            self._refresh_tree()
+            self._update_selection_info()
+            self._update_storage_status(
+                "Configuration créée depuis le JSON sélectionné."
+            )
+        except ManualImportError as exc:
+            forms.alert(str(exc), title="Export — import impossible")
+        except StorageError as exc:
+            self._show_storage_error(exc, "importer la configuration")
+        finally:
+            self._update_storage_status()
 
     def StorageRefresh_Click(self, sender, args):
         """Relit la configuration ou réessaie le partage après un fallback."""
