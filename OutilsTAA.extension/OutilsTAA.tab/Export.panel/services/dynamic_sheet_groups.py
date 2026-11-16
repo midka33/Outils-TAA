@@ -72,7 +72,7 @@ def resolve_dynamic(publication_set, sheets):
         child = PublicationSet(
             name=key, items=items(groups[key]), source=PublicationSource(
                 PublicationSource.MANUAL),
-            set_id="dyn:{}:{}".format(publication_set.id, token),
+            set_id="dyn-{}-{}".format(publication_set.id, token),
             persistent=False, folder_id=publication_set.id)
         child.tree_order = idx
         child.sort_order = idx
