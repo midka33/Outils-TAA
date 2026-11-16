@@ -582,3 +582,16 @@ Le module est considéré comme validé pour intégration dans `main`.
 **Rapport après calcul :** en cas de réussite, le rapport détaillé n'est plus ouvert systématiquement ; le résultat apparaît dans l'état de la fenêtre principale et le bouton **Rapport** permet de l'afficher à la demande. En cas d'échec de transaction ou d'écritures, le rapport reste affiché automatiquement. Les pièces ignorées sont signalées par leur nombre dans l'état, avec détails consultables dans le rapport.
 
 **Implémentation :** `ui/calculation_review.xaml` et `calculation_review_window.py`, `ui/calculs_window.py`, `ui/calculs_ui.xaml`. **Non fusionnée** (PR #56). Vérifier dans Revit 2025.4 : parcours sans conflit, avec conflit, sélection de valeur commune, mode d'addition des variantes, annulation, rapport facultatif et rapport d'erreurs. Le tests automatisés hors Revit ne valident pas l'affichage WPF réel.
+
+### 7.3.5 Gestion des groupes accessible dès la fenêtre principale (16 novembre 2026)
+
+**Décision utilisateur :** comme pour la gestion des variantes, le mode de gestion des groupes doit être accessible avant le calcul, même si aucun conflit n'est encore détecté.
+
+La fenêtre principale WPF TAA propose maintenant **GESTION DES GROUPES** :
+- **Automatique — conserver les réglages (défaut)** : comportement historique ; conservation de l'alignement et proposition d'un choix lors d'un conflit confirmé dans la fenêtre de revue unique.
+- **Autoriser des valeurs différentes entre groupes** : choix explicite de conserver durablement les valeurs variables lorsque le paramètre de destination nécessite le déverrouillage par occurrence. La confirmation unique ne redemande pas ce choix. L'effet est global à la définition du paramètre dans le projet.
+- **Conserver une valeur commune entre groupes** : alignement préservé ; si des occurrences du même type exigent des valeurs différentes, la fenêtre de revue demande seulement la valeur de référence par type, sans seconde fenêtre. Si l'uniformisation est dangereuse (plusieurs appartements distincts dans une même occurrence), le calcul est refusé.
+
+**Sécurité :** choix invalide refusé dès la préparation ; aucun choix de référence fictif ou silencieux, transaction et rollback inchangés. Le mode n'est pas mémorisé et revient à « Automatique » à chaque ouverture. Aucun changement aux regroupements des variantes ni aux sommes.
+
+**Tests :** `tests/calculation/test_group_decisions.py` couvre le contrôle WPF, les trois modes, la validation précoce et le blocage sans valeur commune. Recette Revit requise avant fusion : choix manuel dans la fenêtre principale, confirmation unique, valeurs variables et uniformisation.
