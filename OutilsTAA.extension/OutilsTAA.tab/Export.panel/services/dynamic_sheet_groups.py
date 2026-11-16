@@ -31,6 +31,15 @@ def read_parameter(sheet, name):
         return None
 
 
+
+def group_identifier(parent_id, group_key):
+    """Identifiant stable d'un groupe, y compris lorsque sa valeur est vide."""
+    token = hashlib.sha1(
+        ("vide" if group_key is None else "valeur:" + group_key).encode(
+            "utf-8")).hexdigest()[:16]
+    return "dyn-{}-{}".format(parent_id, token)
+
+
 def resolve_dynamic(publication_set, sheets):
     """Retourne (feuilles directes, sous-dossiers virtuels) sans écrire le JSON.
 
@@ -75,18 +84,23 @@ def resolve_dynamic(publication_set, sheets):
         return (items(matched), [])
 
     result = []
-    for idx, key in enumerate(sorted(groups, key=lambda value: (value is None, (value or "").lower()))):
-        # L'identifiant est déterministe entre deux rafraîchissements, y compris
-        # quand les feuilles d'un même groupe sont renommées.
-        token = hashlib.sha1(("vide" if key is None else "valeur:" + key).encode("utf-8")).hexdigest()[:16]
+    frozen_ids = set(str(value) for value in (
+        getattr(source, "frozen_group_ids", None) or []))
+    for idx, key in enumerate(sorted(
+            groups, key=lambda value: (value is None, (value or "").lower()))):
+        group_id = group_identifier(publication_set.id, key)
+        # Un groupe figé reste dans le JSON comme dossier manuel. Ne pas
+        # le recréer ou y ajouter de feuilles après changement de Revit.
+        if str(group_id) in frozen_ids:
+            continue
         child = PublicationSet(
             name=key if key is not None else "Sans valeur",
             items=items(groups[key]), source=PublicationSource(
                 PublicationSource.MANUAL),
-            set_id="dyn-{}-{}".format(publication_set.id, token),
-            persistent=False, folder_id=publication_set.id)
+            set_id=group_id, persistent=False, folder_id=publication_set.id)
         child.tree_order = idx
         child.sort_order = idx
         child.dynamic_virtual = True
+        child.dynamic_group_key = key
         result.append(child)
     return ([], result)
