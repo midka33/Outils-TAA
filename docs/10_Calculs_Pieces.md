@@ -611,3 +611,13 @@ L'option « autoriser des valeurs différentes » conserve `VariesAcrossGroups=T
 **Aucun résultat calculé :** le message distingue désormais une clé de regroupement vide, une source non numérique ou un groupe inexploitable. Cette erreur est antérieure à toute opération de groupe et ne doit pas être attribuée à tort au choix « valeurs différentes ».
 
 **Recette obligatoire :** copie du RVT ; B200/B201, toutes occurrences du type, valeurs et paramètres, variantes, filtre, Undo. Vérifier les membres ajoutés au plan et leur concordance après réalignement, vérifier que l'option « valeurs différentes » ne modifie pas les autres pièces. Tests automatisés `tests/calculation/test_member_alignment.py` ; ce correctif n'est pas encore validé dans Revit.
+
+### 7.3.8 Correctif expérimental du rétablissement de l'alignement (16/11/2026)
+
+**Recette utilisateur :** mode valeurs différentes = **OK dans Revit 2025.4**. Mode valeur commune = **KO** : après écriture, l'API Revit a remplacé le résultat attendu 380.286410009 par 324.979623715 sur l'ID 5630105 lors du retour à `VariesAcrossGroups=False`. Les 36 écritures ont été annulées, sans conservation de valeurs. Ne pas présenter ce mode comme validé.
+
+**Comportement API :** `InternalDefinition.SetAllowVaryBetweenGroups(False)` réaligne automatiquement les valeurs des éléments correspondants ; l'écriture préalable des membres homologues n'impose pas nécessairement la valeur retenue par Revit. La cause effective de cette sélection de valeur nécessite une recette Revit ciblée.
+
+**Modification expérimentale sur PR #59 :** pré-contrôle des valeurs prévues pour chaque membre homologue identifié par type de groupe et position, puis, dans la transaction uniforme, `Document.Regenerate()` **avant** le passage du paramètre à `False`. La régénération permet à Revit de prendre en compte les écritures intermédiaires avant le réalignement mais n'offre pas à elle seule une garantie. Comparaison des valeurs réelles finales, rollback si différence, diagnostic du type de groupe et de l'ID, sans reconstruction de groupe.
+
+**Recette :** sur copie, répéter exactement B200 / `Surface logement` et contrôler ID 5630105, type de groupe, toutes occurrences, et Ctrl+Z. Si Revit réimpose 324.979623715, ne pas faire de second passage automatique ; rechercher l'état de référence interne du type et envisager une procédure d'édition de groupe Revit assistée.
