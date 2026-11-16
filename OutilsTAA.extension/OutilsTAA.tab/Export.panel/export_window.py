@@ -1286,6 +1286,10 @@ class ExportWindow(forms.WPFWindow):
             tags = [context_tag]
         else:
             tags = self._publication_selection_tags()
+        if any(getattr(tag[1], "dynamic_virtual", False) for tag in tags):
+            forms.alert("Sous-dossier calculé : rendez d'abord le parent manuel.",
+                        title="Export")
+            return
         if len(tags) != 1 or tags[0][0] not in ("FOLDER", "CARNET"):
             forms.alert("Sélectionnez un seul dossier à renommer.", title="Export")
             return
@@ -1323,6 +1327,11 @@ class ExportWindow(forms.WPFWindow):
         if not tags:
             forms.alert("Sélectionnez une mise en page ou un dossier à supprimer.",
                         title="Export")
+            return
+        if any(getattr(tag[2] if tag[0] == "SHEET" else tag[1],
+                       "dynamic_virtual", False) for tag in tags):
+            forms.alert("Ce contenu est calculé depuis Revit. Figez d'abord le "
+                        "dossier automatique en manuel.", title="Export")
             return
         kinds = set(tag[0] for tag in tags)
         if len(kinds) != 1:
