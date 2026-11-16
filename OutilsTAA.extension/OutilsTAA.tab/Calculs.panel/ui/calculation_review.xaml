@@ -23,6 +23,8 @@
                                TextWrapping="Wrap" Foreground="#252525"/>
                     <TextBlock x:Name="VariantsText" Margin="0,10,0,0"
                                TextWrapping="Wrap" Foreground="#333333"/>
+                    <TextBlock x:Name="WarningText" Margin="0,10,0,0"
+                               Foreground="#8A5A00" TextWrapping="Wrap"/>
                     <StackPanel x:Name="GroupSection" Margin="0,14,0,0">
                         <TextBlock Text="Valeurs des groupes"
                                    FontWeight="SemiBold" Margin="0,0,0,6"/>
