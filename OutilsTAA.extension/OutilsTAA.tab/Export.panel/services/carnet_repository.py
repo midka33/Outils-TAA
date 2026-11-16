@@ -986,7 +986,8 @@ class CarnetRepository(object):
             "source": {
                 "mode": publication_set.source.mode,
                 "parameter_name": publication_set.source.parameter_name,
-                "parameter_value": publication_set.source.parameter_value,\n                "group_parameter": getattr(publication_set.source, "group_parameter", None),
+                "parameter_value": publication_set.source.parameter_value,
+                "group_parameter": getattr(publication_set.source, "group_parameter", None),
             },
             "items": [{
                 "unique_id": item.unique_id,
