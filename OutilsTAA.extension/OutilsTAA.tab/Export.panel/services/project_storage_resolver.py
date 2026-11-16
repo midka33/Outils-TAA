@@ -138,7 +138,7 @@ def shared_paths_from_central(central_path):
     # A readable stem is kept for file-system diagnostics.
     common_root = ntpath.join(directory, "OutilsTAA")
     identity = central_project_identity(canonical)
-    stem = ntpath.splitext(ntpath.basename(canonical))[0]
+    stem = ntpath.splitext(ntpath.basename(ntpath.normcase(canonical)))[0]
     safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", stem).strip("_")[:48]
     if not safe_stem:
         safe_stem = "Modele"
