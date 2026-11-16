@@ -110,6 +110,7 @@ Lorsque le PDF combiné est sélectionné, l'indépendance DWG est imposée
 automatiquement ; sa règle par défaut est `{numero} {nom}`.
 
 Les deux règles sont héritées et persistées avec les paramètres du dossier.
+Les champs de nommage DWG sont enregistrables sur les dossiers ordinaires **et** sur les dossiers de publication contenant des feuilles ; en PDF combiné, la saisie personnalisée doit rester visible après perte du focus et fermeture/réouverture d'Export. (BUG-EXPORT-067).
 L'aperçu et la publication utilisent la même règle DWG résolue. Les anciennes
 configurations restent lisibles et reçoivent les valeurs par défaut nécessaires.
 Le nommage DWG est distinct du réglage de fusion des vues/liens et du traitement
