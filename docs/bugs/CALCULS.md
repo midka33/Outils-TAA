@@ -192,3 +192,15 @@ métadonnées Revit qu'une seule fois.
 **Règle préventive :** ne pas qualifier un paramètre de « suit les groupes » après le repli : l'égalité des valeurs écrites est un instantané, pas une contrainte Revit permanente. Toujours informer explicitement de la modification globale de la définition. Pas de dégroupage ni réactivation de `False` si cela écraserait la valeur choisie.
 
 **Tests :** contrat XAML fenêtre principale, choix auto + référence par type dans la revue unique, repli explicite et durabilité du réglage, cas historique encore aligné. CI Calculs et Export, recette Revit sur copie avant fusion.
+
+### BUG-CALCULS-016 — Revue inutile et uniformisation contraire au total de l'appartement
+
+**Retour utilisateur :** malgré le remplacement du sélecteur des groupes par une information, la fenêtre « Vérifier le calcul » montre encore deux listes de valeur commune pour les types `5629042` et `5629531`. Le besoin confirmé est **d'écrire le total exact du calcul par appartement**, jamais un total de référence fixé selon le type Revit.
+
+**Cause :** l'UI demande encore un `uniform` en présence de `group_conflicts`, bien que l'utilisateur ait supprimé ce choix. La revue était en outre affichée systématiquement sans décision de variante nécessaire.
+
+**Correction implémentée sur PR #59 :** l'UI prépare un mode `vary` si l'écriture touche un paramètre de groupe aligné ; écrit les valeurs `operation.value` de chaque appartement ; n'expose plus aucun choix de valeur commune par type. La revue ne subsiste que lorsque le même appartement se retrouve dans plusieurs variantes. La phrase de la fenêtre principale dit désormais « **va désactiver** » lorsque la cible suit les groupes.
+
+**Prévention :** ne pas réintroduire de sélection par type de groupe dans le parcours de calcul des appartements ; préserver la distinction entre regroupement par numéro d'appartement et type de groupe Revit. Garder la confirmation de variantes lorsque nécessaire, jamais en remplacement par une uniformisation.
+
+**Anti-régression :** `test_group_decisions.py` vérifie l'écriture de résultats distincts (10 et 5) sur deux occurrences de groupe de même type, l'état durable de `VariesAcrossGroups`, l'absence de combos de groupe dans la revue et la revue limitée aux variantes. Tests hors Revit et recette sur copie RVT obligatoires avant fusion.
