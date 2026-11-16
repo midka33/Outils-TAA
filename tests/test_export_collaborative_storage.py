@@ -53,11 +53,15 @@ def test_unc_central_resolves_shared_export_json():
     assert result.central_path == (
         r"\\SERVEUR\PROJETS\PROJET_A\Projet_Central.rvt"
     )
-    assert result.shared_config_path == (
+    assert result.shared_config_path.startswith(
+        r"\\SERVEUR\PROJETS\PROJET_A\OutilsTAA\projet_central_"
+    )
+    assert result.shared_config_path.endswith(r"\export.json")
+    assert result.shared_lock_path.endswith(r"\export.lock")
+    assert result.shared_backups_path.endswith(r"\backups")
+    assert result.legacy_config_path == (
         r"\\SERVEUR\PROJETS\PROJET_A\OutilsTAA\export.json"
     )
-    assert result.shared_lock_path.endswith(r"OutilsTAA\export.lock")
-    assert result.shared_backups_path.endswith(r"OutilsTAA\backups")
     assert result.local_config_path == r"C:\Local\fallback.json"
 
 
@@ -164,8 +168,11 @@ def test_shared_paths_are_derived_with_ntpath_cross_platform():
         r"\\SERVEUR\P\Projet\Central.rvt"
     )
 
-    assert paths["root"] == r"\\SERVEUR\P\Projet\OutilsTAA"
-    assert paths["config"] == (
+    assert paths["root"].startswith(
+        r"\\SERVEUR\P\Projet\OutilsTAA\central_"
+    )
+    assert paths["config"] == paths["root"] + r"\export.json"
+    assert paths["legacy_config"] == (
         r"\\SERVEUR\P\Projet\OutilsTAA\export.json"
     )
 
@@ -179,3 +186,46 @@ def test_path_identity_is_case_insensitive_like_windows():
     )
 
     assert upper == lower
+
+
+def test_two_centrals_in_same_folder_have_independent_storage_and_locks():
+    a = shared_paths_from_central(
+        r"\\SERVEUR\P\Projet\ARCHI.rvt"
+    )
+    b = shared_paths_from_central(
+        r"\\SERVEUR\P\Projet\STRUCTURE.rvt"
+    )
+    assert a["root"] != b["root"]
+    assert a["config"] != b["config"]
+    assert a["lock"] != b["lock"]
+    assert a["backups"] != b["backups"]
+    assert a["legacy_config"] == b["legacy_config"]
+
+
+def test_central_storage_path_is_case_insensitive():
+    upper = shared_paths_from_central(
+        r"\\SERVEUR\PROJETS\Projet\ARCHI.RVT"
+    )
+    lower = shared_paths_from_central(
+        r"\\serveur\projets\projet\archi.rvt"
+    )
+    assert upper["config"].lower() == lower["config"].lower()
+    assert upper["lock"].lower() == lower["lock"].lower()
+
+
+def test_local_copies_of_both_centrals_use_correct_scoped_storage():
+    resolver = ProjectStorageResolver(model_path_converter=identity_converter)
+    a1 = resolver.resolve(
+        FakeDocument(True, r"\\SERVEUR\P\Projet\ARCHI.rvt", r"C:\A1.rvt"),
+        r"C:\a1.json",
+    )
+    a2 = resolver.resolve(
+        FakeDocument(True, r"\\SERVEUR\P\Projet\ARCHI.rvt", r"D:\A2.rvt"),
+        r"D:\a2.json",
+    )
+    b = resolver.resolve(
+        FakeDocument(True, r"\\SERVEUR\P\Projet\STRUCTURE.rvt", r"C:\B.rvt"),
+        r"C:\b.json",
+    )
+    assert a1.shared_config_path == a2.shared_config_path
+    assert a1.shared_config_path != b.shared_config_path
