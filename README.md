@@ -13,12 +13,30 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 
 | Module | Statut |
 |---|---|
-| **Export** | Workflow de publication validé dans Revit 2025.4, y compris PR #22 et #23 |
+| **Export** | **v1.4.0** — explorateur des mises en page, publication PDF/DWG, héritage et persistance validés dans Revit 2025.4 (PR #39) |
 | **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
+| **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
+| **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |
+| **Cotation automatique** | 📋 Planifié — cotation des vues sélectionnées, type de cote au choix, prévention des chevauchements et groupes de détails attachés |
+| **Étiquetage automatique** | 📋 Planifié — étiquetage des pièces dans les vues sélectionnées, type d'étiquette au choix, prévention des chevauchements et groupes de détails attachés |
+| **Légendes automatiques** | 📋 Planifié — génération de légendes depuis le gabarit d’une vue ou les couleurs des pièces, avec légende partagée entre plusieurs vues et échelle identique à la vue de référence |
+| **Giration des véhicules** | 📋 Planifié — tracé manuel type Vehicle Tracking, limité par la cinématique du véhicule choisi ; enveloppes et trajectoires complètes dans Revit. [Spécification](docs/25_Giration_Vehicules.md) · [Suivi #40](https://github.com/midka33/Outils-TAA/issues/40) |
 | **Contrôle** | 📋 Planifié |
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
+
+## Release courante — Outils TAA v1.4.0
+
+La **v1.4.0**, **publiée sur GitHub le 3 novembre 2026**, stabilise l'évolution du module **Export**, intégrée à `main` via la **PR #39** : explorateur de mises en page escamotable, filtres et sélection multiple, ajout et réorganisation des feuilles, renommage des dossiers, publication PDF/DWG par sous-dossier et classement des fichiers par format.
+
+La recette fonctionnelle **EXPORT-01 à EXPORT-06** a été validée par l'utilisateur le **3 novembre 2026**, y compris **5 PDF combinés + 16 DWG**, héritage et persistance après redémarrage de Revit. Les **375 tests Export** étaient réussis sur la tête de la PR ; le workflow de release a ensuite validé **754 tests au total**, l'archive ZIP et ses sommes SHA-256 sur le commit exact publié.
+
+Cette version ne modifie pas les fonctionnalités métier de **Calculs des pièces** ni de **Plans de vente V1.1**. Les autres branches de développement ne sont pas incluses.
+
+- [Notes de version v1.4.0](docs/release/Notes_v1.4.0.md)
+- [Recette et préparation Export](docs/release/Preparation_Export_v1.4.0.md)
+- [Télécharger la release v1.4.0 — ZIP, installateur CMD, tutoriels](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0)
 
 ## Plans de vente V1.1 — fichiers Revit liés
 
@@ -40,13 +58,13 @@ cote disponibles dans SITE ; nomenclatures modèles configurées pour inclure le
 éléments des fichiers liés.
 
 Voir `docs/20_Plans_de_Vente.md` et la recette de release
-`docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`.
+`docs/archive/releases/v1.3.0/Preparation_Plans_de_Vente_V1.1_Liens.md`.
 
 ## Guide utilisateur
 
-- [Export — tutoriel](docs/release/Tutoriel_Export_v1.3.0.md)
-- [Calculs des pièces — tutoriel](docs/release/Tutoriel_Calculs_Pieces_v1.3.0.md)
-- [Plans de vente — tutoriel](docs/release/Tutoriel_Plans_de_Vente_v1.3.0.md)
+- [Export — tutoriel v1.4.0](docs/release/Tutoriel_Export_v1.4.0.md)
+- [Calculs des pièces — tutoriel v1.4.0](docs/release/Tutoriel_Calculs_Pieces_v1.4.0.md)
+- [Plans de vente — tutoriel v1.4.0](docs/release/Tutoriel_Plans_de_Vente_v1.4.0.md)
 - [Index de la documentation](docs/INDEX.md)
 
 ## Historique des noms
@@ -62,6 +80,14 @@ Les anciens noms ne doivent plus être utilisés pour désigner les modules dans
 
 - Autodesk Revit 2025.4
 - pyRevit 5.x
+
+## Déploiement en agence — dossier réseau commun
+
+**Depuis le 12 novembre 2026, le mode de déploiement de référence de l'agence est centralisé :** une seule copie du dossier `OutilsTAA.extension` est hébergée sur un serveur et chaque poste configure son chemin dans pyRevit. Les mises à jour se font sur le serveur, **sans installation locale de l'extension sur chaque ordinateur**. Redémarrer Revit après l'ajout du chemin ou une mise à jour ; le ruban ne se recharge pas nécessairement dans une session déjà ouverte.
+
+L'installateur CMD proposé avec les releases reste une **alternative**, mais n'est pas employé pour le déploiement courant de l'agence. Préserver une copie de la version précédente et éviter toute mise à jour pendant l'exécution des outils. Les essais sous pyRevit 7.0.0 sont encourageants mais ne constituent pas encore une validation complète ; pyRevit 5.x reste la cible documentée.
+
+Voir le [guide de déploiement réseau de l'agence](docs/26_Deploiement_Agence.md) pour l'architecture, la mise à jour, la recette et le retour arrière.
 
 ## Structure
 

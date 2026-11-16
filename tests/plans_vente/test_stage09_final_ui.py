@@ -130,7 +130,7 @@ def test_stage09b_template_automatically_selects_multilevel_behavior():
     assert '"main_view_count": 2' in full
 
 
-def test_stage09_advanced_options_expose_only_safe_overrides():
+def test_stage09_advanced_options_expose_revit_overrides():
     xaml = ADVANCED_XAML.read_text(encoding="utf-8")
     window = ADVANCED_WINDOW.read_text(encoding="utf-8")
 
@@ -139,6 +139,10 @@ def test_stage09_advanced_options_expose_only_safe_overrides():
         "HousingParameterCombo",
         "BuildingParameterCombo",
         "TypologyParameterCombo",
+        "MainViewTemplateCombo",
+        "LocationViewTemplateCombo",
+        "RoomTagTypeCombo",
+        "DimensionTypeCombo",
         "CropMarginTextBox",
         "AutoScaleCheckBox",
         "AllowedScalesTextBox",
@@ -147,8 +151,17 @@ def test_stage09_advanced_options_expose_only_safe_overrides():
     ):
         assert 'x:Name="{}"'.format(name) in xaml
 
-    assert "Automatique — feuille modèle" in xaml
-    assert 'IsReadOnly="True"' in xaml
+    assert "class AutomaticRevitChoice" in window
+    assert "Automatique — feuille modèle" in window
+    assert "def _load_revit_choices(" in window
+    assert "def _selected_unique_id(" in window
+    for key in (
+        "main_view_template_unique_id",
+        "location_view_template_unique_id",
+        "room_tag_type_unique_id",
+        "dimension_type_unique_id",
+    ):
+        assert '"{}"'.format(key) in window
     assert "parse_allowed_scales(" in window
     assert '"crop_margin_mm"' in window
     assert '"skip_existing"' in window
@@ -172,12 +185,43 @@ def test_stage09_controller_services_support_filter_existing_check_and_options()
     assert "auto_fit_main_view=True" in full
 
 
+def test_stage09_advanced_revit_choices_are_loaded_and_forwarded():
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    full = FULL.read_text(encoding="utf-8")
+
+    for call in (
+        "self.controller.main_view_templates()",
+        "self.controller.location_view_templates()",
+        "self.controller.room_tag_types()",
+        "self.controller.dimension_types()",
+    ):
+        assert call in main
+
+    assert "def main_view_templates(" in controller
+    for key in (
+        "main_view_template_unique_id",
+        "location_view_template_unique_id",
+        "room_tag_type_unique_id",
+        "dimension_type_unique_id",
+    ):
+        assert main.count(key) >= 3
+        assert controller.count(key) >= 4
+        assert full.count(key) >= 4
+
+    assert "def _selected_view_template(" in full
+    assert "def _selected_or_dominant_type(" in full
+    assert "Le gabarit de vue logement sélectionné" in full
+    assert "Le gabarit de repérage sélectionné" in full
+
+
 def test_stage09_entrypoint_uses_final_ui_and_keeps_legacy_alias():
     script = SCRIPT.read_text(encoding="utf-8")
 
     assert "from plans_vente_final_window import PlansVenteFinalWindow" in script
     assert "PlansVenteWindow = PlansVenteFinalWindow" in script
-    assert "window = PlansVenteWindow(controller)" in script
+    assert "settings_service = PlansVenteSettingsService(document=document)" in script
+    assert "window = PlansVenteWindow(controller, settings_service=settings_service)" in script
     assert "plan_update_service" not in script
 
 
@@ -204,7 +248,8 @@ def test_stage09b_generated_view_reuses_template_main_view_graphics():
         encoding="utf-8"
     )
 
-    assert "main_template = self._view_template(main_info.view)" in full
+    assert "main_template = self._selected_view_template(" in full
+    assert "return self._view_template(fallback_view)" in full
     assert "view_template_unique_id=(" in full
     assert "view_template_unique_id=None" in prototype
     assert "master_view.ViewTemplateId = view_template.Id" in prototype
@@ -403,11 +448,15 @@ def test_stage09_template_contract_is_unambiguous():
 def test_stage09_optional_location_plan_never_blocks_template_selection():
     full = FULL.read_text(encoding="utf-8")
     sheet = SHEET.read_text(encoding="utf-8")
+    main = MAIN_WINDOW.read_text(encoding="utf-8")
 
     assert "return infos[0], None, warnings" in full
+    assert "if location_info is not None:" in full
     assert "Repérage non créé" in full
     assert "location_viewport_model = None" in sheet
     assert "if template_location_viewport_unique_id:" in sheet
+    assert "À vérifier" in main
+    assert "inspection.warnings" in main
 
 
 def test_stage09_rc2_duplex_explicit_zones_share_one_scale():

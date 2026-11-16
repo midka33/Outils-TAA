@@ -1,7 +1,7 @@
 # Outils TAA — Plans de vente
 
 **Version fonctionnelle :** V1.1  
-**Livraison :** Outils TAA v1.3.0  
+**Livraison initiale :** Outils TAA v1.3.0 ; **fonctionnalités métier inchangées en v1.4.0**  
 **Statut :** validé dans Autodesk Revit 2025.4 / pyRevit 5.x  
 **Date de référence :** 20 octobre 2026
 
@@ -232,6 +232,28 @@ Pour une source liée, bâtiment et typologie sont lus dans le document source.
 Le numéro métier du logement reste le `filter_key` et n'est pas remplacé par
 l'identité technique du lien.
 
+## 12.1 Options avancées — surcharges Revit
+
+Les Options avancées permettent de conserver le fonctionnement automatique de
+la feuille modèle ou de choisir explicitement, dans le document hôte :
+
+- le gabarit de la vue logement ;
+- le gabarit du plan de repérage ;
+- le type d'étiquette de pièces ;
+- le type de cote linéaire.
+
+Chaque liste commence par **Automatique — feuille modèle**. Dans ce mode, le
+moteur conserve la déduction historique à partir des vues et annotations de la
+feuille modèle.
+
+Lorsqu'un choix explicite est effectué, son `UniqueId` est transmis à la
+génération. La vue logement et le repérage n'acceptent que des gabarits de plan
+d'étage du document hôte ; les étiquettes et cotes utilisent les types du
+document hôte.
+
+Ces choix restent pour l'instant mémorisés pendant la session de la fenêtre
+Plans de vente. Leur persistance par projet fait l'objet d'un correctif séparé.
+
 ## 13. Progression, transactions et rapport
 
 La création par lot affiche une progression fondée sur des jalons réellement
@@ -291,8 +313,8 @@ tests/plans_vente/
 
 ## 16. Références
 
-- Tutoriel courant : `docs/release/Tutoriel_Plans_de_Vente_v1.3.0.md`
-- Recette V1.1 : `docs/release/Preparation_Plans_de_Vente_V1.1_Liens.md`
+- Tutoriel courant : `docs/release/Tutoriel_Plans_de_Vente_v1.4.0.md`
+- Recette V1.1 : `docs/archive/releases/v1.3.0/Preparation_Plans_de_Vente_V1.1_Liens.md`
 - Références UI : `docs/references/plans-vente/`
 - Registre des bugs : `docs/11_BUGS_Prevention_Registry.md`
 - Historique détaillé : `docs/archive/plans-de-vente/20_Plans_de_Vente_Historique_Stages_01_09.md`

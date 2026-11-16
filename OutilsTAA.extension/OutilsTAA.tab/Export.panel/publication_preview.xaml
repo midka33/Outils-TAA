@@ -26,7 +26,7 @@
     </StackPanel>
     <DataGrid Grid.Row="3" x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,0,0,12">
       <DataGrid.Columns>
-        <DataGridTextColumn Header="Carnet" Binding="{Binding Carnet}" Width="150" />
+        <DataGridTextColumn Header="Dossier" Binding="{Binding Carnet}" Width="150" />
         <DataGridTextColumn Header="N°" Binding="{Binding Number}" Width="75" />
         <DataGridTextColumn Header="Mise en page" Binding="{Binding Name}" Width="2*" />
         <DataGridTextColumn Header="Format" Binding="{Binding Format}" Width="70" />

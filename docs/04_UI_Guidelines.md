@@ -2705,3 +2705,16 @@ sélections multiples conservent leur ordre visuel, pas l'ordre des clics.
 Dossiers d'organisation et dossiers contenant des mises en page partagent le même
 ordre visuel persistant. L'UI ne doit pas forcer tous les sous-dossiers avant tous
 les dossiers de publication.
+
+
+---
+
+## Regle UX obligatoire — chargement des commandes longues (> 20 s)
+
+Cette regle s'applique a l'ensemble de la suite Outils TAA et a tous les modules, sans exception. Elle complete les instructions obligatoires du fichier racine `AI_INSTRUCTIONS.md`.
+
+- Afficher une fenetre ou un panneau de progression pour toute commande qui depasse 20 secondes. Si une duree longue est previsible, afficher le retour d'activite des le depart plutot que risquer une fenetre figee au bout de 20 secondes.
+- Afficher le nom de la commande et la phase en cours ; barre determinee si des unites reelles sont disponibles, sinon barre indeterminee. Ne jamais fabriquer un pourcentage ni un temps restant.
+- Respecter le thread UI WPF et les restrictions de l'API Revit ; l'affichage doit etre initialise avant les operations natives bloquantes si le seuil temporel ne peut pas etre observe de maniere reactive.
+- Reprendre le theme TAA, conserver une interface claire, et assurer la fermeture du panneau en cas de succes, echec ou annulation reelle. Ne proposer Annuler que si l'annulation est sure et effectivement implementee.
+- Tester sous Revit 2025.4 / pyRevit 5.x les traitements longs, les exceptions et la non-regression. Les operations plus courtes ne doivent pas subir une fenetre intrusive inutile lorsque leur duree est normalement breve.

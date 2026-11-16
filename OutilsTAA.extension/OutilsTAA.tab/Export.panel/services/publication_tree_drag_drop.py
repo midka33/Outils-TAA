@@ -43,6 +43,10 @@ class PublicationTreeDragDrop(object):
         tree.Drop += self._drop
 
     def _key_down(self, sender, args):
+        if args.Key == Key.F2:
+            self.window.RenameFolder_Click(sender, args)
+            args.Handled = True
+            return
         if args.Key in (Key.Up, Key.Down, Key.Left, Key.Right, Key.Home, Key.End):
             self._select([], fallback_to_native=True)
 

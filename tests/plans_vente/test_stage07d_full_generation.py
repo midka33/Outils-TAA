@@ -132,7 +132,7 @@ def test_stage07d_entrypoint_does_not_self_reference_service_during_construction
     assert "full_generation_service=full_generation_service" not in construction
 
     controller_start = script.index("    controller = PlansVenteController(")
-    controller_end = script.index("\n\n    window = PlansVenteWindow", controller_start)
+    controller_end = script.index("\n\n    settings_service = PlansVenteSettingsService", controller_start)
     controller_block = script[controller_start:controller_end]
 
     assert "full_generation_service=full_generation_service" in controller_block

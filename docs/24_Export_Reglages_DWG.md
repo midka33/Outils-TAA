@@ -41,7 +41,7 @@ plusieurs feuilles
 → Revit produit 1 DWG par feuille avec son nom natif
 → Outils TAA associe chaque DWG à sa feuille
 → renommage selon le modèle TAA
-→ livraison dans NomCarnet/DWG/
+→ livraison dans le dossier de destination DWG calculé selon les deux options de classement
 ```
 
 Le lot natif sert à réduire le nombre d'appels à l'API. Il ne fusionne pas plusieurs
@@ -135,35 +135,27 @@ ni sur Idling, ni sur un thread de fond.
 
 Le bouton **Actualiser** relit également les presets sans fermer Export.
 
-## 6. Organisation des dossiers
+## 6. Organisation des dossiers — Outils TAA v1.4.0
 
-La case est désormais libellée :
+Le classement des fichiers est piloté par **deux cases indépendantes et héritables** dans « Réglages de publication » :
 
-> **Créer un dossier au nom du carnet**
+1. **Créer ce dossier dans la sortie** : ajoute le nom du dossier de publication.
+2. **Créer un sous-dossier par format (PDF et DWG)** : ajoute `PDF/` et `DWG/` sous la destination effective, avec ou sans le dossier de publication.
 
-Lorsqu'elle est cochée :
+Pour une destination de base `Destination/` et un dossier publié `Façades_A` (sans afficher ici les éventuels parents de l'arborescence) :
 
-```text
-Destination/
-└── Nom du carnet/
-    ├── PDF/
-    │   └── fichiers PDF
-    └── DWG/
-        ├── fichiers DWG
-        └── PNG/JPG/autres annexes éventuelles
-```
+| Dossier publié | Sous-dossiers PDF/DWG | Organisation |
+|---|---|---|
+| Oui | Oui | `Destination/Façades_A/PDF/` et `Destination/Façades_A/DWG/` |
+| Oui | Non | `Destination/Façades_A/` (PDF et DWG ensemble) |
+| Non | Oui | `Destination/PDF/` et `Destination/DWG/` |
+| Non | Non | `Destination/` (PDF et DWG ensemble) |
 
-Ce comportement est indépendant :
+Le choix de dossiers est indépendant du mode PDF combiné/séparé, du nombre de feuilles DWG et de la stratégie d'appel Revit.
 
-- du PDF combiné ou séparé ;
-- du nombre de feuilles DWG ;
-- de la stratégie d'appel Revit.
+**Compatibilité des anciens projets :** si le réglage `separate_format_subfolders` n'existe pas dans un ancien stockage, sa valeur effective reprend historiquement celle de « Créer ce dossier » pour conserver les chemins d'export ; un choix explicite dissocie ensuite les deux comportements.
 
-Lorsqu'elle est décochée, les fichiers restent directement dans la destination issue
-de l'arborescence de publication.
-
-`publication_paths.py` est la source commune à l'aperçu et à l'exécution afin que
-les chemins affichés soient les chemins réellement utilisés.
+`publication_paths.py` reste la fonction unique utilisée à la fois par l'aperçu et les moteurs PDF/DWG. Les ressources externes créées par Revit sont livrées avec les DWG dans leur destination effective ; elles ne sont pas présentées comme des DWG autonomes s'il subsiste des références externes.
 
 ## 7. Aperçu et rapport
 
@@ -181,7 +173,7 @@ L'aperçu affiche donc une ligne par feuille avec :
 - stratégie : **Automatique** ;
 - numéro et nom de la feuille ;
 - nom DWG final selon le modèle TAA ;
-- chemin final dans `NomCarnet/DWG/`.
+- chemin final calculé selon le dossier publié et l'éventuel sous-dossier `DWG/`.
 
 Les collisions de noms TAA sont ainsi détectables avant publication.
 

@@ -94,7 +94,11 @@ def _container_targets(window, root, include_root_set=False):
     result = []
     seen = set()
 
-    if include_root_set and hasattr(root, "items"):
+    # Un dossier de publication peut être uniquement un parent visuel
+    # (ex. A2000 regroupant A2100...A2500), sans feuille propre.
+    # Ne pas le transmettre au moteur PDF/DWG : l'aperçu bloquerait
+    # toute la publication multi-dossiers sur cette cible vide.
+    if include_root_set and getattr(root, "items", None):
         target = copy(root)
         target.publication_folder_parts = ()
         result.append(target)
@@ -103,6 +107,10 @@ def _container_targets(window, root, include_root_set=False):
     for publication_set in getattr(window, "_carnets", []) or []:
         set_id = getattr(publication_set, "id", None)
         if set_id is None or str(set_id) in seen:
+            continue
+        # Le dossier reste dans l'arborescence et transmet ses réglages
+        # hérités à ses descendants, même lorsqu'il est vide.
+        if not getattr(publication_set, "items", None):
             continue
         parent_id = getattr(publication_set, "folder_id", None)
         if str(parent_id) not in descendant_ids:

@@ -523,3 +523,80 @@ arbitrairement entre plusieurs niveaux existants à la même altitude.
 
 **Anti-régression :** test de `host_level_name` avec création automatique du
 niveau et validation réelle dans Revit 2025.4 pendant la recette V1.1.
+
+### BUG-PDV-031 — Les quatre réglages Revit des options avancées sont de faux champs en lecture seule
+
+**Symptôme :** dans « Options avancées », les réglages Gabarit vue logement,
+Gabarit repérage, Type d'étiquette de pièces et Type de cote affichent tous
+« Automatique — feuille modèle » sans proposer la liste des objets disponibles
+dans le document Revit.
+
+**Cause racine :** l'interface Stage 09 avait volontairement conservé quatre
+`TextBox IsReadOnly=True` comme placeholders pendant la stabilisation. Le
+moteur possédait déjà les collecteurs Revit pour les gabarits de plan, types
+d'étiquette et types de cote, mais la fenêtre finale ne les chargeait pas et ne
+transmettait aucune surcharge au moteur de génération.
+
+**Correction :** remplacer les quatre placeholders par des `ComboBox`, charger
+les objets du document hôte au moment d'ouvrir les Options avancées et conserver
+« Automatique — feuille modèle » comme premier choix. Les sélections explicites
+sont transportées par `UniqueId` jusqu'au moteur de génération. Un choix
+utilisateur prime sur l'objet déduit de la feuille modèle ; une valeur vide
+conserve exactement le comportement automatique historique.
+
+**Règle préventive :** une option visible présentée comme un réglage ne doit pas
+être simulée par un champ en lecture seule sans statut explicite. Lorsqu'un choix
+Revit doit survivre aux reconstructions d'éléments, transporter une identité
+durable (`UniqueId`) et valider l'élément au moment de son utilisation.
+
+**Anti-régression :** `tests/plans_vente/test_stage09_final_ui.py` impose les
+quatre `ComboBox`, le chargement des quatre catalogues Revit, la transmission
+des quatre `UniqueId` dans les chemins mono/multi-niveaux et le fallback vers
+la feuille modèle.
+
+### BUG-PDV-032 — Les options avancées sont perdues après fermeture complète de Plans de vente
+
+**Symptôme :** les choix avancés restent bien présents tant que la fenêtre Plans
+de vente reste ouverte, mais ils reviennent aux valeurs par défaut après fermeture
+puis réouverture de l'outil sur le même projet.
+
+**Cause racine :** les options étaient stockées uniquement dans
+`PlansVenteFinalWindow._settings`, donc en mémoire vive de la fenêtre. Aucun
+stockage projet n'était relu au lancement suivant.
+
+**Correction :** ajouter `PlansVenteSettingsService` avec un fichier JSON local
+par projet sous `%APPDATA%\Outils-TAA\PlansDeVente\Projects\`. L'identité
+du projet privilégie le chemin du central pour un fichier partagé, puis le chemin
+du RVT, puis une identité de session pour un document non enregistré. Les choix
+Revit sont stockés par `UniqueId` et le paramètre logement par identité
+sérialisable.
+
+**Règle préventive :** distinguer explicitement état de fenêtre et préférences
+persistantes. Toute option présentée comme « enregistrée » et attendue au prochain
+lancement doit être écrite hors mémoire vive avec une identité de projet stable.
+
+**Anti-régression :** `tests/plans_vente/test_project_settings_persistence.py`
+couvre l'aller-retour JSON, l'isolation entre projets et la restauration du
+paramètre logement par identité durable.
+
+### BUG-PDV-033 — Une feuille sans repérage affiche une erreur Python `NoneType.view`
+
+**Symptôme :** la sélection de certaines feuilles modèles affiche
+`Modèle non exploitable : 'NoneType' object has no attribute 'view'`, sans
+indiquer la cause métier.
+
+**Cause racine :** l'aperçu appelait la fonction de rendu avec
+`location_info=None`, mais construisait auparavant le libellé avec
+`location_info.view`. L'accès se produisait donc avant le garde-fou interne.
+
+**Correction :** ne construire le bloc d'aperçu du repérage que lorsque
+`location_info` existe. Les avertissements issus de l'analyse de la feuille
+sont désormais affichés directement sous les détails du modèle.
+
+**Contrat :** l'absence de repérage reste actuellement un avertissement et ne
+bloque pas la génération, conformément au comportement Stage 09 existant. Elle
+est maintenant explicitement indiquée à l'utilisateur. Les vrais cas bloquants
+continuent d'afficher leur message métier.
+
+**Anti-régression :** `tests/plans_vente/test_stage09_final_ui.py`.
+

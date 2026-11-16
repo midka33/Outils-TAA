@@ -21,7 +21,7 @@
     </StackPanel>
     <DataGrid Grid.Row="2" x:Name="ReportGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14">
       <DataGrid.Columns>
-        <DataGridTextColumn Header="Carnet" Binding="{Binding Carnet}" Width="1.3*" />
+        <DataGridTextColumn Header="Dossier" Binding="{Binding Carnet}" Width="1.3*" />
         <DataGridTextColumn Header="Format" Binding="{Binding Format}" Width="75" />
         <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="90" />
         <DataGridTextColumn Header="Statut" Binding="{Binding Status}" Width="105" />

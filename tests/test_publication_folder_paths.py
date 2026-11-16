@@ -29,8 +29,9 @@ def folder_target():
 @pytest.mark.parametrize('scope', ['folder', 'set', 'sheet'])
 @pytest.mark.parametrize('pdf_combined', [True, False])
 @pytest.mark.parametrize('create_carnet_folder', [True, False])
+@pytest.mark.parametrize('format_subfolders', [None, True, False])
 def test_preview_matches_export_and_uses_format_folders(
-        tmp_path, pdf_combined, create_carnet_folder, scope):
+        tmp_path, pdf_combined, create_carnet_folder, format_subfolders, scope):
     original, target, _, _ = folder_target()
     if scope != "folder":
         target = original
@@ -42,6 +43,7 @@ def test_preview_matches_export_and_uses_format_folders(
     settings.dwg_filename_template = '{carnet}-{numero}'
     settings.pdf_mode = 'COMBINED' if pdf_combined else 'SEPARATE'
     settings.separate_carnet_subfolder = create_carnet_folder
+    settings.separate_format_subfolders = format_subfolders
     target = target.with_settings(settings)
 
     view = SimpleNamespace(Id=1, CanBePrinted=True)
@@ -99,12 +101,11 @@ def test_preview_matches_export_and_uses_format_folders(
         else tmp_path
     )
 
-    if create_carnet_folder:
-        pdf_dir = base / 'Plans' / 'PDF'
-        dwg_dir = base / 'Plans' / 'DWG'
-    else:
-        pdf_dir = base
-        dwg_dir = base
+    expected_base = base / 'Plans' if create_carnet_folder else base
+    use_format_subfolders = (create_carnet_folder if format_subfolders is None
+                             else format_subfolders)
+    pdf_dir = expected_base / 'PDF' if use_format_subfolders else expected_base
+    dwg_dir = expected_base / 'DWG' if use_format_subfolders else expected_base
 
     expected_pdf = 'Plans.pdf' if pdf_combined else 'Plans-A1.pdf'
     assert (pdf_dir / expected_pdf).is_file()
@@ -112,10 +113,14 @@ def test_preview_matches_export_and_uses_format_folders(
 
     if create_carnet_folder:
         assert (base / 'Plans').is_dir()
+    else:
+        assert not (base / 'Plans').exists()
+    if use_format_subfolders:
         assert pdf_dir.is_dir()
         assert dwg_dir.is_dir()
     else:
-        assert not (base / 'Plans').exists()
+        assert not (expected_base / 'PDF').exists()
+        assert not (expected_base / 'DWG').exists()
 
     assert not hasattr(original, 'publication_folder_parts')
 

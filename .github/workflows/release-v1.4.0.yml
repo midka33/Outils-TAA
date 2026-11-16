@@ -1,0 +1,127 @@
+name: Publication Outils TAA v1.4.0 - Export
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release-v1.4.0.yml"
+      - ".github/release/INSTALLER_Outils_TAA_v1.4.0.cmd"
+      - "docs/release/**v1.4.0.md"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/release-v1.4.0.yml"
+      - "docs/release/Notes_v1.4.0.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-v1.4.0
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Verifier code et preparer livrables
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Installer pytest
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Tests Export et progression
+        run: >-
+          python -m pytest tests OutilsTAA.extension/OutilsTAA.tab/Export.panel/tests
+          --ignore=tests/calculation --ignore=tests/plans_vente
+          --ignore=tests/test_export_ribbon_contract.py --import-mode=importlib -q
+      - name: Contrat ruban Export
+        run: python -m pytest tests/test_export_ribbon_contract.py -q
+      - name: Tests Calculs des pieces
+        run: python -m pytest tests/calculation -q
+      - name: Tests Plans de vente
+        env:
+          PYTHONPATH: ${{ github.workspace }}/OutilsTAA.extension/lib
+        run: python -m pytest tests/plans_vente -q
+      - name: Construire et verifier le ZIP utilisateur
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          git archive --format=zip --output=dist/Outils-TAA_v1.4.0.zip HEAD OutilsTAA.extension
+          cp .github/release/INSTALLER_Outils_TAA_v1.4.0.cmd dist/
+          cp docs/release/Tutoriel_Export_v1.4.0.md dist/
+          cp docs/release/Tutoriel_Calculs_Pieces_v1.4.0.md dist/
+          cp docs/release/Tutoriel_Plans_de_Vente_v1.4.0.md dist/
+          python - <<'PY'
+          import pathlib
+          import zipfile
+          path = pathlib.Path("dist/Outils-TAA_v1.4.0.zip")
+          required = {
+              "OutilsTAA.extension/OutilsTAA.tab/Export.panel/ui.xaml",
+              "OutilsTAA.extension/OutilsTAA.tab/PlansDeVente.panel/",
+              "OutilsTAA.extension/OutilsTAA.tab/Calculs.panel/",
+          }
+          forbidden_suffixes = (".tmp", ".bak", ".pyc", ".pyo", ".msi", ".rvt", ".dwg")
+          with zipfile.ZipFile(str(path)) as z:
+              broken = z.testzip()
+              if broken:
+                  raise SystemExit("ZIP corrompu : " + broken)
+              names = set(z.namelist())
+              missing = [p for p in required if not any(n.startswith(p) for n in names)]
+              bad = [n for n in names if n.lower().endswith(forbidden_suffixes)
+                     or "__pycache__/" in n or ".pytest_cache/" in n]
+              if missing or bad:
+                  raise SystemExit("Archive non distribuable : missing={!r}; bad={!r}".format(missing, bad))
+              print("Archive ZIP valide : {} entrees".format(len(names)))
+          PY
+          cd dist
+          sha256sum Outils-TAA_v1.4.0.zip INSTALLER_Outils_TAA_v1.4.0.cmd Tutoriel_*_v1.4.0.md > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+      - name: Conserver les livrables de la release
+        uses: actions/upload-artifact@v4
+        with:
+          name: outils-taa-v1.4.0
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publier le tag et la release GitHub
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: outils-taa-v1.4.0
+          path: dist/
+      - name: Verifier les sommes apres transfert
+        run: cd dist && sha256sum -c SHA256SUMS.txt
+      - name: Creer v1.4.0 sur le SHA teste, sans supprimer d'autres branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "v1.4.0" >/dev/null 2>&1; then
+            echo "v1.4.0 existe deja : aucune modification ni republication."
+            exit 0
+          fi
+          gh release create "v1.4.0" \
+            dist/Outils-TAA_v1.4.0.zip \
+            dist/INSTALLER_Outils_TAA_v1.4.0.cmd \
+            dist/SHA256SUMS.txt \
+            dist/Tutoriel_Export_v1.4.0.md \
+            dist/Tutoriel_Calculs_Pieces_v1.4.0.md \
+            dist/Tutoriel_Plans_de_Vente_v1.4.0.md \
+            --title "Outils TAA v1.4.0 - Export : explorateur de feuilles et publication" \
+            --notes-file docs/release/Notes_v1.4.0.md \
+            --target "$RELEASE_COMMIT"
+          gh release view "v1.4.0" --json tagName,url,isDraft,isPrerelease

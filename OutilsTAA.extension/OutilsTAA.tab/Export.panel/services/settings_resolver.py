@@ -85,6 +85,12 @@ class SettingsResolver(object):
                 profile = self.profile_service.get(profile_name)
                 if profile and profile.get(field) is not None:
                     setattr(result, field, profile.get(field))
+        # Les anciens dossiers ne stockaient pas separate_format_subfolders.
+        # Résoudre le comportement historique APRÈS la hiérarchie complète,
+        # afin de conserver leur arborescence de sortie à l'identique.
+        if result.separate_format_subfolders is None:
+            result.separate_format_subfolders = (
+                result.separate_carnet_subfolder is not False)
         return result
 
     def source_for_node(self, value, field, folders=None,
@@ -153,6 +159,9 @@ class SettingsResolver(object):
                 if settings is not None and getattr(settings, field, None) is not None:
                     setattr(result, field, getattr(settings, field))
                     break
+        if result.separate_format_subfolders is None:
+            result.separate_format_subfolders = (
+                result.separate_carnet_subfolder is not False)
         return result
 
     def source_for(self, publication_set, field, folder=None, profile_name=None, folders=None):

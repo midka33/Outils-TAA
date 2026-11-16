@@ -24,7 +24,7 @@ def summarize_publication(targets, resolve_settings, selected_item=None):
         formats.update(active)
         if settings.pdf_enabled:
             qualities.add(settings.pdf_quality)
-    text = "{0} carnet(s) | {1} mise(s) en page prévue(s) | {2}".format(
+    text = "{0} dossier(s) | {1} mise(s) en page prévue(s) | {2}".format(
         len(targets), count, " + ".join(f for f in ("PDF", "DWG") if f in formats) or "Aucun format activé")
     if qualities:
         text += " | PDF : {0} DPI".format(" / ".join(str(q) for q in sorted(qualities)))

@@ -146,21 +146,21 @@
                         </Grid>
 
                         <TextBlock Text="Gabarit vue logement" Margin="0,14,0,4"/>
-                        <TextBox Text="Automatique — feuille modèle"
-                                 IsReadOnly="True"
-                                 Style="{DynamicResource TAATextBox}"/>
+                        <ComboBox x:Name="MainViewTemplateCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
                         <TextBlock Text="Gabarit repérage" Margin="0,10,0,4"/>
-                        <TextBox Text="Automatique — feuille modèle"
-                                 IsReadOnly="True"
-                                 Style="{DynamicResource TAATextBox}"/>
+                        <ComboBox x:Name="LocationViewTemplateCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
                         <TextBlock Text="Type d'étiquette de pièces" Margin="0,10,0,4"/>
-                        <TextBox Text="Automatique — feuille modèle"
-                                 IsReadOnly="True"
-                                 Style="{DynamicResource TAATextBox}"/>
+                        <ComboBox x:Name="RoomTagTypeCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
                         <TextBlock Text="Type de cote" Margin="0,10,0,4"/>
-                        <TextBox Text="Automatique — feuille modèle"
-                                 IsReadOnly="True"
-                                 Style="{DynamicResource TAATextBox}"/>
+                        <ComboBox x:Name="DimensionTypeCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"/>
                         <TextBlock Text="Marge de crop (mm)" Margin="0,10,0,4"/>
                         <TextBox x:Name="CropMarginTextBox"
                                  Text="500"

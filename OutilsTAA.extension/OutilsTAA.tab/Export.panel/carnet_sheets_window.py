@@ -29,7 +29,7 @@ class CarnetSheetsWindow(forms.WPFWindow):
             item.sheet_name or ""
         ))
         self.SheetsGrid.ItemsSource = items
-        self.SheetsInfo.Text = "{0} mise(s) en page dans ce carnet.".format(
+        self.SheetsInfo.Text = "{0} mise(s) en page dans ce dossier.".format(
             len(items)
         )
 

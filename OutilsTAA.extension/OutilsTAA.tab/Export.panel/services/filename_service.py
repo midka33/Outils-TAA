@@ -14,7 +14,7 @@ class FilenameService(object):
     TOKEN_PATTERN = re.compile(r"\{([^{}]+)\}")
     INVALID_CHARS = re.compile(r'[<>:"/\\|?*]')
     BUILTIN_TOKENS = (
-        "carnet", "numero", "nom", "nom_complet", "projet",
+        "carnet", "nom_dossier", "numero", "nom", "nom_complet", "projet",
         "date", "indice", "dossier"
     )
     SHEET_TOKENS = ("numero", "nom", "nom_complet", "indice")
@@ -26,12 +26,15 @@ class FilenameService(object):
 
     def available_tokens(self):
         """Retourne les variables intégrées affichables dans l'interface."""
-        return list(self.BUILTIN_TOKENS)
+        return [token for token in self.BUILTIN_TOKENS if token != "carnet"]
 
     def variable_catalogue(self, sheets):
         """Variables intégrées et paramètres du document pour le sélecteur."""
-        return [NamingVariable("Variable — {0}".format(token), "{{{0}}}".format(token))
-                for token in self.BUILTIN_TOKENS] + self.parameters.catalogue(sheets)
+        labels = {"nom_dossier": "Nom du dossier de publication",
+                  "dossier": "Nom du dossier parent"}
+        return [NamingVariable("Variable — {0}".format(labels.get(token, token)),
+                               "{{{0}}}".format(token))
+                for token in self.available_tokens()] + self.parameters.catalogue(sheets)
 
     def validate_template(self, template):
         """Retourne les erreurs de syntaxe d'un modèle de nommage."""
@@ -70,6 +73,7 @@ class FilenameService(object):
         nom = getattr(item, "sheet_name", "") or ""
         return {
             "carnet": carnet,
+            "nom_dossier": carnet,
             "numero": numero,
             "nom": nom,
             "nom_complet": ("{0} — {1}".format(numero, nom)).strip(" —"),
@@ -111,7 +115,7 @@ class FilenameService(object):
         Les variables projet/date/dossier restent résolues normalement.
         """
         template = (template or "{carnet}").strip()
-        already_has_carnet = "{carnet}" in template
+        already_has_carnet = ("{carnet}" in template or "{nom_dossier}" in template)
         inserted_carnet = already_has_carnet
 
         def replace_sheet_token(match):

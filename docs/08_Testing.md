@@ -758,3 +758,21 @@ Si la cause correspond à une nouvelle erreur reproductible, elle doit être ajo
 6. **Le registre `11_BUGS_Prevention_Registry.md` est transversal à tous les outils.**
 7. **La consultation du registre est obligatoire avant toute modification de code et avant tout commit de code.**
 8. **Une correction n'est terminée qu'après validation du scénario qui provoquait le bug.**
+
+
+## Recette intégrée — Export Outils TAA v1.4.0 (3 novembre 2026)
+
+**Périmètre :** Autodesk Revit 2025.4 / pyRevit 5.x ; code de la PR #39 fusionné à `main`. L'utilisateur a confirmé les six campagnes suivantes :
+
+| Campagne | Scénarios principaux validés |
+|---|---|
+| EXPORT-01 | Publication réelle de 5 PDF combinés + 16 DWG, aperçu et chemins de sortie |
+| EXPORT-02 | Renommage, contenu et réglages conservés, réouverture |
+| EXPORT-03 | Suppressions ciblées de feuilles/dossiers et protections |
+| EXPORT-04 | Glisser-déposer, multi-sélection, ordre et persistance |
+| EXPORT-05 | Héritage des paramètres, surcharge, retour à l'héritage, aperçu |
+| EXPORT-06 | Fermeture/reprise de Revit et indépendance entre projets |
+
+**CI de la branche de PR :** 375 tests Export réussis, contrat ruban réussi. **CI de release :** le workflow `.github/workflows/release-v1.4.0.yml` relance les tests Export, le ruban, Calculs des pièces et Plans de vente, puis valide le ZIP de distribution sur le SHA exact à publier avant de créer le tag. Ne pas déclarer l'ensemble de ces tests de publication réussi avant l'exécution du workflow.
+
+**Points complémentaires non revendiqués comme testés individuellement :** F2 et clic droit sur chaque type de dossier, ancienne variable `{carnet}` dans une installation migrée, exhaustivité manuelle des quatre combinaisons de sous-dossiers, installation Windows de l'installateur v1.4.0. Voir `docs/release/Preparation_Export_v1.4.0.md` pour la checklist et les limites précises.

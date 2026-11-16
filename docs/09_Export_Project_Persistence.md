@@ -110,3 +110,10 @@ Les dossiers tels que `DCE`, `APD`, `DPC`, etc. ne sont visibles que s'ils ont �
 5. Vérifier que le dossier du premier n'apparaît pas.
 
 Ce scénario valide la séparation entre deux projets, y compris lorsque l'identité Extensible Storage d'un gabarit est héritée, et couvre `BUG-EXPORT-017`.
+
+
+## Contrôle confirmé dans Outils TAA v1.4.0
+
+La recette **EXPORT-06** du 3 novembre 2026 a confirmé qu'après une fermeture complète de Revit les dossiers, les noms, les mises en page, leur ordre et les réglages de publication sont retrouvés, et que la configuration du projet A n'apparaît pas dans le projet B. Cette validation renforce, sans remplacer, les tests d'identité de projet et de migration ci-dessus.
+
+Le champ héritable `separate_format_subfolders` contrôle désormais les sous-dossiers `PDF` et `DWG` **indépendamment** de `separate_carnet_subfolder` (dossier portant le nom de la publication). Il est sérialisé avec les paramètres. Si le champ est absent d'un ancien JSON, la valeur effective copie le comportement historique de création de dossier pour préserver le chemin de sortie. Cette compatibilité évite une migration forcée ; le premier changement manuel de l'ancienne option préserve le choix des sous-dossiers de format. Voir `docs/09_Export.md` et `docs/release/Tutoriel_Export_v1.4.0.md`.

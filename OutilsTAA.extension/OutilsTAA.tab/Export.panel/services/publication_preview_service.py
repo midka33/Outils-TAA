@@ -16,7 +16,7 @@ class PublicationPreviewService(object):
               current_states=None, classified=None, modified_only=False):
         rows, errors, warnings = [], [], []
         if publication_set is None:
-            return {"rows": [], "errors": ["Aucun carnet de publication sélectionné."], "warnings": []}
+            return {"rows": [], "errors": ["Aucun dossier de publication sélectionné."], "warnings": []}
         if not settings.output_directory:
             errors.append("Le dossier de destination est manquant.")
         directory = os.path.abspath(settings.output_directory) if settings.output_directory else ""
@@ -98,14 +98,14 @@ class PublicationPreviewService(object):
             rows.append(_PreviewRow(
                 getattr(publication_set, "name", "—"),
                 item.sheet_number if item is not None else "—",
-                item.sheet_name if item is not None else "Publication du carnet",
+                item.sheet_name if item is not None else "PDF combiné du dossier",
                 fmt, mode_label, filename, path, status))
 
         has_candidates = bool(candidates)
         if settings.pdf_enabled and has_candidates:
             if settings.pdf_mode == "COMBINED":
                 filename, unknown = self.filename_service.carnet_filename(
-                    settings.filename_template or "{carnet}",
+                    settings.filename_template or "{nom_dossier}",
                     publication_set,
                     folder_name=getattr(
                         publication_set, "folder_name", None
@@ -116,11 +116,11 @@ class PublicationPreviewService(object):
             else:
                 for item in candidates:
                     filename, unknown = self.filename_service.filename(
-                        settings.filename_template or "{carnet}", publication_set,
+                        settings.filename_template or "{nom_dossier}", publication_set,
                         item=item, folder_name=getattr(publication_set, "folder_name", None), extension=".pdf")
                     add_row("PDF", "SEPARATE", item, filename, unknown)
 
-        dwg_template = settings.filename_template or "{carnet}"
+        dwg_template = settings.filename_template or "{nom_dossier}"
         if (getattr(settings, "dwg_filename_independent", False)
                 or settings.pdf_mode == "COMBINED"):
             dwg_template = (

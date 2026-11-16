@@ -31,7 +31,7 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,20,0">
-                    <TextBlock Text="Carnet :" Foreground="#666666"/>
+                    <TextBlock Text="Dossier de publication :" Foreground="#666666"/>
                     <TextBlock x:Name="CarnetText" Text="—" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,16"/>
                     <TextBlock Text="Élément en cours :" Foreground="#666666"/>
                     <TextBlock x:Name="ItemText" Text="Préparation" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,0"/>

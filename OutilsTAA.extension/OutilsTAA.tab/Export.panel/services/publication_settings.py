@@ -19,12 +19,14 @@ class PublicationSettings(object):
     FIELDS = (
         "pdf_enabled", "pdf_mode", "pdf_quality", "dwg_enabled", "dwg_mode",
         "dwg_setup_name", "dwg_true_color", "dwg_merge_views", "output_directory",
-        "filename_template", "dwg_filename_independent", "dwg_filename_template", "separate_carnet_subfolder"
+        "filename_template", "dwg_filename_independent", "dwg_filename_template",
+        "separate_carnet_subfolder", "separate_format_subfolders"
     ) + PDF_OPTION_FIELDS
     ACTIVE_FIELDS = (
         "pdf_enabled", "pdf_mode", "pdf_quality", "dwg_enabled",
         "dwg_setup_name", "dwg_true_color", "dwg_merge_views",
-        "output_directory", "filename_template", "separate_carnet_subfolder"
+        "output_directory", "filename_template", "separate_carnet_subfolder",
+        "separate_format_subfolders"
     ) + PDF_OPTION_FIELDS
 
     PDF_QUALITIES = (72, 144, 300, 600, 1200, 2400, 3600, 4000)
@@ -33,13 +35,17 @@ class PublicationSettings(object):
                  pdf_mode=None, dwg_enabled=None, dwg_mode=None,
                  dwg_setup_name=None, dwg_true_color=None,
                  filename_template=None, dwg_filename_independent=None, dwg_filename_template=None, modified_only=None, pdf_quality=None,
-                 separate_carnet_subfolder=None, dwg_merge_views=None, **pdf_options):
+                 separate_carnet_subfolder=None, separate_format_subfolders=None,
+                  dwg_merge_views=None, **pdf_options):
         unknown = set(pdf_options) - set(PDF_OPTION_FIELDS)
         if unknown:
             raise TypeError("Réglage PDF inconnu : " + ", ".join(sorted(unknown)))
         for field in PDF_OPTION_FIELDS:
             setattr(self, field, pdf_options.get(field))
         self.separate_carnet_subfolder = separate_carnet_subfolder
+        # None conserve la signification des anciens profils/dossiers :
+        # sous-dossiers PDF/DWG liés à la création du dossier de publication.
+        self.separate_format_subfolders = separate_format_subfolders
         self.output_directory = output_directory
         self.pdf_enabled = pdf_enabled
         self.pdf_mode = pdf_mode
@@ -64,10 +70,11 @@ class PublicationSettings(object):
         return cls(output_directory=None, pdf_enabled=True,
                    pdf_mode="COMBINED", dwg_enabled=True,
                    dwg_mode="SEPARATE", dwg_setup_name=None,
-                   dwg_true_color=True, dwg_merge_views=True, filename_template="{carnet}",
+                   dwg_true_color=True, dwg_merge_views=True, filename_template="{nom_dossier}",
                    dwg_filename_independent=False, dwg_filename_template="{numero} {nom}",
                    modified_only=False, pdf_quality=300,
-                   separate_carnet_subfolder=True, **pdf_defaults())
+                   separate_carnet_subfolder=True,
+                    separate_format_subfolders=None, **pdf_defaults())
 
     def copy(self):
         return self.__class__(**dict((field, getattr(self, field))

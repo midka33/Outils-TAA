@@ -44,7 +44,42 @@ class CarnetController(object):
         return self.carnet_service.create_manual_temporary(name, items)
 
     def list_persistent(self):
-        return self.repository.list_all() if self.repository else []
+        values = self.repository.list_all() if self.repository else []
+        return self._refresh_sheet_metadata(values)
+
+    def _refresh_sheet_metadata(self, publication_sets):
+        """Actualise les libellés persistants depuis le document Revit courant.
+
+        Le JSON conserve le snapshot historique, mais l'interface doit toujours
+        afficher le numéro, le nom et l'ElementId courants de la feuille
+        référencée par UniqueId. Cette étape ne réécrit rien sur disque.
+        """
+        values = list(publication_sets or [])
+        sheets = self.export_service.get_sheets()
+        current = {}
+        for sheet in sheets or []:
+            unique_id = getattr(sheet, "UniqueId", None)
+            if unique_id:
+                current[str(unique_id)] = sheet
+
+        for publication_set in values:
+            for item in getattr(publication_set, "items", []) or []:
+                sheet = current.get(str(getattr(item, "unique_id", "") or ""))
+                if sheet is None:
+                    continue
+                try:
+                    item.sheet_id = sheet.Id.IntegerValue
+                except Exception:
+                    pass
+                try:
+                    item.sheet_number = sheet.SheetNumber
+                except Exception:
+                    pass
+                try:
+                    item.sheet_name = sheet.Name
+                except Exception:
+                    pass
+        return values
 
     def list_folders(self):
         return self.repository.list_folders() if self.repository else []
@@ -58,6 +93,11 @@ class CarnetController(object):
         if self.repository is None:
             return False
         return self.repository.delete_folder(folder_id)
+
+    def add_sheets_to_folder(self, items, folder_id):
+        if self.repository is None:
+            raise RuntimeError("Le dépôt de publication n’est pas configuré.")
+        return self.repository.add_sheets_to_folder(items, folder_id)
 
     def move_sheets_into_folder(self, sheet_refs, folder_id):
         if not self.repository:

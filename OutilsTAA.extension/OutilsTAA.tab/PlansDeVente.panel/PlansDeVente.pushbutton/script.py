@@ -29,6 +29,7 @@ from housing_analysis_service import HousingAnalysisService
 from location_plan_service import LocationPlanService
 from plan_view_service import PlanViewService
 from plans_vente_controller import PlansVenteController
+from plans_vente_settings_service import PlansVenteSettingsService
 from prototype_view_service import PrototypeViewService
 from room_collector_service import RoomCollectorService
 from room_parameter_service import RoomParameterService
@@ -128,7 +129,8 @@ def main():
         full_generation_service=full_generation_service,
     )
 
-    window = PlansVenteWindow(controller)
+    settings_service = PlansVenteSettingsService(document=document)
+    window = PlansVenteWindow(controller, settings_service=settings_service)
     window.ShowDialog()
 
 
