@@ -97,6 +97,44 @@ def shared_storage(tmp_path):
     )
 
 
+@pytest.mark.parametrize("encoding", ["cp1252", "utf-8", "utf-8-sig"])
+def test_legacy_accented_json_import_preserves_original_bytes(tmp_path, encoding):
+    path = tmp_path / "local.json"
+    data = local_data()
+    data["folders"][1]["name"] = "Étage rénové"
+    data["sets"][0]["items"][0]["sheet_name"] = "Niveau rez-de-chaussée"
+    original = json.dumps(data, ensure_ascii=False).encode(encoding)
+    path.write_bytes(original)
+
+    candidate = find_local_migration_candidate(
+        [(str(path), LOCAL_ID)], SHARED_ID,
+    )
+    assert candidate is not None
+    assert candidate.data["folders"][1]["name"] == "Étage rénové"
+    assert candidate.data["sets"][0]["items"][0]["sheet_name"] == "Niveau rez-de-chaussée"
+    assert path.read_bytes() == original
+
+    shared = shared_storage(tmp_path)
+    shared.probe_access()
+    result = import_local_configuration(candidate, shared)
+    assert result["folders"][1]["name"] == "Étage rénové"
+    assert path.read_bytes() == original
+
+
+def test_invalid_legacy_json_is_rejected_without_rewriting(tmp_path):
+    from local_config_migration import (
+        LocalConfigurationCorruptedError,
+    )
+    path = tmp_path / "broken.json"
+    original = b'{"sets": [INVALID]}'
+    path.write_bytes(original)
+    with pytest.raises(LocalConfigurationCorruptedError):
+        find_local_migration_candidate(
+            [(str(path), LOCAL_ID)], SHARED_ID,
+        )
+    assert path.read_bytes() == original
+
+
 def test_empty_default_local_configuration_is_not_offered(tmp_path):
     path = tmp_path / "local.json"
     write_json(path, {
