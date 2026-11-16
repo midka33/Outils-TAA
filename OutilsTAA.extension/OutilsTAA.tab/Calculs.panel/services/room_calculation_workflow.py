@@ -6,7 +6,8 @@ from __future__ import unicode_literals
 from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
 from calculation.models import RoomCalculationItem
-from group_member_alignment import build_uniform_member_plan
+from group_member_alignment import (build_uniform_member_plan,
+                                    validate_uniform_targets_by_member)
 from calculation_diagnostics import (group_conflicts, design_option_summary,
                                      variant_group_key, variant_group_label,
                                      shared_apartments_across_variants)
@@ -246,6 +247,14 @@ class RoomCalculationWorkflow(object):
         else:
             uniform_by_room = {}
 
+        if prepared.group_mode == "uniform":
+            validate_uniform_targets_by_member(
+                self.document,
+                prepared.room_by_key,
+                prepared.operations,
+                uniform_by_room,
+            )
+
         total_ops = len(prepared.operations)
         for index, operation in enumerate(prepared.operations, 1):
             room = prepared.room_by_key.get(operation.room_key)
@@ -464,10 +473,30 @@ class RoomCalculationWorkflow(object):
                 )
             actual = self.parameter_service.read_parameter(parameter)
             if not self._same_value(actual, value):
+                group_name = "inconnu"
+                group_id = getattr(room, "GroupId", None)
+                group = None
+                getter = getattr(self.document, "GetElement", None)
+                if getter is not None and group_id is not None:
+                    try:
+                        group = getter(group_id)
+                    except Exception:
+                        group = None
+                if group is not None:
+                    group_name = getattr(
+                        getattr(group, "GroupType", None),
+                        "Name", "inconnu",
+                    )
                 raise ValidationError(
-                    "L'alignement Revit a modifie la valeur attendue sur "
-                    "l'element {} : {} au lieu de {}. Annulation."
-                    .format(identifier, actual, value)
+                    "Valeur commune non conservee par Revit sur l'element {} "
+                    "(type de groupe '{}') : Revit a impose {} au lieu de {}. "
+                    "La valeur a ete ecrite, puis remplacee lors de "
+                    "SetAllowVaryBetweenGroups(False). "
+                    "La transaction a ete annulee. Ce cas necessite "
+                    "une modification du contenu du type de groupe dans "
+                    "l'editeur de groupes Revit ; le module ne doit pas "
+                    "imposer une valeur apres realignement."
+                    .format(identifier, group_name, actual, value)
                 )
 
     @staticmethod
