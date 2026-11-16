@@ -134,3 +134,64 @@ def build_uniform_member_plan(document, room_by_key, operations,
                 planned_extras.add(identifier)
 
     return extras, covered
+
+
+def validate_uniform_targets_by_member(document, room_by_key, operations,
+                                       uniform_values=None):
+    """Refuse deux consignes incompatibles sur le meme membre de type de groupe.
+
+    Une position (GroupType.Id, indice GetMemberIds) doit recevoir exactement
+    une valeur. Cette verification a lieu AVANT ouverture de la transaction.
+    """
+    get_element = getattr(document, "GetElement", None)
+    if get_element is None:
+        return
+    assignments = {}
+    values_by_room = dict(uniform_values or {})
+    for operation in operations:
+        room = room_by_key.get(operation.room_key)
+        if room is None:
+            continue
+        group_id = getattr(room, "GroupId", None)
+        if element_id_value(group_id) in (None, -1):
+            continue
+        group = get_element(group_id)
+        if group is None:
+            continue
+        members = _members(group)
+        if members is None:
+            continue
+        room_id = element_id_value(getattr(room, "Id", None))
+        positions = [i for i, member_id in enumerate(members)
+                     if element_id_value(member_id) == room_id]
+        if len(positions) != 1:
+            raise ValidationError(
+                "Membre de groupe ambigu pour la pièce '{}'.".format(
+                    operation.room_key
+                )
+            )
+        type_key = _type_key(group)
+        key = (type_key, positions[0])
+        proposed = values_by_room.get(operation.room_key, operation.value)
+        previous = assignments.get(key)
+        if previous is not None:
+            previous_value, previous_room = previous
+            if not _equal_values(previous_value, proposed):
+                name = getattr(getattr(group, "GroupType", None),
+                               "Name", str(type_key))
+                raise ValidationError(
+                    "Impossible d'uniformiser le type de groupe '{}' : "
+                    "le même membre (position {}) reçoit {} pour '{}' et "
+                    "{} pour '{}'. Choisissez une valeur commune compatible "
+                    "avant écriture ou autorisez les valeurs différentes."
+                    .format(name, positions[0], previous_value,
+                            previous_room, proposed, operation.room_key)
+                )
+        else:
+            assignments[key] = (proposed, operation.room_key)
+
+
+def _equal_values(left, right):
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        return abs(left - right) <= 1e-7 * max(1.0, abs(left), abs(right))
+    return left == right
