@@ -84,3 +84,111 @@ def test_legacy_source_without_group_loads(tmp_path):
     path.write_text(json.dumps(data))
     loaded = repo.get("legacy")
     assert loaded.source.group_parameter is None
+
+
+class _FakeParameter(object):
+    def __init__(self, value):
+        self.value = value
+
+    def AsString(self):
+        return self.value
+
+    def AsValueString(self):
+        return self.value
+
+
+class _FakeSheet(object):
+    def __init__(self, uid, group):
+        self.UniqueId = uid
+        self.SheetNumber = uid
+        self.Name = "Plan " + uid
+        self.Id = type("Id", (), {"IntegerValue": len(uid)})()
+        self.params = {"Phase": "PRO", "Groupe": group}
+
+    def LookupParameter(self, name):
+        value = self.params.get(name)
+        return _FakeParameter(value) if value is not None else None
+
+
+def _create_parent(repo):
+    obj = PublicationSet(
+        "PRO", items=[], source=PublicationSource(
+            PublicationSource.DYNAMIC, "Phase", "PRO", "Groupe"),
+        set_id="auto-pro", persistent=True, folder_id="default")
+    repo.save(obj)
+    return obj
+
+
+def test_one_group_freezes_and_others_remain_dynamic(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    a = _FakeSheet("A101", "A")
+    b = _FakeSheet("B101", "B")
+    direct, groups = resolve_dynamic(parent, [a, b])
+    assert not direct and len(groups) == 2
+    frozen = next(group for group in groups if group.name == "A")
+    assert repo.freeze_dynamic_group(parent.id, frozen) is True
+
+    reloaded = CarnetRepository(str(tmp_path / "publication.json"))
+    root = reloaded.get(parent.id)
+    assert root.source.mode == PublicationSource.DYNAMIC
+    assert root.source.frozen_group_ids == [frozen.id]
+    saved = reloaded.get(frozen.id)
+    assert saved.folder_id == parent.id
+    assert saved.source.mode == PublicationSource.MANUAL
+    assert [item.unique_id for item in saved.items] == ["A101"]
+
+    # La feuille existante A change de groupe et une nouvelle feuille A
+    # apparaît : le dossier figé reste intact, B continue à se mettre à jour.
+    a.params["Groupe"] = "C"
+    new_b = _FakeSheet("B102", "B")
+    new_a = _FakeSheet("A102", "A")
+    _, remaining = resolve_dynamic(root, [a, b, new_b, new_a])
+    assert [group.name for group in remaining] == ["B", "C"]
+    assert [item.unique_id for item in remaining[0].items] == ["B101", "B102"]
+    assert [item.unique_id for item in reloaded.get(frozen.id).items] == ["A101"]
+
+    # Une conversion ultérieure de l'ensemble ne doit pas recréer A en double.
+    assert reloaded.freeze_dynamic(root, [], remaining) is True
+    assert reloaded.get(parent.id).source.mode == PublicationSource.MANUAL
+    assert reloaded.get(frozen.id) is not None
+    all_children = [item for item in reloaded.list_all()
+                    if item.folder_id == parent.id]
+    assert len(all_children) == 3
+    assert len({item.id for item in all_children}) == 3
+
+
+def test_freeze_same_group_twice_does_not_write_duplicates(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    selected = resolve_dynamic(parent, [_FakeSheet("A101", "A")])[1][0]
+    assert repo.freeze_dynamic_group(parent.id, selected) is True
+    try:
+        repo.freeze_dynamic_group(parent.id, selected)
+    except ValueError as exc:
+        assert "déjà figé" in str(exc)
+    else:
+        raise AssertionError("Un groupe figé ne peut pas être enregistré deux fois.")
+    assert sum(str(item.id) == str(selected.id)
+               for item in repo.list_all()) == 1
+
+
+def test_empty_group_identifier_is_not_literal_sans_valeur(tmp_path):
+    from dynamic_sheet_groups import group_identifier, resolve_dynamic
+    assert group_identifier("root", None) != group_identifier("root", "Sans valeur")
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    # Le groupe vide est volontairement représenté par None.
+    empty = _FakeSheet("A000", "")
+    literal = _FakeSheet("A001", "Sans valeur")
+    direct, groups = resolve_dynamic(parent, [empty, literal])
+    assert len(groups) == 2
+    assert len(set(item.id for item in groups)) == 2
+    frozen_empty = next(g for g in groups
+                        if g.dynamic_group_key is None)
+    repo.freeze_dynamic_group(parent.id, frozen_empty)
+    _, remaining = resolve_dynamic(repo.get(parent.id), [empty, literal])
+    assert len(remaining) == 1
+    assert remaining[0].dynamic_group_key == "Sans valeur"
