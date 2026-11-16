@@ -221,6 +221,27 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertIn("self.Height = 440", source)
         self.assertNotIn("self.Height = 320", source)
 
+    def test_confirmation_details_fill_resized_window(self):
+        import xml.etree.ElementTree as ET
+        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        path = os.path.join(
+            root, "OutilsTAA.extension", "OutilsTAA.tab",
+            "Calculs.panel", "ui", "calculation_decision.xaml"
+        )
+        window = ET.parse(path).getroot()
+        ns = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
+        rows = window.find(".//" + ns + "Grid.RowDefinitions")
+        self.assertEqual(
+            ["Auto", "*", "Auto", "Auto"],
+            [element.get("Height") for element in rows],
+        )
+        details_scrolls = window.findall(".//" + ns + "ScrollViewer")
+        self.assertEqual(1, len(details_scrolls))
+        self.assertIsNone(details_scrolls[0].get("MaxHeight"))
+        panel = window.find(".//" + ns + "Border[@Grid.Row='2']")
+        # La liste de choix est facultative et ne peut monopoliser la fenêtre.
+        self.assertEqual("180", panel.get("MaxHeight"))
+
     def test_empty_group_still_skipped_in_secondary_option(self):
         from calculation_diagnostics import variant_group_key
         class Option(object):
