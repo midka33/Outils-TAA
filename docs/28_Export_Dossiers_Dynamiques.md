@@ -1,9 +1,22 @@
 # Export — Dossiers dynamiques de mises en page (spécification V1)
 
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x.  
-**Statut :** conception, aucune fonctionnalité implémentée ni validée dans Revit.  
+**Statut :** première implémentation sur la PR #55 (Draft). Les tests automatisés sont exécutés par la CI ; recette Revit 2025.4 encore nécessaire avant fusion.  
 **Base :** Outils TAA v1.4.1 et code `main` courant.  
 **Objectif :** réemployer les paramètres et l'organisation du navigateur de projet Revit dans les dossiers de publication Export, sans duplication manuelle.
+
+## Implémentation actuelle (branche PR #55)
+
+- Nouveau bouton **Dossier automatique** dans la barre de l'arborescence, ouvrant l'assistant de création en mode Automatique.
+- Règle de sélection **paramètre = valeur exacte**, et sous-dossiers facultatifs par un second paramètre.
+- Calcul de listes de feuilles en mémoire lors de la construction du TreeView et avant aperçu ou publication ; mise à jour des feuilles sources à l'actualisation.
+- Groupes virtuels à identifiants stables. Aucun enregistrement JSON des modifications automatiques de feuilles.
+- Clic droit sur le dossier automatique **Rendre ce dossier manuel** : fige les feuilles et groupes en une mutation atomique du repository.
+- Le champ facultatif `source.group_parameter` est compatible avec le **schéma JSON 8** ; le stockage partagé utilise la couche `_mutate` pour la conversion.
+- Suppression, renommage et glisser-déposer des sous-dossiers virtuels interdits ; le contenu automatique doit être figé avant un reclassement manuel.
+- **Limite :** copie exacte de l'organisation native du navigateur Revit via `BrowserOrganization` non implémentée dans cette première version. Les paramètres de sélection et de groupe doivent être explicitement choisis.
+- **Limite :** les changements sont pris en compte à l'ouverture et à l'actualisation, pas par un écouteur permanent Revit.
+- **Sécurité :** les paramètres de même nom sur une feuille déclenchent une erreur au lieu de sélectionner un paramètre ambigu.
 
 ## 1. Création
 
@@ -70,4 +83,4 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 - DYN-10 : fermeture/réouverture, aperçu et publication identiques au périmètre dynamique résolu.
 - DYN-11 : tester le maintien des champs de concurrence lorsqu'un backend partagé est activé ultérieurement.
 
-**Aucune recette réalisée à ce stade.**
+**Recette Revit : aucune exécution confirmée à ce stade.** Ne pas fusionner la PR avant validation réelle d'un dossier automatique, de son regroupement, de son actualisation et de sa conversion en manuel.
