@@ -238,16 +238,26 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <Button Grid.Column="1"
+                    x:Name="ReportButton"
+                    Content="Rapport"
+                    Click="Report_Click"
+                    IsEnabled="False"
+                    MinWidth="100"
+                    Margin="0,0,8,0"
+                    Style="{DynamicResource TAASecondaryButton}"/>
+
+            <Button Grid.Column="2"
                     Content="Fermer"
                     Click="Close_Click"
                     MinWidth="100"
                     Margin="0,0,8,0"
                     Style="{DynamicResource TAASecondaryButton}"/>
 
-            <Button Grid.Column="2"
+            <Button Grid.Column="3"
                     x:Name="CalculateButton"
                     Content="Calculer"
                     Click="Calculate_Click"
