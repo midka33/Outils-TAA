@@ -320,9 +320,6 @@ class RoomCalculationWorkflow(object):
 
         successful = []
         temporary_success = []
-        if prepared.group_mode == "uniform":
-            self._active_uniform_target = prepared.request.target_parameter
-
         try:
             with RevitTransaction(
                 self.document,
@@ -366,7 +363,9 @@ class RoomCalculationWorkflow(object):
                 if prepared.group_mode == "uniform":
                     # Un realignement ne peut etre admis que s'il touche des
                     # membres explicitement prevus ET conserve leur valeur.
-                    self._verify_uniform_alignment(valid, realigned)
+                    self._verify_uniform_alignment(
+                        valid, realigned, prepared.request.target_parameter
+                    )
                 elif realigned:
                     raise ValidationError(
                         "La restauration de l'alignement par type de groupe "
@@ -414,7 +413,7 @@ class RoomCalculationWorkflow(object):
             warnings=prepared.warnings,
         )
 
-    def _verify_uniform_alignment(self, valid, realigned):
+    def _verify_uniform_alignment(self, valid, realigned, target_descriptor):
         """Valide toutes les valeurs apres restauration, sinon rollback.
 
         L'API Revit peut signaler des elements realignes meme quand leur
@@ -436,7 +435,7 @@ class RoomCalculationWorkflow(object):
                 )
         for identifier, (room, value) in expected.items():
             parameter = self.parameter_service.get_parameter(
-                room, self._active_uniform_target
+                room, target_descriptor
             )
             if parameter is None:
                 raise ValidationError(
