@@ -112,9 +112,10 @@ def install_preview_on_export_window(export_window_class):
                     or "default"
                 )
 
-        manager = CarnetManagerWindow(self.controller, owner=self, target_folder_id=target_folder_id)
-        if getattr(sender, "Name", None) == "CreateDynamicFolderButton":
-            manager.ModeDynamic.IsChecked = True
+        manager = CarnetManagerWindow(
+            self.controller, owner=self, target_folder_id=target_folder_id,
+            dynamic_only=(
+                getattr(sender, "Name", None) == "CreateDynamicFolderButton"))
         manager.ShowDialog()
         if manager.result:
             for carnet in manager.result:
