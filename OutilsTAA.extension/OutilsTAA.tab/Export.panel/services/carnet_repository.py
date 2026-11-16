@@ -314,6 +314,51 @@ class CarnetRepository(object):
 
         return self._mutate(mutation)
 
+    def freeze_dynamic_group(self, parent_id, group):
+        """Fige un seul sous-dossier, sans désactiver son parent automatique.
+
+        Mutation atomique du JSON (verrou/révision en mode collaboratif) :
+        mémorise l'exclusion ET le snapshot manuel dans la même écriture.
+        """
+        from dynamic_sheet_groups import group_identifier
+        if (group is None or not getattr(group, "dynamic_virtual", False)
+                or not getattr(group, "id", None)):
+            raise ValueError("Le sous-dossier sélectionné n'est pas automatique.")
+        if str(group.folder_id) != str(parent_id):
+            raise ValueError("Ce sous-dossier n'appartient pas au dossier choisi.")
+        group_key = getattr(group, "dynamic_group_key", None)
+        expected_id = group_identifier(parent_id, group_key)
+        if str(group.id) != expected_id:
+            raise ValueError("Identifiant de sous-dossier automatique incohérent.")
+
+        def mutation(data):
+            sets = data.get("sets", [])
+            root = next((item for item in sets
+                         if str(item.get("id")) == str(parent_id)), None)
+            if root is None:
+                raise ValueError("Dossier automatique parent introuvable.")
+            source = root.get("source") or {}
+            if (source.get("mode") != PublicationSource.DYNAMIC
+                    or not source.get("group_parameter")):
+                raise ValueError("Le dossier parent n'est plus un regroupement automatique.")
+            if any(str(item.get("id")) == expected_id for item in sets):
+                raise ValueError("Sous-dossier déjà figé : actualisez Export.")
+            frozen = list(source.get("frozen_group_ids") or [])
+            if expected_id in frozen:
+                raise ValueError("Sous-dossier déjà figé : actualisez Export.")
+
+            # Une seule écriture : jamais de règle modifiée sans snapshot.
+            group.persistent = True
+            snapshot = self._to_dict(group)
+            frozen.append(expected_id)
+            source["frozen_group_ids"] = frozen
+            root["source"] = source
+            sets.append(snapshot)
+            self._normalize_tree_order(data)
+            return True, True
+
+        return self._mutate(mutation)
+
     def freeze_dynamic(self, publication_set, direct_items, group_sets):
         """Fige atomiquement un dossier dynamique et ses groupes virtuels.
 
@@ -991,6 +1036,8 @@ class CarnetRepository(object):
                 "parameter_name": publication_set.source.parameter_name,
                 "parameter_value": publication_set.source.parameter_value,
                 "group_parameter": getattr(publication_set.source, "group_parameter", None),
+                "frozen_group_ids": list(
+                    getattr(publication_set.source, "frozen_group_ids", None) or []),
             },
             "items": [{
                 "unique_id": item.unique_id,
@@ -1010,6 +1057,7 @@ class CarnetRepository(object):
             source_data.get("parameter_name"),
             source_data.get("parameter_value"),
             source_data.get("group_parameter"),
+            source_data.get("frozen_group_ids"),
         )
         items = [
             PublicationItem(
