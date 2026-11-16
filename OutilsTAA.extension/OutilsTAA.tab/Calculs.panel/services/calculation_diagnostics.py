@@ -71,6 +71,47 @@ def variant_group_label(group_key, document=None):
     return "{} — variante {}".format(group_key[2], option_name)
 
 
+
+def shared_apartments_across_variants(result, document=None):
+    """Retourne les appartements calculés dans plusieurs scénarios.
+
+    Le diagnostic ne change jamais les sommes ni la liste des membres.
+    Chaque entrée contient les totaux de chaque scénario pour informer
+    l'utilisateur AVANT toute écriture dans le modèle.
+    """
+    by_apartment = {}
+    for group_key, value in result.totals.items():
+        if (
+            isinstance(group_key, tuple)
+            and len(group_key) == 3
+            and group_key[0] == "TAA-VARIANTE-SECONDAIRE"
+        ):
+            apartment = group_key[2]
+            scenario_key = ("secondary", group_key[1])
+        else:
+            apartment = group_key
+            scenario_key = ("reference",)
+        try:
+            by_apartment.setdefault(apartment, []).append({
+                "scenario_key": scenario_key,
+                "label": str(variant_group_label(group_key, document)),
+                "total": value,
+            })
+        except TypeError:
+            # Les regroupements non hachables sont déjà rejetés par le moteur.
+            continue
+
+    duplicates = []
+    for apartment, scenarios in by_apartment.items():
+        if len(set(item["scenario_key"] for item in scenarios)) < 2:
+            continue
+        duplicates.append({
+            "apartment": apartment,
+            "scenarios": sorted(scenarios, key=lambda item: item["label"]),
+        })
+    return sorted(duplicates, key=lambda item: str(item["apartment"]))
+
+
 def group_conflicts(document, room_by_key, operations):
     """Conflits entre valeurs calculees pour les occurrences d'un type de groupe.
 
