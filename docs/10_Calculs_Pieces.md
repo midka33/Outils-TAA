@@ -253,6 +253,8 @@ Le réglage de la définition de paramètre est **global au projet**, pas limit�
 
 **Exemple :** `B200` du scénario de référence = 70 m² ; `B200` de « Variante 1 » = 65 m² ; `B200` de « Variante 2 » = 72 m². Ce sont trois totaux et non un total à 207 m².
 
+**Confirmation conditionnelle avant écriture :** si un même numéro d'appartement apparaît dans au moins deux scénarios distincts (référence/variante secondaire ou deux variantes secondaires), le module présente une fenêtre **WPF TAA** indiquant chaque scénario et son total indépendant. Le bouton de confirmation valide **la séparation des surfaces uniquement** ; il n'existe pas de choix pour les additionner. Le refus ou la fermeture annule la commande avant toute écriture. Ce contrôle précède la résolution éventuelle des conflits de paramètres de groupes et la confirmation générale. Il n'apparaît pas lorsqu'un appartement existe dans un seul scénario. Le workflow bloque aussi toute tentative d'écriture sans confirmation, même si l'interface était contournée.
+
 **Interface :** les décisions relatives aux groupes et la confirmation d'écriture utilisent désormais une fenêtre modale WPF TAA (`calculation_decision.xaml`, `calculation_decision_window.py`) avec thème central, libellés lisibles et choix non tronqués. Aucun choix de collecte par vue n'est conservé.
 
 **À valider dans Revit 2025.4 :** `Room.DesignOption`, séparation effective des totaux B200 entre variantes, pièce de variante principale, écriture des paramètres de groupes, fermeture/annulation WPF et non-régression sans variante.
