@@ -30,7 +30,10 @@
             <TextBlock x:Name="StoragePathText" Text="" FontSize="11" Foreground="{DynamicResource TaaSecondary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
             <TextBlock x:Name="StorageWarningText" Text="" FontSize="11" Foreground="{DynamicResource TaaSecondary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
           </StackPanel>
-          <Button x:Name="StorageRefreshButton" Grid.Column="3" Content="Actualiser" Click="StorageRefresh_Click" MinWidth="94" Padding="10,4" VerticalAlignment="Center" ToolTip="Relire la configuration Export depuis sa source" />
+          <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="StorageImportButton" Content="Importer une configuration…" Click="StorageImport_Click" Margin="0,0,8,0" Padding="10,4" Visibility="Collapsed" ToolTip="Créer la configuration du projet à partir d'un ancien export.json"/>
+            <Button x:Name="StorageRefreshButton" Content="Actualiser" Click="StorageRefresh_Click" MinWidth="94" Padding="10,4" ToolTip="Relire la configuration Export depuis sa source" />
+          </StackPanel>
         </Grid>
       </Border>
     </StackPanel>
