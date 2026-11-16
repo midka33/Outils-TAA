@@ -18,7 +18,8 @@
     <StackPanel Grid.Row="1">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
         <RadioButton x:Name="ModeParameter" Content="Par paramètre" IsChecked="True" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
-        <RadioButton x:Name="ModeDynamic" Content="Automatique" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />\n        <RadioButton x:Name="ModeManual" Content="Manuel" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
+        <RadioButton x:Name="ModeDynamic" Content="Automatique" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
+        <RadioButton x:Name="ModeManual" Content="Manuel" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
         <RadioButton x:Name="ModeTemporary" Content="Temporaire" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
       </StackPanel>
       <Grid x:Name="ParameterPanel">
