@@ -106,3 +106,13 @@ métadonnées Revit qu'une seule fois.
 **Règle préventive :** ne jamais additionner implicitement des solutions de conception différentes ; séparer par défaut et exiger confirmation pour l'addition lorsqu'un appartement appartient à plusieurs scénarios. Rappeler explicitement la portée de l'écriture dans toutes les variantes.
 
 **Anti-régression :** `tests/calculation/test_group_decisions.py` vérifie B200 en mode séparé, en mode addition, le total écrit à chaque pièce, la confirmation bloquante et les modes invalides. Exécuter la suite `tests/calculation` et la suite Export. **Validation dans Revit 2025.4 / pyRevit 5.x en attente.**
+
+### BUG-CALCULS-009 — Trop de fenêtres de confirmation / surcharge d'informations
+
+**Retour utilisateur :** le calcul pouvait ouvrir successivement une confirmation des variantes, un choix du mode groupes, une boîte par type de groupe lors d'une uniformisation, puis une confirmation générale et un rapport final. Le récapitulatif général affichait de nombreuses informations techniques non utiles à la décision.
+
+**Cause :** parcours WPF séquencé en boîtes indépendantes, et rapport modal imposé après toute exécution.
+
+**Correction implémentée (PR #56, Revit non encore validé) :** une **revue WPF TAA unique** avant écriture, récapitulatif concis, avertissement court de double comptage, choix des groupes et des valeurs de référence à l'intérieur de cette fenêtre. Confirmation unique et refus d'écrire si les choix nécessaires sont absents. En cas de succès, état dans la fenêtre principale ; rapport détaillé accessible par bouton facultatif. Un échec conserve un rapport automatique.
+
+**Protection :** ne jamais modifier automatiquement `VariesAcrossGroups` en présence de divergences, ne pas perdre les confirmations de variante déjà imposées par le moteur et annuler sans transaction. **Anti-régression :** tests de contrat UI et suite `tests/calculation`, plus essais sous Revit 2025.4 (avec et sans conflit), non encore effectués.
