@@ -595,3 +595,13 @@ La fenêtre principale WPF TAA propose maintenant **GESTION DES GROUPES** :
 **Sécurité :** choix invalide refusé dès la préparation ; aucun choix de référence fictif ou silencieux, transaction et rollback inchangés. Le mode n'est pas mémorisé et revient à « Automatique » à chaque ouverture. Aucun changement aux regroupements des variantes ni aux sommes.
 
 **Tests :** `tests/calculation/test_group_decisions.py` couvre le contrôle WPF, les trois modes, la validation précoce et le blocage sans valeur commune. Recette Revit requise avant fusion : choix manuel dans la fenêtre principale, confirmation unique, valeurs variables et uniformisation.
+
+### 7.3.6 Limite Revit : alignement global par type de groupe (retour du 16 novembre 2026)
+
+**Retour maquette :** choix « Conserver une valeur commune entre groupes » sur le paramètre `Surface logement`, puis rollback de 36 écritures car Revit aurait réaligné 36 éléments lors de `SetAllowVaryBetweenGroups(False)`.
+
+**Distinction :** la préparation du module n'observe que les valeurs qu'il prévoit d'écrire. Le réalignement Revit s'applique à la définition du paramètre sur tous les éléments concernés par les occurrences du même type de groupe, y compris ceux qui peuvent ne pas apparaître dans le calcul. Une sélection de valeur commune parmi les résultats ne garantit donc pas à elle seule une restauration sans modification annexe. La transaction est volontairement annulée pour préserver la maquette.
+
+**Correctif ergonomique et diagnostic :** en cas d'échec, une seule cause de rollback est affichée, avec nombre de pièces annulées, et une solution alternative : choisir explicitement « Autoriser des valeurs différentes entre groupes » dans la fenêtre principale. **Attention : ce réglage change durablement la définition du paramètre dans le projet.** Aucun basculement automatique n'est effectué. Le mode « conserver une valeur commune » reste disponible pour les modèles compatibles ; le correctif ne prétend pas rendre ce mode universellement possible.
+
+**Test requis :** confirmer l'absence de changement après rollback, tester le mode valeurs différentes sur copie du RVT, inspecter les valeurs des groupes et l'état `VariesAcrossGroups`, et effectuer Undo. Ne pas fusionner avant ces contrôles.

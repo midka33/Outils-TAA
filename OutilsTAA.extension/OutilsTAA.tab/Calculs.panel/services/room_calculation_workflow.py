@@ -315,10 +315,17 @@ class RoomCalculationWorkflow(object):
                     raise ValidationError("Ecriture incomplete : annulation de securite.")
                 if realigned:
                     raise ValidationError(
-                        "La restauration de l'alignement par type de groupe "
-                        "aurait modifié {} élément(s). Les occurrences de groupe "
-                        "ne produisent donc pas toutes la même valeur ; aucune "
-                        "modification n'a été conservée.".format(
+                        "Le paramètre '{}' impose un alignement entre occurrences "
+                        "d'un même type de groupe. Le restaurer modifierait "
+                        "{} élément(s), y compris potentiellement hors des pièces "
+                        "calculées. Aucune valeur n'a été conservée. "
+                        "Pour conserver des surfaces différentes par logement, "
+                        "choisissez 'Autoriser des valeurs différentes entre "
+                        "groupes' (ce choix modifie durablement le réglage "
+                        "du paramètre dans le projet). "
+                        "L'option 'Valeur commune' ne peut pas garantir "
+                        "l'alignement dans cette maquette.".format(
+                            prepared.request.target_parameter.name,
                             len(realigned)
                         )
                     )

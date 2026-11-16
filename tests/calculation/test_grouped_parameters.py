@@ -349,6 +349,36 @@ class GroupedWorkflowTests(unittest.TestCase):
             any("temporairement" in warning for warning in prepared.warnings)
         )
 
+    def test_uniform_mode_reports_hidden_revit_alignment_constraint(self):
+        rooms, definition, target1, target2 = self._rooms(
+            changed_on_restore=[FakeElementId(101), FakeElementId(102)]
+        )
+        workflow, parameter_service, transactions = self._build(rooms)
+        request = self._request(parameter_service, rooms)
+        request.group_mode = "uniform"
+
+        prepared = workflow.prepare(request)
+        self.assertEqual([], prepared.group_conflicts)
+        report = workflow.execute(prepared)
+
+        self.assertFalse(report.is_success)
+        self.assertEqual(2, report.failed_count)
+        self.assertEqual(0, report.success_count)
+        self.assertIn("2 élément(s)", report.transaction_error)
+        self.assertIn("Autoriser des valeurs différentes", report.transaction_error)
+        self.assertTrue(transactions[0].rolled_back)
+        self.assertFalse(transactions[0].committed)
+
+    def test_single_transaction_rollback_is_reported_compactly(self):
+        report_path = os.path.join(
+            PANEL_DIR, "ui", "calculation_report_window.py"
+        )
+        with open(report_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("if report.transaction_error:", source)
+        self.assertIn("une seule transaction", source)
+        self.assertIn("Le détail des pièces n'est pas répété", source)
+
     def test_realignment_on_restore_rolls_back_transaction(self):
         rooms, definition, target1, target2 = self._rooms(
             changed_on_restore=[FakeElementId(99)]
