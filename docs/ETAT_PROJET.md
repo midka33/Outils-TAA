@@ -371,3 +371,15 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **CI vérifiée avant fusion :** PR #57, commit `fccc4fcb8bd2d4fb352f2e60155ac3f5dabc2468` : `Calculs des pièces — tests hors Revit` réussi (run `43899824241`, 103 tests) et `Export — tests hors Revit` réussi (run `43899824194`). Aucune fusion ni modification de `main` effectuée au moment de cette note.
 
 **Décision :** passer la PR #57 prête pour revue et fusionner dans `main`, sous réserve du contrôle GitHub de l'état mergeable, puis vérifier le commit de fusion et les contrôles de la branche principale.
+
+## Calculs des pièces — correction fonctionnelle de gestion des groupes (16/11/2026)
+
+**Objectif utilisateur :** (1) valeurs différentes : désactiver durablement l'alignement du paramètre destination entre groupes, puis écrire les totaux ; (2) valeur commune : traiter les membres homologues de toutes les occurrences d'un même type de groupe et conserver l'alignement, comme une édition fonctionnelle du contenu des groupes. Ne pas dégrouper / recréer.
+
+**Implémentation sur la branche `fix/calculs-uniform-revit-groups-v2` depuis `main` `112acbf26486e9744648bd5a28a16f3b4e22dd8c` :** nouveau `services/group_member_alignment.py` s'appuyant sur l'ordre stable de `Group.GetMemberIds()`. Les pièces homologues hors périmètre filtré sont ajoutées explicitement au plan du mode commun. Exécution dans transaction unique ; comparaison post-alignement de tous les résultats et rollback si des éléments hors plan seraient modifiés ou si une valeur diffère. Les paramètres déjà variables sont réalignés sur demande explicite d'uniformisation. L'option valeurs différentes reste durable. Les confirmations et calculs des variantes sont inchangés.
+
+**Diagnostic distinct :** lorsque le moteur produit 0 opération, un message nouveau précise les pièces sans clé métier ou sans source numérique ; ce cas n'est pas attribuable à lui seul au réglage du paramètre cible.
+
+**Limite :** le mode d'édition interactif des groupes Revit n'est pas invoqué. Les groupes de modèle restent intacts ; la correspondance des membres est obtenue par API. Les modes dangereux continuent d'être refusés. Les cas non observés dans Revit ne sont pas validés par les seules simulations.
+
+**Tests :** nouveaux tests de régression sur correspondances, membres hors filtre, rollback, bascule de définition et diagnostic ; CI à vérifier sur dernier commit, validation en Revit 2025.4 / pyRevit 5.x encore ouverte. **Ne pas fusionner sans recette.** La PR #58 est une correction indépendante de rapport, non fusionnée.
