@@ -665,3 +665,11 @@ Le mode uniforme expérimental conserve le rollback et ajoute **deux mesures vé
 - Les pièces de même appartement dans le même scénario reçoivent la même somme **par conception du calcul** ; deux appartements différents du même type de groupe peuvent conserver des totaux différents.
 
 **Compatibilité :** API interne `group_mode=uniform` conservée provisoirement pour la non-régression historique, mais n'est pas exposée dans l'UI actuelle. Transactions, rollback, variantes et rapport restent disponibles. Cette nouvelle évolution n'est pas encore validée dans Revit 2025.4.
+
+### 7.3.13 Simplification finale de la fenêtre principale et unités automatiques (16/11/2026)
+
+**Demande et recette Revit 2025.4 de l'utilisateur :** le parcours actuel de Calculs des pièces **fonctionne bien**, avec valeurs par appartement, gestion automatique de l'alignement des groupes et écran simplifié. Retirer uniquement la ligne **UNITÉ DE SORTIE** de la fenêtre principale, puis autorisation explicite de fusionner PR #59.
+
+**Implémentation UI :** le bloc `UNITÉ DE SORTIE` est supprimé du layout visible. `UnitCombo` reste un contrôle technique WPF caché pour ne pas casser les handlers existants ; aucune option de conversion manuelle n'est désormais transmise à la requête (`output_unit_type_id=None`). Un ancien choix d'unité enregistré n'est plus restauré silencieusement. Les conversions automatiques du moteur (déduites des types source/destination) et les opérations d'aire en unités internes Revit ne sont pas modifiées. La possibilité de choisir manuellement une unité de sortie pour un paramètre texte/entier est **retirée de l'interface** : ce changement doit être pris en compte lors des futures évolutions.
+
+**Vérification :** tests statiques XAML et contrôleur WPF, suites CI Calculs/Export sur le commit final, puis recette du layout allégé non encore observée dans Revit au moment de cette note. Validation utilisateur du fonctionnement avant retrait de la ligne : **confirmée**, mais ne prouve pas spécifiquement la nouvelle interface.
