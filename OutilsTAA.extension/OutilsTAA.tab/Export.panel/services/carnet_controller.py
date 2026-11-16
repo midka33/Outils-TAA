@@ -75,6 +75,26 @@ class CarnetController(object):
             publication_set, self.export_service.get_sheets())
         return self.repository.freeze_dynamic(publication_set, direct, groups)
 
+    def freeze_dynamic_group(self, selected_group):
+        """Fige uniquement le groupe sélectionné, depuis l'état Revit courant."""
+        from publication_source import PublicationSource
+        from dynamic_sheet_groups import resolve_dynamic
+        if not getattr(selected_group, "dynamic_virtual", False):
+            raise ValueError("Sélectionnez un sous-dossier automatique.")
+        parent_id = getattr(selected_group, "folder_id", None)
+        parent = self.repository.get(parent_id) if self.repository else None
+        if (parent is None or parent.source is None
+                or parent.source.mode != PublicationSource.DYNAMIC):
+            raise ValueError("Le dossier automatique parent a changé. Actualisez Export.")
+        _, current_groups = resolve_dynamic(
+            parent, self.export_service.get_sheets())
+        current = next((group for group in current_groups
+                        if str(group.id) == str(selected_group.id)), None)
+        if current is None:
+            raise ValueError(
+                "Ce sous-dossier n'existe plus dans les feuilles Revit. Actualisez Export.")
+        return self.repository.freeze_dynamic_group(parent.id, current)
+
     def create_manual_persistent(self, name, items, output_directory=None,
                                  filename_template_id=None):
         publication_set = self.carnet_service.create_manual_persistent(
