@@ -390,3 +390,5 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 ### PR #55 — Retour UI du 16 novembre 2026
 
 L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir un bug de recalcul. Trois corrections **implémentées, non validées dans Revit** : fenêtre « Dossier auto » en mode exclusif, aperçu des nombres de feuilles/sous-dossiers avec détail par groupe, icône de dossier auto/synchronisation différente des dossiers manuels. Les tests automatisés ont été étendus ; contrôle CI sur SHA final et recette Revit encore requis. Ne pas fusionner la PR Draft avant confirmation.
+
+**Contrôle GitHub — 16/11/2026 :** 488 tests Export réussis et workflows « Export — configuration collaborative » / « Export ribbon contract » verts au commit `4111b9ca4de1be9f6d9a219a41e9170f3e23aca0`. La branche a été réalignée sur `main` (les évolutions récentes du module Calculs des pièces ont été conservées) ; recette UI sous Revit encore à confirmer.
