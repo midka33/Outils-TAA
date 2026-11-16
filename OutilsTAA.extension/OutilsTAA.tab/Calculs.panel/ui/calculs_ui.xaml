@@ -36,6 +36,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -59,6 +60,17 @@
                                    Margin="20,0,0,0"
                                    VerticalAlignment="Center"
                                    Style="{DynamicResource TAASecondaryText}"/>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                            <TextBlock Text="VARIANTES PRISES EN COMPTE" Margin="0,0,0,6"
+                                       Style="{DynamicResource TAASectionTitle}"/>
+                            <ComboBox x:Name="VariantScopeCombo" MinWidth="340"
+                                      HorizontalAlignment="Left"
+                                      DisplayMemberPath="label"
+                                      Style="{DynamicResource TAAComboBox}"
+                                      ToolTip="Variantes principales : toutes les pièces du projet hors variantes secondaires. Vue active : seules les pièces visibles dans la vue Revit ouverte au lancement." />
+                            <TextBlock Text="Le choix Vue active limite aussi le calcul au périmètre de cette vue."
+                                       Margin="0,6,0,0" Foreground="#666666" TextWrapping="Wrap"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
