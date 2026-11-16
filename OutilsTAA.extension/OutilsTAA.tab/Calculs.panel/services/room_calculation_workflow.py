@@ -336,16 +336,17 @@ class RoomCalculationWorkflow(object):
                 transaction_factory=self.transaction_factory,
             ):
                 definitions = self._get_group_override_definitions(valid)
-                enabled_definitions = self._enable_group_override(definitions)
-                if prepared.group_mode == "uniform":
-                    extra_definitions = (
+                initially_varying = []
+                if prepared.group_mode == "uniform" and self.grouped_parameter_service:
+                    initially_varying = (
                         self.grouped_parameter_service.get_varying_definitions(
                             [(room, parameter)
                              for op, room, value, parameter in valid]
                         )
-                        if self.grouped_parameter_service is not None else []
                     )
-                    enabled_definitions.extend(extra_definitions)
+                enabled_definitions = self._enable_group_override(definitions)
+                if initially_varying:
+                    enabled_definitions.extend(initially_varying)
 
                 for operation, room, prepared_value, parameter in valid:
                     try:
