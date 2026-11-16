@@ -89,7 +89,7 @@ def group_conflicts(document, room_by_key, operations):
 def design_option_summary(document, rooms):
     """Decrit les options du projet et la provenance des surfaces des pieces.
 
-    N'utilise pas ActiveView: le module lit les surfaces deja calculees par
+    Ne depend pas de la vue active : le module lit les surfaces deja calculees par
     Revit pour chaque piece, quelle que soit sa vue d'affichage.
     """
     try:
