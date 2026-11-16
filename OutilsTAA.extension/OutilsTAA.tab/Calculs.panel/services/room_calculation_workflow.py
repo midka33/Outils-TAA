@@ -391,6 +391,11 @@ class RoomCalculationWorkflow(object):
                     regenerate = getattr(self.document, "Regenerate", None)
                     if regenerate is not None:
                         regenerate()
+                values_before_alignment = {}
+                if prepared.group_mode == "uniform":
+                    values_before_alignment = self._snapshot_target_values(
+                        valid, prepared.request.target_parameter
+                    )
                 if prepared.group_mode in ("restore", "uniform"):
                     realigned = self._restore_group_alignment(enabled_definitions)
                 else:
@@ -399,7 +404,8 @@ class RoomCalculationWorkflow(object):
                     # Un realignement ne peut etre admis que s'il touche des
                     # membres explicitement prevus ET conserve leur valeur.
                     self._verify_uniform_alignment(
-                        valid, realigned, prepared.request.target_parameter
+                        valid, realigned, prepared.request.target_parameter,
+                        values_before_alignment, prepared.group_conflicts
                     )
                 elif realigned:
                     raise ValidationError(
@@ -448,7 +454,22 @@ class RoomCalculationWorkflow(object):
             warnings=prepared.warnings,
         )
 
-    def _verify_uniform_alignment(self, valid, realigned, target_descriptor):
+    def _snapshot_target_values(self, valid, target_descriptor):
+        """Releve les valeurs apres ecriture/regeneration et avant realignement."""
+        values = {}
+        for operation, room, value, parameter in valid:
+            identifier = self._element_id_value(getattr(room, "Id", None))
+            if identifier is None:
+                continue
+            current = self.parameter_service.get_parameter(room, target_descriptor)
+            if current is not None:
+                values[str(identifier)] = self.parameter_service.read_parameter(current)
+        return values
+
+    def _verify_uniform_alignment(
+        self, valid, realigned, target_descriptor,
+        values_before_alignment=None, group_conflicts=None,
+    ):
         """Valide toutes les valeurs apres restauration, sinon rollback.
 
         L'API Revit peut signaler des elements realignes meme quand leur
@@ -468,6 +489,14 @@ class RoomCalculationWorkflow(object):
                     "perimetre prepare (id {}). Transaction annulee."
                     .format(identifier)
                 )
+        values_before_alignment = values_before_alignment or {}
+        conflict_by_room = {}
+        for conflict in group_conflicts or []:
+            for key in conflict.get("room_keys", []):
+                conflict_by_room[str(key)] = (
+                    str(conflict.get("name", "inconnu")),
+                    str(conflict.get("type_key", "?")),
+                )
         for identifier, (room, value) in expected.items():
             parameter = self.parameter_service.get_parameter(
                 room, target_descriptor
@@ -481,6 +510,7 @@ class RoomCalculationWorkflow(object):
             actual = self.parameter_service.read_parameter(parameter)
             if not self._same_value(actual, value):
                 group_name = "inconnu"
+                group_type_id = "?"
                 group_id = getattr(room, "GroupId", None)
                 group = None
                 getter = getattr(self.document, "GetElement", None)
@@ -490,20 +520,42 @@ class RoomCalculationWorkflow(object):
                     except Exception:
                         group = None
                 if group is not None:
-                    group_name = getattr(
-                        getattr(group, "GroupType", None),
-                        "Name", "inconnu",
-                    )
+                    group_type = getattr(group, "GroupType", None)
+                    group_name = getattr(group_type, "Name", None) or "inconnu"
+                    type_id = getattr(group_type, "Id", None)
+                    if type_id is None:
+                        getter = getattr(group, "GetTypeId", None)
+                        if getter is not None:
+                            type_id = getter()
+                    if type_id is not None:
+                        group_type_id = str(self._element_id_value(type_id))
+                if group_name == "inconnu" or group_type_id == "?":
+                    for operation, candidate_room, unused_value, unused_parameter in valid:
+                        if candidate_room is room:
+                            cached = conflict_by_room.get(str(operation.room_key))
+                            if cached:
+                                group_name, group_type_id = cached
+                            break
+                before = values_before_alignment.get(identifier)
+                stage = (
+                    "apres regeneration et avant restauration : {}".format(before)
+                    if before is not None
+                    else "valeur avant restauration non disponible"
+                )
                 raise ValidationError(
                     "Valeur commune non conservee par Revit sur l'element {} "
-                    "(type de groupe '{}') : Revit a impose {} au lieu de {}. "
-                    "La valeur a ete ecrite, puis remplacee lors de "
+                    "(type de groupe '{}', id de type {}) : "
+                    "valeur finale {}, attendue {} ; {}. "
+                    "Revit a impose une valeur incompatible apres "
                     "SetAllowVaryBetweenGroups(False). "
-                    "La transaction a ete annulee. Ce cas necessite "
+                    "La transaction a ete annulee. Ce cas peut necessiter "
                     "une modification du contenu du type de groupe dans "
                     "l'editeur de groupes Revit ; le module ne doit pas "
                     "imposer une valeur apres realignement."
-                    .format(identifier, group_name, actual, value)
+                    .format(
+                        identifier, group_name, group_type_id,
+                        actual, value, stage
+                    )
                 )
 
     @staticmethod
