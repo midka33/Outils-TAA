@@ -621,3 +621,11 @@ L'option « autoriser des valeurs différentes » conserve `VariesAcrossGroups=T
 **Modification expérimentale sur PR #59 :** pré-contrôle des valeurs prévues pour chaque membre homologue identifié par type de groupe et position, puis, dans la transaction uniforme, `Document.Regenerate()` **avant** le passage du paramètre à `False`. La régénération permet à Revit de prendre en compte les écritures intermédiaires avant le réalignement mais n'offre pas à elle seule une garantie. Comparaison des valeurs réelles finales, rollback si différence, diagnostic du type de groupe et de l'ID, sans reconstruction de groupe.
 
 **Recette :** sur copie, répéter exactement B200 / `Surface logement` et contrôler ID 5630105, type de groupe, toutes occurrences, et Ctrl+Z. Si Revit réimpose 324.979623715, ne pas faire de second passage automatique ; rechercher l'état de référence interne du type et envisager une procédure d'édition de groupe Revit assistée.
+
+### 7.3.9 Double contrôle des valeurs avant/après réalignement (16/11/2026)
+
+Une nouvelle tentative Revit avec `Document.Regenerate()` **n'a pas permis l'uniformisation** : type 5629042 avec choix 35.330 m², type 5629531 avec choix 16.047 m², élément 5630105 remis à une autre valeur (324.979623715 en unités internes, au lieu de 380.286410009). La cause exacte de la valeur que Revit choisit reste inconnue.
+
+Le mode uniforme expérimental conserve le rollback et ajoute **deux mesures vérifiées dans la même transaction** : lecture du paramètre cible après régénération, avant `SetAllowVaryBetweenGroups(False)` ; puis lecture après l'appel. Si la valeur a déjà changé avant la restauration, l'erreur l'attribue à l'écriture/régénération ; sinon l'erreur signale le réalignement. Le rapport tente de résoudre l'ID du type même si son nom Revit est inaccessible.
+
+**Ce diagnostic n'est pas une correction métier de l'uniformisation**. Aucune opération de dégroupage/recréation ou écriture après restauration ne doit être appliquée pour forcer le succès. Une prochaine stratégie de modification des valeurs d'un type de groupe doit être testée indépendamment sur une copie RVT, notamment avec variantes de conception.
