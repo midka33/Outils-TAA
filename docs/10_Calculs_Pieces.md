@@ -595,3 +595,19 @@ La fenêtre principale WPF TAA propose maintenant **GESTION DES GROUPES** :
 **Sécurité :** choix invalide refusé dès la préparation ; aucun choix de référence fictif ou silencieux, transaction et rollback inchangés. Le mode n'est pas mémorisé et revient à « Automatique » à chaque ouverture. Aucun changement aux regroupements des variantes ni aux sommes.
 
 **Tests :** `tests/calculation/test_group_decisions.py` couvre le contrôle WPF, les trois modes, la validation précoce et le blocage sans valeur commune. Recette Revit requise avant fusion : choix manuel dans la fenêtre principale, confirmation unique, valeurs variables et uniformisation.
+
+### 7.3.7 Gestion des membres correspondants sans dégrouper (correctif du 16/11/2026)
+
+**Besoin utilisateur :** « Autoriser des valeurs différentes » doit rendre durablement le paramètre indépendant des occurrences de groupes ; « Conserver une valeur commune » doit modifier les pièces homologues de toutes les occurrences d'un même type et maintenir le paramètre aligné.
+
+**Approche API Revit 2025.4 :** pas d'ouverture automatisée du mode interactif « Modifier le groupe ». Le module utilise `Group.GetMemberIds()` dont **l'ordre identifie les membres correspondants entre occurrences du même type de groupe** (documentation de l'API Revit 2025). Pour chaque position d'un membre de pièce à écrire, il retrouve et prépare l'écriture du membre homologue dans **toutes les occurrences du même type**, y compris hors du filtre si nécessaire. Les pièces hors périmètre ne sont pas modifiées dans le mode « valeurs différentes ».
+
+En mode valeur commune, la préparation vérifie l'identité des membres homologues, l'existence du paramètre cible et la compatibilité des valeurs. La fenêtre unique annonce les écritures supplémentaires. Dans une seule transaction Revit, les membres homologues reçoivent la somme retenue ; le module restaure ou active l'alignement (`SetAllowVaryBetweenGroups(False)`) et **compare toutes les valeurs effectives après restauration aux valeurs attendues**. Les éléments réalignés rapportés par Revit ne sont acceptés que s'ils sont **dans le périmètre explicite des écritures** et conservent les valeurs attendues. Sinon, rollback intégral. Aucun groupe n'est dégroupé, recréé ou remplacé.
+
+L'option « autoriser des valeurs différentes » conserve `VariesAcrossGroups=True` après la transaction, y compris lorsque le paramètre était initialement aligné, et ne restaure pas automatiquement cet état. L'option « valeur commune » impose `VariesAcrossGroups=False` lorsque la définition était initialement variable. Le réglage est global à la définition dans le projet.
+
+**Limites :** les conflits reconnus comme dangereux (occurrences comprenant plusieurs appartements distincts avec totaux incompatibles) sont toujours bloqués avant écriture. Une correspondance de membre inaccessible, un paramètre absent ou un changement non prévu provoque un refus/rollback, jamais une correction silencieuse. Il ne s'agit pas d'une édition interactive du groupe ; l'équivalence fonctionnelle doit être vérifiée sur la maquette.
+
+**Aucun résultat calculé :** le message distingue désormais une clé de regroupement vide, une source non numérique ou un groupe inexploitable. Cette erreur est antérieure à toute opération de groupe et ne doit pas être attribuée à tort au choix « valeurs différentes ».
+
+**Recette obligatoire :** copie du RVT ; B200/B201, toutes occurrences du type, valeurs et paramètres, variantes, filtre, Undo. Vérifier les membres ajoutés au plan et leur concordance après réalignement, vérifier que l'option « valeurs différentes » ne modifie pas les autres pièces. Tests automatisés `tests/calculation/test_member_alignment.py` ; ce correctif n'est pas encore validé dans Revit.
