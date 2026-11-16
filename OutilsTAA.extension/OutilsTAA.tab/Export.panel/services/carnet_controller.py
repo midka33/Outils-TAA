@@ -29,6 +29,29 @@ class CarnetController(object):
     def create_from_parameter(self, parameter_name, name_template=None):
         return self.carnet_service.create_from_parameter(parameter_name, name_template)
 
+    def preview_dynamic(self, parameter_name, parameter_value,
+                        group_parameter=None):
+        """Aperçu en mémoire, calculé avec la règle utilisée à la création.
+
+        Ne lit ni ne modifie les dossiers du repository et n'écrit pas de JSON.
+        """
+        from publication_source import PublicationSource
+        from publication_set import PublicationSet
+        from dynamic_sheet_groups import resolve_dynamic
+        source = PublicationSource(
+            PublicationSource.DYNAMIC, parameter_name,
+            parameter_value, group_parameter)
+        sample = PublicationSet(
+            "Aperçu", items=[], source=source, set_id="dynamic-preview",
+            persistent=False, folder_id="default")
+        direct, groups = resolve_dynamic(
+            sample, self.export_service.get_sheets())
+        return {
+            "sheet_count": len(direct) + sum(len(g.items or []) for g in groups),
+            "group_count": len(groups),
+            "groups": [(group.name, len(group.items or [])) for group in groups],
+        }
+
     def create_dynamic_persistent(self, name, parameter_name, parameter_value,
                                   group_parameter=None, parent_id='default'):
         import uuid
