@@ -192,3 +192,23 @@ def test_empty_group_identifier_is_not_literal_sans_valeur(tmp_path):
     _, remaining = resolve_dynamic(repo.get(parent.id), [empty, literal])
     assert len(remaining) == 1
     assert remaining[0].dynamic_group_key == "Sans valeur"
+
+
+def test_frozen_exclusion_survives_regular_parent_save(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    sheets = [_FakeSheet("A101", "A"), _FakeSheet("B101", "B")]
+    frozen = resolve_dynamic(parent, sheets)[1][0]
+    assert repo.freeze_dynamic_group(parent.id, frozen)
+    reloaded_parent = repo.get(parent.id)
+    reloaded_parent.name = "PRO actualisé"
+    repo.save(reloaded_parent)
+
+    second_session = CarnetRepository(str(tmp_path / "publication.json"))
+    new_parent = second_session.get(parent.id)
+    assert new_parent.name == "PRO actualisé"
+    assert new_parent.source.frozen_group_ids == [frozen.id]
+    _, automatic_children = resolve_dynamic(new_parent, sheets)
+    assert [item.name for item in automatic_children] == ["B"]
+    assert second_session.get(frozen.id) is not None
