@@ -7,7 +7,8 @@ from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
 from calculation.models import RoomCalculationItem
 from calculation_diagnostics import (group_conflicts, design_option_summary,
-                                     variant_group_key, variant_group_label)
+                                     variant_group_key, variant_group_label,
+                                     shared_apartments_across_variants)
 from calculation.workflow_models import (
     CalculationExecutionReport,
     WriteOperation,
@@ -29,6 +30,7 @@ class PreparedCalculation(object):
         warnings=None,
         conflicts=None,
         design_options=None,
+        shared_variant_apartments=None,
     ):
         self.request = request
         self.result = result
@@ -39,6 +41,8 @@ class PreparedCalculation(object):
         self.warnings = list(warnings or [])
         self.group_conflicts = list(conflicts or [])
         self.design_options = list(design_options or [])
+        self.shared_variant_apartments = list(shared_variant_apartments or [])
+        self.variant_separation_confirmed = False
         # Choix explicite par utilisateur; 'restore' preserve l'ancien comportement.
         self.group_mode = "restore"
         self.uniform_values = {}
@@ -153,11 +157,21 @@ class RoomCalculationWorkflow(object):
             warnings=warnings,
             conflicts=conflicts,
             design_options=variants,
+            shared_variant_apartments=shared_apartments_across_variants(
+                result, self.document
+            ),
         )
 
     def execute(self, prepared, progress=None):
         valid = []
         failed = []
+
+        if (prepared.shared_variant_apartments
+                and not prepared.variant_separation_confirmed):
+            raise ValidationError(
+                "Le même appartement est présent dans plusieurs variantes : "
+                "confirmez explicitement la séparation des surfaces avant écriture."
+            )
 
         if prepared.group_conflicts and prepared.group_mode == "restore":
             raise ValidationError(
