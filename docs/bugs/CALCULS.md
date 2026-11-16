@@ -72,3 +72,21 @@ Collecter une fois, dériver ensuite en mémoire.
 contexte n'appelle `get_parameter_descriptors()` qu'une seule fois ; un second test
 vérifie que deux occurrences partageant le même `Parameter.Id` ne relisent les
 métadonnées Revit qu'une seule fois.
+### BUG-CALCULS-007 — Divergences de valeurs entre occurrences et variantes non visibles
+
+**Symptôme :** sur une maquette avec variantes de conception et plusieurs occurrences de groupes, l'écriture dans `Surface logement` échoue. La restauration de l'alignement par type de groupe aurait modifié 9 éléments ; 898 écritures sont annulées dans le rapport de référence du 16 novembre 2026. L'utilisateur ne peut pas choisir d'autoriser des valeurs différentes ni une valeur commune par type de groupe. Les variantes prises en compte ne sont pas indiquées.
+
+**Cause racine confirmée pour l'écriture :** la logique de `BUG-CALCULS-005` rétablit systématiquement `VariesAcrossGroups=False`, y compris si différentes occurrences calculent des totaux incompatibles. Le rapport ne prouve pas, à lui seul, que les variantes sont la cause de la différence. La collecte documentée traite toutes les pièces du projet.
+
+**Correction implémentée (branche `fix/calculs-group-conflicts-design-options`) :**
+- Diagnostic en préparation des écarts de totaux entre les occurrences d'un même type de groupe ;
+- Choix utilisateur entre conserver `VariesAcrossGroups=True` de façon permanente ou retenir une valeur commune de référence et restaurer l'alignement ;
+- Interdiction d'uniformiser si plusieurs regroupements indépendants existent dans une même occurrence de groupe ;
+- Protection contre les écritures partielles, restauration qui modifie des éléments et choix incomplets ;
+- Affichage informatif des variantes existantes et des pièces collectées dans chaque variante, sans changer le calcul ni son périmètre.
+
+**Règle préventive :** ne pas modifier un réglage de définition de paramètre partagée par des groupes sans décision explicite lorsqu'une divergence est connue. N'uniformiser que des valeurs dont la correspondance par type de groupe est identifiée. Pour les variantes, expliciter quelles pièces sont lues sans prétendre recalculer une géométrie spécifique à une vue.
+
+**Anti-régression :** `tests/calculation/test_group_decisions.py`, puis suite `tests/calculation`. Revit 2025.4 : groupe type identique sur deux occurrences avec résultats différents, les deux choix, annulation, retour arrière, variante principale/secondaire, filtre, et cas historique sans divergence.
+
+**Statut au 16 novembre 2026 :** code et tests créés ; **tests automatisés non encore exécutés**, **validation Revit en attente**. Ne pas déclarer le bug clos avant recette.
