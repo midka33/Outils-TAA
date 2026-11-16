@@ -330,6 +330,44 @@ class GroupConflictDecisionTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.workflow.prepare(self.request)
 
+    def test_single_wpf_review_replaces_multiple_modal_confirmations(self):
+        import xml.etree.ElementTree as ET
+        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        ui = os.path.join(
+            root, "OutilsTAA.extension", "OutilsTAA.tab",
+            "Calculs.panel", "ui"
+        )
+        with open(os.path.join(ui, "calculs_window.py"), "r",
+                  encoding="utf-8") as handle:
+            source = handle.read()
+        body = source.split("    def Calculate_Click(", 1)[1].split(
+            "    @staticmethod", 1
+        )[0]
+        self.assertIn("review_taa(prepared,", body)
+        self.assertNotIn("confirm_taa(", body)
+        self.assertNotIn("choose_taa(", body)
+        self.assertNotIn("_choose_group_conflict_mode", body)
+        xaml = ET.parse(os.path.join(ui, "calculation_review.xaml")).getroot()
+        ns = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
+        footer = xaml.findall(".//" + ns + "Grid")
+        self.assertTrue(any(
+            button.get("Content") == "Confirmer l'écriture"
+            for button in xaml.findall(".//" + ns + "Button")
+        ))
+        self.assertTrue(any(
+            button.get("Content") == "Annuler"
+            for button in xaml.findall(".//" + ns + "Button")
+        ))
+        self.assertTrue(any(
+            elem.get("Name") == "GroupModeCombo"
+            for elem in xaml.findall(".//" + ns + "ComboBox")
+        ) or "GroupModeCombo" in open(
+            os.path.join(ui, "calculation_review.xaml"), encoding="utf-8"
+        ).read())
+        self.assertIn("ReportButton", open(
+            os.path.join(ui, "calculs_ui.xaml"), encoding="utf-8"
+        ).read())
+
     def test_empty_group_still_skipped_in_secondary_option(self):
         from calculation_diagnostics import variant_group_key
         class Option(object):
