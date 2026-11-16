@@ -314,6 +314,61 @@ class CarnetRepository(object):
 
         return self._mutate(mutation)
 
+    def unfreeze_dynamic_group(self, parent_id, group_id):
+        """Réactive un seul groupe figé : retrait de la copie manuelle et
+        de son exclusion en une seule mutation du JSON collaboratif.
+
+        Les autres groupes et la règle du dossier parent restent inchangés.
+        Les descendants sont interdits pour éviter toute perte en cascade.
+        """
+        parent_id = str(parent_id)
+        group_id = str(group_id)
+        if not parent_id or not group_id:
+            raise ValueError("Identifiant de sous-dossier manquant.")
+
+        def mutation(data):
+            sets = data.get("sets", [])
+            parent = next((item for item in sets
+                           if str(item.get("id")) == parent_id), None)
+            if parent is None:
+                raise ValueError("Dossier automatique parent introuvable.")
+            source = parent.get("source") or {}
+            if (source.get("mode") != PublicationSource.DYNAMIC
+                    or not source.get("group_parameter")):
+                raise ValueError("Le dossier parent n'est plus automatique.")
+            frozen_ids = [str(value) for value in
+                          (source.get("frozen_group_ids") or [])]
+            if group_id not in frozen_ids:
+                raise ValueError("Ce sous-dossier n'est plus figé. Actualisez Export.")
+            group = next((item for item in sets
+                          if str(item.get("id")) == group_id), None)
+            if (group is None
+                    or str(group.get("folder_id")) != parent_id
+                    or (group.get("source") or {}).get("mode")
+                    != PublicationSource.MANUAL):
+                raise ValueError("Le sous-dossier figé a changé. Actualisez Export.")
+            if any(str(item.get("parent_id")) == group_id
+                   for item in data.get("folders", [])):
+                raise ValueError(
+                    "Ce sous-dossier contient des dossiers enfants. "
+                    "Déplacez-les avant de le rendre automatique.")
+            if any(str(item.get("folder_id")) == group_id
+                   for item in sets if str(item.get("id")) != group_id):
+                raise ValueError(
+                    "Ce sous-dossier contient des sous-dossiers. "
+                    "Déplacez-les avant de le rendre automatique.")
+
+            # Suppression et réactivation indissociables : aucun doublon
+            # ni modification accidentelle d'un autre dossier manuel.
+            data["sets"] = [item for item in sets
+                            if str(item.get("id")) != group_id]
+            source["frozen_group_ids"] = [
+                value for value in frozen_ids if value != group_id]
+            self._normalize_tree_order(data)
+            return True, True
+
+        return self._mutate(mutation)
+
     def freeze_dynamic_group(self, parent_id, group):
         """Fige un seul sous-dossier, sans désactiver son parent automatique.
 
