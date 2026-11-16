@@ -314,6 +314,46 @@ class CarnetRepository(object):
 
         return self._mutate(mutation)
 
+    def freeze_dynamic(self, publication_set, direct_items, group_sets):
+        """Fige atomiquement un dossier dynamique et ses groupes virtuels.
+
+        Les sous-dossiers existants non générés restent intacts. En stockage
+        collaboratif, toutes les écritures passent par le verrou de _mutate.
+        """
+        if publication_set is None or not publication_set.id:
+            raise ValueError("Dossier automatique manquant.")
+        from publication_source import PublicationSource
+        group_sets = list(group_sets or [])
+        direct_items = list(direct_items or [])
+        def item_dict(item):
+            return {
+                "unique_id": item.unique_id, "sheet_id": item.sheet_id,
+                "item_type": item.item_type,
+                "sheet_number": item.sheet_number, "sheet_name": item.sheet_name,
+                "parameter_value": item.parameter_value,
+            }
+        def mutation(data):
+            root = next((entry for entry in data.get("sets", [])
+                         if str(entry.get("id")) == str(publication_set.id)), None)
+            if root is None:
+                raise ValueError("Dossier dynamique introuvable.")
+            if (root.get("source") or {}).get("mode") != PublicationSource.DYNAMIC:
+                raise ValueError("Ce dossier n'est plus automatique. Actualisez Export.")
+            ids = set(str(entry.get("id")) for entry in data["sets"])
+            for group in group_sets:
+                if str(group.id) in ids:
+                    raise ValueError("Identifiant de sous-dossier déjà utilisé.")
+            root["source"] = {"mode": PublicationSource.MANUAL,
+                              "parameter_name": None, "parameter_value": None,
+                              "group_parameter": None}
+            root["items"] = [item_dict(item) for item in direct_items]
+            for group in group_sets:
+                group.persistent = True
+                data["sets"].append(self._to_dict(group))
+            self._normalize_tree_order(data)
+            return True, True
+        return self._mutate(mutation)
+
     def save_folder(self, folder):
         if folder is None or not folder.id:
             raise ValueError("Le dossier doit posséder un identifiant.")
@@ -572,6 +612,9 @@ class CarnetRepository(object):
                 if str(value.get("id")) != str(folder_id)
             ]
             data["sets"].append(target)
+
+        if (target.get("source") or {}).get("mode") == PublicationSource.DYNAMIC:
+            raise ValueError("Ce dossier est automatique : rendez-le manuel pour modifier ses feuilles.")
 
         existing = set(str(value.get("unique_id"))
                        for value in target.get("items", []))
@@ -947,6 +990,7 @@ class CarnetRepository(object):
                 "mode": publication_set.source.mode,
                 "parameter_name": publication_set.source.parameter_name,
                 "parameter_value": publication_set.source.parameter_value,
+                "group_parameter": getattr(publication_set.source, "group_parameter", None),
             },
             "items": [{
                 "unique_id": item.unique_id,
@@ -965,6 +1009,7 @@ class CarnetRepository(object):
             source_data.get("mode", PublicationSource.MANUAL),
             source_data.get("parameter_name"),
             source_data.get("parameter_value"),
+            source_data.get("group_parameter"),
         )
         items = [
             PublicationItem(
