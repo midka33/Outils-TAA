@@ -250,6 +250,43 @@ class CalculsWindow(forms.WPFWindow):
                 self.StatusText.Text = "Aucun résultat à écrire."
                 return
 
+            if prepared.shared_variant_apartments:
+                details = [
+                    "{} appartement(s) existent dans plusieurs variantes.".format(
+                        len(prepared.shared_variant_apartments)
+                    ),
+                    "",
+                    "Les surfaces seront conservées séparément : aucune "
+                    "addition entre variantes ne sera réalisée.",
+                    "",
+                ]
+                for entry in prepared.shared_variant_apartments:
+                    details.append("Appartement {} :".format(entry["apartment"]))
+                    for scenario in entry["scenarios"]:
+                        details.append(
+                            "  - {} : {}".format(
+                                scenario["label"],
+                                self._format_group_value(
+                                    scenario["total"], prepared.request
+                                ),
+                            )
+                        )
+                    details.append("")
+                details.append(
+                    "Confirmez pour conserver des totaux distincts et poursuivre. "
+                    "Annuler n'écrit aucune valeur."
+                )
+                if not confirm_taa(
+                    "Surfaces indépendantes par variante",
+                    "\n".join(details),
+                    owner=self,
+                ):
+                    self.StatusText.Text = (
+                        "Séparation des variantes non confirmée : calcul annulé."
+                    )
+                    return
+                prepared.variant_separation_confirmed = True
+
             if prepared.group_conflicts:
                 if not self._choose_group_conflict_mode(prepared):
                     self.StatusText.Text = "Choix des groupes annulé avant écriture."
