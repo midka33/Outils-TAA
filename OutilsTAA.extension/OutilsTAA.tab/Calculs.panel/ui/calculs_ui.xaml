@@ -173,6 +173,25 @@
 
                 <Border Background="White"
                         BorderBrush="{DynamicResource TAABorderBrush}"
+                        BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="GESTION DES GROUPES"
+                                   VerticalAlignment="Center"
+                                   Style="{DynamicResource TAASectionTitle}"/>
+                        <ComboBox Grid.Column="1" x:Name="GroupModeCombo"
+                                  DisplayMemberPath="label"
+                                  Style="{DynamicResource TAAComboBox}"
+                                  ToolTip="Automatique : préserver le réglage du paramètre. Valeurs différentes : autoriser durablement la variation entre groupes. Valeur commune : conserver l'alignement avec choix des valeurs si nécessaire."/>
+                    </Grid>
+                </Border>
+
+                <Border Background="White"
+                        BorderBrush="{DynamicResource TAABorderBrush}"
                         BorderThickness="1"
                         Padding="10"
                         Margin="0,0,0,8">
