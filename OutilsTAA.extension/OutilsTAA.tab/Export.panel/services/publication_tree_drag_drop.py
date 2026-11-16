@@ -340,8 +340,8 @@ class PublicationTreeDragDrop(object):
                 getattr(getattr(candidate, "source", None), "mode", None)
                 == "DYNAMIC"):
             return None
-        if any(":dyn:" in str(key) or str(key).startswith("CARNET:dyn:")
-               or str(key).startswith("SHEET:dyn:")
+        if any(str(key).startswith("CARNET:dyn-")
+               or str(key).startswith("SHEET:dyn-")
                for key in (payload.get("items") or [])):
             return None
 
