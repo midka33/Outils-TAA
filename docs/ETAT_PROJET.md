@@ -324,3 +324,15 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **CI vérifiée :** commit `cc15044059a7e16c9c66edf899eddc112f602776`, run `43894637327` : **98 tests Calculs des pièces réussis** ; run `43894637619` : **Export réussi**. La correction de hauteur `b3ebe7972c14bb08b625b8783aa82025c9b73a8d` est postérieure à ces résultats et doit être couverte par les runs ultérieurs.
 
 **Validation Revit 2025.4 :** en attente pour cette option. Tester B200 = 35,330 + 29,522 m² : en mode séparé deux résultats indépendants ; en mode addition 64,852 m² dans toutes les pièces B200, avec confirmation ; Annuler sans écriture ; vérifier conflit de groupes, Undo et absence de doublons. Ne pas fusionner avant validation.
+
+## Calculs des pièces — revue unique avant écriture / interface épurée (16/11/2026)
+
+**Demande utilisateur :** réduire le nombre de fenêtres de confirmation et diminuer la quantité d'informations affichées. Aucun changement de calcul métier souhaité.
+
+**Branche de développement :** `fix/calculs-group-conflicts-design-options`, PR #56 en brouillon ; pas de fusion dans `main`.
+
+**Implémentation :** nouvelle fenêtre `ui/calculation_review.xaml` + `ui/calculation_review_window.py` regroupant en une seule validation WPF TAA (a) nombre de pièces/totaux et destination, (b) courte indication des variantes avec avertissement si cumul, (c) choix de réglage des groupes et, si nécessaire, choix de valeur commune par type au même endroit. Le verrou de confirmation des variantes et le refus d'écriture sans décision explicite restent contrôlés par le workflow. `calculs_window.py` n'ouvre désormais qu'une seule fenêtre de validation : plus de séquences de confirmations. En cas de succès, état synthétique dans la fenêtre principale et bouton `Rapport` facultatif ; en cas d'échec, ouverture automatique du rapport. La hauteur initiale de la fenêtre principale est ramenée de 624 à 596 unités WPF pour satisfaire la règle de compacité (maximum 600) ; `ScrollViewer` conservé pour les petits écrans.
+
+**Tests :** test statique de parcours unique et fenêtre WPF ajouté à `tests/calculation/test_group_decisions.py`. Un contrôle CI antérieur (run 43895465430) a échoué sur l'ancien `Height=624` (`1 failed, 97 passed`) ; hauteur corrigée, nouvelle CI à vérifier. Les tests automatisés ne constituent pas une validation visuelle Revit.
+
+**Recette Revit 2025.4 :** en attente : une seule fenêtre de confirmation pour B200 séparé/cumulé, avec/sans divergence de type de groupe, choix des valeurs de référence sans fenêtre supplémentaire, annulation sans transaction, succès sans rapport imposé, bouton Rapport, erreur avec rapport affiché. Conserver la PR en brouillon jusqu'à la recette.
