@@ -223,7 +223,37 @@ Sécurités :
 - si Revit doit réaligner un ou plusieurs éléments lors du retour à l'état initial, la transaction est annulée ;
 - les destinations réellement readonly pour une autre raison restent refusées.
 
-Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. Le comportement a été validé dans Revit 2025.4 le 6 octobre 2026.
+Cette stratégie correspond au cas métier TAA où les occurrences d'un même type de groupe doivent produire le même résultat. **Le comportement historique sans conflit** a été validé dans Revit 2025.4 le 6 octobre 2026.
+
+### 7.3.1 Divergences entre occurrences — correctif sur branche dédiée (16 novembre 2026)
+
+**Statut : implémenté sur `fix/calculs-group-conflicts-design-options`, tests Revit à effectuer.**
+
+La préparation du calcul repère, avant toute écriture, les types de groupes de modèle dont les différentes occurrences recevraient des totaux distincts. Le regroupement métier et la collecte de pièces restent inchangés. Les valeurs sont détectées avant conversion de sortie ; une différence très faible peut donc être signalée comme divergence.
+
+Si une divergence est identifiée, la transaction n'est pas ouverte sans choix explicite dans la fenêtre :
+
+1. **Autoriser les valeurs différentes** : `SetAllowVaryBetweenGroups(document, True)` demeure actif après une écriture réussie. Le changement est volontaire et durable pour la définition du paramètre de projet concernée ; l'utilisateur le confirme avant toute transaction.
+2. **Conserver l'alignement** : l'utilisateur choisit, **pour chaque type de groupe en conflit**, une valeur de référence parmi les totaux déjà calculés pour ses occurrences. Cette valeur est affectée aux pièces concernées du type puis l'alignement est restauré. Un contrôle exige que la restauration ne modifie aucun autre élément ; sinon rollback.
+
+**Garde-fous :** la seconde option n'est pas offerte si une même occurrence du type comporte plusieurs totaux de regroupements différents (écrasement de plusieurs logements). Une sélection incomplète ou incohérente est refusée. Le choix des valeurs ne change pas les pièces non groupées. Les écritures échouées lors de l'un de ces deux modes déclenchent l'annulation de la transaction. Les groupes dont la structure ne peut être lue restent protégés par l'ancien contrôle de restauration/rollback, mais une divergence non identifiable en préparation peut donc encore donner lieu à un refus.
+
+Le réglage de la définition de paramètre est **global au projet**, pas limité à une variante ou à un groupe. Un changement « autoriser les valeurs différentes » peut donc concerner d'autres occurrences de cette définition dans le modèle.
+
+### 7.3.2 Visibilité des variantes de conception — correctif sur branche dédiée
+
+Le module **conserve le périmètre « toutes les pièces du projet »** et ne filtre pas selon la vue ni selon les variantes. Lorsqu'un jeu de variantes existe, le récapitulatif avant confirmation indique :
+
+- les variantes détectées et leur statut principale/secondaire ;
+- le nombre de pièces collectées dans chaque variante après application du filtre métier ;
+- le nombre de pièces du modèle principal ;
+- les attributions de variantes non identifiables par l'API, le cas échéant.
+
+Le module additionne les **valeurs de pièce déjà calculées par Revit**. Il ne simule pas indépendamment une géométrie de variante et ne choisit pas une variante différente dans le document. Les limites de pièces du modèle principal peuvent dépendre des variantes principales ; les pièces des variantes secondaires dépendent de leur contexte propre. Le décompte permet de constater si plusieurs variantes contribuent au calcul, y compris lorsque les paramètres de regroupement sont identiques. Les variantes sans pièce collectée sont également signalées avec un compteur à zéro.
+
+**À valider dans Revit 2025.4 :** `Room.DesignOption`, découverte des `DesignOption` du document, conservation de toutes les pièces, pertinence des totaux par regroupement et absence d'effets de bord lors des deux parcours de paramètre groupé.
+
+**Anti-régression ajoutée :** `tests/calculation/test_group_decisions.py`. Ces tests doivent être exécutés avec `python -m pytest tests/calculation -q`; une lecture statique du code ne les valide pas.
 
 ### 7.4 Performance d'ouverture
 
