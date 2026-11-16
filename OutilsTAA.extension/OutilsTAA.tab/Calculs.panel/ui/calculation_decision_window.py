@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import os
 
 from pyrevit import forms
+from System.Windows import Visibility
 from common.wpf_resources import load_resource_dictionary
 
 
@@ -37,7 +38,7 @@ class CalculationDecisionWindow(forms.WPFWindow):
         )
         self.selected_value = None
         if self._options is None:
-            self.OptionsPanel.Visibility = self.OptionsPanel.Visibility.Collapsed
+            self.OptionsPanel.Visibility = Visibility.Collapsed
             self.ConfirmButton.IsEnabled = True
             self.Height = 320
         else:
