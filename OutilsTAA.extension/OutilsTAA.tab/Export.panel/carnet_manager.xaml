@@ -11,13 +11,14 @@
         <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Border>
       <StackPanel VerticalAlignment="Center">
-        <TextBlock Text="Ajouter des mises en page" FontSize="20" FontWeight="SemiBold" Margin="0" />
-        <TextBlock Text="Créer des dossiers de publication à partir de mises en page Revit" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
+        <TextBlock x:Name="CreationDialogTitle" Text="Ajouter des mises en page" FontSize="20" FontWeight="SemiBold" Margin="0" />
+        <TextBlock x:Name="CreationDialogSubtitle" Text="Créer des dossiers de publication à partir de mises en page Revit" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
       </StackPanel>
     </DockPanel>
     <StackPanel Grid.Row="1">
-      <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+      <StackPanel x:Name="CreationModePanel" Orientation="Horizontal" Margin="0,0,0,10">
         <RadioButton x:Name="ModeParameter" Content="Par paramètre" IsChecked="True" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
+        <RadioButton x:Name="ModeDynamic" Content="Automatique" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
         <RadioButton x:Name="ModeManual" Content="Manuel" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
         <RadioButton x:Name="ModeTemporary" Content="Temporaire" GroupName="CreationMode" Checked="Mode_Checked" Margin="4,4,22,4" />
       </StackPanel>
@@ -33,6 +34,17 @@
         </StackPanel>
         <TextBlock Grid.Row="1" x:Name="ParameterInfo" TextWrapping="Wrap" Margin="0,8,0,8" />
       </Grid>
+      <StackPanel x:Name="DynamicPanel" Visibility="Collapsed" Margin="0,4,0,8">
+        <TextBlock Text="Nom du dossier automatique" FontWeight="Bold"/>
+        <TextBox x:Name="DynamicNameTextBox" MinHeight="28" Margin="0,3,0,7"/>
+        <TextBlock Text="Paramètre de sélection des mises en page" FontWeight="Bold"/>
+        <ComboBox x:Name="DynamicParameterCombo" MinHeight="28" Margin="0,3,0,7" SelectionChanged="DynamicParameter_Changed"/>
+        <TextBlock Text="Valeur recherchée (égalité exacte)" FontWeight="Bold"/>
+        <ComboBox x:Name="DynamicValueCombo" MinHeight="28" Margin="0,3,0,8" SelectionChanged="DynamicValue_Changed"/>
+        <CheckBox x:Name="DynamicGroupCheck" Content="Créer des sous-dossiers selon un autre paramètre" Checked="DynamicGroup_Changed" Unchecked="DynamicGroup_Changed"/>
+        <ComboBox x:Name="DynamicGroupCombo" IsEnabled="False" MinHeight="28" Margin="0,4,0,4" SelectionChanged="DynamicGroup_Changed"/>
+        <TextBlock Text="Recalcul à l'ouverture, à l'actualisation et avant l'aperçu / publication. Conversion en manuel via clic droit." TextWrapping="Wrap" Foreground="{DynamicResource TaaSecondary}"/>
+      </StackPanel>
       <StackPanel x:Name="ManualPanel" Visibility="Collapsed">
         <TextBlock Text="Nom du dossier" FontWeight="Bold" Margin="0,0,0,5" />
         <TextBox x:Name="CarnetNameTextBox" />
@@ -54,6 +66,14 @@
           <DataGridTextColumn Header="Feuilles" Binding="{Binding Count}" Width="80" IsReadOnly="True" />
         </DataGrid.Columns>
       </DataGrid>
+      <Border Grid.Row="1" x:Name="DynamicPreviewPanel" Visibility="Collapsed" Background="{DynamicResource TaaSurface}" BorderBrush="{DynamicResource TaaBorder}" BorderThickness="1" CornerRadius="4" Padding="12">
+        <StackPanel>
+          <TextBlock Text="Aperçu de la composition" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <TextBlock x:Name="DynamicPreviewSummary" Text="Choisissez un paramètre et une valeur." FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <ListBox x:Name="DynamicPreviewGroups" MaxHeight="178" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+          <TextBlock Text="Les sous-dossiers sont calculés à partir des feuilles Revit actuelles. Ils seront actualisés lors des prochaines ouvertures et actualisations d'Export." TextWrapping="Wrap" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,8,0,0"/>
+        </StackPanel>
+      </Border>
     </Grid>
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Annuler" Click="Cancel_Click" MinWidth="100" IsCancel="True" ToolTip="Annuler" />
