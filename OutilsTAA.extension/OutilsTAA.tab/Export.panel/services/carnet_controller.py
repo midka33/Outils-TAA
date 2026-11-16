@@ -29,6 +29,52 @@ class CarnetController(object):
     def create_from_parameter(self, parameter_name, name_template=None):
         return self.carnet_service.create_from_parameter(parameter_name, name_template)
 
+    def preview_dynamic(self, parameter_name, parameter_value,
+                        group_parameter=None):
+        """Aperçu en mémoire, calculé avec la règle utilisée à la création.
+
+        Ne lit ni ne modifie les dossiers du repository et n'écrit pas de JSON.
+        """
+        from publication_source import PublicationSource
+        from publication_set import PublicationSet
+        from dynamic_sheet_groups import resolve_dynamic
+        source = PublicationSource(
+            PublicationSource.DYNAMIC, parameter_name,
+            parameter_value, group_parameter)
+        sample = PublicationSet(
+            "Aperçu", items=[], source=source, set_id="dynamic-preview",
+            persistent=False, folder_id="default")
+        direct, groups = resolve_dynamic(
+            sample, self.export_service.get_sheets())
+        return {
+            "sheet_count": len(direct) + sum(len(g.items or []) for g in groups),
+            "group_count": len(groups),
+            "groups": [(group.name, len(group.items or [])) for group in groups],
+        }
+
+    def create_dynamic_persistent(self, name, parameter_name, parameter_value,
+                                  group_parameter=None, parent_id='default'):
+        import uuid
+        from publication_source import PublicationSource
+        from publication_set import PublicationSet
+        if not name or not str(name).strip() or not parameter_name:
+            raise ValueError('Nom et paramètre de sélection obligatoires.')
+        source = PublicationSource(PublicationSource.DYNAMIC, parameter_name,
+                                   parameter_value, group_parameter)
+        obj = PublicationSet(str(name).strip(), items=[], source=source,
+                             set_id=str(uuid.uuid4()), persistent=True,
+                             folder_id=parent_id)
+        # Vérifier la règle avant de créer le dossier en stockage.
+        from dynamic_sheet_groups import resolve_dynamic
+        resolve_dynamic(obj, self.export_service.get_sheets())
+        return self.save_persistent(obj)
+
+    def freeze_dynamic(self, publication_set):
+        from dynamic_sheet_groups import resolve_dynamic
+        direct, groups = resolve_dynamic(
+            publication_set, self.export_service.get_sheets())
+        return self.repository.freeze_dynamic(publication_set, direct, groups)
+
     def create_manual_persistent(self, name, items, output_directory=None,
                                  filename_template_id=None):
         publication_set = self.carnet_service.create_manual_persistent(
