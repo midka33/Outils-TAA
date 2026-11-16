@@ -94,3 +94,15 @@ métadonnées Revit qu'une seule fois.
 **Complément ergonomie BUG-CALCULS-007 (capture utilisateur du 16/11/2026) :** boutons Annuler / Confirmer absents de la fenêtre de confirmation multi-variantes : le code forçait une hauteur de 320 unités WPF, insuffisante pour l'en-tête, le récapitulatif et le pied d'actions. Correction : hauteur modale 440 unités WPF dans le mode confirmation ; texte long défilable, boutons hors du ScrollViewer. Libellé « variante Variante 1 » corrigé pour afficher le nom sans duplication et référence étiquetée. Anti-régression : tests de contrat de dimensionnement et libellés dans `test_group_decisions.py`. Validation visuelle en Revit 2025.4 toujours à refaire.
 
 **Complément BUG-CALCULS-007 — redimensionnement du panneau de détails :** après réapparition des boutons de confirmation, la recette Revit montre que le rectangle blanc contenant le texte ne suit pas l'agrandissement vertical de la fenêtre. Cause identifiée dans `calculation_decision.xaml` : `Grid.Row=1` dimensionnée `Auto`, rangée des choix masquée dimensionnée `*` et `ScrollViewer.MaxHeight=170`. Correction : détails `*` sans MaxHeight, choix `Auto` plafonnés, pied d'actions conservé hors zone de défilement. Test anti-régression : analyse XML/XAML dans `test_group_decisions.py` des définitions de lignes et de la hauteur du ScrollViewer. La validation visuelle finale Revit reste ouverte.
+
+### BUG-CALCULS-008 — Addition volontaire des surfaces de variantes (nouvelle option)
+
+**Besoin :** après validation du mode « surfaces séparées », l'utilisateur doit aussi pouvoir additionner toutes les surfaces d'un même numéro d'appartement, y compris celles situées dans plusieurs variantes. Le regroupement séparé était codé sans alternative accessible dans l'interface.
+
+**Cause :** `variant_group_key` distinguait systématiquement les variantes secondaires ; la fenêtre principale n'exposait aucun mode de regroupement alternatif.
+
+**Correction implémentée, non validée dans Revit :** liste `GESTION DES VARIANTES` WPF TAA (mode séparé par défaut ; mode addition explicite). En mode addition, clé de regroupement = numéro d'appartement sans variante ; **le total cumulé est écrit dans toutes les pièces du regroupement**. Détection des appartements multi-scénarios conservée à partir d'un second calcul *séparé* informatif ; avertissement sur le double comptage de variantes alternatives, détail des composantes, total cumulé, confirmation obligatoire avant transaction. Mode inconnu rejeté ; mode séparé inchangé ; aucun filtre selon la vue.
+
+**Règle préventive :** ne jamais additionner implicitement des solutions de conception différentes ; séparer par défaut et exiger confirmation pour l'addition lorsqu'un appartement appartient à plusieurs scénarios. Rappeler explicitement la portée de l'écriture dans toutes les variantes.
+
+**Anti-régression :** `tests/calculation/test_group_decisions.py` vérifie B200 en mode séparé, en mode addition, le total écrit à chaque pièce, la confirmation bloquante et les modes invalides. Exécuter la suite `tests/calculation` et la suite Export. **Validation dans Revit 2025.4 / pyRevit 5.x en attente.**
