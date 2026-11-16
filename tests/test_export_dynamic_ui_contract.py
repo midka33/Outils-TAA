@@ -47,3 +47,31 @@ def test_publication_rechecks_dynamic_rules():
     assert "def publish_click_with_preview(self, sender, args):" in bridge
     assert 'getattr(self, "_dynamic_errors", None)' in bridge
     assert 'getattr(self, "_dynamic_errors", None)' in ui
+
+
+def test_dynamic_xaml_has_only_ui_elements_and_button_in_explorer():
+    """Régression du crash IronPython WPF : '\\n' était un texte enfant."""
+    from xml.etree import ElementTree as ET
+    dialogue = read("carnet_manager.xaml")
+    main = read("ui.xaml")
+    ns = {"w": "http://schemas.microsoft.com/winfx/2006/xaml/presentation",
+          "x": "http://schemas.microsoft.com/winfx/2006/xaml"}
+    for document in (dialogue, main):
+        root = ET.fromstring(document)
+        for parent in root.iter():
+            if parent.tag.endswith("}StackPanel") or parent.tag.endswith("}Grid"):
+                if parent.text and parent.text.strip():
+                    raise AssertionError("Texte non UIElement dans un conteneur WPF")
+                for child in parent:
+                    if child.tail and child.tail.strip():
+                        raise AssertionError("Texte non UIElement dans un conteneur WPF")
+    root = ET.fromstring(main)
+    explorer = next(e for e in root.iter()
+                    if e.get("{%s}Name" % ns["x"]) == "SheetExplorerPanel")
+    buttons = {e.get("{%s}Name" % ns["x"]): e
+               for e in explorer.iter() if e.tag.endswith("}Button")}
+    assert "SheetExplorerAddButton" in buttons
+    assert "CreateDynamicFolderButton" in buttons
+    assert buttons["CreateDynamicFolderButton"].get("Grid.Column") == "1"
+    assert all(e.get("{%s}Name" % ns["x"]) != "CreateDynamicFolderButton"
+               for e in root.iter() if e not in list(explorer.iter()))
