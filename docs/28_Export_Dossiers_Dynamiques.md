@@ -131,3 +131,23 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 - DYN-16 : sauvegarder les réglages du parent après un gel individuel ; ses exclusions doivent persister.
 
 **Statut :** code implémenté, suite automatisée à confirmer sur le dernier commit, validation Revit de ces nouveaux scénarios restante.
+
+## Réversibilité d'un sous-dossier figé — 16 novembre 2026
+
+**Demande :** après validation Revit par l'utilisateur des 5 tests de gel individuel (DYN-12 à DYN-16, scénario global), permettre de retrouver le mode automatique sans figer ni modifier les autres sous-dossiers.
+
+**Implémenté (PR #55, non fusionnée) :**
+- Clic droit sur un sous-dossier manuel précédemment figé : **Rendre ce sous-dossier automatique**. L'action ne s'affiche que si son identifiant figure dans les exclusions du parent `source.frozen_group_ids`.
+- Après confirmation des effets, une mutation atomique du JSON partagé retire uniquement le snapshot manuel et son identifiant d'exclusion ; la règle du dossier parent et les autres sous-dossiers sont inchangés.
+- Le sous-dossier retrouve son contenu d'après les paramètres Revit actuels et l'icône automatique. S'il ne correspond actuellement à aucune feuille, il disparaît de l'arbre puis réapparaît lors d'une future correspondance.
+- **Important :** les ajouts/retraits manuels et les éventuels réglages propres au sous-dossier figé sont abandonnés lors du retour en mode automatique ; la confirmation utilisateur le précise.
+- Refus de l'opération si le sous-dossier contient un dossier enfant (pour éviter de supprimer une organisation manuelle), si la règle du parent a changé en stockage collaboratif ou si les paramètres Revit sont devenus illisibles. Ne touche pas aux feuilles du modèle Revit.
+- Aucune migration de schéma ; champ optionnel `frozen_group_ids` du JSON 8 conservé.
+
+**Recette Revit complémentaire :**
+- DYN-17 : figer B, modifier ses feuilles et les paramètres Revit, puis clic droit sur B → « Rendre ce sous-dossier automatique » ; vérifier que B retrouve les feuilles correspondant aux valeurs actuelles et l'icône turquoise.
+- DYN-18 : vérifier que A et C restent automatiques et que le nombre de sous-dossiers n'a aucun doublon après Actualiser, fermeture et réouverture.
+- DYN-19 : vérifier la confirmation avant suppression des modifications manuelles, et le refus si B contient un sous-dossier enfant.
+- DYN-20 : vérifier qu'un dossier manuel ordinaire et un sous-dossier d'un parent devenu entièrement manuel ne proposent pas cette action.
+
+**État de validation :** réversibilité implémentée et tests automatisés ajoutés ; validation Revit DYN-17 à DYN-20 en attente. Les scénarios de gel individuel précédents ont été confirmés par l'utilisateur.
