@@ -234,6 +234,40 @@ class UniformMemberTests(unittest.TestCase):
         self.assertTrue(document.regenerated)
         self.assertEqual(12.0, targets[1].value)
 
+    def test_value_lost_before_realigning_aborts_before_restore(self):
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        document = workflow.document
+
+        def invalidate_on_regenerate():
+            targets[1].value = 324.979623715
+
+        document.Regenerate = invalidate_on_regenerate
+        report = workflow.execute(workflow.prepare(request))
+        self.assertFalse(report.is_success)
+        self.assertIn("avant le retour", report.transaction_error)
+        self.assertEqual([True], definition.calls)
+        self.assertTrue(transactions[0].rolled_back)
+
+    def test_report_distinguishes_value_before_and_after_revit_restore(self):
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        original = definition.SetAllowVaryBetweenGroups
+
+        def destructive(document, allow):
+            result = original(document, allow)
+            if not allow:
+                targets[1].value = 324.979623715
+                return [FakeElementId("r2")]
+            return result
+
+        definition.SetAllowVaryBetweenGroups = destructive
+        report = workflow.execute(workflow.prepare(request))
+        self.assertFalse(report.is_success)
+        self.assertIn("apres regeneration et avant restauration : 12.0",
+                      report.transaction_error)
+        self.assertIn("324.979623715", report.transaction_error)
+        self.assertIn("id de type 42", report.transaction_error)
+        self.assertTrue(transactions[0].rolled_back)
+
     def test_rollback_report_does_not_repeat_one_error_per_room(self):
         report_path = os.path.join(
             PANEL, "ui", "calculation_report_window.py"
