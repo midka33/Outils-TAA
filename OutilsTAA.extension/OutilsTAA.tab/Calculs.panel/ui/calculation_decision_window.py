@@ -40,7 +40,10 @@ class CalculationDecisionWindow(forms.WPFWindow):
         if self._options is None:
             self.OptionsPanel.Visibility = Visibility.Collapsed
             self.ConfirmButton.IsEnabled = True
-            self.Height = 320
+            # Les récapitulatifs multi-variantes peuvent contenir plusieurs lignes.
+            # Préserver l'espace du pied d'actions : à 320 les boutons étaient
+            # repoussés hors de la zone cliente (recette Revit 16/11/2026).
+            self.Height = 440
         else:
             self.ChoicesList.ItemsSource = self._options
             self.ChoicesList.SelectedIndex = -1
