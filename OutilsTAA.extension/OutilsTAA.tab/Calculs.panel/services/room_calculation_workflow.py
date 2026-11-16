@@ -43,6 +43,7 @@ class PreparedCalculation(object):
         self.design_options = list(design_options or [])
         self.shared_variant_apartments = list(shared_variant_apartments or [])
         self.variant_separation_confirmed = False
+        self.variant_combination_confirmed = False
         # Choix explicite par utilisateur; 'restore' preserve l'ancien comportement.
         self.group_mode = "restore"
         self.uniform_values = {}
@@ -83,6 +84,9 @@ class RoomCalculationWorkflow(object):
         if not validation.is_valid:
             raise ValidationError("\n".join(validation.errors))
 
+        mode = getattr(request, "variant_mode", "separate")
+        if mode not in ("separate", "combine"):
+            raise ValidationError("Mode de gestion des variantes inconnu.")
         rooms = self.collector_service.collect_all_rooms()
         filtered = self.room_filter.apply(
             rooms,
@@ -93,30 +97,32 @@ class RoomCalculationWorkflow(object):
 
         room_by_key = {}
         items = []
+        separate_items = []
 
         for index, room in enumerate(filtered):
             room_key = self._room_key(room, index)
             room_by_key[room_key] = room
-            items.append(
-                RoomCalculationItem(
-                    room_key,
-                    variant_group_key(
-                        room,
-                        self.parameter_service.read_value(
-                            room,
-                            request.group_parameter,
-                            default=None,
-                        ),
-                    ),
-                    self.parameter_service.read_value(
-                        room,
-                        request.source_parameter,
-                        default=None,
-                    ),
-                )
+            group_value = self.parameter_service.read_value(
+                room, request.group_parameter, default=None
             )
+            source_value = self.parameter_service.read_value(
+                room, request.source_parameter, default=None
+            )
+            separate_key = variant_group_key(room, group_value)
+            separate_items.append(RoomCalculationItem(
+                room_key, separate_key, source_value
+            ))
+            items.append(RoomCalculationItem(
+                room_key,
+                group_value if mode == "combine" else separate_key,
+                source_value,
+            ))
 
         result = self.calculator.calculate(items, progress=progress)
+        separate_result = (
+            self.calculator.calculate(separate_items)
+            if mode == "combine" else result
+        )
         operations = []
 
         for group_value, total in result.totals.items():
@@ -124,7 +130,10 @@ class RoomCalculationWorkflow(object):
                 operations.append(
                     WriteOperation(
                         room_key=room_key,
-                        group_value=variant_group_label(group_value, self.document),
+                        group_value=(
+                            group_value if mode == "combine"
+                            else variant_group_label(group_value, self.document)
+                        ),
                         value=total,
                     )
                 )
@@ -145,7 +154,11 @@ class RoomCalculationWorkflow(object):
         if self._selection_requires_group_override(filtered, request.target_parameter):
             conflicts = group_conflicts(self.document, room_by_key, operations)
         variants = design_option_summary(self.document, filtered)
-        variants.insert(0, "Les variantes secondaires sont calculées séparément.")
+        if mode == "combine":
+            variants.insert(0, "ATTENTION : toutes les variantes sont additionnées "
+                            "pour un même numéro d'appartement.")
+        else:
+            variants.insert(0, "Les variantes secondaires sont calculées séparément.")
 
         return PreparedCalculation(
             request=request,
@@ -158,7 +171,7 @@ class RoomCalculationWorkflow(object):
             conflicts=conflicts,
             design_options=variants,
             shared_variant_apartments=shared_apartments_across_variants(
-                result, self.document
+                separate_result, self.document
             ),
         )
 
@@ -166,12 +179,20 @@ class RoomCalculationWorkflow(object):
         valid = []
         failed = []
 
-        if (prepared.shared_variant_apartments
-                and not prepared.variant_separation_confirmed):
-            raise ValidationError(
-                "Le même appartement est présent dans plusieurs variantes : "
-                "confirmez explicitement la séparation des surfaces avant écriture."
-            )
+        mode = getattr(prepared.request, "variant_mode", "separate")
+        if mode not in ("separate", "combine"):
+            raise ValidationError("Mode de gestion des variantes inconnu.")
+        if prepared.shared_variant_apartments:
+            if mode == "separate" and not prepared.variant_separation_confirmed:
+                raise ValidationError(
+                    "Confirmez explicitement la séparation des surfaces "
+                    "de cet appartement entre variantes avant écriture."
+                )
+            if mode == "combine" and not prepared.variant_combination_confirmed:
+                raise ValidationError(
+                    "Confirmez explicitement l'addition des surfaces "
+                    "des variantes avant écriture."
+                )
 
         if prepared.group_conflicts and prepared.group_mode == "restore":
             raise ValidationError(
