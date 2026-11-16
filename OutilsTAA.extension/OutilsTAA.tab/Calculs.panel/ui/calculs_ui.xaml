@@ -184,7 +184,7 @@
                                    VerticalAlignment="Center"
                                    Style="{DynamicResource TAASectionTitle}"/>
                         <TextBlock Grid.Column="1" x:Name="GroupPolicyText"
-                                   Text="Si le paramètre cible suit les groupes, Outils TAA peut désactiver cet alignement pour conserver les surfaces calculées. Ce changement sera conservé dans Revit."
+                                   Text="Si le paramètre cible suit les groupes, Outils TAA va désactiver cet alignement pour conserver les surfaces calculées. Ce changement sera conservé dans Revit."
                                    TextWrapping="Wrap" Foreground="#555555"
                                    VerticalAlignment="Center"/>
                     </Grid>
