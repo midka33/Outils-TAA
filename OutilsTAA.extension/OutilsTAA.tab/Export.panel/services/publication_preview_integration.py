@@ -77,6 +77,16 @@ def install_preview_on_export_window(export_window_class):
     def publish_click_with_preview(self, sender, args):
         if getattr(self, "_publication_in_progress", False):
             return
+        # Les feuilles Revit sont relues au dernier moment, sans mutation JSON.
+        # Un paramètre devenu indisponible interdit toute publication obsolète.
+        refresh = getattr(self, "_refresh_tree", None)
+        if refresh is not None:
+            refresh()
+        if getattr(self, "_dynamic_errors", None):
+            forms.alert("Règle de dossier automatique impossible à évaluer :\n" +
+                        "\n".join(self._dynamic_errors.values()),
+                        title="Export — publication bloquée")
+            return
         tags = self._publication_selection_tags()
         targets = self._publication_targets()
         if not targets:
@@ -102,7 +112,10 @@ def install_preview_on_export_window(export_window_class):
                     or "default"
                 )
 
-        manager = CarnetManagerWindow(self.controller, owner=self, target_folder_id=target_folder_id)
+        manager = CarnetManagerWindow(
+            self.controller, owner=self, target_folder_id=target_folder_id,
+            dynamic_only=(
+                getattr(sender, "Name", None) == "CreateDynamicFolderButton"))
         manager.ShowDialog()
         if manager.result:
             for carnet in manager.result:
