@@ -392,3 +392,11 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir un bug de recalcul. Trois corrections **implémentées, non validées dans Revit** : fenêtre « Dossier auto » en mode exclusif, aperçu des nombres de feuilles/sous-dossiers avec détail par groupe, icône de dossier auto/synchronisation différente des dossiers manuels. Les tests automatisés ont été étendus ; contrôle CI sur SHA final et recette Revit encore requis. Ne pas fusionner la PR Draft avant confirmation.
 
 **Contrôle GitHub — 16/11/2026 :** 488 tests Export réussis et workflows « Export — configuration collaborative » / « Export ribbon contract » verts au commit `4111b9ca4de1be9f6d9a219a41e9170f3e23aca0`. La branche a été réalignée sur `main` (les évolutions récentes du module Calculs des pièces ont été conservées) ; recette UI sous Revit encore à confirmer.
+
+### PR #55 — Conversion individuelle d'un sous-dossier (16 novembre 2026)
+
+**Retour utilisateur :** la création, l'aperçu et l'actualisation des dossiers automatiques sont validés dans Revit. Nouvelle amélioration requise : figer un seul sous-dossier sans figer tous les autres.
+
+**Implémentation :** commande contextuelle « Figer uniquement ce sous-dossier » sur chaque groupe virtuel. La copie manuelle du groupe et l'exclusion de son identifiant dans la règle dynamique du parent sont enregistrées **atomiquement** dans le JSON partagé, sans migration du schéma 8. Les autres groupes restent dynamiques. Le gel ultérieur du parent conserve les enfants déjà figés sans doublon. Tests de non-régression ajoutés.
+
+**Validation :** tests automatisés sur commit final à vérifier ; tests Revit DYN-12 à DYN-16 non encore exécutés. PR #55 Draft, ne pas fusionner avant recette.
