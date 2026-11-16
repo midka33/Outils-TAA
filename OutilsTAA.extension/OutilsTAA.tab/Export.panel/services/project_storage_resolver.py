@@ -6,6 +6,8 @@ testables en CI. Les imports Revit et Windows sont effectués à la demande.
 """
 
 import ntpath
+import hashlib
+import re
 
 
 class StoragePaths(object):
@@ -23,6 +25,9 @@ class StoragePaths(object):
             shared_config_path=None,
             shared_lock_path=None,
             shared_backups_path=None,
+            legacy_config_path=None,
+            legacy_lock_path=None,
+            legacy_backups_path=None,
             warning=None):
         self.mode = mode
         self.local_config_path = local_config_path
@@ -31,6 +36,9 @@ class StoragePaths(object):
         self.shared_config_path = shared_config_path
         self.shared_lock_path = shared_lock_path
         self.shared_backups_path = shared_backups_path
+        self.legacy_config_path = legacy_config_path
+        self.legacy_lock_path = legacy_lock_path
+        self.legacy_backups_path = legacy_backups_path
         self.warning = warning
 
     @property
@@ -125,12 +133,27 @@ def shared_paths_from_central(central_path):
     if not directory:
         return None
 
-    root = ntpath.join(directory, "OutilsTAA")
+    # Each central model gets its own independent lock, JSON and backups.
+    # The digest includes the entire canonical, case-insensitive central path.
+    # A readable stem is kept for file-system diagnostics.
+    common_root = ntpath.join(directory, "OutilsTAA")
+    identity = central_project_identity(canonical)
+    stem = ntpath.splitext(ntpath.basename(canonical))[0]
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]", "_", stem).strip("_")[:48]
+    if not safe_stem:
+        safe_stem = "Modele"
+    digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:12]
+    root = ntpath.join(common_root, safe_stem + "_" + digest)
     return {
         "root": root,
         "config": ntpath.join(root, "export.json"),
         "lock": ntpath.join(root, "export.lock"),
         "backups": ntpath.join(root, "backups"),
+        # Compatibility only: an existing folder-wide JSON is retained for
+        # its owning central, never adopted by a different project.
+        "legacy_config": ntpath.join(common_root, "export.json"),
+        "legacy_lock": ntpath.join(common_root, "export.lock"),
+        "legacy_backups": ntpath.join(common_root, "backups"),
     }
 
 
@@ -221,4 +244,7 @@ class ProjectStorageResolver(object):
             shared_config_path=paths["config"],
             shared_lock_path=paths["lock"],
             shared_backups_path=paths["backups"],
+            legacy_config_path=paths["legacy_config"],
+            legacy_lock_path=paths["legacy_lock"],
+            legacy_backups_path=paths["legacy_backups"],
         )
