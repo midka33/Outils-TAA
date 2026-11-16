@@ -34,6 +34,8 @@ def variant_group_key(room, group_value):
         raise ValidationError(
             "Variante de conception illisible pour une pièce : {}.".format(error)
         )
+    if group_value is None or (isinstance(group_value, str) and not group_value.strip()):
+        return group_value
     if option is None:
         return group_value
     try:
