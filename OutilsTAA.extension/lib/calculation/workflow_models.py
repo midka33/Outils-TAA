@@ -15,6 +15,7 @@ class CalculationRequest(object):
         filter_parameter=None,
         filter_value=None,
         output_unit_type_id=None,
+        variant_scope="primary",
     ):
         self.group_parameter = group_parameter
         self.source_parameter = source_parameter
@@ -22,6 +23,7 @@ class CalculationRequest(object):
         self.filter_parameter = filter_parameter
         self.filter_value = filter_value
         self.output_unit_type_id = output_unit_type_id
+        self.variant_scope = variant_scope
 
 
 class WriteOperation(object):
