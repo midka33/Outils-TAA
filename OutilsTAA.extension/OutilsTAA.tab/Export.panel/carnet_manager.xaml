@@ -11,8 +11,8 @@
         <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Border>
       <StackPanel VerticalAlignment="Center">
-        <TextBlock Text="Ajouter des mises en page" FontSize="20" FontWeight="SemiBold" Margin="0" />
-        <TextBlock Text="Créer des dossiers de publication à partir de mises en page Revit" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
+        <TextBlock x:Name="CreationDialogTitle" Text="Ajouter des mises en page" FontSize="20" FontWeight="SemiBold" Margin="0" />
+        <TextBlock x:Name="CreationDialogSubtitle" Text="Créer des dossiers de publication à partir de mises en page Revit" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
       </StackPanel>
     </DockPanel>
     <StackPanel Grid.Row="1">
