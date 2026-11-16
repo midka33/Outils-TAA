@@ -30,6 +30,8 @@ class CarnetManagerWindow(forms.WPFWindow):
             self.CreationModePanel.Visibility = Visibility.Collapsed
             self.ModeDynamic.IsChecked = True
             self.Title = "Créer un dossier automatique — Outils TAA"
+            self.CreationDialogTitle.Text = "Créer un dossier automatique"
+            self.CreationDialogSubtitle.Text = "Sélection dynamique depuis les paramètres des mises en page Revit"
             self.Height = 590
             self.MinHeight = 520
         self._update_mode()
