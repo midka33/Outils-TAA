@@ -33,6 +33,26 @@ class CarnetManagerWindow(forms.WPFWindow):
             self.ParameterInfo.Text = "Aucun paramètre de feuille disponible."
             self.ParameterCombo.IsEnabled = False
 
+    def _load_dynamic_parameters(self):
+        parameters = list(self.controller.get_context().get("parameters") or [])
+        self.DynamicParameterCombo.ItemsSource = parameters
+        self.DynamicGroupCombo.ItemsSource = parameters
+        if parameters:
+            self.DynamicParameterCombo.SelectedIndex = 0
+            self.DynamicGroupCombo.SelectedIndex = 0
+
+    def DynamicParameter_Changed(self, sender, args):
+        name = self.DynamicParameterCombo.SelectedItem
+        self.DynamicValueCombo.ItemsSource = (
+            self.controller.parameter_service.get_parameter_values(
+                self.controller.export_service.get_sheets(), name)
+            if name else [])
+        if self.DynamicValueCombo.Items.Count:
+            self.DynamicValueCombo.SelectedIndex = 0
+
+    def DynamicGroup_Changed(self, sender, args):
+        self.DynamicGroupCombo.IsEnabled = bool(self.DynamicGroupCheck.IsChecked)
+
     def _load_parameter_carnets(self):
         parameter_name = self.ParameterCombo.SelectedItem
         if not parameter_name:
@@ -65,6 +85,13 @@ class CarnetManagerWindow(forms.WPFWindow):
             self.ManualPanel.Visibility = Visibility.Collapsed
             self.AddButton.Content = "Ajouter les dossiers sélectionnés"
             self._load_parameter_carnets()
+        elif self.ModeDynamic.IsChecked:
+            self.ParameterPanel.Visibility = Visibility.Collapsed
+            self.ManualPanel.Visibility = Visibility.Collapsed
+            self.DynamicPanel.Visibility = Visibility.Visible
+            self.CarnetsGrid.Visibility = Visibility.Collapsed
+            self.AddButton.Content = "Créer le dossier automatique"
+            self._set_rows([])
         elif self.ModeManual.IsChecked:
             self.ParameterPanel.Visibility = Visibility.Collapsed
             self.ManualPanel.Visibility = Visibility.Visible
