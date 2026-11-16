@@ -10,6 +10,7 @@ from pyrevit import forms
 from common.wpf_resources import load_resource_dictionary
 from calculation_report_window import CalculationReportWindow
 from calculation_review_window import review_taa
+from calculation_diagnostics import empty_result_explanation
 
 
 class ParameterChoice(object):
@@ -262,12 +263,11 @@ class CalculsWindow(forms.WPFWindow):
 
             if not prepared.operations:
                 forms.alert(
-                    "Aucun résultat écrivable n'a été produit. "
-                    "Vérifiez le regroupement et le paramètre source.",
-                    title="Calculs des pièces",
+                    empty_result_explanation(prepared),
+                    title="Calculs des pièces — Aucun total",
                     warn_icon=True,
                 )
-                self.StatusText.Text = "Aucun résultat à écrire."
+                self.StatusText.Text = "Aucun total calculé ; aucune écriture."
                 return
 
             # Un seul dialogue WPF TAA : variantes, conflits de groupes
