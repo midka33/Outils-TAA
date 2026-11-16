@@ -542,3 +542,53 @@ reste refusé, et la configuration serveur existante conserve toujours la priori
 Cette correction est couverte par `tests/test_export_local_config_migration.py`,
 mais son résultat dans IronPython/Revit reste à confirmer par l'utilisateur.
 Voir `BUG-EXPORT-065`.
+
+
+## 11. Correctif : plusieurs modèles centraux dans un même dossier (16 novembre 2026)
+
+**Défaut observé en agence :** les modèles Revit architecture, structure et
+contexte peuvent être placés dans le même dossier Windows. La première version
+de la configuration collaborative dérivait un chemin unique
+`<dossier du central>\\OutilsTAA\\export.json` pour chacun. Les identités de
+projet étant distinctes, les modèles secondaires se heurtaient à
+`ProjectIdentityMismatchError` au lieu d'avoir une arborescence indépendante.
+
+**Nouvelle règle :** le chemin d'un central donné est :
+
+```text
+<dossier du central>\\OutilsTAA\\<nom-central-normalisé>_<sha1-identité-12>\\
+    export.json
+    export.lock
+    backups\\
+```
+
+L'empreinte est calculée depuis l'identité centrale canonique et insensible
+à la casse Windows. Une copie locale différente d'un même central retrouve le
+même emplacement ; deux centraux voisins ont des JSON, verrous et sauvegardes
+distincts, sans communication de configuration via leurs liens Revit.
+
+**Compatibilité avec les projets déjà utilisés :**
+
+- si le nouveau fichier dédié existe, il est prioritaire ;
+- sinon, si l'ancien `OutilsTAA\\export.json` existe et son
+  `project_identity` correspond exactement au central courant, cet ancien
+  fichier reste utilisé **en place**, avec son verrou et ses sauvegardes ;
+- si l'ancien fichier appartient à un autre central, il n'est ni chargé,
+  ni modifié : le central courant reçoit son propre répertoire dédié ;
+- si l'ancien fichier est illisible/corrompu, le comportement reste bloquant
+  (pas de réinitialisation silencieuse) ;
+- aucun déplacement, renommage, suppression, import automatique ou fusion
+  de fichiers JSON existants n'est effectué.
+
+Ce choix évite de modifier le stockage déjà validé en agence pendant la
+transition. La normalisation facultative des anciennes configurations vers
+les nouveaux chemins demandera ultérieurement une migration explicite et une
+recette de concurrence dédiée.
+
+**Vérifications :** tests du résolveur sur plusieurs centraux dans le même
+dossier, équivalence des copies locales, invariance des chemins UNC en casse
+Windows, isolation des fichiers JSON et locks, priorité du nouveau fichier
+et maintien du fichier historique appartenant au central correct.
+
+**Statut :** correctif implémenté sur PR #30 ; tests CI à vérifier et recette
+réelle Revit 2025.4 sur deux centraux du même dossier **en attente**.
