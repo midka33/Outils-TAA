@@ -263,16 +263,19 @@ class CalculsWindow(forms.WPFWindow):
                 self.StatusText.Text = "Aucun total calculé ; aucune écriture."
                 return
 
-            # Un seul dialogue WPF TAA : variantes, conflits de groupes
-            # et validation finale sont traités dans la même fenêtre.
-            if not review_taa(prepared, self._format_group_value, owner=self,
-                uniform_guidance=lambda prepared, values:
-                    self.controller.uniform_manual_guidance(
-                        prepared, values, self._format_group_value
-                    ),
-            ):
-                self.StatusText.Text = "Calcul annulé avant écriture."
-                return
+            # La gestion des groupes est automatique. La revue ne subsiste
+            # que si un appartement est present dans plusieurs variantes.
+            if prepared.shared_variant_apartments:
+                if not review_taa(prepared, self._format_group_value, owner=self):
+                    self.StatusText.Text = "Calcul annulé avant écriture."
+                    return
+            else:
+                prepared.variant_separation_confirmed = (
+                    request.variant_mode == "separate"
+                )
+                prepared.variant_combination_confirmed = (
+                    request.variant_mode == "combine"
+                )
 
             self.controller.save_settings(request)
             self.StatusText.Text = "Écriture dans Revit..."
