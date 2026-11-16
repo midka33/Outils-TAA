@@ -81,3 +81,36 @@ def test_dynamic_is_pure_and_source_does_not_change():
     resolve_dynamic(obj, [Sheet("A", "DEP", "S")])
     assert not obj.items
     assert obj.source.mode == PublicationSource.DYNAMIC
+
+
+def test_preview_counts_groups_with_same_resolver_as_creation():
+    from carnet_controller import CarnetController
+
+    class FakeExport(object):
+        def __init__(self, sheets):
+            self.sheets = sheets
+
+        def get_sheets(self):
+            return self.sheets
+
+    first = Sheet("A", "DEP", "S1")
+    second = Sheet("B", "DEP", "S2")
+    third = Sheet("C", "AUTRE", "S3")
+    service = FakeExport([first, second, third])
+    controller = CarnetController(service, None, None)
+
+    grouped = controller.preview_dynamic("Carnet", "DEP", "Section")
+    assert grouped["sheet_count"] == 2
+    assert grouped["group_count"] == 2
+    assert grouped["groups"] == [("S1", 1), ("S2", 1)]
+
+    direct = controller.preview_dynamic("Carnet", "DEP")
+    assert direct["sheet_count"] == 2
+    assert direct["group_count"] == 0
+    assert direct["groups"] == []
+
+    second.parameters["Section"] = "S1"
+    updated = controller.preview_dynamic("Carnet", "DEP", "Section")
+    assert updated["sheet_count"] == 2
+    assert updated["group_count"] == 1
+    assert updated["groups"] == [("S1", 2)]
