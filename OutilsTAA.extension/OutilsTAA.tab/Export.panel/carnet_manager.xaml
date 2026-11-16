@@ -70,7 +70,7 @@
         <StackPanel>
           <TextBlock Text="Aperçu de la composition" FontWeight="SemiBold" Margin="0,0,0,8"/>
           <TextBlock x:Name="DynamicPreviewSummary" Text="Choisissez un paramètre et une valeur." FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
-          <ListBox x:Name="DynamicPreviewGroups" MaxHeight="178" BorderThickness="0" IsHitTestVisible="False" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+          <ListBox x:Name="DynamicPreviewGroups" MaxHeight="178" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
           <TextBlock Text="Les sous-dossiers sont calculés à partir des feuilles Revit actuelles. Ils seront actualisés lors des prochaines ouvertures et actualisations d'Export." TextWrapping="Wrap" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,8,0,0"/>
         </StackPanel>
       </Border>
