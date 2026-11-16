@@ -339,3 +339,13 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 
 
 **Suivi CI complémentaire :** un run intermédiaire `43896244892` échouait sur deux exigences de tests : hauteur historique `624 > 600`, puis recherche obsolète de `if prepared.warnings` dans l'ancienne fenêtre. Hauteur ramenée à 596, et avertissements pertinents affichés de manière concise dans `calculation_review_window.py`, avec mise à jour du test `tests/calculation/test_ui_wiring.py`. Ces corrections sont implémentées ; **attente d'un run de tests vert au SHA final**. L'échec précédent ne doit pas être présenté comme une validation.\n
+
+## Préparation fusion PR #56 — retour Revit et correction CI (16 novembre 2026)
+
+**Retour utilisateur confirmé dans Revit 2025.4 / pyRevit 5.x :** « parfait ça marche très bien on peut fusionner » après test de la nouvelle interface à confirmation unique, d'informations allégées et de la gestion des variantes dans le module Calculs des pièces. Ce retour valide le parcours métier expérimenté par l'utilisateur, **sans preuve que tous les cas limites (groupes hétérogènes, cas d'erreur, Undo, modèles complexes) ont été retestés exhaustivement**.
+
+**Correction CI préalable à fusion :** le run 43896921445 (99 tests dont 98 passés) a échoué uniquement sur le contrat UI `MinHeight <= 500` (valeur 520). Correction ciblée de `calculs_ui.xaml` : `MinHeight=500`, en maintenant `Height=596`. Aucun changement au moteur de calcul. La fusion est conditionnée à une nouvelle CI verte sur le commit de tête.
+
+**Périmètre PR #56 :** gestion des paramètres alignés par groupes (choix explicite), séparation / addition volontaire des variantes, confirmation synthétique WPF TAA, rapport à la demande en cas de succès et rapport automatique en cas d'erreur. Documentation `docs/10_Calculs_Pieces.md` et registre `docs/bugs/CALCULS.md` mis à jour.
+
+**Étape suivante :** vérifier tous les contrôles CI sur le dernier SHA ; fusionner PR #56 dans `main` à la demande explicite de l'utilisateur puis vérifier le SHA de fusion. Garder les cas limites en tests futurs si non couverts par la recette.
