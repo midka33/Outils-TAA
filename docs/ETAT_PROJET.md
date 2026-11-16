@@ -310,3 +310,17 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Correction implémentée sur PR #56 en brouillon :** ligne des détails `*` et suppression de `MaxHeight=170`, ligne des choix `Auto` avec panneau limité à 180 unités WPF, pied de boutons séparé. Calculs, scénarios de variantes, valeurs et transactions inchangés. Test statique de contrat XAML ajouté dans `tests/calculation/test_group_decisions.py`.
 
 **Tests et recette :** tests automatisés CI à vérifier sur le commit de correction ; contrôle d'affichage à refaire dans Revit 2025.4, en redimensionnant les confirmations avec et sans choix tout en gardant Annuler / Confirmer visibles. **Ne pas considérer validé avant retour utilisateur.**
+
+## Calculs des pièces — addition optionnelle de toutes les variantes (16/11/2026)
+
+**Besoin confirmé :** permettre de choisir entre les surfaces par variante et l'addition de toutes les surfaces, y compris celles des variantes secondaires, pour un même numéro d'appartement. Le mode séparé doit rester le défaut afin d'éviter le double comptage involontaire.
+
+**PR #56 en brouillon, branche `fix/calculs-group-conflicts-design-options` ; main non modifiée.** Nouveau sélecteur WPF « Gestion des variantes » sur la fenêtre principale :
+- séparées (défaut, inchangé) : scénario principal et chaque variante secondaire indépendants ;
+- additionnées (explicite) : somme des surfaces de toutes les pièces portant le même numéro d'appartement, toutes variantes confondues. **Le résultat cumulé est écrit dans chaque pièce correspondante**, sans restriction de variante. Un avertissement détaille les totaux par variante et le cumul, puis exige une confirmation avant écriture lorsque plusieurs scénarios contribuent au même appartement. Annuler n'ouvre aucune transaction. Le filtre métier historique, les protections pour paramètres alignés par groupes et le rapport sont préservés.
+
+**Implémentation :** `calculation.workflow_models.CalculationRequest.variant_mode`, contrôleur, `services/room_calculation_workflow.py`, fenêtre `ui/calculs_window.py`/`calculs_ui.xaml` ; hauteur initiale ajustée pour maintenir la lisibilité. Les choix ne sont pas persistés : retour au mode séparé à chaque ouverture. Tests ajoutés dans `tests/calculation/test_group_decisions.py`. Documentation `docs/10_Calculs_Pieces.md`, registre BUG-CALCULS-008.
+
+**CI vérifiée :** commit `cc15044059a7e16c9c66edf899eddc112f602776`, run `43894637327` : **98 tests Calculs des pièces réussis** ; run `43894637619` : **Export réussi**. La correction de hauteur `b3ebe7972c14bb08b625b8783aa82025c9b73a8d` est postérieure à ces résultats et doit être couverte par les runs ultérieurs.
+
+**Validation Revit 2025.4 :** en attente pour cette option. Tester B200 = 35,330 + 29,522 m² : en mode séparé deux résultats indépendants ; en mode addition 64,852 m² dans toutes les pièces B200, avec confirmation ; Annuler sans écriture ; vérifier conflit de groupes, Undo et absence de doublons. Ne pas fusionner avant validation.
