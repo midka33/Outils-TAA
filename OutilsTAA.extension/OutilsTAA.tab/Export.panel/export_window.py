@@ -397,6 +397,7 @@ class ExportWindow(forms.WPFWindow):
         """Construit une arborescence unique : tout conteneur est un dossier."""
         self._folders = self.controller.list_folders()
         current_sheets = self.controller.export_service.get_sheets()
+        self._available_sheets = list(current_sheets)
         self.current_project_unique_ids = set(
             str(sheet.UniqueId) for sheet in current_sheets
             if sheet is not None and getattr(sheet, "UniqueId", None))
@@ -510,6 +511,7 @@ class ExportWindow(forms.WPFWindow):
 
         self._load_selected_settings()
         if getattr(self, "_sheet_explorer", None) is not None:
+            self._sheet_explorer.update_available_sheets(current_sheets)
             self._sheet_explorer.refresh()
 
     def _node_header(self, text, icon_key, bold=False):
