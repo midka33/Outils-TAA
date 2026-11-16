@@ -919,7 +919,7 @@ du snapshot si la feuille n'existe plus.
 **Anti-régression :** `tests/test_export_sheet_explorer_clear_selection.py` vérifie le câblage XAML/handler, l'effacement global et le maintien du comportement de sélection cumulative.
 
 
-### BUG-EXPORT-64 — Wrapper d'initialisation incompatible avec le nouveau contexte de stockage
+### BUG-EXPORT-064 — Wrapper d'initialisation incompatible avec le nouveau contexte de stockage
 
 **Symptôme :** après raccordement du smartbutton collaboratif, l'appel
 `ExportWindow(..., storage_context=...)` aurait pu échouer à l'ouverture avec
@@ -941,3 +941,15 @@ d'intégration couvrant les arguments transmis par le point d'entrée réel.
 
 **Anti-régression :** `tests/test_export_collaborative_ui.py` vérifie que le
 wrapper accepte et retransmet `storage_context`.
+
+### BUG-EXPORT-065 — Migration collaborative bloquée par un ancien JSON Windows-1252
+
+**Symptôme :** au démarrage d'Export collaboratif dans Revit 2025.4, une ancienne configuration locale contenant des caractères accentués pouvait être refusée comme « JSON invalide » avec `'unknown' codec can't decode byte 0xe9`.
+
+**Cause racine :** les anciennes versions enregistraient les configurations locales via l'encodage texte Windows implicite (souvent CP1252). La migration tentait de les lire exclusivement en UTF-8 puis rouvrait le fichier avec le lecteur historique, dépendant de la machine.
+
+**Correction :** lecture binaire unique ; tentative UTF-8 (BOM accepté) puis repli CP1252 uniquement en cas d'échec du décodage. Validation du JSON et de l'identité projet, normalisation du schéma 8 directement en mémoire, **sans modifier ni réécrire le fichier local**. Les JSON malformés restent refusés et la configuration partagée n'est pas écrasée.
+
+**Règle préventive :** toute migration de données historiques doit prendre en charge les encodages réellement écrits par les anciennes versions et éviter une deuxième lecture via un autre décodeur. Aucun remplacement silencieux ou caractère de substitution.
+
+**Anti-régression :** `tests/test_export_local_config_migration.py`, jeux avec accents CP1252, UTF-8 et UTF-8 BOM, intégrité binaire du fichier source, refus des JSON invalides ; vérification du lancement réel dans Revit avant validation.
