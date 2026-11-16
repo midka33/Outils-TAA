@@ -77,6 +77,14 @@ def install_preview_on_export_window(export_window_class):
     def publish_click_with_preview(self, sender, args):
         if getattr(self, "_publication_in_progress", False):
             return
+        # Les feuilles Revit sont relues au dernier moment, sans mutation JSON.
+        # Un paramètre devenu indisponible interdit toute publication obsolète.
+        self._refresh_tree()
+        if getattr(self, "_dynamic_errors", None):
+            forms.alert("Règle de dossier automatique impossible à évaluer :\n" +
+                        "\n".join(self._dynamic_errors.values()),
+                        title="Export — publication bloquée")
+            return
         tags = self._publication_selection_tags()
         targets = self._publication_targets()
         if not targets:
