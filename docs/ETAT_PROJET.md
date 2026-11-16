@@ -400,3 +400,9 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Implémentation :** commande contextuelle « Figer uniquement ce sous-dossier » sur chaque groupe virtuel. La copie manuelle du groupe et l'exclusion de son identifiant dans la règle dynamique du parent sont enregistrées **atomiquement** dans le JSON partagé, sans migration du schéma 8. Les autres groupes restent dynamiques. Le gel ultérieur du parent conserve les enfants déjà figés sans doublon. Tests de non-régression ajoutés.
 
 **Validation :** tests automatisés sur commit final à vérifier ; tests Revit DYN-12 à DYN-16 non encore exécutés. PR #55 Draft, ne pas fusionner avant recette.
+
+### PR #55 — Réversibilité sous-dossier manuel/automatique (16 novembre 2026)
+
+**Revit validé utilisateur :** les cinq tests de gel individuel sont tous réussis ; le sous-dossier figé reste manuel, les autres se synchronisent et l'état persiste après réouverture.
+
+**Amélioration implémentée, non encore validée Revit :** « Rendre ce sous-dossier automatique » uniquement sur les enfants précédemment figés d'un parent encore dynamique. Une mutation atomique réactive le groupe et retire son snapshot manuel ; confirmation explicite de la perte des réglages/modifications manuels propres au sous-dossier. Protections contre les suppressions de descendants, les paramètres Revit non disponibles et les états collaboratifs obsolètes. Tests unitaires ajoutés. **Ne pas fusionner #55 avant DYN-17 à DYN-20 et CI du dernier commit.**
