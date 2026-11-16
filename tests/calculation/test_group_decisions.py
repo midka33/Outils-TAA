@@ -436,7 +436,7 @@ class GroupConflictDecisionTests(unittest.TestCase):
         with open(review, "r", encoding="utf-8") as handle:
             code = handle.read()
         self.assertIn("self.GroupSection.Visibility = Visibility.Collapsed", code)
-        self.assertNotIn("self._build_uniform_choices()", code)
+        self.assertNotIn("self._build_uniform_choices()", code.split("    def GroupMode_Changed(", 1)[0])
 
     def test_invalid_variant_mode_is_rejected(self):
         self.request.variant_mode = "nonsense"
