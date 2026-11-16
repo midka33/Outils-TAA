@@ -182,9 +182,18 @@ class RoomCalculationWorkflow(object):
                 separate_result, self.document
             ),
         )
-        if group_mode != "auto":
+        if group_mode == "auto":
+            # L'utilisateur a ete averti dans l'accueil : en presence d'un
+            # parametre de piece aligne entre groupes, conserver les sommes
+            # impose de permettre durablement des valeurs variables.
+            prepared.group_mode = (
+                "vary" if self._selection_requires_group_override(
+                    filtered, request.target_parameter
+                ) else "restore"
+            )
+        else:
             prepared.group_mode = group_mode
-        if group_mode in ("uniform", "auto"):
+        if group_mode == "uniform":
             try:
                 (prepared.uniform_extra_members,
                  prepared.uniform_covered_ids) = build_uniform_member_plan(
