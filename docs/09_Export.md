@@ -1939,3 +1939,40 @@ Les dossiers de parents déjà inclus dans la hiérarchie de publication restent
 **Technique :** `PublicationSettings.FIELDS/ACTIVE_FIELDS`, `SettingsResolver`, `publication_directory`, l'interface WPF et les profils personnalisés gèrent `separate_format_subfolders`. L'aperçu PDF/DWG et les deux moteurs partagent la même fonction de calcul de destination. Les modes PDF combiné/séparé et DWG n'influent pas sur le classement.
 
 **Recette Revit 2025.4 :** tester les quatre combinaisons avec deux feuilles, les modes PDF combiné et séparé, la création PDF/DWG, les héritages et rechargements de profils, puis contrôler chemins dans l'aperçu avant publication dans un répertoire temporaire. Voir BUG-EXPORT-059.
+
+
+## Création d'une configuration partagée à partir d'un fichier Export existant (V1.2, en recette)
+
+Lorsque la maquette possède un central Windows exploitable mais **aucun
+`export.json` partagé propre à ce central**, la barre d'état d'Export
+affiche le bouton **« Importer une configuration… »** à côté d'Actualiser.
+
+Parcours utilisateur :
+
+1. Ouvrir Export pour un nouveau projet central dont la configuration
+   partagée n'a pas encore été créée.
+2. Cliquer **Importer une configuration…** et choisir un fichier JSON Export
+   existant, local ou sur le serveur.
+3. Vérifier le résumé affiché : chemin source, identité d'origine, nombre de
+   dossiers et nombre de mises en page trouvées dans la maquette courante.
+4. Confirmer ou annuler. En cas de confirmation, une nouvelle configuration
+   partagée du projet courant est créée avec **révision 1**.
+
+Le fichier source n'est **jamais modifié, déplacé ni supprimé**. L'identité
+du JSON cible est celle du central Revit ouvert, y compris lorsque la
+configuration choisie appartenait à un central renommé/déplacé ou à un autre
+projet. Les dossiers, sous-dossiers, réglages PDF/DWG, héritage et nommage
+sont conservés. **Les feuilles sont reprises uniquement si leur `UniqueId`
+existe dans la maquette courante** ; les autres sont exclues afin de ne pas
+conserver des références appartenant à une autre maquette.
+
+L'import est refusé si un JSON cible existe déjà, ou si un autre utilisateur
+crée ce JSON pendant l'assistant ; le verrou SMB et le contrôle de révision
+protègent contre l'écrasement. Les fichiers JSON invalides ou d'un schéma
+ultérieur ne sont pas acceptés. Un projet non partagé, un mode local de
+secours et un projet dont la configuration partagée existe déjà ne proposent
+pas ce bouton. L'import local automatique avec proposition initiale reste
+inchangé et prioritaire pour les configurations historiques du même projet.
+
+**Statut :** implémenté sur la PR #30 ; tests automatisés et validation
+Revit 2025.4 à contrôler avant fusion.
