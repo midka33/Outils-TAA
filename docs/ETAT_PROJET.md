@@ -252,3 +252,17 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Marqueur de version :** `2026-11-13-group-room-boundary-03`. **Commits bêta :** `3730394` (géométrie), `c4a5afe` (repères locaux), `2bc4e2d` (contrôle bloquant de valeur et pièce), `6537030` (diagnostic). **Test anti-régression ajouté** : `tests/test_annotations_group_room_boundary.py` (commit `bb03770`) avec scénario mur 7,20 m / limite de pièce 4,30 m et vérification du code de production par objets factices. **Tests non exécutés, validation Revit non effectuée.**
 
 **Recette :** partir d'une **copie antérieure aux groupes `TAA - Cotations` du précédent essai**, sans supprimer le groupe de modèle original. Sur `Niveau 1`, choisir `Groupe 1` et vérifier les valeurs dans **chaque pièce** et les textes ; contrôler le nouveau diagnostic `LONGUEUR LOCALE PIECE` et `COTE LOCALE VERIFIEE`. Si Revit refuse la cote à partir des courtes DetailCurve, **ne pas masquer cet échec par le retour aux références du mur entier** : la solution restera à développer, sans valider 8/8 sur fausses mesures. Second lancement et occurrence voisine seulement après mesures exactes. PR #37 maintenue en brouillon.
+
+## Export — Dossiers automatiques par paramètres (16 novembre 2026)
+
+**Branche :** `feature/export-dossiers-dynamiques-spec` ; **PR #55 Draft**, non fusionnée. Synchronisée sur le `main` intégrant la configuration collaborative de la PR #30. Dernier état de référence : documentation `docs/28_Export_Dossiers_Dynamiques.md`.
+
+**Implémentation :** mode de dossier automatique dans l'assistant ; règle de sélection par paramètre + valeur, sous-dossiers virtuels par second paramètre ; actualisation au rafraîchissement et avant aperçu/publication ; blocage si paramètre absent ou ambigu ; conversion explicite en manuel avec copie figée des références et sous-dossiers par mutation atomique du repository ; protections contre les opérations manuelles sur les sous-dossiers calculés. Aucune modification des paramètres ni de l'arborescence du navigateur Revit.
+
+**Tests automatisés :** 485 tests Export réussis lors du workflow GitHub Actions `Export — tests hors Revit` sur le commit `f7e6db1e3e58edeabbfb4e3ef54428694ea2f621` ; CI collaborative et contrat ruban verts sur le même commit. Modifications suivantes purement documentaires ; vérifier la CI du dernier commit de code si la branche évolue.
+
+**Recette Revit :** aucune validation terrain confirmée pour cette fonctionnalité. Tester DYN-01 à DYN-11 avant fusion ; spécialement changement de valeurs Revit, sous-dossiers, publication et conversion en manuel.
+
+**Travaux non compris :** copie exacte de l'organisation native du navigateur Revit, migration de paramètres homonymes par GUID, surveillance permanente des événements Revit. Aucune release publiée.
+
+**Prochaine action :** recette Revit 2025.4 sur la branche PR #55, correction des éventuelles anomalies et contrôle de non-régression de la version stable 1.4.1.
