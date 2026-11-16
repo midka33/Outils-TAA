@@ -248,3 +248,48 @@ def design_option_summary(document, rooms):
         "determinent pas le perimetre de cette commande."
     )
     return result
+
+
+def empty_result_explanation(prepared):
+    """Diagnostic factuel si aucun total n'est calculé.
+
+    Ne déduit jamais la cause d'une absence de résultat des seuls réglages
+    du paramètre cible. La somme est calculée AVANT toute transaction.
+    """
+    skipped = getattr(getattr(prepared, "result", None), "skipped", []) or []
+    counts = {}
+    for item in skipped:
+        reason = str(getattr(item, "reason", "other"))
+        counts[reason] = counts.get(reason, 0) + 1
+
+    request = prepared.request
+    group_name = getattr(request.group_parameter, "name", "regroupement")
+    source_name = getattr(request.source_parameter, "name", "source")
+    lines = [
+        "Aucune somme n'a pu être calculée sur {} pièce(s) retenue(s).".format(
+            prepared.filtered_rooms
+        )
+    ]
+    if counts.get("empty_group"):
+        lines.append(
+            "{} pièce(s) sans valeur dans '{}'."
+            .format(counts["empty_group"], group_name)
+        )
+    if counts.get("non_numeric_source"):
+        lines.append(
+            "{} pièce(s) avec une valeur non numérique ou vide dans '{}'."
+            .format(counts["non_numeric_source"], source_name)
+        )
+    if counts.get("invalid_group"):
+        lines.append(
+            "{} pièce(s) avec un regroupement inexploitable."
+            .format(counts["invalid_group"])
+        )
+    if not skipped:
+        lines.append("Aucune opération de calcul n'a été produite.")
+    lines.append(
+        "Vérifiez les valeurs de regroupement et de source dans les pièces. "
+        "La gestion des groupes ne change pas le calcul des sommes et aucun "
+        "paramètre n'a été modifié."
+    )
+    return "\n".join(lines)
