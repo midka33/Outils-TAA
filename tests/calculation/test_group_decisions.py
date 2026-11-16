@@ -242,6 +242,94 @@ class GroupConflictDecisionTests(unittest.TestCase):
         # La liste de choix est facultative et ne peut monopoliser la fenêtre.
         self.assertEqual("180", panel.get("MaxHeight"))
 
+    def test_combine_variants_sums_b200_and_requires_confirmation(self):
+        from calculation_diagnostics import variant_group_key
+        from test_grouped_parameters import FakeDefinition, FakeParameter, FakeRoom
+        class Option(object):
+            def __init__(self, ident, primary):
+                self.Id = FakeElementId(ident)
+                self.IsPrimary = primary
+
+        target_definition = FakeDefinition("Total", varies_across_groups=False)
+        rooms = []
+        for uid, option, value in [
+            ("main", None, 35.33),
+            ("secondary", Option(120, False), 29.522),
+        ]:
+            target = FakeParameter(
+                "Total", "Double", 0.0,
+                definition=target_definition, locked_by_group=True,
+            )
+            room = FakeRoom(uid, [
+                FakeParameter("Appartement", "String", "B200"),
+                FakeParameter("Surface", "Double", value),
+                target,
+            ], group_id=10 if uid == "main" else 20)
+            room.DesignOption = option
+            rooms.append(room)
+        fixture = GroupedWorkflowTests()
+        workflow, parameters, transactions = fixture._build(rooms)
+        request = fixture._request(parameters, rooms)
+        request.variant_mode = "combine"
+        prepared = workflow.prepare(request)
+        self.assertEqual(1, prepared.result.group_count)
+        self.assertEqual(2, len(prepared.operations))
+        self.assertAlmostEqual(64.852, prepared.operations[0].value)
+        self.assertAlmostEqual(64.852, prepared.operations[1].value)
+        self.assertEqual(1, len(prepared.shared_variant_apartments))
+        with self.assertRaises(ValidationError):
+            workflow.execute(prepared)
+        self.assertEqual([], transactions)
+        prepared.variant_combination_confirmed = True
+        report = workflow.execute(prepared)
+        self.assertTrue(report.is_success)
+        for room in rooms:
+            self.assertAlmostEqual(
+                64.852, room.LookupParameter("Total").value
+            )
+
+    def test_separate_mode_keeps_distinct_b200_totals(self):
+        from test_grouped_parameters import FakeDefinition, FakeParameter, FakeRoom
+        class Option(object):
+            def __init__(self, ident, primary):
+                self.Id = FakeElementId(ident)
+                self.IsPrimary = primary
+
+        target_definition = FakeDefinition("Total", varies_across_groups=False)
+        rooms = []
+        for uid, option, value in [
+            ("main", None, 35.33),
+            ("secondary", Option(120, False), 29.522),
+        ]:
+            target = FakeParameter(
+                "Total", "Double", 0.0,
+                definition=target_definition, locked_by_group=True,
+            )
+            room = FakeRoom(uid, [
+                FakeParameter("Appartement", "String", "B200"),
+                FakeParameter("Surface", "Double", value),
+                target,
+            ], group_id=10 if uid == "main" else 20)
+            room.DesignOption = option
+            rooms.append(room)
+        fixture = GroupedWorkflowTests()
+        workflow, parameters, transactions = fixture._build(rooms)
+        request = fixture._request(parameters, rooms)
+        prepared = workflow.prepare(request)
+        self.assertEqual(2, prepared.result.group_count)
+        self.assertEqual(
+            [29.522, 35.33], sorted(op.value for op in prepared.operations)
+        )
+        self.assertEqual(1, len(prepared.shared_variant_apartments))
+        with self.assertRaises(ValidationError):
+            workflow.execute(prepared)
+        self.assertEqual([], transactions)
+
+    def test_invalid_variant_mode_is_rejected(self):
+        self.request.variant_mode = "nonsense"
+        with self.assertRaises(ValidationError):
+            self.workflow.prepare(self.request)
+
     def test_empty_group_still_skipped_in_secondary_option(self):
         from calculation_diagnostics import variant_group_key
         class Option(object):
