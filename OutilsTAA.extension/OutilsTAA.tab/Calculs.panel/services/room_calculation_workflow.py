@@ -79,8 +79,14 @@ class RoomCalculationWorkflow(object):
             raise ValidationError("\n".join(validation.errors))
 
         rooms = self.collector_service.collect_all_rooms()
+        scope = getattr(request, "variant_scope", "primary")
+        if hasattr(self.collector_service, "collect_rooms_for_scope"):
+            scoped_rooms = self.collector_service.collect_rooms_for_scope(scope)
+        else:
+            # Compatibilité avec les doubles des tests du moteur pur.
+            scoped_rooms = rooms
         filtered = self.room_filter.apply(
-            rooms,
+            scoped_rooms,
             parameter_name=request.filter_parameter,
             expected_value=request.filter_value,
             value_reader=self.parameter_service.read_value,
@@ -137,6 +143,10 @@ class RoomCalculationWorkflow(object):
         if self._selection_requires_group_override(filtered, request.target_parameter):
             conflicts = group_conflicts(self.document, room_by_key, operations)
         variants = design_option_summary(self.document, filtered)
+        if scope == "view":
+            variants.insert(0, "Portée : pièces visibles dans la vue active au lancement.")
+        else:
+            variants.insert(0, "Portée : modèle principal et variantes principales uniquement.")
 
         return PreparedCalculation(
             request=request,
