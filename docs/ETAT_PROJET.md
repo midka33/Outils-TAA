@@ -252,3 +252,21 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Marqueur de version :** `2026-11-13-group-room-boundary-03`. **Commits bêta :** `3730394` (géométrie), `c4a5afe` (repères locaux), `2bc4e2d` (contrôle bloquant de valeur et pièce), `6537030` (diagnostic). **Test anti-régression ajouté** : `tests/test_annotations_group_room_boundary.py` (commit `bb03770`) avec scénario mur 7,20 m / limite de pièce 4,30 m et vérification du code de production par objets factices. **Tests non exécutés, validation Revit non effectuée.**
 
 **Recette :** partir d'une **copie antérieure aux groupes `TAA - Cotations` du précédent essai**, sans supprimer le groupe de modèle original. Sur `Niveau 1`, choisir `Groupe 1` et vérifier les valeurs dans **chaque pièce** et les textes ; contrôler le nouveau diagnostic `LONGUEUR LOCALE PIECE` et `COTE LOCALE VERIFIEE`. Si Revit refuse la cote à partir des courtes DetailCurve, **ne pas masquer cet échec par le retour aux références du mur entier** : la solution restera à développer, sans valider 8/8 sur fausses mesures. Second lancement et occurrence voisine seulement après mesures exactes. PR #37 maintenue en brouillon.
+
+## Calculs des pièces — conflits entre groupes et variantes (16 novembre 2026)
+
+**Sujet :** rapport utilisateur d'environ 898 écritures annulées ; restauration de l'alignement du paramètre `Surface logement` ayant détecté 9 éléments à réaligner. Conflit d'écriture confirmé, impact causal précis des variantes non démontré.
+
+**Branche :** `fix/calculs-group-conflicts-design-options` ; **PR #56** en brouillon, vers `main` ; pas de fusion.
+
+**Règles métier demandées :**
+1. Si plusieurs occurrences d'un même type de groupe exigent des valeurs différentes, demander à l'utilisateur s'il souhaite conserver durablement les valeurs variables ou maintenir l'alignement en choisissant une valeur de référence parmi les résultats calculés pour chaque type de groupe. Aucun choix implicite.
+2. Conserver le périmètre de calcul habituel (toutes les pièces du projet) ; indiquer les variantes détectées et le nombre de pièces issues de chacune. Le module lit les valeurs `Area` produites par Revit, sans changer la géométrie ni choisir une vue.
+
+**Implémentation :** diagnostics `calculation_diagnostics.py` ; logique de choix et garde-fous dans `room_calculation_workflow.py` ; interface `calculs_window.py` ; test `test_group_decisions.py` ; documentation module `docs/10_Calculs_Pieces.md` ; registre `BUG-CALCULS-007`. L'uniformisation est refusée si une occurrence porte plusieurs regroupements avec des totaux distincts ; le rollback reste actif.
+
+**Validation automatisée :** GitHub Actions PR #56, commit `062b5267790f6dbb8aedd8528a48b5f0520b04b9` : **88 passed** pour `python -m pytest tests/calculation -q` (run 43862479754) ; suite **Export verte** (run 43862479763). Un premier run avait échoué à cause de la mention textuelle `ActiveView` dans un commentaire, corrigée avant cette validation.
+
+**Validation Revit :** **non effectuée**. Ne pas fusionner sans test sur copie de maquette : (a) groupes identiques et résultats différents, (b) choix variable, (c) choix aligné avec valeur référence, (d) annulation et Undo, (e) groupes à plusieurs appartements, (f) variantes principales et secondaires, (g) fonctionnement historique sans conflits. Contrôler aussi le nombre de pièces et les valeurs affichées.
+
+**Action suivante :** déployer uniquement la branche sur un chemin pyRevit de test, jamais à la place de l'extension partagée stable ; tester d'abord les groupes de référence sur une copie du RVT et comparer `Surface logement` avant/après.
