@@ -194,7 +194,7 @@ class RoomCalculationWorkflow(object):
                 prepared.uniform_plan_error = str(error)
                 if group_mode == "uniform":
                     raise
-            if prepared.uniform_extra_members:
+            if prepared.uniform_extra_members and group_mode == "uniform":
                 prepared.warnings.append(
                     "Mode valeur commune : {} membre(s) correspondant(s) "
                     "supplementaire(s) seront mis a jour dans d'autres "
