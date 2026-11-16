@@ -336,3 +336,6 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Tests :** test statique de parcours unique et fenêtre WPF ajouté à `tests/calculation/test_group_decisions.py`. Un contrôle CI antérieur (run 43895465430) a échoué sur l'ancien `Height=624` (`1 failed, 97 passed`) ; hauteur corrigée, nouvelle CI à vérifier. Les tests automatisés ne constituent pas une validation visuelle Revit.
 
 **Recette Revit 2025.4 :** en attente : une seule fenêtre de confirmation pour B200 séparé/cumulé, avec/sans divergence de type de groupe, choix des valeurs de référence sans fenêtre supplémentaire, annulation sans transaction, succès sans rapport imposé, bouton Rapport, erreur avec rapport affiché. Conserver la PR en brouillon jusqu'à la recette.
+
+
+**Suivi CI complémentaire :** un run intermédiaire `43896244892` échouait sur deux exigences de tests : hauteur historique `624 > 600`, puis recherche obsolète de `if prepared.warnings` dans l'ancienne fenêtre. Hauteur ramenée à 596, et avertissements pertinents affichés de manière concise dans `calculation_review_window.py`, avec mise à jour du test `tests/calculation/test_ui_wiring.py`. Ces corrections sont implémentées ; **attente d'un run de tests vert au SHA final**. L'échec précédent ne doit pas être présenté comme une validation.\n
