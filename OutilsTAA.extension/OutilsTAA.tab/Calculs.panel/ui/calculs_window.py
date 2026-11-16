@@ -28,6 +28,10 @@ class CalculsWindow(forms.WPFWindow):
         self._source_choices = []
         self._target_choices = []
         self._filter_choices = []
+        self._variant_choices = [
+            ParameterChoice("Surfaces séparées par variante (défaut)", "separate"),
+            ParameterChoice("Additionner toutes les surfaces des variantes", "combine"),
+        ]
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "calculs_ui.xaml")
@@ -76,6 +80,8 @@ class CalculsWindow(forms.WPFWindow):
         self.SourceParameterCombo.ItemsSource = self._source_choices
         self.TargetParameterCombo.ItemsSource = self._target_choices
         self.FilterParameterCombo.ItemsSource = self._filter_choices
+        self.VariantModeCombo.ItemsSource = self._variant_choices
+        self.VariantModeCombo.SelectedIndex = 0
 
         if self._filter_choices:
             self.FilterParameterCombo.SelectedIndex = 0
@@ -216,6 +222,7 @@ class CalculsWindow(forms.WPFWindow):
             filter_parameter=filter_parameter,
             filter_value=filter_value,
             output_unit_type_id=self._selected_unit_type_id(),
+            variant_mode=self.VariantModeCombo.SelectedItem.descriptor,
         )
 
     def Calculate_Click(self, sender, args):
@@ -251,13 +258,21 @@ class CalculsWindow(forms.WPFWindow):
                 return
 
             if prepared.shared_variant_apartments:
+                combining = request.variant_mode == "combine"
                 details = [
                     "{} appartement(s) existent dans plusieurs variantes.".format(
                         len(prepared.shared_variant_apartments)
                     ),
                     "",
-                    "Les surfaces seront conservées séparément : aucune "
-                    "addition entre variantes ne sera réalisée.",
+                    (
+                        "ATTENTION : vous allez additionner les surfaces "
+                        "de variantes potentiellement alternatives. "
+                        "Le total cumulé sera écrit dans chaque pièce du même "
+                        "appartement, quelle que soit sa variante."
+                        if combining else
+                        "Les surfaces seront conservées séparément : aucune "
+                        "addition entre variantes ne sera réalisée."
+                    ),
                     "",
                 ]
                 for entry in prepared.shared_variant_apartments:
@@ -271,21 +286,33 @@ class CalculsWindow(forms.WPFWindow):
                                 ),
                             )
                         )
+                    if combining:
+                        details.append(
+                            "  TOTAL CUMULÉ : {}".format(
+                                self._format_group_value(
+                                    sum(item["total"] for item in entry["scenarios"]),
+                                    prepared.request,
+                                )
+                            )
+                        )
                     details.append("")
                 details.append(
-                    "Confirmez pour conserver des totaux distincts et poursuivre. "
-                    "Annuler n'écrit aucune valeur."
+                    "Confirmez pour poursuivre. Annuler n'écrit aucune valeur."
                 )
                 if not confirm_taa(
-                    "Surfaces indépendantes par variante",
+                    "Addition des variantes — attention"
+                    if combining else "Surfaces indépendantes par variante",
                     "\n".join(details),
                     owner=self,
                 ):
                     self.StatusText.Text = (
-                        "Séparation des variantes non confirmée : calcul annulé."
+                        "Gestion des variantes non confirmée : calcul annulé."
                     )
                     return
-                prepared.variant_separation_confirmed = True
+                if combining:
+                    prepared.variant_combination_confirmed = True
+                else:
+                    prepared.variant_separation_confirmed = True
 
             if prepared.group_conflicts:
                 if not self._choose_group_conflict_mode(prepared):
@@ -304,6 +331,12 @@ class CalculsWindow(forms.WPFWindow):
                 len(prepared.operations),
             )
 
+            if request.variant_mode == "combine":
+                message += (
+                    "ATTENTION : les surfaces des variantes sont additionnées "
+                    "par numéro d'appartement et écrites dans toutes les pièces "
+                    "du regroupement.\n\n"
+                )
             if prepared.design_options:
                 message += "Variantes :\n"
                 for line in prepared.design_options:
