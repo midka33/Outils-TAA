@@ -12,6 +12,16 @@ def read_parameter(sheet, name):
     if not name:
         raise ValueError("Le paramètre de classement n'est pas défini.")
     try:
+        candidates = sheet.GetParameters(name)
+        if candidates is not None and len(candidates) > 1:
+            raise ValueError("Paramètre ambigu (plusieurs définitions) : {}".format(name))
+    except (AttributeError, TypeError):
+        pass
+    except ValueError:
+        raise
+    except Exception:
+        pass
+    try:
         p = sheet.LookupParameter(name)
         if p is None:
             return None
@@ -47,7 +57,7 @@ def resolve_dynamic(publication_set, sheets):
             raise ValueError("Paramètre de sous-dossier introuvable : {}".format(
                 source.group_parameter))
         for sheet, value in raw_groups:
-            key = value if value else "Sans valeur"
+            key = value if value else None
             groups.setdefault(key, []).append(sheet)
     else:
         groups[None] = matched
@@ -65,12 +75,13 @@ def resolve_dynamic(publication_set, sheets):
         return (items(matched), [])
 
     result = []
-    for idx, key in enumerate(sorted(groups, key=lambda value: value.lower())):
+    for idx, key in enumerate(sorted(groups, key=lambda value: (value is None, (value or "").lower()))):
         # L'identifiant est déterministe entre deux rafraîchissements, y compris
         # quand les feuilles d'un même groupe sont renommées.
-        token = hashlib.sha1(str(key).encode("utf-8")).hexdigest()[:16]
+        token = hashlib.sha1(("vide" if key is None else "valeur:" + key).encode("utf-8")).hexdigest()[:16]
         child = PublicationSet(
-            name=key, items=items(groups[key]), source=PublicationSource(
+            name=key if key is not None else "Sans valeur",
+            items=items(groups[key]), source=PublicationSource(
                 PublicationSource.MANUAL),
             set_id="dyn-{}-{}".format(publication_set.id, token),
             persistent=False, folder_id=publication_set.id)
