@@ -78,48 +78,28 @@ class CalculationReviewWindow(forms.WPFWindow):
         self.ErrorText.Text = ""
 
         self._requested_group_mode = getattr(request, "group_mode", "auto")
+        self._automatic_uniform = False
         self.UniformChoices.Visibility = Visibility.Collapsed
+        self.GroupModeCombo.Visibility = Visibility.Collapsed
         if not self._conflicts:
             self.GroupSection.Visibility = Visibility.Collapsed
         elif self._requested_group_mode == "vary":
-            # Le choix utilisateur a déjà été fait dans la fenêtre principale.
+            self.GroupSection.Visibility = Visibility.Collapsed
+        elif (all(item["uniform_safe"] for item in self._conflicts)
+              and not getattr(prepared, "uniform_plan_error", None)):
+            self._automatic_uniform = True
+            self.GroupHint.Text = (
+                "Choisissez une valeur commune par type de groupe. "
+                "Si Revit ne peut pas conserver son alignement, le parametre "
+                "autorisera durablement des valeurs differentes."
+            )
+            self._build_uniform_choices()
+        else:
             self.GroupSection.Visibility = Visibility.Collapsed
             self.WarningText.Text += (
-                "\nLe paramètre autorisera durablement des valeurs différentes."
-            )
-        elif self._requested_group_mode == "uniform":
-            if not all(item["uniform_safe"] for item in self._conflicts):
-                self.GroupHint.Text = (
-                    "Impossible de choisir une valeur commune : un groupe "
-                    "contient plusieurs appartements distincts."
-                )
-                self._uniform_allowed = False
-            else:
-                self._uniform_allowed = True
-                self.GroupHint.Text = (
-                    "Choisissez une valeur commune pour chaque type de groupe."
-                )
-                self._build_uniform_choices()
-            self.GroupModeCombo.Visibility = Visibility.Collapsed
-        else:
-            options = [
-                ReviewChoice(
-                    "Autoriser les valeurs différentes (modifie le paramètre)",
-                    "vary",
-                )
-            ]
-            if (all(item["uniform_safe"] for item in self._conflicts)
-                    and not getattr(prepared, "uniform_plan_error", None)):
-                options.append(ReviewChoice(
-                    "Conserver la même valeur pour chaque type de groupe",
-                    "uniform",
-                ))
-            self.GroupModeCombo.ItemsSource = options
-            self.GroupModeCombo.SelectedIndex = -1
-            self.GroupHint.Text = (
-                "{} type(s) de groupe en conflit : choisissez une méthode.".format(
-                    len(self._conflicts)
-                )
+                "\nLes groupes ne peuvent pas etre uniformises sans risque : "
+                "les surfaces seront ecrites individuellement et le parametre "
+                "autorisera durablement des valeurs differentes entre groupes."
             )
 
     def GroupMode_Changed(self, sender, args):
@@ -177,19 +157,10 @@ class CalculationReviewWindow(forms.WPFWindow):
         group_mode = getattr(prepared, "group_mode", "restore")
         selected_values = {}
         if self._conflicts:
-            if self._requested_group_mode == "auto":
-                group_mode = getattr(self.GroupModeCombo.SelectedItem, "value", None)
-                if group_mode not in ("vary", "uniform"):
-                    self.ErrorText.Text = "Choisissez la gestion des groupes."
-                    return
-            elif self._requested_group_mode == "uniform":
-                group_mode = "uniform"
-                if not getattr(self, "_uniform_allowed", False):
-                    self.ErrorText.Text = "Uniformisation impossible pour ce type de groupe."
-                    return
-            elif self._requested_group_mode == "vary":
+            if self._requested_group_mode == "vary":
                 group_mode = "vary"
-            if group_mode == "uniform":
+            elif self._automatic_uniform:
+                group_mode = "uniform"
                 for conflict in self._conflicts:
                     combo = self._uniform_combos.get(conflict["type_key"])
                     choice = getattr(combo, "SelectedItem", None)
@@ -199,21 +170,22 @@ class CalculationReviewWindow(forms.WPFWindow):
                         )
                         return
                     selected_values[conflict["type_key"]] = choice.value
-
+            else:
+                # Les types incompatibles sont traites sans uniformisation.
+                group_mode = "vary"
         if group_mode == "uniform" and self.uniform_guidance is not None:
             try:
-                guidance = self.uniform_guidance(prepared, selected_values)
+                notice = self.uniform_guidance(prepared, selected_values)
             except Exception as error:
                 self.ErrorText.Text = (
-                    "Verification de l'alignement impossible : {}."
+                    "Verification du changement de parametre impossible : {}."
                     .format(error)
                 )
                 return
-            if guidance:
-                self.ErrorText.Text = guidance
-                # Conserver la fenêtre : pas de transaction tant que l'edition
-                # du groupe n'a pas ete faite dans l'interface Revit.
-                return
+            if notice:
+                # Le notice n'est plus bloquant : la gestion des groupes est
+                # automatique et l'utilisateur en a ete informe dans l'accueil.
+                self.WarningText.Text = notice
 
         # Les décisions sont posées ensemble, au dernier clic seulement.
         prepared.group_mode = group_mode
