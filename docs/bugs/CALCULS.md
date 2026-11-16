@@ -180,3 +180,15 @@ métadonnées Revit qu'une seule fois.
 **Règle préventive :** ne pas assimiler l'écriture en mode temporairement variable à l'édition de la valeur de référence du type de groupe. Ne pas présenter une intervention manuelle comme une automatisation du mode uniforme. N'ajouter ni `UngroupMembers` ni régénération supplémentaire comme substitut à une édition de groupe.
 
 **Anti-régression :** test d'une nouvelle référence qui bloque **avant** toute transaction et vérifie le guide, test d'une référence déjà compatible et du chemin historique, vérification du raccordement de la fenêtre WPF, suite Calculs et Export. Validation dans Revit 2025.4 encore attendue.
+
+### BUG-CALCULS-015 — Sélecteur de groupes inutile et blocage d'une nouvelle valeur commune
+
+**Symptôme :** la fenêtre principale proposait trois modes de groupes, puis le parcours uniforme nécessitait une édition manuelle du groupe. L'utilisateur demande une gestion automatique avec explication visible de la modification du réglage du paramètre plutôt qu'un sélecteur.
+
+**Cause :** l'alignement `VariesAcrossGroups=False` par Revit peut remplacer la valeur commune nouvellement calculée. L'assistance précédente interdisait l'écriture alors que l'utilisateur accepte le changement durable de réglage du paramètre cible.
+
+**Correction implémentée en branche PR #59 :** retirer le `GroupModeCombo` de la fenêtre principale ; afficher une phrase informative `GroupPolicyText`. Le mode automatique conserve un choix de valeur commune par type uniquement si sûr. Si cette référence n'est pas déjà compatible avec l'alignement existant, l'outil écrit les valeurs communes mais **laisse `VariesAcrossGroups=True` durablement**, avec avertissement dans la fenêtre et dans le rapport. Les groupes non uniformisables passent par les écritures individuelles. Le mode de valeurs différentes déjà validé n'est pas modifié au niveau du moteur.
+
+**Règle préventive :** ne pas qualifier un paramètre de « suit les groupes » après le repli : l'égalité des valeurs écrites est un instantané, pas une contrainte Revit permanente. Toujours informer explicitement de la modification globale de la définition. Pas de dégroupage ni réactivation de `False` si cela écraserait la valeur choisie.
+
+**Tests :** contrat XAML fenêtre principale, choix auto + référence par type dans la revue unique, repli explicite et durabilité du réglage, cas historique encore aligné. CI Calculs et Export, recette Revit sur copie avant fusion.
