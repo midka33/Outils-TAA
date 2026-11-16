@@ -168,3 +168,15 @@ métadonnées Revit qu'une seule fois.
 **Résultat final de la dernière recette :** type 5629042, élément 5630105, valeur voulue 380.286410009 et valeur imposée 324.979623715 ; valeur AVANT restauration = 380.286410009, donc seule la phase `SetAllowVaryBetweenGroups(False)` provoque le remplacement. Rollback des 36 écritures correct.
 
 **Prochaine conception :** dissocier « garder l'alignement existant » de « définir une nouvelle valeur commune ». Préférer pour le second un parcours assisté d'édition du groupe ou une proposition d'opération avancée séparée, explicitement approuvée. Préserver le mode valeurs différentes déjà validé.
+
+### BUG-CALCULS-014 — Choix d'une nouvelle valeur commune incompatible avec la valeur de référence Revit
+
+**Symptôme :** l'utilisateur choisit 35,330 m² pour le type 5629042, mais `SetAllowVaryBetweenGroups(False)` rétablit une valeur différente : élément 5630105 attendu 380.286410009 et obtenu 324.979623715 en unités internes. Le rollback protège le projet ; les tentatives d'écritures de membres homologues et `Document.Regenerate()` ne suffisent pas.
+
+**Cause confirmée du mécanisme :** Revit réutilise la valeur du membre de la première occurrence lorsqu'on désactive la variabilité du paramètre entre occurrences. Cette règle est documentée dans l'aide Autodesk relative aux paramètres de projet. L'identité de cette occurrence de référence dans le RVT doit encore être vérifiée.
+
+**Correction proposée et implémentée dans PR #59 (non fusionnée) :** contrôle **en lecture seule avant écriture** des valeurs actuelles du paramètre cible sur les membres des types où un conflit de surfaces est détecté. Si une nouvelle référence est demandée, la revue unique WPF affiche nom/ID du type, valeur cible, valeur actuelle et exemple d'ID pièce/groupe ; elle demande d'utiliser « Modifier le groupe » dans Revit, sans transaction. Même règle imposée par le moteur pour éviter un contournement de l'interface. Si les références existent déjà, le comportement historique validé le 6 octobre reste disponible, avec rollback si Revit impose tout de même un changement non prévu. Aucune modification du mode « valeurs différentes » (validé Revit).
+
+**Règle préventive :** ne pas assimiler l'écriture en mode temporairement variable à l'édition de la valeur de référence du type de groupe. Ne pas présenter une intervention manuelle comme une automatisation du mode uniforme. N'ajouter ni `UngroupMembers` ni régénération supplémentaire comme substitut à une édition de groupe.
+
+**Anti-régression :** test d'une nouvelle référence qui bloque **avant** toute transaction et vérifie le guide, test d'une référence déjà compatible et du chemin historique, vérification du raccordement de la fenêtre WPF, suite Calculs et Export. Validation dans Revit 2025.4 encore attendue.
