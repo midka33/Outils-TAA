@@ -194,6 +194,33 @@ class GroupConflictDecisionTests(unittest.TestCase):
         ])
         self.assertEqual([], shared_apartments_across_variants(result))
 
+    def test_multi_variant_confirmation_labels_identify_reference(self):
+        from calculation_diagnostics import shared_apartments_across_variants
+        from calculation.models import RoomCalculationItem
+        from calculation.room_calculator import RoomCalculator
+        key = ("TAA-VARIANTE-SECONDAIRE", "17", "B200")
+        result = RoomCalculator().calculate([
+            RoomCalculationItem("reference", "B200", 35.33),
+            RoomCalculationItem("alternative", key, 35.33),
+        ])
+        overlaps = shared_apartments_across_variants(result)
+        self.assertEqual(1, len(overlaps))
+        labels = [item["label"] for item in overlaps[0]["scenarios"]]
+        self.assertTrue(any("scénario de référence" in value for value in labels))
+        self.assertEqual(2, len(labels))
+
+    def test_dialog_does_not_shrink_below_action_footer(self):
+        import os
+        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        path = os.path.join(
+            root, "OutilsTAA.extension", "OutilsTAA.tab",
+            "Calculs.panel", "ui", "calculation_decision_window.py"
+        )
+        with open(path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("self.Height = 440", source)
+        self.assertNotIn("self.Height = 320", source)
+
     def test_empty_group_still_skipped_in_secondary_option(self):
         from calculation_diagnostics import variant_group_key
         class Option(object):
