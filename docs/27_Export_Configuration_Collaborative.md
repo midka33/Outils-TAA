@@ -522,3 +522,23 @@ La couverture automatise notamment :
 Ces tests ne remplacent pas la validation réelle du verrou SMB/.NET et des appels
 Revit. La recette manuelle restante est documentée dans
 `docs/28_Export_Recette_Collaborative_Revit.md`.
+
+## 10. Synchronisation avec la version stable d'Export et encodages historiques
+
+**Synchronisation (16 novembre 2026) :** la branche collaborative inclut désormais
+les commits de `main` jusqu'à `66b2e7b36d4056b74890d629aeb1ff644a5b8ca1`.
+Le rapprochement a conservé les évolutions récentes de l'interface et du moteur
+Export, en même temps que le stockage collaboratif. Il ne constitue **pas** une
+validation de la recette Revit multi-postes.
+
+**Migration des anciens JSON locaux :** le stockage local historique utilisait
+parfois le codage Windows CP1252 (notamment `é` comme octet `E9`).
+L'import lit d'abord en UTF-8 avec prise en charge du BOM ; si et seulement si
+le décodage échoue, il relit les octets en CP1252. Le JSON est ensuite vérifié,
+puis normalisé en mémoire sans réécriture du fichier local.
+
+Un JSON réellement invalide ou associé à une identité de projet étrangère
+reste refusé, et la configuration serveur existante conserve toujours la priorité.
+Cette correction est couverte par `tests/test_export_local_config_migration.py`,
+mais son résultat dans IronPython/Revit reste à confirmer par l'utilisateur.
+Voir `BUG-EXPORT-065`.
