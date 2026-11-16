@@ -282,3 +282,13 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Validation automatisée :** GitHub Actions `tests/calculation` **90 tests réussis** sur commit `91dc988e02acd84c619405aafa88e57045fbfd81` (run 43890452365) ; suite Export également réussie (run 43890452374). Le registre `BUG-CALCULS-007` et `docs/10_Calculs_Pieces.md` sont à jour. Un commit documentaire complémentaire suit les tests.
 
 **Validation Revit 2025.4 :** **en attente**, malgré le retour initial démontrant que la version antérieure était chargée. Test requis sur copie RVT : deux appartements `B200` distincts dans deux variantes, vérifier deux sommes distinctes et écritures correspondantes ; confirmer l'affichage et l'annulation des dialogues WPF TAA ; contrôler modèle principal, variante principale et variantes secondaires, puis groupes alignés.
+
+## Calculs des pièces — confirmation des variantes séparées (16 novembre 2026)
+
+**Décision :** lorsque le même numéro d'appartement apparaît dans plusieurs scénarios de variantes, conserver les surfaces indépendantes et afficher **une confirmation WPF TAA** avant toute écriture ; ne pas proposer d'addition des variantes dans ce parcours. Aucune demande si un seul scénario est concerné.
+
+**Implémentation (PR #56, branche `fix/calculs-group-conflicts-design-options`, non fusionnée) :** diagnostic des clés de regroupement présentes dans plusieurs scénarios dans `services/calculation_diagnostics.py` ; propriété `shared_variant_apartments` et verrou `variant_separation_confirmed` dans `room_calculation_workflow.py` ; dialogue WPF TAA de confirmation dans `ui/calculs_window.py` utilisant `calculation_decision_window.py`. Annuler bloque la commande avant transaction. Les totaux séparés existants ne sont pas modifiés. Documentation `docs/10_Calculs_Pieces.md` et BUG-CALCULS-007 mis à jour.
+
+**Tests CI :** GitHub Actions `Calculs des pièces — tests hors Revit`, run `43891349277` : **92 passed** au commit `01b9760540951190e80e10b781a40f6aaf42fa50` ; ce run inclut les nouveaux tests, les commits documentaires ultérieurs ne modifient pas le code. Vérifier le statut CI au SHA final avant validation.
+
+**Recette Revit 2025.4 / pyRevit 5.x :** non exécutée pour cette modification. Vérifier une paire B200 dans deux variantes, affichage des deux totaux, annulation, confirmation puis écriture conservant les deux surfaces différentes, ainsi qu'un cas sans doublon de scénario. La PR reste en brouillon.
