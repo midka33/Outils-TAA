@@ -204,7 +204,8 @@ class RoomCalculationWorkflow(object):
                 )
         return prepared
 
-    def uniform_manual_guidance(self, prepared, selected_values):
+    def uniform_manual_guidance(self, prepared, selected_values,
+                                format_value=None):
         """Detecte les valeurs de reference a modifier dans l'editeur Revit.
 
         Ne modifie rien. Si les occurrences du meme type sont en conflit
@@ -247,11 +248,18 @@ class RoomCalculationWorkflow(object):
             if not samples:
                 continue
             room_id, group_id, current = samples[0]
+            if (format_value is not None
+                    and target.storage_type == "Double"):
+                requested_label = format_value(desired, prepared.request)
+                current_label = format_value(current, prepared.request)
+            else:
+                requested_label = str(proposed)
+                current_label = str(current)
             lines.append(
                 "- Type de groupe '{}' (ID {}) : valeur cible {}, "
                 "valeur existante {} sur piece ID {}, groupe ID {}."
-                .format(conflict["name"], type_key, proposed,
-                        current, room_id, group_id)
+                .format(conflict["name"], type_key, requested_label,
+                        current_label, room_id, group_id)
             )
         if not lines:
             return ""
