@@ -323,3 +323,29 @@ def test_unfreeze_when_no_current_matching_sheet_can_reappear(tmp_path):
     _, later = resolve_dynamic(repo.get(parent.id),
                                [sheet, _FakeSheet("B101", "B")])
     assert [item.name for item in later] == ["A", "B"]
+
+
+def test_controller_rejects_unfreeze_when_revit_parameters_disappear(tmp_path):
+    from carnet_controller import CarnetController
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    sheet = _FakeSheet("A101", "A")
+    group = resolve_dynamic(parent, [sheet])[1][0]
+    repo.freeze_dynamic_group(parent.id, group)
+
+    class Export(object):
+        def get_sheets(self):
+            return [sheet]
+
+    controller = CarnetController(Export(), None, None, repository=repo)
+    current_group = repo.get(group.id)
+    del sheet.params["Phase"]
+    try:
+        controller.unfreeze_dynamic_group(current_group)
+    except ValueError as exc:
+        assert "Paramètre introuvable" in str(exc)
+    else:
+        raise AssertionError("Paramètre manquant : le gel doit être conservé")
+    assert repo.get(group.id) is not None
+    assert group.id in repo.get(parent.id).source.frozen_group_ids
