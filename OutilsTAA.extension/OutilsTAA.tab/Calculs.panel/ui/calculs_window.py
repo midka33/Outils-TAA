@@ -28,10 +28,6 @@ class CalculsWindow(forms.WPFWindow):
         self._source_choices = []
         self._target_choices = []
         self._filter_choices = []
-        self._scope_choices = [
-            ParameterChoice("Variantes principales (tout le projet)", "primary"),
-            ParameterChoice("Pièces visibles dans la vue active", "view"),
-        ]
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "calculs_ui.xaml")
@@ -80,8 +76,6 @@ class CalculsWindow(forms.WPFWindow):
         self.SourceParameterCombo.ItemsSource = self._source_choices
         self.TargetParameterCombo.ItemsSource = self._target_choices
         self.FilterParameterCombo.ItemsSource = self._filter_choices
-        self.VariantScopeCombo.ItemsSource = self._scope_choices
-        self.VariantScopeCombo.SelectedIndex = 0
 
         if self._filter_choices:
             self.FilterParameterCombo.SelectedIndex = 0
@@ -222,7 +216,6 @@ class CalculsWindow(forms.WPFWindow):
             filter_parameter=filter_parameter,
             filter_value=filter_value,
             output_unit_type_id=self._selected_unit_type_id(),
-            variant_scope=self.VariantScopeCombo.SelectedItem.descriptor,
         )
 
     def Calculate_Click(self, sender, args):
