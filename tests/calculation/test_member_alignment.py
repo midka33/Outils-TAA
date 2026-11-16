@@ -196,6 +196,44 @@ class UniformMemberTests(unittest.TestCase):
         )
         self.assertEqual([], transactions)
 
+    def test_uniform_regenerates_before_realigning_the_definition(self):
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        document = workflow.document
+        calls = []
+        document.Regenerate = lambda: calls.append("regenerate")
+        original = definition.SetAllowVaryBetweenGroups
+
+        def track_alignment(doc, enabled):
+            calls.append("vary" if enabled else "restore")
+            return original(doc, enabled)
+
+        definition.SetAllowVaryBetweenGroups = track_alignment
+        report = workflow.execute(workflow.prepare(request))
+        self.assertTrue(report.is_success)
+        self.assertEqual(["vary", "regenerate", "restore"], calls)
+
+    def test_regeneration_can_publish_all_writes_before_revit_realignment(self):
+        # Double modelisant le cache des groupes Revit. Ce scenario est
+        # une hypothese d'integration, pas une preuve du comportement Revit.
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        document = workflow.document
+        document.regenerated = False
+        document.Regenerate = lambda: setattr(document, "regenerated", True)
+        original = definition.SetAllowVaryBetweenGroups
+
+        def cached_group_alignment(doc, enabled):
+            changed = original(doc, enabled)
+            if not enabled and not doc.regenerated:
+                targets[1].value = 324.979623715
+                return [FakeElementId("r2")]
+            return changed
+
+        definition.SetAllowVaryBetweenGroups = cached_group_alignment
+        report = workflow.execute(workflow.prepare(request))
+        self.assertTrue(report.is_success)
+        self.assertTrue(document.regenerated)
+        self.assertEqual(12.0, targets[1].value)
+
     def test_rollback_report_does_not_repeat_one_error_per_room(self):
         report_path = os.path.join(
             PANEL, "ui", "calculation_report_window.py"
