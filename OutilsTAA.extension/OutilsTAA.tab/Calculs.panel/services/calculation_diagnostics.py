@@ -125,6 +125,8 @@ def design_option_summary(document, rooms):
             counts[option_id] = counts.get(option_id, 0) + 1
 
     result = ["Variantes de conception detectees dans le projet :"]
+    primary_names = [getattr(option, "Name", "(sans nom)")
+                     for option in options if bool(getattr(option, "IsPrimary", False))]
     for option in sorted(options, key=lambda value: getattr(value, "Name", "")):
         option_id = element_id_value(option.Id)
         count = counts.get(option_id, 0)
@@ -132,6 +134,13 @@ def design_option_summary(document, rooms):
         result.append("- {} ({}) : {} piece(s) incluse(s)".format(
             getattr(option, "Name", "(sans nom)"), state, count))
     result.append("- Modele principal : {} piece(s) incluse(s).".format(main_count))
+    if main_count and primary_names:
+        result.append(
+            "Pour les pieces du modele principal, les limites peuvent dependre "
+            "des variantes principales suivantes : {}.".format(
+                ", ".join(sorted(primary_names))
+            )
+        )
     if unknown_count:
         result.append("- Attribution de variante non lisible : {} piece(s).".format(unknown_count))
     result.append(
