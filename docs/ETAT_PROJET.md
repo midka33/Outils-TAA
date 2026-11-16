@@ -300,3 +300,13 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Correction de branche PR #56 (non fusionnée) :** hauteur de la confirmation 440 unités WPF, zone de texte défilable, pied d'actions préservé, noms des variantes affichés sans « variante Variante 1 », scénario principal explicitement étiqueté « scénario de référence ». Aucune modification des totaux ni du comportement de confirmation/annulation. Tests statiques/diagnostics ajoutés dans `tests/calculation/test_group_decisions.py`.
 
 **Tests :** dernière CI verte connue sur `c3ead4a` (92 tests Calculs). Les tests de la correction UI ne sont pas encore confirmés sur le dernier SHA de cette branche. **Recette Revit : en attente** ; vérifier les deux boutons visibles et opérationnels, absence de troncature, confirmation et annulation sans écriture.
+
+## Calculs des pièces — redimensionnement fenêtre de décision (16 novembre 2026)
+
+**Retour réel utilisateur Revit 2025.4 :** confirmation des variantes B200 réussie visuellement avec boutons présents ; dans la confirmation générale, l'agrandissement de la fenêtre n'étendait pas le panneau blanc de récapitulatif et laissait un grand espace gris vide.
+
+**Cause :** `calculation_decision.xaml` attribuait `Height=Auto` à la ligne des détails et `Height=*` à la ligne des choix (masquée dans une confirmation), tandis que le `ScrollViewer` des détails avait `MaxHeight=170`. La hauteur supplémentaire était attribuée à la mauvaise ligne.
+
+**Correction implémentée sur PR #56 en brouillon :** ligne des détails `*` et suppression de `MaxHeight=170`, ligne des choix `Auto` avec panneau limité à 180 unités WPF, pied de boutons séparé. Calculs, scénarios de variantes, valeurs et transactions inchangés. Test statique de contrat XAML ajouté dans `tests/calculation/test_group_decisions.py`.
+
+**Tests et recette :** tests automatisés CI à vérifier sur le commit de correction ; contrôle d'affichage à refaire dans Revit 2025.4, en redimensionnant les confirmations avec et sans choix tout en gardant Annuler / Confirmer visibles. **Ne pas considérer validé avant retour utilisateur.**
