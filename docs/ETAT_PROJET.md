@@ -397,3 +397,13 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Modifications supplémentaires sur la PR #59 en brouillon, main inchangé :** pré-contrôle des valeurs par position des membres homologues avant transaction ; diagnostic explicite d'écrasement et du type de groupe ; tentative encadrée de `Document.Regenerate()` après écriture et avant `SetAllowVaryBetweenGroups(False)` afin de ne pas utiliser une représentation Revit non régénérée. Simulations automatisées ajoutées, mais **validation Revit toujours obligatoire** et aucune promesse que le mode uniforme fonctionne. L'option valeurs différentes reste inchangée.
 
 **Prochain essai précis :** sur copie du même RVT, branche `fix/calculs-uniform-revit-groups-v2` actualisée, répéter le mode uniforme ; si l'ID 5630105 est encore remplacé, conserver le rapport et analyser la valeur de référence du membre dans l'éditeur de groupe Revit. Une édition de groupe automatisée non disponible dans l'API ne doit pas être simulée par une reconstruction destructive.
+
+## Revit PR #59 — régénération insuffisante, diagnostic en deux phases (16/11/2026)
+
+**Captures de recette :** fenêtre de validation avec **36 pièces, 9 totaux**, appartement présent dans plusieurs variantes avec séparation conservée. Sélection « Groupe 1 — 35.330 m² » (type ID `5629042`) et « Groupe 2 — 16.047 m² » (type ID `5629531`). Rapport : **0 succès, 36 annulations**, élément `5630105` forcé à `324.979623715` au lieu de `380.286410009`. La tentative `Document.Regenerate()` avant restauration échoue toujours sur cette maquette.
+
+**État réel :** mode « valeurs différentes » validé précédemment ; mode « valeur commune » **toujours non fonctionnel sur cette maquette**. Ne pas fusionner PR #59 et ne pas qualifier la régénération de correctif validé.
+
+**Correctif diagnostique supplémentaire sur la même branche :** capture de toutes les valeurs cibles après écriture/régénération et avant restauration, vérification immédiate ; comparaison post-restauration et message avec nom/ID de type obtenu par API ou par les conflits préparés. Tests automatisés de non-régression ajoutés. Aucune modification du comportement validé du mode valeurs différentes et maintien du rollback intégral.
+
+**Prochaine étape Revit précise :** récupérer le dernier commit de la branche et répéter l'uniformisation sur une copie du RVT, puis relever **la valeur avant restauration**, **la valeur après restauration**, le type de groupe et l'élément. Si elles sont différentes uniquement après `False`, analyser la valeur de référence de ce membre dans l'éditeur de groupe et concevoir une stratégie distincte, plutôt que de boucler sur le même appel.
