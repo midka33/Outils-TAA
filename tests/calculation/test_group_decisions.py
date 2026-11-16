@@ -101,6 +101,53 @@ class GroupConflictDecisionTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.workflow.execute(self.prepared)
 
+    def test_same_apartment_number_is_independent_in_two_design_options(self):
+        from calculation_diagnostics import variant_group_key
+        class Option(object):
+            def __init__(self, oid, primary):
+                self.Id = FakeElementId(oid)
+                self.IsPrimary = primary
+
+        class Room(object):
+            def __init__(self, option):
+                self.DesignOption = option
+
+        primary = Room(Option(101, True))
+        secondary_a = Room(Option(102, False))
+        secondary_b = Room(Option(103, False))
+        main_model = Room(None)
+
+        self.assertEqual("B200", variant_group_key(primary, "B200"))
+        self.assertEqual("B200", variant_group_key(main_model, "B200"))
+        a_key = variant_group_key(secondary_a, "B200")
+        b_key = variant_group_key(secondary_b, "B200")
+        self.assertNotEqual("B200", a_key)
+        self.assertNotEqual("B200", b_key)
+        self.assertNotEqual(a_key, b_key)
+
+        from calculation.room_calculator import RoomCalculator
+        from calculation.models import RoomCalculationItem
+        result = RoomCalculator().calculate([
+            RoomCalculationItem("r0", variant_group_key(primary, "B200"), 20.0),
+            RoomCalculationItem("r1", variant_group_key(secondary_a, "B200"), 30.0),
+            RoomCalculationItem("r2", variant_group_key(secondary_b, "B200"), 40.0),
+            RoomCalculationItem("r3", variant_group_key(main_model, "B200"), 5.0),
+        ])
+        self.assertEqual(3, result.group_count)
+        self.assertEqual(25.0, result.get_total("B200"))
+        self.assertEqual(30.0, result.get_total(a_key))
+        self.assertEqual(40.0, result.get_total(b_key))
+
+    def test_empty_group_still_skipped_in_secondary_option(self):
+        from calculation_diagnostics import variant_group_key
+        class Option(object):
+            Id = FakeElementId(102)
+            IsPrimary = False
+        class Room(object):
+            DesignOption = Option()
+        self.assertEqual("", variant_group_key(Room(), ""))
+        self.assertIsNone(variant_group_key(Room(), None))
+
     def test_variant_summary_counts_main_primary_and_secondary_rooms(self):
         import types
         class FakeOption(object):
