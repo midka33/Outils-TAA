@@ -23,7 +23,16 @@ def test_automatic_folder_creation_is_accessible_and_has_options():
     assert "def DynamicParameter_Changed(self, sender, args):" in code
     assert "def DynamicGroup_Changed(self, sender, args):" in code
     assert "create_dynamic_persistent(" in code
-    assert "manager.ModeDynamic.IsChecked = True" in bridge
+    assert 'dynamic_only=(' in bridge
+    assert 'getattr(sender, "Name", None) == "CreateDynamicFolderButton"' in bridge
+    assert 'self.CreationModePanel.Visibility = Visibility.Collapsed' in code
+    assert 'self._dynamic_only or self.ModeDynamic.IsChecked' in code
+    assert 'DynamicPreviewGroups' in dialog
+    assert 'DynamicPreviewSummary' in dialog
+    assert 'SelectionChanged="DynamicValue_Changed"' in dialog
+    assert 'SelectionChanged="DynamicGroup_Changed"' in dialog
+    assert "def _refresh_dynamic_preview(self):" in code
+    assert "self.controller.preview_dynamic(" in code
 
 
 def test_dynamic_conversion_is_explicit_and_readonly_refresh():
@@ -75,3 +84,14 @@ def test_dynamic_xaml_has_only_ui_elements_and_button_in_explorer():
     assert buttons["CreateDynamicFolderButton"].get("Grid.Column") == "1"
     assert all(e.get("{%s}Name" % ns["x"]) != "CreateDynamicFolderButton"
                for e in root.iter() if e not in list(explorer.iter()))
+
+
+def test_automatic_folders_use_distinct_icon():
+    theme = (BASE.parents[2] / "resources" / "ui" / "Theme.xaml").read_text(
+        encoding="utf-8")
+    ui = read("export_window.py")
+    assert 'x:Key="TaaAutoFolderIcon"' in theme
+    assert 'x:Key="TaaAutoFolderBrush"' in theme
+    assert 'icon.Stroke = self.FindResource(brush_key)' in ui
+    assert '"TaaAutoFolderIcon" if (is_dynamic or is_virtual)' in ui
+    assert '"TaaFolderIcon"' in ui
