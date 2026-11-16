@@ -75,8 +75,30 @@ class CalculationReviewWindow(forms.WPFWindow):
                 self.WarningText.ToolTip = "\n".join(other_warnings)
         self.ErrorText.Text = ""
 
+        self._requested_group_mode = getattr(request, "group_mode", "auto")
+        self.UniformChoices.Visibility = Visibility.Collapsed
         if not self._conflicts:
             self.GroupSection.Visibility = Visibility.Collapsed
+        elif self._requested_group_mode == "vary":
+            # Le choix utilisateur a déjà été fait dans la fenêtre principale.
+            self.GroupSection.Visibility = Visibility.Collapsed
+            self.WarningText.Text += (
+                "\nLe paramètre autorisera durablement des valeurs différentes."
+            )
+        elif self._requested_group_mode == "uniform":
+            if not all(item["uniform_safe"] for item in self._conflicts):
+                self.GroupHint.Text = (
+                    "Impossible de choisir une valeur commune : un groupe "
+                    "contient plusieurs appartements distincts."
+                )
+                self._uniform_allowed = False
+            else:
+                self._uniform_allowed = True
+                self.GroupHint.Text = (
+                    "Choisissez une valeur commune pour chaque type de groupe."
+                )
+                self._build_uniform_choices()
+            self.GroupModeCombo.Visibility = Visibility.Collapsed
         else:
             options = [
                 ReviewChoice(
@@ -90,13 +112,12 @@ class CalculationReviewWindow(forms.WPFWindow):
                     "uniform",
                 ))
             self.GroupModeCombo.ItemsSource = options
-            # Aucun choix silencieux sur la définition du paramètre.
             self.GroupModeCombo.SelectedIndex = -1
             self.GroupHint.Text = (
-                "{} type(s) de groupe en conflit : choisissez comment "
-                "écrire les valeurs.".format(len(self._conflicts))
+                "{} type(s) de groupe en conflit : choisissez une méthode.".format(
+                    len(self._conflicts)
+                )
             )
-            self.UniformChoices.Visibility = Visibility.Collapsed
 
     def GroupMode_Changed(self, sender, args):
         if not hasattr(self, "_conflicts"):
@@ -107,6 +128,12 @@ class CalculationReviewWindow(forms.WPFWindow):
             else Visibility.Collapsed
         )
         if selected != "uniform" or self._uniform_combos:
+            return
+        self._build_uniform_choices()
+
+    def _build_uniform_choices(self):
+        self.UniformChoices.Visibility = Visibility.Visible
+        if self._uniform_combos:
             return
         for conflict in self._conflicts:
             title = TextBlock()
@@ -137,13 +164,21 @@ class CalculationReviewWindow(forms.WPFWindow):
     def Confirm_Click(self, sender, args):
         prepared = self.prepared
         mode = getattr(prepared.request, "variant_mode", "separate")
-        group_mode = "restore"
+        group_mode = getattr(prepared, "group_mode", "restore")
         selected_values = {}
         if self._conflicts:
-            group_mode = getattr(self.GroupModeCombo.SelectedItem, "value", None)
-            if group_mode not in ("vary", "uniform"):
-                self.ErrorText.Text = "Choisissez la gestion des groupes."
-                return
+            if self._requested_group_mode == "auto":
+                group_mode = getattr(self.GroupModeCombo.SelectedItem, "value", None)
+                if group_mode not in ("vary", "uniform"):
+                    self.ErrorText.Text = "Choisissez la gestion des groupes."
+                    return
+            elif self._requested_group_mode == "uniform":
+                group_mode = "uniform"
+                if not getattr(self, "_uniform_allowed", False):
+                    self.ErrorText.Text = "Uniformisation impossible pour ce type de groupe."
+                    return
+            elif self._requested_group_mode == "vary":
+                group_mode = "vary"
             if group_mode == "uniform":
                 for conflict in self._conflicts:
                     combo = self._uniform_combos.get(conflict["type_key"])
