@@ -257,3 +257,25 @@ Les copies locales du **même** central pointent toujours vers le même JSON.
 
 **Attention :** ne pas supprimer l'ancien `OutilsTAA/export.json`. Les
 liens Revit n'impliquent aucun partage des organisations Export.
+
+
+## 15. COLLAB-12 — Importer un JSON existant comme base du premier projet
+
+1. Sur un **nouveau central de test**, sans `export.json` dédié,
+   ouvrir Export. Le bouton **Importer une configuration…** doit apparaître
+   à côté d'Actualiser.
+2. Sélectionner un ancien `export.json` portant une identité de central
+   différente (copie de sauvegarde ou ancien emplacement).
+3. Lire l'aperçu : nombre de dossiers, dossiers de publication, feuilles
+   contenues dans le JSON et feuilles encore présentes dans la maquette.
+4. Annuler une première fois : aucun JSON cible ne doit être créé.
+5. Rejouer et confirmer : arborescence et réglages copiés, seules les feuilles
+   reconnues par `UniqueId` sont présentes. Le nouveau JSON cible porte
+   l'identité du central courant et la révision 1.
+6. Rouvrir Export : les dossiers et les réglages persistent ; le bouton
+   Importer n'est plus visible. Le JSON source reste strictement inchangé.
+7. Tester le refus d'un JSON malformé et, sur deux postes, la création
+   concurrente du JSON cible : le deuxième import doit être refusé.
+
+**Interdit :** exécuter cet essai sur une configuration de production déjà
+existante. Pas de suppression du JSON historique pour déclencher le test.
