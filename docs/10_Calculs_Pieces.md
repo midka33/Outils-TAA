@@ -240,20 +240,24 @@ Si une divergence est identifiée, la transaction n'est pas ouverte sans choix e
 
 Le réglage de la définition de paramètre est **global au projet**, pas limité à une variante ou à un groupe. Un changement « autoriser les valeurs différentes » peut donc concerner d'autres occurrences de cette définition dans le modèle.
 
-### 7.3.2 Visibilité des variantes de conception — correctif sur branche dédiée
+### 7.3.2 Calcul indépendant des variantes de conception — correctif sur branche dédiée
 
-Le module **conserve le périmètre « toutes les pièces du projet »** et ne filtre pas selon la vue ni selon les variantes. Lorsqu'un jeu de variantes existe, le récapitulatif avant confirmation indique :
+**Décision utilisateur du 16 novembre 2026 :** deux appartements portant la même clé métier (`B200`, par exemple) mais présents dans deux variantes différentes ne doivent **jamais** être additionnés ensemble. Le filtre métier optionnel existant reste inchangé. Le module collecte toujours les pièces de tout le projet, indépendamment de la vue Revit active.
 
-- les variantes détectées et leur statut principale/secondaire ;
-- le nombre de pièces collectées dans chaque variante après application du filtre métier ;
-- le nombre de pièces du modèle principal ;
-- les attributions de variantes non identifiables par l'API, le cas échéant.
+**Clé d'agrégation :**
+- **Scénario de référence :** les pièces du modèle principal et les pièces des variantes principales sont regroupées par leur seule clé métier historique, lorsque celle-ci est identique. Une variante principale par jeu contribue au scénario de référence.
+- **Scénario de variante secondaire :** chaque variante secondaire dispose de son propre espace de regroupement, identifié par l'ID de la variante + la clé métier. Deux appartements `B200` dans deux variantes secondaires différentes produisent deux sommes distinctes, tout comme un `B200` de variante secondaire et un `B200` du scénario de référence.
+- La somme est calculée sur les valeurs déjà calculées par Revit pour chacune de ses pièces. Aucune pièce ne participe à deux écritures, aucun filtrage implicite selon la vue, aucun nouveau calcul géométrique de limites de pièces.
+- Les pièces sans clé métier continuent d'être ignorées.
+- Le rapport et la confirmation détaillent les variantes présentes et les pièces retenues, avec rappel de la séparation des variantes secondaires.
 
-Le module additionne les **valeurs de pièce déjà calculées par Revit**. Il ne simule pas indépendamment une géométrie de variante et ne choisit pas une variante différente dans le document. Les limites de pièces du modèle principal peuvent dépendre des variantes principales ; les pièces des variantes secondaires dépendent de leur contexte propre. Le décompte permet de constater si plusieurs variantes contribuent au calcul, y compris lorsque les paramètres de regroupement sont identiques. Les variantes sans pièce collectée sont également signalées avec un compteur à zéro.
+**Exemple :** `B200` du scénario de référence = 70 m² ; `B200` de « Variante 1 » = 65 m² ; `B200` de « Variante 2 » = 72 m². Ce sont trois totaux et non un total à 207 m².
 
-**À valider dans Revit 2025.4 :** `Room.DesignOption`, découverte des `DesignOption` du document, conservation de toutes les pièces, pertinence des totaux par regroupement et absence d'effets de bord lors des deux parcours de paramètre groupé.
+**Interface :** les décisions relatives aux groupes et la confirmation d'écriture utilisent désormais une fenêtre modale WPF TAA (`calculation_decision.xaml`, `calculation_decision_window.py`) avec thème central, libellés lisibles et choix non tronqués. Aucun choix de collecte par vue n'est conservé.
 
-**Anti-régression ajoutée :** `tests/calculation/test_group_decisions.py`. Ces tests doivent être exécutés avec `python -m pytest tests/calculation -q`; une lecture statique du code ne les valide pas.
+**À valider dans Revit 2025.4 :** `Room.DesignOption`, séparation effective des totaux B200 entre variantes, pièce de variante principale, écriture des paramètres de groupes, fermeture/annulation WPF et non-régression sans variante.
+
+**Anti-régression :** `tests/calculation/test_group_decisions.py` comporte les cas B200 dans plusieurs variantes et pièce à groupe vide ; exécuter `python -m pytest tests/calculation -q`. Les tests hors Revit ne remplacent pas cette recette.
 
 ### 7.4 Performance d'ouverture
 
