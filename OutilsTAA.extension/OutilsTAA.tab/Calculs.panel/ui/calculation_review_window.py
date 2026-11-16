@@ -106,7 +106,8 @@ class CalculationReviewWindow(forms.WPFWindow):
                     "vary",
                 )
             ]
-            if all(item["uniform_safe"] for item in self._conflicts):
+            if (all(item["uniform_safe"] for item in self._conflicts)
+                    and not getattr(prepared, "uniform_plan_error", None)):
                 options.append(ReviewChoice(
                     "Conserver la même valeur pour chaque type de groupe",
                     "uniform",
@@ -127,6 +128,13 @@ class CalculationReviewWindow(forms.WPFWindow):
             Visibility.Visible if selected == "uniform"
             else Visibility.Collapsed
         )
+        if selected == "uniform":
+            extra_count = len(getattr(self.prepared, "uniform_extra_members", []))
+            if extra_count:
+                self.GroupHint.Text = (
+                    "{} membre(s) de groupes homologues seront aussi "
+                    "modifiés, y compris hors du filtre.".format(extra_count)
+                )
         if selected != "uniform" or self._uniform_combos:
             return
         self._build_uniform_choices()
