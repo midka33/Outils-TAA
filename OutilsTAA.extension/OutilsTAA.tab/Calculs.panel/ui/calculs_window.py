@@ -35,11 +35,6 @@ class CalculsWindow(forms.WPFWindow):
             ParameterChoice("Surfaces séparées par variante (défaut)", "separate"),
             ParameterChoice("Additionner toutes les surfaces des variantes", "combine"),
         ]
-        self._group_mode_choices = [
-            ParameterChoice("Automatique — conserver les réglages (défaut)", "auto"),
-            ParameterChoice("Autoriser des valeurs différentes entre groupes", "vary"),
-            ParameterChoice("Conserver une valeur commune entre groupes", "uniform"),
-        ]
 
         current_dir = os.path.dirname(__file__)
         xaml_path = os.path.join(current_dir, "calculs_ui.xaml")
@@ -90,8 +85,6 @@ class CalculsWindow(forms.WPFWindow):
         self.FilterParameterCombo.ItemsSource = self._filter_choices
         self.VariantModeCombo.ItemsSource = self._variant_choices
         self.VariantModeCombo.SelectedIndex = 0
-        self.GroupModeCombo.ItemsSource = self._group_mode_choices
-        self.GroupModeCombo.SelectedIndex = 0
 
         if self._filter_choices:
             self.FilterParameterCombo.SelectedIndex = 0
@@ -233,7 +226,7 @@ class CalculsWindow(forms.WPFWindow):
             filter_value=filter_value,
             output_unit_type_id=self._selected_unit_type_id(),
             variant_mode=self.VariantModeCombo.SelectedItem.descriptor,
-            group_mode=self.GroupModeCombo.SelectedItem.descriptor,
+            group_mode="auto",
         )
 
     def Calculate_Click(self, sender, args):
