@@ -161,6 +161,15 @@ class UniformMemberTests(unittest.TestCase):
         self.assertIn("modifie la valeur attendue", report.transaction_error)
         self.assertTrue(transactions[0].rolled_back)
 
+    def test_rollback_report_does_not_repeat_one_error_per_room(self):
+        report_path = os.path.join(
+            PANEL, "ui", "calculation_report_window.py"
+        )
+        with open(report_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("if report.transaction_error:", source)
+        self.assertIn("une seule transaction", source)
+
     def test_no_totals_is_not_confused_with_group_parameter_write_lock(self):
         class Descriptor(object):
             def __init__(self, name):
