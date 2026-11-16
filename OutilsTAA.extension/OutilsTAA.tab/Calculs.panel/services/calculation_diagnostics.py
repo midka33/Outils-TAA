@@ -68,7 +68,7 @@ def variant_group_label(group_key, document=None):
                 option_name = getattr(option, "Name", option_name)
         except (ImportError, AttributeError, ValueError, TypeError):
             pass
-    return "{} — variante {}".format(group_key[2], option_name)
+    return "{} — {}".format(group_key[2], option_name)
 
 
 
@@ -94,7 +94,11 @@ def shared_apartments_across_variants(result, document=None):
         try:
             by_apartment.setdefault(apartment, []).append({
                 "scenario_key": scenario_key,
-                "label": str(variant_group_label(group_key, document)),
+                "label": (
+                    str(group_key) + " — scénario de référence"
+                    if scenario_key[0] == "reference"
+                    else str(variant_group_label(group_key, document))
+                ),
                 "total": value,
             })
         except TypeError:
