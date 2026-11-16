@@ -95,6 +95,36 @@ class CarnetController(object):
                 "Ce sous-dossier n'existe plus dans les feuilles Revit. Actualisez Export.")
         return self.repository.freeze_dynamic_group(parent.id, current)
 
+    def unfreeze_dynamic_group(self, selected_group):
+        """Rend un enfant figé à nouveau dynamique suivant son parent Revit."""
+        from copy import copy
+        from publication_source import PublicationSource
+        from dynamic_sheet_groups import resolve_dynamic
+        if (selected_group is None
+                or not getattr(selected_group, "persistent", False)
+                or getattr(selected_group, "dynamic_virtual", False)):
+            raise ValueError("Sélectionnez un sous-dossier manuel précédemment figé.")
+        group_id = str(getattr(selected_group, "id", "") or "")
+        parent_id = getattr(selected_group, "folder_id", None)
+        parent = self.repository.get(parent_id) if self.repository else None
+        if (not group_id or parent is None or parent.source is None
+                or parent.source.mode != PublicationSource.DYNAMIC
+                or group_id not in parent.source.frozen_group_ids):
+            raise ValueError(
+                "Ce sous-dossier n'est plus figé sous un dossier automatique. "
+                "Actualisez Export.")
+
+        # Vérifie la lisibilité des paramètres Revit avant de remplacer
+        # la copie manuelle ; ce contrôle ne modifie jamais le stockage.
+        candidate = copy(parent)
+        candidate.source = PublicationSource(
+            PublicationSource.DYNAMIC, parent.source.parameter_name,
+            parent.source.parameter_value, parent.source.group_parameter,
+            [uid for uid in parent.source.frozen_group_ids
+             if str(uid) != group_id])
+        resolve_dynamic(candidate, self.export_service.get_sheets())
+        return self.repository.unfreeze_dynamic_group(parent.id, group_id)
+
     def create_manual_persistent(self, name, items, output_directory=None,
                                  filename_template_id=None):
         publication_set = self.carnet_service.create_manual_persistent(
