@@ -213,6 +213,22 @@ class SheetExplorer(object):
         if not self._updating_parameter_values:
             self.refresh()
 
+    def update_available_sheets(self, sheets):
+        """Met à jour le catalogue après une modification du document Revit.
+
+        Conserve la sélection cumulative des feuilles toujours présentes,
+        sans réinitialiser les filtres ni provoquer d'écriture JSON.
+        """
+        self.sheets = dict(
+            (str(sheet.UniqueId), sheet) for sheet in (sheets or [])
+            if sheet is not None and getattr(sheet, "UniqueId", None))
+        self._ordered_sheets = sorted(
+            self.sheets.values(),
+            key=lambda sheet: ((sheet.SheetNumber or "").lower(),
+                               (sheet.Name or "").lower()))
+        self.selected_ids.intersection_update(set(self.sheets))
+        self._group_cache = {}
+
     def refresh(self):
         w = self.window
         query = (w.SheetExplorerSearch.Text or "").strip().lower()
