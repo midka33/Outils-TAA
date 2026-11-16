@@ -204,3 +204,13 @@ métadonnées Revit qu'une seule fois.
 **Prévention :** ne pas réintroduire de sélection par type de groupe dans le parcours de calcul des appartements ; préserver la distinction entre regroupement par numéro d'appartement et type de groupe Revit. Garder la confirmation de variantes lorsque nécessaire, jamais en remplacement par une uniformisation.
 
 **Anti-régression :** `test_group_decisions.py` vérifie l'écriture de résultats distincts (10 et 5) sur deux occurrences de groupe de même type, l'état durable de `VariesAcrossGroups`, l'absence de combos de groupe dans la revue et la revue limitée aux variantes. Tests hors Revit et recette sur copie RVT obligatoires avant fusion.
+
+### BUG-CALCULS-017 — Ligne « Unité de sortie » superflue dans l'interface validée
+
+**Retour utilisateur Revit (16/11/2026) :** le calcul et la gestion automatique des groupes fonctionnent, mais la ligne UNITÉ DE SORTIE est jugée inutile. Demande de suppression et accord explicite de fusionner dans main.
+
+**Correction :** suppression du bloc visuel, conservation du contrôle `UnitCombo` masqué uniquement pour la compatibilité des événements WPF et de la logique existante ; le choix transmis à la requête reste automatiquement `None`, sans restaurer d'ancien choix persistant. Aucune modification de l'arithmétique du calcul, des variantes, des valeurs de groupes ou de la transaction. Les options de conversion manuelle auparavant offertes aux cibles String/Integer ne sont plus accessibles.
+
+**Prévention :** ne pas supprimer un contrôle encore référencé par les handlers lors d'un changement cosmétique, et ne jamais appliquer silencieusement un ancien réglage masqué. Tester le XAML, l'unité automatique et les autres fonctions validées.
+
+**Anti-régression :** `tests/calculation/test_ui_wiring.py::test_automatic_units_and_warnings_are_preserved`; suites Calculs et Export. Contrôle d'affichage Revit de la ligne supprimée conseillé après mise à jour de main.
