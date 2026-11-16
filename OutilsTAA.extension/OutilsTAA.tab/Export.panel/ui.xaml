@@ -88,7 +88,7 @@
             <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
               <Button x:Name="SheetExplorerToggle" Content="◀ Feuilles" Click="SheetExplorerToggle_Click" Margin="4,0" MinWidth="82" ToolTip="Afficher ou masquer l'explorateur des feuilles"/>
               <Button Content="Nouveau dossier" Click="NewFolder_Click" MinWidth="110" Margin="4,0" ToolTip="Nouveau dossier" />
-              <Button Content="Dossier automatique" Click="OpenCarnetManager_Click" MinWidth="148" Margin="4,0" ToolTip="Créer un dossier alimenté depuis les paramètres des feuilles Revit ; choisir le mode Automatique dans la fenêtre" />
+              <Button x:Name="CreateDynamicFolderButton" Content="Dossier automatique" Click="OpenCarnetManager_Click" MinWidth="148" Margin="4,0" ToolTip="Créer un dossier alimenté depuis les paramètres des feuilles Revit ; choisir le mode Automatique dans la fenêtre" />
             </StackPanel>
           </StackPanel>
           <TreeView x:Name="PublicationTree" Grid.Row="1" AllowDrop="True" SelectedItemChanged="Tree_SelectedItemChanged" MouseDoubleClick="Tree_MouseDoubleClick" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="0,4,0,0" />
