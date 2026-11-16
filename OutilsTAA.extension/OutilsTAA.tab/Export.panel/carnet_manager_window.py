@@ -22,6 +22,7 @@ class CarnetManagerWindow(forms.WPFWindow):
         if owner is not None:
             self.Owner = owner
         self._load_parameters()
+        self._load_dynamic_parameters()
         self._update_mode()
 
     def _load_parameters(self):
@@ -80,6 +81,8 @@ class CarnetManagerWindow(forms.WPFWindow):
         self._update_selection_info()
 
     def _update_mode(self):
+        self.DynamicPanel.Visibility = Visibility.Collapsed
+        self.CarnetsGrid.Visibility = Visibility.Visible
         if self.ModeParameter.IsChecked:
             self.ParameterPanel.Visibility = Visibility.Visible
             self.ManualPanel.Visibility = Visibility.Collapsed
@@ -131,6 +134,35 @@ class CarnetManagerWindow(forms.WPFWindow):
         )
 
     def Add_Click(self, sender, args):
+        if self.ModeDynamic.IsChecked:
+            name = (self.DynamicNameTextBox.Text or "").strip()
+            param = self.DynamicParameterCombo.SelectedItem
+            value = self.DynamicValueCombo.SelectedItem
+            group = (self.DynamicGroupCombo.SelectedItem
+                     if self.DynamicGroupCheck.IsChecked else None)
+            if not name or not param or value is None:
+                forms.alert("Renseignez le nom, le paramètre et sa valeur.",
+                            title="Export")
+                return
+            if self.DynamicGroupCheck.IsChecked and not group:
+                forms.alert("Choisissez le paramètre des sous-dossiers.",
+                            title="Export")
+                return
+            try:
+                obj = self.controller.create_dynamic_persistent(
+                    name, param, value, group, self.target_folder_id)
+            except Exception as exc:
+                owner = getattr(self, "Owner", None)
+                handler = getattr(owner, "_show_storage_error", None)
+                if handler is not None and handler(
+                        exc, "créer le dossier automatique"):
+                    return
+                forms.alert("Création impossible : {}".format(exc), title="Export")
+                return
+            self.result = [obj]
+            self.Close()
+            return
+
         if self.ModeParameter.IsChecked:
             selected = [row.publication_set for row in self.rows if row.IsSelected]
             if not selected:
