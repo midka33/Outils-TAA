@@ -514,12 +514,13 @@ class ExportWindow(forms.WPFWindow):
             self._sheet_explorer.update_available_sheets(current_sheets)
             self._sheet_explorer.refresh()
 
-    def _node_header(self, text, icon_key, bold=False):
+    def _node_header(self, text, icon_key, bold=False,
+                     brush_key="TaaAccentPressed"):
         """Pictogrammes vectoriels sans dépendance à une police d'icônes."""
         panel = StackPanel(Orientation=Orientation.Horizontal)
         icon = IconPath()
         icon.Data = self.FindResource(icon_key)
-        icon.Stroke = self.FindResource("TaaAccentPressed")
+        icon.Stroke = self.FindResource(brush_key)
         icon.StrokeThickness = 1.5
         icon.Width = 20
         icon.Height = 20
@@ -543,14 +544,21 @@ class ExportWindow(forms.WPFWindow):
     def _make_carnet_node(self, carnet):
         """Compatibilité interne : un PublicationSet est affiché comme dossier."""
         node = TreeViewItem()
-        node.AllowDrop = True
+        is_virtual = bool(getattr(carnet, "dynamic_virtual", False))
+        is_dynamic = (
+            getattr(getattr(carnet, "source", None), "mode", None)
+            == PublicationSource.DYNAMIC)
+        node.AllowDrop = not (is_virtual or is_dynamic)
         node.Tag = ("CARNET", carnet)
         node.Header = self._node_header(
             carnet.name,
-            "TaaFolderIcon",
+            "TaaAutoFolderIcon" if (is_dynamic or is_virtual)
+            else "TaaFolderIcon",
             True,
+            "TaaAutoFolderBrush" if (is_dynamic or is_virtual)
+            else "TaaAccentPressed",
         )
-        if getattr(carnet, "dynamic_virtual", False):
+        if is_virtual:
             node.ToolTip = "Sous-dossier automatique — généré depuis Revit"
         elif getattr(getattr(carnet, "source", None), "mode", None) == PublicationSource.DYNAMIC:
             node.ToolTip = ("Dossier automatique — " +
