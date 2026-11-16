@@ -371,3 +371,22 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **CI vérifiée avant fusion :** PR #57, commit `fccc4fcb8bd2d4fb352f2e60155ac3f5dabc2468` : `Calculs des pièces — tests hors Revit` réussi (run `43899824241`, 103 tests) et `Export — tests hors Revit` réussi (run `43899824194`). Aucune fusion ni modification de `main` effectuée au moment de cette note.
 
 **Décision :** passer la PR #57 prête pour revue et fusionner dans `main`, sous réserve du contrôle GitHub de l'état mergeable, puis vérifier le commit de fusion et les contrôles de la branche principale.
+
+
+## Export — Dossiers automatiques par paramètres (16 novembre 2026)
+
+**Branche :** `feature/export-dossiers-dynamiques-spec` ; **PR #55 Draft**, non fusionnée. Synchronisée sur le `main` intégrant la configuration collaborative de la PR #30. Dernier état de référence : documentation `docs/28_Export_Dossiers_Dynamiques.md`.
+
+**Implémentation :** mode de dossier automatique dans l'assistant ; règle de sélection par paramètre + valeur, sous-dossiers virtuels par second paramètre ; actualisation au rafraîchissement et avant aperçu/publication ; blocage si paramètre absent ou ambigu ; conversion explicite en manuel avec copie figée des références et sous-dossiers par mutation atomique du repository ; protections contre les opérations manuelles sur les sous-dossiers calculés. Aucune modification des paramètres ni de l'arborescence du navigateur Revit.
+
+**Tests automatisés :** 485 tests Export réussis lors du workflow GitHub Actions `Export — tests hors Revit` sur le commit `f7e6db1e3e58edeabbfb4e3ef54428694ea2f621` ; CI collaborative et contrat ruban verts sur le même commit. Modifications suivantes purement documentaires ; vérifier la CI du dernier commit de code si la branche évolue.
+
+**Recette Revit :** aucune validation terrain confirmée pour cette fonctionnalité. Tester DYN-01 à DYN-11 avant fusion ; spécialement changement de valeurs Revit, sous-dossiers, publication et conversion en manuel.
+
+**Travaux non compris :** copie exacte de l'organisation native du navigateur Revit, migration de paramètres homonymes par GUID, surveillance permanente des événements Revit. Aucune release publiée.
+
+**Prochaine action :** recette Revit 2025.4 sur la branche PR #55, correction des éventuelles anomalies et contrôle de non-régression de la version stable 1.4.1.
+
+### PR #55 — Retour UI du 16 novembre 2026
+
+L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir un bug de recalcul. Trois corrections **implémentées, non validées dans Revit** : fenêtre « Dossier auto » en mode exclusif, aperçu des nombres de feuilles/sous-dossiers avec détail par groupe, icône de dossier auto/synchronisation différente des dossiers manuels. Les tests automatisés ont été étendus ; contrôle CI sur SHA final et recette Revit encore requis. Ne pas fusionner la PR Draft avant confirmation.
