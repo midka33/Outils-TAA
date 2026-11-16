@@ -110,12 +110,78 @@ Lorsque le PDF combiné est sélectionné, l'indépendance DWG est imposée
 automatiquement ; sa règle par défaut est `{numero} {nom}`.
 
 Les deux règles sont héritées et persistées avec les paramètres du dossier.
+Les champs de nommage DWG sont enregistrables sur les dossiers ordinaires **et** sur les dossiers de publication contenant des feuilles ; en PDF combiné, la saisie personnalisée doit rester visible après perte du focus et fermeture/réouverture d'Export. (BUG-EXPORT-067).
 L'aperçu et la publication utilisent la même règle DWG résolue. Les anciennes
 configurations restent lisibles et reçoivent les valeurs par défaut nécessaires.
 Le nommage DWG est distinct du réglage de fusion des vues/liens et du traitement
 automatique des exports par lot.
 
 ---
+
+## Export V1.2 — configuration collaborative par projet
+
+**Statut : PR Draft #30 — développement et tests hors Revit ; non livré dans la version stable.**
+
+Pour un projet Revit partagé sur serveur Windows, Export V1.2 prépare une
+configuration commune située à côté du modèle central :
+
+```text
+<dossier central>\
+  Projet_Central.rvt
+  OutilsTAA\
+    export.json
+    export.lock
+    backups\
+```
+
+Une copie locale du même central doit résoudre le même `export.json`. Le module
+favorise un chemin UNC lorsque la correspondance d'un lecteur réseau mappé peut
+être retrouvée.
+
+La fenêtre Export indique désormais le mode de stockage courant :
+
+```text
+Configuration : Partagée
+Révision : 7
+\\SERVEUR\...\OutilsTAA\export.json
+[ Actualiser ]
+```
+
+ou, lorsque le central est connu mais le partage momentanément inaccessible :
+
+```text
+Configuration : Locale — serveur indisponible
+[ Réessayer ]
+```
+
+Le bouton **Actualiser** relit explicitement la configuration partagée. Une
+révision plus récente détectée lorsque la fenêtre reprend le focus est signalée,
+mais elle n'est jamais chargée automatiquement pendant que l'utilisateur travaille.
+
+Si un autre utilisateur a modifié la configuration depuis la dernière lecture,
+l'enregistrement est refusé et l'utilisateur doit Actualiser avant de recommencer.
+Aucun « dernier enregistrement gagne » silencieux n'est autorisé.
+
+Le stockage partagé utilise une révision croissante, un verrou SMB exclusif,
+une écriture temporaire validée, un remplacement atomique et des sauvegardes
+rotatives. Un JSON corrompu ou portant l'identité d'un autre projet bloque le
+chargement au lieu d'être masqué par un fallback local.
+
+En mode partagé, la persistance de la configuration ne nécessite aucune
+transaction ni synchronisation du modèle Revit. Le comportement Extensible
+Storage historique reste réservé au vrai mode local.
+
+La migration initiale d'une configuration locale vers le partage est maintenant
+prévue explicitement : elle n'est proposée que si aucun `export.json` partagé
+n'existe, si le JSON local contient des données utilisateur et après confirmation.
+
+Le fichier local est conservé. Un refus est mémorisé localement pour éviter les
+demandes répétées. Si un autre poste crée la configuration partagée pendant la
+confirmation, l'import est annulé et la version serveur est utilisée. Aucune
+fusion automatique n'est réalisée.
+
+Référence technique :
+[`docs/27_Export_Configuration_Collaborative.md`](27_Export_Configuration_Collaborative.md).
 
 ## Périmètre V1 — décision du 2026-09-30
 
@@ -1874,3 +1940,40 @@ Les dossiers de parents déjà inclus dans la hiérarchie de publication restent
 **Technique :** `PublicationSettings.FIELDS/ACTIVE_FIELDS`, `SettingsResolver`, `publication_directory`, l'interface WPF et les profils personnalisés gèrent `separate_format_subfolders`. L'aperçu PDF/DWG et les deux moteurs partagent la même fonction de calcul de destination. Les modes PDF combiné/séparé et DWG n'influent pas sur le classement.
 
 **Recette Revit 2025.4 :** tester les quatre combinaisons avec deux feuilles, les modes PDF combiné et séparé, la création PDF/DWG, les héritages et rechargements de profils, puis contrôler chemins dans l'aperçu avant publication dans un répertoire temporaire. Voir BUG-EXPORT-059.
+
+
+## Création d'une configuration partagée à partir d'un fichier Export existant (V1.2, en recette)
+
+Lorsque la maquette possède un central Windows exploitable mais **aucun
+`export.json` partagé propre à ce central**, la barre d'état d'Export
+affiche le bouton **« Importer une configuration… »** à côté d'Actualiser.
+
+Parcours utilisateur :
+
+1. Ouvrir Export pour un nouveau projet central dont la configuration
+   partagée n'a pas encore été créée.
+2. Cliquer **Importer une configuration…** et choisir un fichier JSON Export
+   existant, local ou sur le serveur.
+3. Vérifier le résumé affiché : chemin source, identité d'origine, nombre de
+   dossiers et nombre de mises en page trouvées dans la maquette courante.
+4. Confirmer ou annuler. En cas de confirmation, une nouvelle configuration
+   partagée du projet courant est créée avec **révision 1**.
+
+Le fichier source n'est **jamais modifié, déplacé ni supprimé**. L'identité
+du JSON cible est celle du central Revit ouvert, y compris lorsque la
+configuration choisie appartenait à un central renommé/déplacé ou à un autre
+projet. Les dossiers, sous-dossiers, réglages PDF/DWG, héritage et nommage
+sont conservés. **Les feuilles sont reprises uniquement si leur `UniqueId`
+existe dans la maquette courante** ; les autres sont exclues afin de ne pas
+conserver des références appartenant à une autre maquette.
+
+L'import est refusé si un JSON cible existe déjà, ou si un autre utilisateur
+crée ce JSON pendant l'assistant ; le verrou SMB et le contrôle de révision
+protègent contre l'écrasement. Les fichiers JSON invalides ou d'un schéma
+ultérieur ne sont pas acceptés. Un projet non partagé, un mode local de
+secours et un projet dont la configuration partagée existe déjà ne proposent
+pas ce bouton. L'import local automatique avec proposition initiale reste
+inchangé et prioritaire pour les configurations historiques du même projet.
+
+**Statut :** implémenté sur la PR #30 ; tests automatisés et validation
+Revit 2025.4 à contrôler avant fusion.

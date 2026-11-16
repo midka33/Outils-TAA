@@ -25,7 +25,8 @@ class PublicationSettings(object):
     ACTIVE_FIELDS = (
         "pdf_enabled", "pdf_mode", "pdf_quality", "dwg_enabled",
         "dwg_setup_name", "dwg_true_color", "dwg_merge_views",
-        "output_directory", "filename_template", "separate_carnet_subfolder",
+        "output_directory", "filename_template", "dwg_filename_independent",
+        "dwg_filename_template", "separate_carnet_subfolder",
         "separate_format_subfolders"
     ) + PDF_OPTION_FIELDS
 

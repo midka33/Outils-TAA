@@ -116,7 +116,17 @@ class CarnetManagerWindow(forms.WPFWindow):
                     carnet.folder_id = self.target_folder_id
                     persisted.append(self.controller.save_persistent(carnet))
             except Exception as exc:
-                forms.alert("Impossible d'enregistrer les dossiers sélectionnés.\n\n{0}".format(exc), title="Export")
+                owner = getattr(self, "Owner", None)
+                handler = getattr(owner, "_show_storage_error", None)
+                if handler is not None and handler(
+                        exc,
+                        "enregistrer les dossiers sélectionnés"):
+                    return
+                forms.alert(
+                    "Impossible d'enregistrer les dossiers sélectionnés.\n\n{0}"
+                    .format(exc),
+                    title="Export",
+                )
                 return
             self.result = persisted
             self.Close()
@@ -133,7 +143,21 @@ class CarnetManagerWindow(forms.WPFWindow):
         if self.ModeManual.IsChecked and self.PersistentCheckBox.IsChecked:
             carnet = self.controller.create_manual_persistent(name.strip(), self.current_items)
             carnet.folder_id = self.target_folder_id
-            self.controller.save_persistent(carnet)
+            try:
+                self.controller.save_persistent(carnet)
+            except Exception as exc:
+                owner = getattr(self, "Owner", None)
+                handler = getattr(owner, "_show_storage_error", None)
+                if handler is not None and handler(
+                        exc,
+                        "enregistrer le dossier de publication"):
+                    return
+                forms.alert(
+                    "Impossible d'enregistrer le dossier.\n\n{0}"
+                    .format(exc),
+                    title="Export",
+                )
+                return
         else:
             carnet = self.controller.create_manual_temporary(name.strip(), self.current_items)
             carnet.folder_id = self.target_folder_id

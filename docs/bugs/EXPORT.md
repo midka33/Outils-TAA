@@ -917,3 +917,99 @@ du snapshot si la feuille n'existe plus.
 **Règle préventive :** lorsqu'une sélection survit à des changements de filtre, offrir une action explicite pour vider l'ensemble, y compris les objets masqués, sans supprimer le comportement cumulatif.
 
 **Anti-régression :** `tests/test_export_sheet_explorer_clear_selection.py` vérifie le câblage XAML/handler, l'effacement global et le maintien du comportement de sélection cumulative.
+
+
+### BUG-EXPORT-064 — Wrapper d'initialisation incompatible avec le nouveau contexte de stockage
+
+**Symptôme :** après raccordement du smartbutton collaboratif, l'appel
+`ExportWindow(..., storage_context=...)` aurait pu échouer à l'ouverture avec
+un argument inattendu, alors que la classe `ExportWindow` elle-même acceptait
+bien ce nouveau paramètre.
+
+**Cause racine :** `publication_preview_integration.install_preview_on_export_window`
+remplace dynamiquement `ExportWindow.__init__` par un wrapper dont la signature
+était restée limitée à `(controller, repository)`. L'extension dynamique
+masquait donc le nouveau contrat du constructeur réel.
+
+**Correction :** faire suivre explicitement `storage_context=None` dans le
+wrapper puis appeler le constructeur d'origine avec ce paramètre.
+
+**Règle préventive :** tout monkey-patch ou décorateur qui remplace une méthode
+publique doit préserver son contrat d'appel, y compris les nouveaux paramètres
+optionnels. Lorsqu'un constructeur est enveloppé, ajouter un test statique ou
+d'intégration couvrant les arguments transmis par le point d'entrée réel.
+
+**Anti-régression :** `tests/test_export_collaborative_ui.py` vérifie que le
+wrapper accepte et retransmet `storage_context`.
+
+### BUG-EXPORT-065 — Migration collaborative bloquée par un ancien JSON Windows-1252
+
+**Symptôme :** au démarrage d'Export collaboratif dans Revit 2025.4, une ancienne configuration locale contenant des caractères accentués pouvait être refusée comme « JSON invalide » avec `'unknown' codec can't decode byte 0xe9`.
+
+**Cause racine :** les anciennes versions enregistraient les configurations locales via l'encodage texte Windows implicite (souvent CP1252). La migration tentait de les lire exclusivement en UTF-8 puis rouvrait le fichier avec le lecteur historique, dépendant de la machine.
+
+**Correction :** lecture binaire unique ; tentative UTF-8 (BOM accepté) puis repli CP1252 uniquement en cas d'échec du décodage. Validation du JSON et de l'identité projet, normalisation du schéma 8 directement en mémoire, **sans modifier ni réécrire le fichier local**. Les JSON malformés restent refusés et la configuration partagée n'est pas écrasée.
+
+**Règle préventive :** toute migration de données historiques doit prendre en charge les encodages réellement écrits par les anciennes versions et éviter une deuxième lecture via un autre décodeur. Aucun remplacement silencieux ou caractère de substitution.
+
+**Anti-régression :** `tests/test_export_local_config_migration.py`, jeux avec accents CP1252, UTF-8 et UTF-8 BOM, intégrité binaire du fichier source, refus des JSON invalides ; vérification du lancement réel dans Revit avant validation.
+
+### BUG-EXPORT-066 — Plusieurs centraux liés dans un même dossier partagent le même chemin JSON
+
+**Symptôme :** les maquettes Architecture / Structure / Contexte d'une même
+affaire, enregistrées dans un dossier serveur commun, résolvaient toutes
+`OutilsTAA/export.json`. Le modèle non propriétaire du JSON pouvait être
+bloqué par `ProjectIdentityMismatchError`.
+
+**Cause racine :** le résolveur dérivait le stockage du seul dossier du
+central, tandis que l'identité vérifiée dans le JSON distinguait déjà chaque
+fichier central.
+
+**Correction :** sous-dossier dédié à chaque central via nom de fichier et
+SHA-1 de l'identité normalisée ; JSON, verrou et sauvegardes indépendants.
+Pour préserver une configuration collaborative historique, l'ancien
+`OutilsTAA/export.json` demeure exploitable **uniquement** par le central
+dont l'identité correspond. Aucune migration automatique/destruction.
+
+**Règle préventive :** la clé de partition du stockage doit avoir au moins
+la même granularité que l'identité de validation ; tester deux centraux dans
+le même répertoire, y compris un central Revit lié.
+
+**Anti-régression :** `tests/test_export_collaborative_storage.py` et
+`tests/test_export_storage_bootstrap.py` : chemins indépendants,
+insensibilité à la casse, préservation de l'ancien JSON et priorité du
+nouveau stockage. **Validation Revit sur des maquettes centrales voisines
+encore nécessaire**.
+
+
+### BUG-EXPORT-067 — Nommage DWG perdu à la perte du focus en mode PDF combiné (dossier de publication)
+
+**Symptôme (recette COLLAB-10 du 16/11/2026) :** les DWG sont effectivement
+publiés, mais le nommage DWG personnalisé saisi avec PDF combiné est réinitialisé
+quand le champ perd le focus. La publication DWG et le nommage indépendant en
+PDF séparés étaient signalés fonctionnels.
+
+**Cause racine identifiée dans le code :** `PublicationSettings.FIELDS`
+contient `dwg_filename_independent` et `dwg_filename_template`, mais
+`PublicationSettings.ACTIVE_FIELDS` omettait ces deux propriétés.
+`ExportWindow._save_selected_field()` refuse les champs hors
+`INHERITABLE_FIELDS` (alias de `ACTIVE_FIELDS`), donc la modification
+du nommage sur un nœud de publication (`CARNET`) n'était pas enregistrée.
+Le synchroniseur rétablissait ensuite la valeur effective antérieure.
+
+**Correction proposée et implémentée dans la PR #30 :** ajouter les deux
+propriétés de nommage DWG à `ACTIVE_FIELDS` sans modifier le moteur de
+publication, le nommage PDF, les règles de stockage ou le branchement
+`LostFocus`.
+
+**Règle préventive :** tout réglage modifiable dans le panneau des mises en
+page doit être présent à la fois dans les champs persistés (`FIELDS`) et
+dans les champs modifiables (`ACTIVE_FIELDS`). Tester la chaîne UI ->
+`_save_selected_field` -> persistance -> synchronisation.
+
+**Anti-régression :** `tests/test_export_dwg_naming_edit.py` enrichi ;
+recette Revit à répéter sur un dossier de publication contenant des feuilles,
+avec PDF combiné, règle DWG personnalisée, clic hors du champ, fermeture /
+réouverture puis aperçu et export. Re-vérifier PDF séparé et héritage.
+
+**Statut :** correctif implémenté, résultat CI et revalidation Revit à vérifier.

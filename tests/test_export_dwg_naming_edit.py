@@ -90,3 +90,52 @@ def test_combined_pdf_keeps_default_dwg_naming_when_no_override_exists():
 
     assert ui.DwgFilenameTemplateTextBox.IsEnabled is True
     assert ui.DwgFilenameTemplateTextBox.Text == "{numero} {nom}"
+
+
+def test_dwg_naming_fields_are_editable_on_publication_sets():
+    """La sauvegarde par champ ne doit pas ignorer le nommage DWG."""
+    settings_source = (
+        PANEL / "services" / "publication_settings.py"
+    ).read_text(encoding="utf-8")
+    tree = ast.parse(settings_source)
+    cls = next(
+        node for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and node.name == "PublicationSettings"
+    )
+    active = next(
+        node.value for node in cls.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "ACTIVE_FIELDS"
+                for t in node.targets)
+    )
+    assert isinstance(active, ast.BinOp)
+    names = ast.literal_eval(active.left)
+    assert "dwg_filename_independent" in names
+    assert "dwg_filename_template" in names
+
+
+def test_dwg_template_is_saved_before_combined_pdf_sync():
+    """La règle saisie doit être transmise à la persistance puis relue."""
+    selected = NS(
+        publication_settings=NS(dwg_filename_template=None, output_directory=None),
+        persistent=True,
+        output_directory=None,
+    )
+    state = NS(
+        _selected_set=selected,
+        _loading_settings=False,
+        INHERITABLE_FIELDS=("dwg_filename_template",),
+        _control_value=lambda field: "DWG_{numero}_{nom}",
+        _freeze_legacy_format_folder_setting=lambda *args: None,
+        _execute_storage_action=lambda callback, action: (True, callback()),
+        controller=NS(save_persistent=lambda value: value.publication_settings.dwg_filename_template),
+        _update_inheritance_info=lambda value: None,
+        _resolve_settings=lambda value: value.publication_settings,
+        _update_filename_preview=lambda settings: None,
+        _update_publication_overview=lambda: None,
+    )
+
+    export_method("_save_selected_field")(state, "dwg_filename_template")
+
+    assert selected.publication_settings.dwg_filename_template == "DWG_{numero}_{nom}"

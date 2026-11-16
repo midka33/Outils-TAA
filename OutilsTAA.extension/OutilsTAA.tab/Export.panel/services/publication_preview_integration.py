@@ -24,8 +24,17 @@ def install_preview_on_export_window(export_window_class):
     original_init = export_window_class.__init__
     original_refresh_tree = getattr(export_window_class, "_refresh_tree", None)
 
-    def init_with_tree_features(self, controller, repository):
-        original_init(self, controller, repository)
+    def init_with_tree_features(
+            self,
+            controller,
+            repository,
+            storage_context=None):
+        original_init(
+            self,
+            controller,
+            repository,
+            storage_context=storage_context,
+        )
         self._publication_history_service = _history_service()
 
     def refresh_tree_preserving_expansion(self):
@@ -162,7 +171,12 @@ def install_preview_on_export_window(export_window_class):
             parent_id,
             True,
         )
-        self.controller.save_folder(folder)
+        ok, _ = self._execute_storage_action(
+            lambda: self.controller.save_folder(folder),
+            "créer le dossier",
+        )
+        if not ok:
+            return
         self._refresh_tree()
 
         manager = getattr(self, "_drag_drop_manager", None)
@@ -192,8 +206,19 @@ def install_preview_on_export_window(export_window_class):
         message = "Supprimer ces {0} dossier(s) ?\n{1}\n\nUn dossier d'organisation doit être vide après suppression de ses sous-dossiers. Les feuilles Revit sont conservées.".format(len(targets), names)
         if not forms.alert(message, title="Export", yes=True, no=True):
             return
-        self.session_carnets, blocked = delete_selected(
-            targets, self.controller, self.repository, self.session_carnets, self._folders)
+        ok, deletion = self._execute_storage_action(
+            lambda: delete_selected(
+                targets,
+                self.controller,
+                self.repository,
+                self.session_carnets,
+                self._folders,
+            ),
+            "supprimer les dossiers sélectionnés",
+        )
+        if not ok:
+            return
+        self.session_carnets, blocked = deletion
         manager._select([])
         self._selected_set = None
         self._selected_item = None
@@ -223,9 +248,8 @@ def install_preview_on_export_window(export_window_class):
             return
         try:
             self._loading_profile = True
-            self._apply_profile_values(values)
-            if self._selected_set.persistent:
-                self.controller.save_persistent(self._selected_set)
+            if not self._apply_profile_values(values):
+                return
             self.ProfileInfoText.Text = "Profil « {0} » appliqué au dossier.".format(name)
             self._load_selected_settings()
         except Exception as exc:

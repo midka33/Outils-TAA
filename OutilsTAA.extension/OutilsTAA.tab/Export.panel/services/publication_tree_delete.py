@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Suppression explicite des dossiers sélectionnés, sans accès Revit."""
 
+from shared_json_storage import StorageError
+
 
 def deletion_targets(tags):
     """Déduplique les conteneurs ; les mises en page ne sont pas supprimées ici."""
@@ -92,6 +94,8 @@ def delete_selected(targets, controller, repository, session_carnets, folders):
                     value.name
                     + " : dossier non vide ou indisponible"
                 )
+        except StorageError:
+            raise
         except Exception as exc:
             blocked.append(
                 "{0} : {1}".format(value.name, exc)
