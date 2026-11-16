@@ -70,9 +70,20 @@ class LocalMigrationCandidate(object):
 
 
 def _load_json(path):
+    """Read legacy local JSON without modifying its original encoding.
+
+    Earlier Export versions wrote with the Windows default text encoding,
+    which is often cp1252, while more recent files may be UTF-8. Decode
+    UTF-8 first and use cp1252 only if the bytes cannot be decoded as UTF-8.
+    """
     try:
-        with io.open(path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
+        with io.open(path, "rb") as handle:
+            raw = handle.read()
+        try:
+            content = raw.decode("utf-8-sig")
+        except UnicodeError:
+            content = raw.decode("cp1252")
+        data = json.loads(content)
     except ValueError as exc:
         raise LocalConfigurationCorruptedError(
             "Le JSON local est invalide : {0}".format(exc)
@@ -153,6 +164,9 @@ def _normalised_local_data(path, local_project_identity):
             "La configuration locale appartient à un autre projet."
         )
 
+    # Do not reopen the legacy file through CarnetRepository._read():
+    # its default text decoding depends on the local Windows code page.
+    # Normalise the already decoded and identity-checked data in memory.
     repository = CarnetRepository(
         path,
         project_identity=(
@@ -161,7 +175,7 @@ def _normalised_local_data(path, local_project_identity):
             else None
         ),
     )
-    return repository._read()
+    return repository._ensure_structure(raw)
 
 
 def _counts(data):
