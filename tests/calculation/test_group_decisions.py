@@ -138,6 +138,62 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertEqual(30.0, result.get_total(a_key))
         self.assertEqual(40.0, result.get_total(b_key))
 
+    def test_variant_overlap_requires_explicit_confirmation_before_write(self):
+        from calculation_diagnostics import (
+            variant_group_key, shared_apartments_across_variants,
+        )
+        from calculation.models import RoomCalculationItem
+        from calculation.room_calculator import RoomCalculator
+        class Option(object):
+            def __init__(self, oid, primary):
+                self.Id = FakeElementId(oid)
+                self.IsPrimary = primary
+        class Room(object):
+            def __init__(self, option):
+                self.DesignOption = option
+
+        a = variant_group_key(Room(Option(11, False)), "B200")
+        b = variant_group_key(Room(Option(12, False)), "B200")
+        result = RoomCalculator().calculate([
+            RoomCalculationItem("a", a, 45.0),
+            RoomCalculationItem("b", b, 60.0),
+        ])
+        overlaps = shared_apartments_across_variants(result)
+        self.assertEqual(1, len(overlaps))
+        self.assertEqual("B200", overlaps[0]["apartment"])
+        self.assertEqual(
+            [45.0, 60.0],
+            sorted(row["total"] for row in overlaps[0]["scenarios"]),
+        )
+        self.assertEqual(45.0, result.get_total(a))
+        self.assertEqual(60.0, result.get_total(b))
+        self.prepared.shared_variant_apartments = overlaps
+        with self.assertRaises(ValidationError):
+            self.workflow.execute(self.prepared)
+        self.assertEqual([], self.transactions)
+        self.prepared.variant_separation_confirmed = True
+        self.prepared.group_mode = "vary"
+        report = self.workflow.execute(self.prepared)
+        self.assertTrue(report.is_success)
+
+    def test_no_confirmation_needed_for_single_variant_scenario(self):
+        from calculation_diagnostics import (
+            variant_group_key, shared_apartments_across_variants,
+        )
+        from calculation.models import RoomCalculationItem
+        from calculation.room_calculator import RoomCalculator
+        class Option(object):
+            Id = FakeElementId(21)
+            IsPrimary = False
+        class Room(object):
+            DesignOption = Option()
+        key = variant_group_key(Room(), "B200")
+        result = RoomCalculator().calculate([
+            RoomCalculationItem("r1", key, 12.0),
+            RoomCalculationItem("r2", key, 18.0),
+        ])
+        self.assertEqual([], shared_apartments_across_variants(result))
+
     def test_empty_group_still_skipped_in_secondary_option(self):
         from calculation_diagnostics import variant_group_key
         class Option(object):
