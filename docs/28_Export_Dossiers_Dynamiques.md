@@ -107,3 +107,5 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 **Tests ciblés :** test de contrat WPF du mode exclusif, du calcul d'aperçu, du thème et des identifiants ; CI et validation Revit à confirmer sur le commit final.
 
 **Recette Revit restante :** vérifier l'ouverture de la fenêtre sans radios, la mise à jour de l'aperçu lors du changement de valeur et de paramètre de sous-dossier, l'identification visuelle du dossier créé puis sa conversion manuelle (qui doit reprendre l'icône standard). La stabilité de l'actualisation déjà constatée ne doit pas être régressée.
+
+**Contrôle GitHub — 16/11/2026 :** 488 tests Export réussis et workflows « Export — configuration collaborative » / « Export ribbon contract » verts au commit `4111b9ca4de1be9f6d9a219a41e9170f3e23aca0`. La branche a été réalignée sur `main` (les évolutions récentes du module Calculs des pièces ont été conservées) ; recette UI sous Revit encore à confirmer.
