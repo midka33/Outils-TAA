@@ -100,6 +100,9 @@ class CalculationController(object):
     def prepare(self, request, progress=None):
         return self.workflow.prepare(request, progress=progress)
 
+    def uniform_manual_guidance(self, prepared, selected_values):
+        return self.workflow.uniform_manual_guidance(prepared, selected_values)
+
     def execute(self, prepared, progress=None):
         return self.workflow.execute(prepared, progress=progress)
 
