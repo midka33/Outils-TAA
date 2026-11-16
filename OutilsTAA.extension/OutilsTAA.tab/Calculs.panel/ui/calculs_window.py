@@ -9,7 +9,7 @@ from pyrevit import forms
 
 from common.wpf_resources import load_resource_dictionary
 from calculation_report_window import CalculationReportWindow
-from calculation_decision_window import choose_taa, confirm_taa
+from calculation_review_window import review_taa
 
 
 class ParameterChoice(object):
@@ -257,118 +257,9 @@ class CalculsWindow(forms.WPFWindow):
                 self.StatusText.Text = "Aucun résultat à écrire."
                 return
 
-            if prepared.shared_variant_apartments:
-                combining = request.variant_mode == "combine"
-                details = [
-                    "{} appartement(s) existent dans plusieurs variantes.".format(
-                        len(prepared.shared_variant_apartments)
-                    ),
-                    "",
-                    (
-                        "ATTENTION : vous allez additionner les surfaces "
-                        "de variantes potentiellement alternatives. "
-                        "Le total cumulé sera écrit dans chaque pièce du même "
-                        "appartement, quelle que soit sa variante."
-                        if combining else
-                        "Les surfaces seront conservées séparément : aucune "
-                        "addition entre variantes ne sera réalisée."
-                    ),
-                    "",
-                ]
-                for entry in prepared.shared_variant_apartments:
-                    details.append("Appartement {} :".format(entry["apartment"]))
-                    for scenario in entry["scenarios"]:
-                        details.append(
-                            "  - {} : {}".format(
-                                scenario["label"],
-                                self._format_group_value(
-                                    scenario["total"], prepared.request
-                                ),
-                            )
-                        )
-                    if combining:
-                        details.append(
-                            "  TOTAL CUMULÉ : {}".format(
-                                self._format_group_value(
-                                    sum(item["total"] for item in entry["scenarios"]),
-                                    prepared.request,
-                                )
-                            )
-                        )
-                    details.append("")
-                details.append(
-                    "Confirmez pour poursuivre. Annuler n'écrit aucune valeur."
-                )
-                if not confirm_taa(
-                    "Addition des variantes — attention"
-                    if combining else "Surfaces indépendantes par variante",
-                    "\n".join(details),
-                    owner=self,
-                ):
-                    self.StatusText.Text = (
-                        "Gestion des variantes non confirmée : calcul annulé."
-                    )
-                    return
-                if combining:
-                    prepared.variant_combination_confirmed = True
-                else:
-                    prepared.variant_separation_confirmed = True
-
-            if prepared.group_conflicts:
-                if not self._choose_group_conflict_mode(prepared):
-                    self.StatusText.Text = "Choix des groupes annulé avant écriture."
-                    return
-
-            message = (
-                "{0} pièce(s) analysée(s) dans le projet\n"
-                "{1} pièce(s) après filtre\n"
-                "{2} groupe(s)\n"
-                "{3} écriture(s) prévues\n\n"
-            ).format(
-                prepared.total_rooms,
-                prepared.filtered_rooms,
-                prepared.result.group_count,
-                len(prepared.operations),
-            )
-
-            if request.variant_mode == "combine":
-                message += (
-                    "ATTENTION : les surfaces des variantes sont additionnées "
-                    "par numéro d'appartement et écrites dans toutes les pièces "
-                    "du regroupement.\n\n"
-                )
-            if prepared.design_options:
-                message += "Variantes :\n"
-                for line in prepared.design_options:
-                    message += "{}\n".format(line)
-                message += "\n"
-
-            if prepared.group_conflicts:
-                if prepared.group_mode == "vary":
-                    message += (
-                        "IMPORTANT : le paramètre sera réglé durablement pour "
-                        "autoriser les valeurs différentes entre groupes.\n\n"
-                    )
-                else:
-                    message += (
-                        "IMPORTANT : les valeurs choisies comme références seront "
-                        "appliquées aux occurrences concernées, sans changer le "
-                        "réglage initial du paramètre.\n\n"
-                    )
-
-            if prepared.warnings:
-                message += "Avertissements :\n"
-                for warning in prepared.warnings:
-                    message += "- {}\n".format(warning)
-                message += "\n"
-
-            message += "Destination : {}".format(request.target_parameter.name)
-            confirmed = confirm_taa(
-                "Confirmer l'écriture dans Revit",
-                message,
-                owner=self,
-            )
-            if not confirmed:
+            # Un seul dialogue WPF TAA : variantes, conflits de groupes
+            # et validation finale sont traités dans la même fenêtre.
+            if not review_taa(prepared, self._format_group_value, owner=self):
                 self.StatusText.Text = "Calcul annulé avant écriture."
                 return
 
@@ -412,61 +303,6 @@ class CalculsWindow(forms.WPFWindow):
             )
         finally:
             self.CalculateButton.IsEnabled = True
-
-    def _choose_group_conflict_mode(self, prepared):
-        """Aucun changement de definition n'est fait sans decision explicite."""
-        choices = [
-            ("Autoriser les valeurs différentes — modifier le paramètre", "vary"),
-        ]
-        if all(item["uniform_safe"] for item in prepared.group_conflicts):
-            choices.append((
-                "Conserver l'alignement — choisir les valeurs communes", "uniform"
-            ))
-        details = (
-            "{} type(s) de groupe ont des résultats différents.\n\n"
-            "Modifier le paramètre : les valeurs peuvent différer entre "
-            "occurrences, y compris lors des prochains calculs.\n\n"
-            "Conserver l'alignement : choisir un total commun à chaque type "
-            "de groupe, sans changer le réglage permanent."
-        ).format(len(prepared.group_conflicts))
-        selected = choose_taa(
-            "Résoudre les conflits entre groupes", details, choices, owner=self
-        )
-        if selected is None:
-            return False
-        if selected == "vary":
-            prepared.group_mode = "vary"
-            return True
-        if selected != "uniform":
-            return False
-
-        values = {}
-        for conflict in prepared.group_conflicts:
-            choices = [
-                (
-                    "{} — {}".format(
-                        candidate["name"],
-                        self._format_group_value(candidate["value"], prepared.request),
-                    ),
-                    candidate["value"],
-                )
-                for candidate in conflict["candidates"]
-            ]
-            if not choices:
-                return False
-            picked = choose_taa(
-                "Valeur commune : {}".format(conflict["name"]),
-                "Sélectionnez la surface qui sera appliquée à toutes "
-                "les occurrences de ce type de groupe.",
-                choices,
-                owner=self,
-            )
-            if picked is None:
-                return False
-            values[conflict["type_key"]] = picked
-        prepared.uniform_values = values
-        prepared.group_mode = "uniform"
-        return True
 
     @staticmethod
     def _format_group_value(value, request):
