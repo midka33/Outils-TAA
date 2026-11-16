@@ -65,15 +65,28 @@ class CalculationReportWindow(forms.WPFWindow):
             lines.append("")
 
         if report.failed_results:
-            lines.append("ÉCHECS D'ÉCRITURE")
-            for item in report.failed_results:
+            if report.transaction_error:
+                # Un rollback annule tout : il ne correspond pas à autant de
+                # causes indépendantes que de pièces concernées.
                 lines.append(
-                    "- {} • groupe {} : {}".format(
-                        item.room_key,
-                        item.group_value,
-                        item.message,
+                    "{} écriture(s) annulée(s) dans une seule transaction.".format(
+                        report.failed_count
                     )
                 )
+                lines.append(
+                    "Le détail des pièces n'est pas répété : la cause figure "
+                    "dans ERREUR TRANSACTION ci-dessus."
+                )
+            else:
+                lines.append("ÉCHECS D'ÉCRITURE")
+                for item in report.failed_results:
+                    lines.append(
+                        "- {} • groupe {} : {}".format(
+                            item.room_key,
+                            item.group_value,
+                            item.message,
+                        )
+                    )
             lines.append("")
 
         if report.skipped:
