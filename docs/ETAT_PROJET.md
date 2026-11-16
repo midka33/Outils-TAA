@@ -457,3 +457,39 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Dernière modification de branche :** bloc UNITÉ DE SORTIE retiré du layout. `UnitCombo` masqué pour compatibilité technique, sortie automatique (`output_unit_type_id=None`) et non restauration d'un ancien choix manuel. Aucune modification des calculs ni des traitements de groupes. Les sélections manuelles d'unités vers texte/entier ne sont plus disponibles.
 
 **Qualification :** fonctionnement du parcours précédent **validé par utilisateur dans Revit**, suppression de ligne **implémentée** et couverte par tests automatiques, mais non re-testée sur écran Revit après modification. CI à vérifier sur tête de PR, puis PR prête et fusion dans `main`, vérification du SHA de fusion et des tests de la branche principale. Ne pas confondre tests automatisés GitHub et validation Revit.
+
+
+
+## Export — Dossiers automatiques par paramètres (16 novembre 2026)
+
+**Branche :** `feature/export-dossiers-dynamiques-spec` ; **PR #55 Draft**, non fusionnée. Synchronisée sur le `main` intégrant la configuration collaborative de la PR #30. Dernier état de référence : documentation `docs/28_Export_Dossiers_Dynamiques.md`.
+
+**Implémentation :** mode de dossier automatique dans l'assistant ; règle de sélection par paramètre + valeur, sous-dossiers virtuels par second paramètre ; actualisation au rafraîchissement et avant aperçu/publication ; blocage si paramètre absent ou ambigu ; conversion explicite en manuel avec copie figée des références et sous-dossiers par mutation atomique du repository ; protections contre les opérations manuelles sur les sous-dossiers calculés. Aucune modification des paramètres ni de l'arborescence du navigateur Revit.
+
+**Tests automatisés :** 485 tests Export réussis lors du workflow GitHub Actions `Export — tests hors Revit` sur le commit `f7e6db1e3e58edeabbfb4e3ef54428694ea2f621` ; CI collaborative et contrat ruban verts sur le même commit. Modifications suivantes purement documentaires ; vérifier la CI du dernier commit de code si la branche évolue.
+
+**Recette Revit :** aucune validation terrain confirmée pour cette fonctionnalité. Tester DYN-01 à DYN-11 avant fusion ; spécialement changement de valeurs Revit, sous-dossiers, publication et conversion en manuel.
+
+**Travaux non compris :** copie exacte de l'organisation native du navigateur Revit, migration de paramètres homonymes par GUID, surveillance permanente des événements Revit. Aucune release publiée.
+
+**Prochaine action :** recette Revit 2025.4 sur la branche PR #55, correction des éventuelles anomalies et contrôle de non-régression de la version stable 1.4.1.
+
+### PR #55 — Retour UI du 16 novembre 2026
+
+L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir un bug de recalcul. Trois corrections **implémentées, non validées dans Revit** : fenêtre « Dossier auto » en mode exclusif, aperçu des nombres de feuilles/sous-dossiers avec détail par groupe, icône de dossier auto/synchronisation différente des dossiers manuels. Les tests automatisés ont été étendus ; contrôle CI sur SHA final et recette Revit encore requis. Ne pas fusionner la PR Draft avant confirmation.
+
+**Contrôle GitHub — 16/11/2026 :** 488 tests Export réussis et workflows « Export — configuration collaborative » / « Export ribbon contract » verts au commit `4111b9ca4de1be9f6d9a219a41e9170f3e23aca0`. La branche a été réalignée sur `main` (les évolutions récentes du module Calculs des pièces ont été conservées) ; recette UI sous Revit encore à confirmer.
+
+### PR #55 — Conversion individuelle d'un sous-dossier (16 novembre 2026)
+
+**Retour utilisateur :** la création, l'aperçu et l'actualisation des dossiers automatiques sont validés dans Revit. Nouvelle amélioration requise : figer un seul sous-dossier sans figer tous les autres.
+
+**Implémentation :** commande contextuelle « Figer uniquement ce sous-dossier » sur chaque groupe virtuel. La copie manuelle du groupe et l'exclusion de son identifiant dans la règle dynamique du parent sont enregistrées **atomiquement** dans le JSON partagé, sans migration du schéma 8. Les autres groupes restent dynamiques. Le gel ultérieur du parent conserve les enfants déjà figés sans doublon. Tests de non-régression ajoutés.
+
+**Validation :** tests automatisés sur commit final à vérifier ; tests Revit DYN-12 à DYN-16 non encore exécutés. PR #55 Draft, ne pas fusionner avant recette.
+
+### PR #55 — Réversibilité sous-dossier manuel/automatique (16 novembre 2026)
+
+**Revit validé utilisateur :** les cinq tests de gel individuel sont tous réussis ; le sous-dossier figé reste manuel, les autres se synchronisent et l'état persiste après réouverture.
+
+**Amélioration implémentée, non encore validée Revit :** « Rendre ce sous-dossier automatique » uniquement sur les enfants précédemment figés d'un parent encore dynamique. Une mutation atomique réactive le groupe et retire son snapshot manuel ; confirmation explicite de la perte des réglages/modifications manuels propres au sous-dossier. Protections contre les suppressions de descendants, les paramètres Revit non disponibles et les états collaboratifs obsolètes. Tests unitaires ajoutés. **Ne pas fusionner #55 avant DYN-17 à DYN-20 et CI du dernier commit.**
