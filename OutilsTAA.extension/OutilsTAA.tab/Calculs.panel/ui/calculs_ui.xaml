@@ -190,28 +190,9 @@
                     </Grid>
                 </Border>
 
-                <Border Background="White"
-                        BorderBrush="{DynamicResource TAABorderBrush}"
-                        BorderThickness="1"
-                        Padding="10"
-                        Margin="0,0,0,8">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="170"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="UNITÉ DE SORTIE"
-                                   VerticalAlignment="Center"
-                                   Margin="0"
-                                   Style="{DynamicResource TAASectionTitle}"
-                                   ToolTip="Disponible uniquement lorsqu'une conversion explicite est pertinente."/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="UnitCombo"
-                                  DisplayMemberPath="label"
-                                  Style="{DynamicResource TAAComboBox}"/>
-                    </Grid>
-                </Border>
+                <!-- Controle technique invisible : conversion automatique conservee,
+                     sans option manuelle dans l'interface. -->
+                <ComboBox x:Name="UnitCombo" Visibility="Collapsed"/>
 
                 <Border Background="White"
                         BorderBrush="{DynamicResource TAABorderBrush}"
