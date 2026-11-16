@@ -79,7 +79,9 @@ def install_preview_on_export_window(export_window_class):
             return
         # Les feuilles Revit sont relues au dernier moment, sans mutation JSON.
         # Un paramètre devenu indisponible interdit toute publication obsolète.
-        self._refresh_tree()
+        refresh = getattr(self, "_refresh_tree", None)
+        if refresh is not None:
+            refresh()
         if getattr(self, "_dynamic_errors", None):
             forms.alert("Règle de dossier automatique impossible à évaluer :\n" +
                         "\n".join(self._dynamic_errors.values()),
