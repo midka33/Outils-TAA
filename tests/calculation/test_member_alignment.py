@@ -109,6 +109,22 @@ class UniformMemberTests(unittest.TestCase):
         self.assertTrue(report.is_success)
         self.assertEqual(12.0, targets[1].value)
 
+    def test_explicit_uniform_changes_previously_varying_parameter_to_aligned(self):
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        definition.VariesAcrossGroups = True
+        report = workflow.execute(workflow.prepare(request))
+        self.assertTrue(report.is_success)
+        self.assertFalse(definition.VariesAcrossGroups)
+        self.assertEqual([False], definition.calls)
+
+    def test_explicit_vary_preserves_different_values_setting(self):
+        workflow, request, rooms, targets, definition, transactions = self.fixture()
+        request.group_mode = "vary"
+        report = workflow.execute(workflow.prepare(request))
+        self.assertTrue(report.is_success)
+        self.assertTrue(definition.VariesAcrossGroups)
+        self.assertEqual([True], definition.calls)
+
     def test_expected_revit_realignment_is_allowed_only_if_values_match(self):
         workflow, request, rooms, targets, definition, transactions = self.fixture(
             changed=[FakeElementId("r2")]
