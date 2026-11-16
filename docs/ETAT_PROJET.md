@@ -433,3 +433,11 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Tests :** cas supplémentaires intégrés dans `test_group_decisions.py` ; exécution CI et validation de l'affichage WPF/édition manuelle réelle encore nécessaires. **PR #59 maintenue en brouillon.**
 
 **Complément UX et sécurité :** le guide de correction manuelle affiche désormais les valeurs de surface dans l'unité lisible du module (`m²` pour une source de type aire) en utilisant le formateur déjà validé de la fenêtre. Cela évite de demander de renseigner directement une valeur interne Revit en pieds carrés. Ce formateur n'est utilisé que pour le message ; toutes les écritures automatiques gardent leur précision interne. Tests d'affichage et de transmission ajoutés. **Les tests du dernier commit doivent encore être vérifiés avant recette Revit.**
+
+## Nouvelle décision utilisateur — information des groupes, sans sélecteur (16/11/2026)
+
+**Demande la plus récente :** remplacer dans la fenêtre principale l'option « Gestion des groupes » par une **phrase expliquant qu'Outils TAA peut désactiver l'alignement du paramètre cible si nécessaire pour conserver les sommes**. Refus explicite du parcours d'édition manuelle du groupe.
+
+**Implémentation sur `fix/calculs-uniform-revit-groups-v2` / PR #59 :** ligne WPF « GROUPES REVIT » avec texte explicatif à la place de `GroupModeCombo`; `group_mode="auto"` en fenêtre principale. Si les valeurs par occurrence divergent, choix d'une valeur commune par type dans la revue unique lorsque c'est sûr ; sinon écriture individuelle. Quand le choix commun exigerait une nouvelle valeur de référence que Revit écraserait en `False`, conserver automatiquement `VariesAcrossGroups=True` après écriture de la valeur commune ; prévenir avant écriture et enregistrer le changement durable dans le rapport. Si compatible, conserver le parcours historique avec restauration. Aucun groupe dégroupé/recréé.
+
+**Statut :** correction implémentée sur branche, CI automatisée en vérification, **non validée sous Revit 2025.4** ; le mode valeurs différentes a déjà été validé en Revit sur une version antérieure et doit être recontrôlé sur cette branche. `main` inchangée ; ne pas fusionner la PR avant la recette.
