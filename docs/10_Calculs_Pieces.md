@@ -653,3 +653,15 @@ Le mode uniforme expérimental conserve le rollback et ajoute **deux mesures vé
 **Sécurité :** aucune édition interactive, suppression ni reconstruction des groupes. Sélection de valeurs obligatoires lorsque l'uniformisation sûre est possible ; transaction unique, rollback des écritures défaillantes, contrôle des valeurs après régénération, pré-contrôle des homologues. Les variantes et les traitements autres que l'alignement restent inchangés.
 
 **Validation :** tests automatiques mis à jour pour la disparition de `GroupModeCombo` en fenêtre principale, l'affichage `GroupPolicyText`, le comportement de repli en `VariesAcrossGroups=True` et la non-régression du parcours « valeur commune déjà compatible ». Essai Revit 2025.4 requis avant fusion de PR #59.
+
+### 7.3.12 Calculs individuels sans choix d'uniformisation dans l'interface (16/11/2026)
+
+**Dernière décision utilisateur :** la valeur écrite doit être **strictement le total calculé par numéro d'appartement, ventilé par variante lorsque le mode « séparées » est actif**, et non un total choisi par type de groupe. Aucune uniformisation automatique ni choix de référence par type de groupe dans l'UI. Retirer la revue de calcul lorsqu'aucune variante partagée n'exige de confirmation.
+
+**Comportement UI implémenté sur PR #59 :**
+- Dans la fenêtre principale, texte : « Si le paramètre cible suit les groupes, Outils TAA **va désactiver** cet alignement pour conserver les surfaces calculées. Ce changement sera conservé dans Revit. »
+- La requête utilise `group_mode="auto"`. Lors de la préparation, si le paramètre destination est actuellement aligné et que des pièces de groupes vont être écrites, le mode devient `vary` ; l'écriture conserve durablement `VariesAcrossGroups=True` et ne remplace aucun résultat par un choix commun. Sinon, le mode historique `restore` reste applicable aux paramètres non concernés.
+- La revue WPF n'est ouverte que si `shared_variant_apartments` n'est pas vide ; dans ce cas elle informe/valide seulement le choix de variantes (séparées ou additionnées). La section groupes est masquée. Hors de ce cas, l'écriture démarre sans revue supplémentaire et les flags de confirmation des variantes correspondent au réglage déjà choisi dans l'accueil.
+- Les pièces de même appartement dans le même scénario reçoivent la même somme **par conception du calcul** ; deux appartements différents du même type de groupe peuvent conserver des totaux différents.
+
+**Compatibilité :** API interne `group_mode=uniform` conservée provisoirement pour la non-régression historique, mais n'est pas exposée dans l'UI actuelle. Transactions, rollback, variantes et rapport restent disponibles. Cette nouvelle évolution n'est pas encore validée dans Revit 2025.4.
