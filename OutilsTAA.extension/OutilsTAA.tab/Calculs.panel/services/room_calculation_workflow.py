@@ -84,6 +84,9 @@ class RoomCalculationWorkflow(object):
         if not validation.is_valid:
             raise ValidationError("\n".join(validation.errors))
 
+        group_mode = getattr(request, "group_mode", "auto")
+        if group_mode not in ("auto", "vary", "uniform"):
+            raise ValidationError("Gestion des groupes inconnue.")
         mode = getattr(request, "variant_mode", "separate")
         if mode not in ("separate", "combine"):
             raise ValidationError("Mode de gestion des variantes inconnu.")
@@ -160,7 +163,7 @@ class RoomCalculationWorkflow(object):
         else:
             variants.insert(0, "Les variantes secondaires sont calculées séparément.")
 
-        return PreparedCalculation(
+        prepared = PreparedCalculation(
             request=request,
             result=result,
             room_by_key=room_by_key,
@@ -174,6 +177,9 @@ class RoomCalculationWorkflow(object):
                 separate_result, self.document
             ),
         )
+        if group_mode != "auto":
+            prepared.group_mode = group_mode
+        return prepared
 
     def execute(self, prepared, progress=None):
         valid = []
