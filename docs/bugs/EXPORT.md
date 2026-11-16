@@ -980,3 +980,36 @@ le même répertoire, y compris un central Revit lié.
 insensibilité à la casse, préservation de l'ancien JSON et priorité du
 nouveau stockage. **Validation Revit sur des maquettes centrales voisines
 encore nécessaire**.
+
+
+### BUG-EXPORT-067 — Nommage DWG perdu à la perte du focus en mode PDF combiné (dossier de publication)
+
+**Symptôme (recette COLLAB-10 du 16/11/2026) :** les DWG sont effectivement
+publiés, mais le nommage DWG personnalisé saisi avec PDF combiné est réinitialisé
+quand le champ perd le focus. La publication DWG et le nommage indépendant en
+PDF séparés étaient signalés fonctionnels.
+
+**Cause racine identifiée dans le code :** `PublicationSettings.FIELDS`
+contient `dwg_filename_independent` et `dwg_filename_template`, mais
+`PublicationSettings.ACTIVE_FIELDS` omettait ces deux propriétés.
+`ExportWindow._save_selected_field()` refuse les champs hors
+`INHERITABLE_FIELDS` (alias de `ACTIVE_FIELDS`), donc la modification
+du nommage sur un nœud de publication (`CARNET`) n'était pas enregistrée.
+Le synchroniseur rétablissait ensuite la valeur effective antérieure.
+
+**Correction proposée et implémentée dans la PR #30 :** ajouter les deux
+propriétés de nommage DWG à `ACTIVE_FIELDS` sans modifier le moteur de
+publication, le nommage PDF, les règles de stockage ou le branchement
+`LostFocus`.
+
+**Règle préventive :** tout réglage modifiable dans le panneau des mises en
+page doit être présent à la fois dans les champs persistés (`FIELDS`) et
+dans les champs modifiables (`ACTIVE_FIELDS`). Tester la chaîne UI ->
+`_save_selected_field` -> persistance -> synchronisation.
+
+**Anti-régression :** `tests/test_export_dwg_naming_edit.py` enrichi ;
+recette Revit à répéter sur un dossier de publication contenant des feuilles,
+avec PDF combiné, règle DWG personnalisée, clic hors du champ, fermeture /
+réouverture puis aperçu et export. Re-vérifier PDF séparé et héritage.
+
+**Statut :** correctif implémenté, résultat CI et revalidation Revit à vérifier.
