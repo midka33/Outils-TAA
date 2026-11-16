@@ -266,3 +266,7 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **Travaux non compris :** copie exacte de l'organisation native du navigateur Revit, migration de paramètres homonymes par GUID, surveillance permanente des événements Revit. Aucune release publiée.
 
 **Prochaine action :** recette Revit 2025.4 sur la branche PR #55, correction des éventuelles anomalies et contrôle de non-régression de la version stable 1.4.1.
+
+### PR #55 — Retour UI du 16 novembre 2026
+
+L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir un bug de recalcul. Trois corrections **implémentées, non validées dans Revit** : fenêtre « Dossier auto » en mode exclusif, aperçu des nombres de feuilles/sous-dossiers avec détail par groupe, icône de dossier auto/synchronisation différente des dossiers manuels. Les tests automatisés ont été étendus ; contrôle CI sur SHA final et recette Revit encore requis. Ne pas fusionner la PR Draft avant confirmation.
