@@ -1150,7 +1150,9 @@ class ExportWindow(forms.WPFWindow):
         box.Focus()
 
     def Preview_Click(self, sender, args):
-        self._refresh_tree()
+        refresh = getattr(self, "_refresh_tree", None)
+        if refresh is not None:
+            refresh()
         if getattr(self, "_dynamic_errors", None):
             forms.alert("Publication dynamique indisponible :\n" +
                         "\n".join(self._dynamic_errors.values()),
