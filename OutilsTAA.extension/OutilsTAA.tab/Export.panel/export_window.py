@@ -1253,7 +1253,13 @@ class ExportWindow(forms.WPFWindow):
         if str(tag[1].id) == "default":
             return None
         if getattr(tag[1], "dynamic_virtual", False):
-            return None
+            menu = ContextMenu()
+            freeze_one = MenuItem()
+            freeze_one.Header = "Figer uniquement ce sous-dossier"
+            freeze_one.Tag = tag
+            freeze_one.Click += self.FreezeDynamicGroup_Click
+            menu.Items.Add(freeze_one)
+            return menu
         menu = ContextMenu()
         if (getattr(getattr(tag[1], "source", None), "mode", None)
                 == PublicationSource.DYNAMIC):
@@ -1268,6 +1274,27 @@ class ExportWindow(forms.WPFWindow):
         rename.Click += self.RenameFolder_Click
         menu.Items.Add(rename)
         return menu
+
+    def FreezeDynamicGroup_Click(self, sender, args):
+        """Convertit un groupe calculé en manuel et laisse les autres dynamiques."""
+        tag = getattr(sender, "Tag", None)
+        if not isinstance(tag, tuple) or len(tag) < 2:
+            return
+        group = tag[1]
+        if not getattr(group, "dynamic_virtual", False):
+            return
+        if not forms.alert(
+                "Figer uniquement le sous-dossier « {} » ?"
+                "\\nSes feuilles seront conservées, même si leurs paramètres changent."
+                "\\nLes autres sous-dossiers resteront automatiques."
+                .format(group.name),
+                title="Export — figer un sous-dossier", yes=True, no=True):
+            return
+        ok, _ = self._execute_storage_action(
+            lambda: self.controller.freeze_dynamic_group(group),
+            "figer un sous-dossier automatique")
+        if ok:
+            self._refresh_tree()
 
     def FreezeDynamic_Click(self, sender, args):
         tag = getattr(sender, "Tag", None)
