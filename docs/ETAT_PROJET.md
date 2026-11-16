@@ -371,3 +371,15 @@ Amélioration non bloquante à prévoir : remplacer le message répété « anno
 **CI vérifiée avant fusion :** PR #57, commit `fccc4fcb8bd2d4fb352f2e60155ac3f5dabc2468` : `Calculs des pièces — tests hors Revit` réussi (run `43899824241`, 103 tests) et `Export — tests hors Revit` réussi (run `43899824194`). Aucune fusion ni modification de `main` effectuée au moment de cette note.
 
 **Décision :** passer la PR #57 prête pour revue et fusionner dans `main`, sous réserve du contrôle GitHub de l'état mergeable, puis vérifier le commit de fusion et les contrôles de la branche principale.
+
+## Régression Calculs — paramètre cible aligné / 36 écritures annulées (16/11/2026)
+
+**Nouvelle preuve utilisateur Revit 2025.4 :** captures montrant l'option « Conserver une valeur commune entre groupes », 36 pièces après filtre, 9 groupes, 36 écritures annoncées en échec lors de la restauration du paramètre `Surface logement`. Revit annonce que 36 éléments seraient réalignés. **Une seule transaction a échoué et été annulée ; aucune valeur écrite n'a été conservée.**
+
+**Impact validation antérieure :** les résultats de tests Revit 2 à 8 déclarés OK restent des observations de leur contexte précis ; ce nouvel essai montre que l'option valeur commune ne fonctionne pas dans toutes les maquettes. Ne pas étendre la qualification « validé » à ce scénario de conflit global.
+
+**Analyse :** la comparaison pré-calcul des pièces sélectionnées ne garantit pas la compatibilité globale des occurrences du même type de groupe, que Revit examine lors de la restauration de l'alignement. La capture ne permet pas d'attribuer les éléments affectés.
+
+**Branche :** `fix/calculs-uniform-group-realignment-report` créée depuis `main` commit `112acbf26486e9744648bd5a28a16f3b4e22dd8c`. Correctif **diagnostic et ergonomie**, sans modification de valeurs ni règle d'alignement : erreur explicative, recommandation d'autoriser les valeurs différentes (choix manuel durable), rapport de rollback non répétitif, test de non-régression et documentation. L'option « valeur commune » n'est pas présentée comme réparée pour les groupes qui exigeraient une modification d'autres éléments.
+
+**Validation :** code implémenté sur branche, tests CI et essai réel Revit encore à vérifier. Prochaine action : tester sur copie du projet l'option « Autoriser des valeurs différentes entre groupes », relever les valeurs et l'état du paramètre, puis contrôler le rollback / Undo.
