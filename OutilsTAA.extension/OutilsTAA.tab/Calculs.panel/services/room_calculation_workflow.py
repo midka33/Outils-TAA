@@ -382,12 +382,19 @@ class RoomCalculationWorkflow(object):
                             )
                         )
 
+                if prepared.group_mode in ("vary", "uniform") and failed:
+                    raise ValidationError("Ecriture incomplete : annulation de securite.")
+                if prepared.group_mode == "uniform" and enabled_definitions:
+                    # Revit differe certaines mises a jour jusqu'a regeneration.
+                    # Synchroniser toutes les valeurs AVANT d'imposer a
+                    # nouveau l'alignement global du parametre de groupe.
+                    regenerate = getattr(self.document, "Regenerate", None)
+                    if regenerate is not None:
+                        regenerate()
                 if prepared.group_mode in ("restore", "uniform"):
                     realigned = self._restore_group_alignment(enabled_definitions)
                 else:
                     realigned = []
-                if prepared.group_mode in ("vary", "uniform") and failed:
-                    raise ValidationError("Ecriture incomplete : annulation de securite.")
                 if prepared.group_mode == "uniform":
                     # Un realignement ne peut etre admis que s'il touche des
                     # membres explicitement prevus ET conserve leur valeur.
