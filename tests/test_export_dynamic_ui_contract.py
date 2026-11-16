@@ -87,7 +87,7 @@ def test_dynamic_xaml_has_only_ui_elements_and_button_in_explorer():
 
 
 def test_automatic_folders_use_distinct_icon():
-    theme = (BASE.parents[2] / "resources" / "ui" / "Theme.xaml").read_text(
+    theme = (BASE.parents[1] / "resources" / "ui" / "Theme.xaml").read_text(
         encoding="utf-8")
     ui = read("export_window.py")
     assert 'x:Key="TaaAutoFolderIcon"' in theme
