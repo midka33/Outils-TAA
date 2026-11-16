@@ -24,6 +24,8 @@ class CalculsWindow(forms.WPFWindow):
         self.controller = controller
         self._loading = True
         self._context = None
+        self._last_report = None
+        self._last_prepared = None
         self._group_choices = []
         self._source_choices = []
         self._target_choices = []
@@ -228,6 +230,9 @@ class CalculsWindow(forms.WPFWindow):
     def Calculate_Click(self, sender, args):
         self.CalculateButton.IsEnabled = False
         self.ProgressBar.Value = 0
+        self.ReportButton.IsEnabled = False
+        self._last_report = None
+        self._last_prepared = None
 
         try:
             request = self._create_request()
@@ -288,11 +293,15 @@ class CalculsWindow(forms.WPFWindow):
                     )
                 )
 
-            CalculationReportWindow(
-                prepared,
-                report,
-                owner=self,
-            ).ShowDialog()
+            self._last_prepared = prepared
+            self._last_report = report
+            self.ReportButton.IsEnabled = True
+            if report.transaction_error or report.failed_count:
+                self.Report_Click(None, None)
+            elif report.skipped:
+                self.StatusText.Text += " {} pièce(s) ignorée(s).".format(
+                    len(report.skipped)
+                )
 
         except Exception as error:
             self.StatusText.Text = "Erreur : {}".format(error)
@@ -370,6 +379,13 @@ class CalculsWindow(forms.WPFWindow):
         self.UnitCombo.IsEnabled = manual_units_are_useful
         if not manual_units_are_useful and self.UnitCombo.Items.Count:
             self.UnitCombo.SelectedIndex = 0
+
+    def Report_Click(self, sender, args):
+        if self._last_report is None or self._last_prepared is None:
+            return
+        CalculationReportWindow(
+            self._last_prepared, self._last_report, owner=self
+        ).ShowDialog()
 
     def Close_Click(self, sender, args):
         self.Close()
