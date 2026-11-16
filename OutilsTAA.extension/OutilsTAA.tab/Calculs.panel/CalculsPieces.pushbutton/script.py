@@ -53,7 +53,7 @@ def main():
         )
         return
 
-    collector_service = RoomCollectorService(document)
+    collector_service = RoomCollectorService(document, view=revit.active_view)
     grouped_parameter_service = GroupedParameterService(document)
     parameter_service = RoomParameterService(
         grouped_parameter_service=grouped_parameter_service
