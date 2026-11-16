@@ -94,3 +94,16 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 **Correction implémentée sur la PR #55 :** suppression du texte parasite ; bouton « Dossier auto » déplacé dans « Mises en page Revit », sur la même ligne que « Ajouter », en conservant « Effacer la sélection ». Ajout d'un test de structure XAML et d'emplacement.
 
 **Statut :** correction proposée et implémentée, tests CI à vérifier sur SHA final, recette Revit à refaire ; aucune validation finale ni fusion.
+
+## Ajustements ergonomiques — retour Revit du 16 novembre 2026
+
+**Validation utilisateur :** l'actualisation automatique des feuilles fonctionne bien ; le signalement initial d'absence de mise à jour est retiré. Aucun correctif de synchronisation supplémentaire n'est nécessaire.
+
+**Corrections UI proposées et implémentées sur PR #55 :**
+- Le bouton **Dossier auto** ouvre l'assistant directement en mode exclusivement automatique, sans afficher les modes Par paramètre, Manuel ou Temporaire. Ces modes restent conservés dans le composant historique pour les autres usages.
+- L'aperçu affiche en direct le nombre total de feuilles correspondantes, le nombre de sous-dossiers qui seraient créés, ainsi que le détail « nom du sous-dossier — nombre de feuilles » ; le calcul réutilise `resolve_dynamic`, sans écrire le JSON.
+- Les dossiers automatiques et leurs sous-dossiers calculés utilisent un pictogramme dossier/synchronisation turquoise (`TaaAutoFolderIcon`), différent du dossier manuel orange.
+
+**Tests ciblés :** test de contrat WPF du mode exclusif, du calcul d'aperçu, du thème et des identifiants ; CI et validation Revit à confirmer sur le commit final.
+
+**Recette Revit restante :** vérifier l'ouverture de la fenêtre sans radios, la mise à jour de l'aperçu lors du changement de valeur et de paramètre de sous-dossier, l'identification visuelle du dossier créé puis sa conversion manuelle (qui doit reprendre l'icône standard). La stabilité de l'actualisation déjà constatée ne doit pas être régressée.
