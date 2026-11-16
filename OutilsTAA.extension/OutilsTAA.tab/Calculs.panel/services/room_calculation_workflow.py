@@ -204,6 +204,71 @@ class RoomCalculationWorkflow(object):
                 )
         return prepared
 
+    def uniform_manual_guidance(self, prepared, selected_values):
+        """Detecte les valeurs de reference a modifier dans l'editeur Revit.
+
+        Ne modifie rien. Si les occurrences du meme type sont en conflit
+        et qu'au moins une valeur existante ne correspond pas a la reference
+        choisie, l'alignement automatique ne peut pas garantir cette
+        reference : guider une edition manuelle plutot que lancer un rollback.
+        """
+        if not prepared.group_conflicts:
+            return ""
+        lines = []
+        target = prepared.request.target_parameter
+        for conflict in prepared.group_conflicts:
+            type_key = conflict["type_key"]
+            if type_key not in selected_values:
+                continue
+            desired = selected_values[type_key]
+            proposed = self.writer.prepare_value(
+                prepared.request.source_parameter,
+                target,
+                desired,
+                prepared.request.output_unit_type_id,
+            )
+            samples = []
+            for room_key in conflict["room_keys"]:
+                room = prepared.room_by_key.get(room_key)
+                if room is None:
+                    continue
+                parameter = self.parameter_service.get_parameter(room, target)
+                if parameter is None:
+                    continue
+                current = self.parameter_service.read_parameter(parameter)
+                if not self._same_value(current, proposed):
+                    group_id = self._element_id_value(
+                        getattr(room, "GroupId", None)
+                    )
+                    room_id = self._element_id_value(
+                        getattr(room, "Id", None)
+                    )
+                    samples.append((room_id, group_id, current))
+            if not samples:
+                continue
+            room_id, group_id, current = samples[0]
+            lines.append(
+                "- Type de groupe '{}' (ID {}) : valeur cible {}, "
+                "valeur existante {} sur piece ID {}, groupe ID {}."
+                .format(conflict["name"], type_key, proposed,
+                        current, room_id, group_id)
+            )
+        if not lines:
+            return ""
+        return (
+            "Une valeur commune differente de celle actuellement alignee "
+            "doit etre definie dans l'editeur de groupe Revit. "
+            "Le module ne peut pas garantir que Revit conservera la valeur "
+            "choisie lors du realignement.\n"
+            + "\n".join(lines)
+            + "\nAnnulez cette verification sans ecrire. Sur une copie "
+            "du RVT, selectionnez une occurrence du type indique, "
+            "utilisez Modifier le groupe, renseignez '{}' sur les pieces "
+            "concernees, puis Terminer. Verifiez les autres occurrences "
+            "et relancez Calculs des pieces. Aucun element n'a ete modifie."
+            .format(target.name)
+        )
+
     def execute(self, prepared, progress=None):
         valid = []
         failed = []
