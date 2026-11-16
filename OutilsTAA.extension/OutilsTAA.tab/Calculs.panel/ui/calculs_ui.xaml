@@ -180,13 +180,13 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="GESTION DES GROUPES"
+                                   Text="GROUPES REVIT"
                                    VerticalAlignment="Center"
                                    Style="{DynamicResource TAASectionTitle}"/>
-                        <ComboBox Grid.Column="1" x:Name="GroupModeCombo"
-                                  DisplayMemberPath="label"
-                                  Style="{DynamicResource TAAComboBox}"
-                                  ToolTip="Automatique : préserver le réglage du paramètre. Valeurs différentes : autoriser durablement la variation entre groupes. Valeur commune : conserver l'alignement avec choix des valeurs si nécessaire."/>
+                        <TextBlock Grid.Column="1" x:Name="GroupPolicyText"
+                                   Text="Si le paramètre cible suit les groupes, Outils TAA peut autoriser automatiquement des valeurs différentes pour conserver les surfaces calculées. Ce réglage sera alors modifié durablement dans Revit."
+                                   TextWrapping="Wrap" Foreground="#555555"
+                                   VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
 
