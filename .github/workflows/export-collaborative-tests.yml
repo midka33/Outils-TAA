@@ -6,6 +6,7 @@ on:
       - "OutilsTAA.extension/OutilsTAA.tab/Export.panel/**"
       - "tests/test_export_collaborative_*.py"
       - "tests/test_export_local_config_migration.py"
+      - "tests/test_export_manual_config_import.py"
       - "tests/test_export_storage_bootstrap.py"
       - "docs/27_Export_Configuration_Collaborative.md"
       - "docs/28_Export_Recette_Collaborative_Revit.md"
@@ -33,5 +34,6 @@ jobs:
           tests/test_export_storage_bootstrap.py
           tests/test_export_collaborative_ui.py
           tests/test_export_local_config_migration.py
+          tests/test_export_manual_config_import.py
           tests/test_export_collaborative_acceptance.py
           --import-mode=importlib -q
