@@ -249,6 +249,11 @@ class CalculsWindow(forms.WPFWindow):
                 self.StatusText.Text = "Aucun résultat à écrire."
                 return
 
+            if prepared.group_conflicts:
+                if not self._choose_group_conflict_mode(prepared):
+                    self.StatusText.Text = "Choix des groupes annulé avant écriture."
+                    return
+
             message = (
                 "{0} pièce(s) analysée(s)\n"
                 "{1} pièce(s) après filtre\n"
@@ -260,6 +265,25 @@ class CalculsWindow(forms.WPFWindow):
                 prepared.result.group_count,
                 len(prepared.operations),
             )
+
+            if prepared.design_options:
+                message += "Variantes :\n"
+                for line in prepared.design_options:
+                    message += "{}\n".format(line)
+                message += "\n"
+
+            if prepared.group_conflicts:
+                if prepared.group_mode == "vary":
+                    message += (
+                        "IMPORTANT : le paramètre sera réglé durablement pour "
+                        "autoriser les valeurs différentes entre groupes.\n\n"
+                    )
+                else:
+                    message += (
+                        "IMPORTANT : les valeurs choisies comme références seront "
+                        "appliquées aux occurrences concernées, sans changer le "
+                        "réglage initial du paramètre.\n\n"
+                    )
 
             if prepared.warnings:
                 message += "Avertissements :\n"
@@ -321,6 +345,78 @@ class CalculsWindow(forms.WPFWindow):
             )
         finally:
             self.CalculateButton.IsEnabled = True
+
+    def _choose_group_conflict_mode(self, prepared):
+        """Aucun changement de definition n'est fait sans decision explicite."""
+        vary_label = "Autoriser les valeurs différentes (modifier le paramètre)"
+        same_label = "Conserver l'alignement (choisir les valeurs communes)"
+        choices = [vary_label]
+        if all(item["uniform_safe"] for item in prepared.group_conflicts):
+            choices.append(same_label)
+        detail = (
+            "{} type(s) de groupe présentent des totaux divergents.\n"
+            "Le premier choix rend le paramètre variable durablement.\n"
+            "Le second conserve l'alignement et demande une valeur de "
+            "référence par type de groupe."
+        ).format(len(prepared.group_conflicts))
+        selected = forms.CommandSwitchWindow.show(
+            choices,
+            message=detail,
+            title="Calculs des pièces — Conflits de groupes",
+        )
+        if not selected:
+            return False
+        if selected == vary_label:
+            prepared.group_mode = "vary"
+            return True
+        if selected != same_label:
+            return False
+
+        values = {}
+        for conflict in prepared.group_conflicts:
+            labels = []
+            references = {}
+            # Proposer les valeurs vraiment calculees, et non inventer une moyenne.
+            for candidate in conflict["candidates"]:
+                label = "{} (occurrence {}) — {}".format(
+                    candidate["name"],
+                    candidate["instance_id"],
+                    self._format_group_value(candidate["value"], prepared.request),
+                )
+                labels.append(label)
+                references[label] = candidate["value"]
+            if not labels:
+                return False
+            picked = forms.SelectFromList.show(
+                labels,
+                title="Valeur commune pour le type de groupe : {}".format(
+                    conflict["name"]
+                ),
+                button_name="Retenir cette valeur pour les occurrences",
+                multiselect=False,
+            )
+            if picked not in references:
+                return False
+            values[conflict["type_key"]] = references[picked]
+        prepared.uniform_values = values
+        prepared.group_mode = "uniform"
+        return True
+
+    @staticmethod
+    def _format_group_value(value, request):
+        # Les surfaces Revit sont internes (pieds carres); afficher m2
+        # uniquement si la source est bien un parametre d'aire.
+        data_type = str(getattr(request.source_parameter, "data_type_id", "") or "")
+        if "area" in data_type.lower():
+            try:
+                from Autodesk.Revit.DB import UnitUtils, UnitTypeId
+                area_m2 = UnitUtils.ConvertFromInternalUnits(
+                    float(value), UnitTypeId.SquareMeters
+                )
+                return "{:.3f} m²".format(area_m2)
+            except (ImportError, AttributeError, TypeError, ValueError):
+                pass
+        return "{} (unites internes Revit si Double)".format(value)
 
     def _calculation_progress(self, current, total):
         if total:
