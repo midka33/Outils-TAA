@@ -126,3 +126,15 @@ métadonnées Revit qu'une seule fois.
 **Correction proposée et implémentée sur `feat/calculs-group-mode-main-ui` :** `GESTION DES GROUPES` dans la fenêtre WPF principale, trois choix `auto/vary/uniform`, transmis `CalculationRequest → Controller → Workflow → revue WPF`. En mode manuel, ne pas redemander l'option à la confirmation ; en mode commun, demander uniquement les références nécessaires. Toujours refuser les uniformisations non sûres et les valeurs manquantes avant transaction.
 
 **Anti-régression :** tests ciblés `test_group_decisions.py` et CI Calculs + Export, validation Revit 2025.4 du sélecteur et des deux parcours de groupe. **Non validé dans Revit au moment du commit.**
+
+### BUG-CALCULS-012 — Uniformisation partielle des occurrences de groupe
+
+**Symptôme :** « Conserver une valeur commune entre groupes » peut échouer avec plusieurs dizaines d'éléments réalignés. Les opérations préparées ne couvraient que les pièces collectées/filtrées ; les éléments homologues situés dans d'autres occurrences du même type de groupe n'étaient pas comparés. En mode « valeurs différentes », une boîte « aucun résultat » pouvait apparaître avant transaction sans expliquer quelle donnée était absente.
+
+**Cause :** `group_conflicts` analyse seulement les écritures du calcul. La restauration `SetAllowVaryBetweenGroups(False)` agit à l'échelle de la définition du paramètre ; l'ancien contrôle rejetait systématiquement tout élément retourné par l'API, même s'il était attendu et conservait la bonne valeur.
+
+**Correction proposée/implémentée sur `fix/calculs-uniform-revit-groups-v2` :** plan des membres homologues par ordre documenté de `Group.GetMemberIds()`, récupération de toutes les occurrences du type, écritures supplémentaires explicites, restauration et vérification de toutes les valeurs post-restauration avant commit. Modification durable `VariesAcrossGroups=True` maintenue en mode « valeurs différentes ». Le mode uniforme rend aussi `VariesAcrossGroups=False` lorsque le paramètre était auparavant variable. Les validations historiques et rollback ne sont pas supprimés. Causes des sommes absentes détaillées sans transaction.
+
+**Règle préventive :** ne jamais considérer qu'un ensemble de pièces sélectionnées représente toutes les occurrences d'un type de groupe. Ne pas approuver un réalignement si le membre concerné n'a pas été explicitement préparé ou si la valeur finale diffère. Aucune suppression/reconstruction de groupe.
+
+**Tests :** `test_member_alignment.py` : écriture d'un membre homologue hors filtre, alignement précédemment variable, durabilité de valeurs différentes, retour d'ID attendu, ID hors plan et valeur modifiée entraînant rollback, diagnostic sources/groupes vides. CI puis validation Revit obligatoires.
