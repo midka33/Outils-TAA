@@ -100,6 +100,33 @@ class GroupConflictDecisionTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.workflow.prepare(self.request)
 
+    def test_empty_totals_report_group_or_source_not_target_lock(self):
+        from calculation_diagnostics import empty_result_explanation
+        from calculation.room_calculator import RoomCalculator
+        from calculation.models import RoomCalculationItem
+        class StubRequest(object):
+            group_parameter = type("Param", (), {"name": "N° Appartement"})()
+            source_parameter = type("Param", (), {"name": "Surface"})()
+        class StubPrepared(object):
+            request = StubRequest()
+            filtered_rooms = 3
+            result = RoomCalculator().calculate([
+                RoomCalculationItem("a", "", 12.0),
+                RoomCalculationItem("b", None, 15.0),
+                RoomCalculationItem("c", "B200", None),
+            ])
+        message = empty_result_explanation(StubPrepared())
+        self.assertIn("2 pièce(s) sans valeur", message)
+        self.assertIn("1 pièce(s) avec une valeur non numérique", message)
+        self.assertIn("aucun paramètre n'a été modifié", message)
+        self.assertNotIn("lecture seule", message)
+
+    def test_empty_totals_message_is_wired_to_window(self):
+        path = os.path.join(PANEL, "ui", "calculs_window.py")
+        with open(path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("empty_result_explanation(prepared)", source)
+
     def test_conflict_identified_by_group_type_not_group_instance(self):
         self.assertEqual(1, len(self.prepared.group_conflicts))
         item = self.prepared.group_conflicts[0]
