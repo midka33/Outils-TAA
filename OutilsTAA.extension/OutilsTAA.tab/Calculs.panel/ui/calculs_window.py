@@ -272,8 +272,7 @@ class CalculsWindow(forms.WPFWindow):
 
             # Un seul dialogue WPF TAA : variantes, conflits de groupes
             # et validation finale sont traités dans la même fenêtre.
-            if not review_taa(
-                prepared, self._format_group_value, owner=self,
+            if not review_taa(prepared, self._format_group_value, owner=self,
                 uniform_guidance=self.controller.uniform_manual_guidance,
             ):
                 self.StatusText.Text = "Calcul annulé avant écriture."
