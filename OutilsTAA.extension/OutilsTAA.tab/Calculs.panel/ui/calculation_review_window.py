@@ -20,7 +20,8 @@ class ReviewChoice(object):
 
 class CalculationReviewWindow(forms.WPFWindow):
 
-    def __init__(self, prepared, format_value, owner=None):
+    def __init__(self, prepared, format_value, owner=None,
+                 uniform_guidance=None):
         xaml_path = os.path.join(os.path.dirname(__file__), "calculation_review.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         if owner is not None:
@@ -33,6 +34,7 @@ class CalculationReviewWindow(forms.WPFWindow):
 
         self.prepared = prepared
         self.format_value = format_value
+        self.uniform_guidance = uniform_guidance
         self._uniform_combos = {}
         self._conflicts = list(prepared.group_conflicts)
         request = prepared.request
@@ -198,6 +200,21 @@ class CalculationReviewWindow(forms.WPFWindow):
                         return
                     selected_values[conflict["type_key"]] = choice.value
 
+        if group_mode == "uniform" and self.uniform_guidance is not None:
+            try:
+                guidance = self.uniform_guidance(prepared, selected_values)
+            except Exception as error:
+                self.ErrorText.Text = (
+                    "Verification de l'alignement impossible : {}."
+                    .format(error)
+                )
+                return
+            if guidance:
+                self.ErrorText.Text = guidance
+                # Conserver la fenêtre : pas de transaction tant que l'edition
+                # du groupe n'a pas ete faite dans l'interface Revit.
+                return
+
         # Les décisions sont posées ensemble, au dernier clic seulement.
         prepared.group_mode = group_mode
         prepared.uniform_values = selected_values
@@ -209,7 +226,8 @@ class CalculationReviewWindow(forms.WPFWindow):
         self.DialogResult = False
 
 
-def review_taa(prepared, format_value, owner):
+def review_taa(prepared, format_value, owner, uniform_guidance=None):
     return bool(CalculationReviewWindow(
-        prepared, format_value, owner=owner
+        prepared, format_value, owner=owner,
+        uniform_guidance=uniform_guidance,
     ).ShowDialog())
