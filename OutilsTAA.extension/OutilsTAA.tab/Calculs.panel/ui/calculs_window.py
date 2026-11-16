@@ -145,9 +145,9 @@ class CalculsWindow(forms.WPFWindow):
         )
 
         self.FilterValueTextBox.Text = data.get("filter_value") or ""
-        self._refresh_unit_options(
-            selected_type_id=data.get("output_unit_type_id")
-        )
+        # L'unite de sortie n'est plus configurable dans l'interface.
+        # Ne pas reutiliser silencieusement un ancien choix persiste.
+        self._refresh_unit_options()
         self._update_unit_state()
 
     def _select_saved(self, combo, choices, saved_data):
@@ -189,8 +189,8 @@ class CalculsWindow(forms.WPFWindow):
         return getattr(item, "descriptor", None) if item is not None else None
 
     def _selected_unit_type_id(self):
-        option = self.UnitCombo.SelectedItem
-        return getattr(option, "type_id", None) if option is not None else None
+        # Conversion automatique selon les descripteurs source et destination.
+        return None
 
     def _create_request(self):
         group = self._selected_descriptor(self.GroupParameterCombo)
