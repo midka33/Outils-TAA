@@ -112,10 +112,13 @@ class GroupConflictDecisionTests(unittest.TestCase):
         self.assertEqual({10.0, 5.0},
                          set(candidate["value"] for candidate in item["candidates"]))
 
-    def test_no_implicit_writing_when_conflict_awaits_user(self):
-        with self.assertRaises(ValidationError):
-            self.workflow.execute(self.prepared)
-        self.assertFalse(self.transactions)
+    def test_automatic_group_mode_writes_real_apartment_totals(self):
+        self.assertEqual("vary", self.prepared.group_mode)
+        report = self.workflow.execute(self.prepared)
+        self.assertTrue(report.is_success)
+        self.assertEqual(10.0, self.target1.value)
+        self.assertEqual(5.0, self.target2.value)
+        self.assertTrue(self.definition.VariesAcrossGroups)
 
     def test_user_can_keep_distinct_values_and_parameter_setting(self):
         self.prepared.group_mode = "vary"
@@ -177,14 +180,15 @@ class GroupConflictDecisionTests(unittest.TestCase):
         p = os.path.join(PANEL, "ui", "calculation_review_window.py")
         with open(p, "r", encoding="utf-8") as handle:
             source = handle.read()
-        self.assertIn("self._automatic_uniform = True", source)
-        self.assertIn("self.WarningText.Text = notice", source)
+        self.assertIn("self.GroupSection.Visibility = Visibility.Collapsed", source)
+        self.assertIn('group_mode = "vary"', source)
         self.assertIn("self.DialogResult = True", source)
         self.assertNotIn("self.ErrorText.Text = guidance", source)
         ui = os.path.join(PANEL, "ui", "calculs_window.py")
         with open(ui, "r", encoding="utf-8") as handle:
             caller = handle.read()
         self.assertIn('group_mode="auto"', caller)
+        self.assertIn("if prepared.shared_variant_apartments:", caller)
         self.assertNotIn("self.GroupModeCombo", caller)
 
     def test_uniform_forbidden_if_one_instance_contains_distinct_apartments(self):
@@ -421,6 +425,18 @@ class GroupConflictDecisionTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             workflow.execute(prepared)
         self.assertEqual([], transactions)
+
+    def test_no_variant_overlap_skips_review_and_sets_no_group_uniformization(self):
+        ui = os.path.join(PANEL, "ui", "calculs_window.py")
+        with open(ui, "r", encoding="utf-8") as handle:
+            code = handle.read()
+        self.assertIn("if prepared.shared_variant_apartments:", code)
+        self.assertIn("prepared.variant_separation_confirmed", code)
+        review = os.path.join(PANEL, "ui", "calculation_review_window.py")
+        with open(review, "r", encoding="utf-8") as handle:
+            code = handle.read()
+        self.assertIn("self.GroupSection.Visibility = Visibility.Collapsed", code)
+        self.assertNotIn("self._build_uniform_choices()", code)
 
     def test_invalid_variant_mode_is_rejected(self):
         self.request.variant_mode = "nonsense"
