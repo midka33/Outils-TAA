@@ -313,6 +313,11 @@ class RoomCalculationWorkflow(object):
             uniform_by_room = {}
 
         if prepared.group_mode == "uniform":
+            manual_guidance = self.uniform_manual_guidance(
+                prepared, prepared.uniform_values
+            )
+            if manual_guidance:
+                raise ValidationError(manual_guidance)
             validate_uniform_targets_by_member(
                 self.document,
                 prepared.room_by_key,
