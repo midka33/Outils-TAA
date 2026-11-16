@@ -953,3 +953,30 @@ wrapper accepte et retransmet `storage_context`.
 **Règle préventive :** toute migration de données historiques doit prendre en charge les encodages réellement écrits par les anciennes versions et éviter une deuxième lecture via un autre décodeur. Aucun remplacement silencieux ou caractère de substitution.
 
 **Anti-régression :** `tests/test_export_local_config_migration.py`, jeux avec accents CP1252, UTF-8 et UTF-8 BOM, intégrité binaire du fichier source, refus des JSON invalides ; vérification du lancement réel dans Revit avant validation.
+
+### BUG-EXPORT-066 — Plusieurs centraux liés dans un même dossier partagent le même chemin JSON
+
+**Symptôme :** les maquettes Architecture / Structure / Contexte d'une même
+affaire, enregistrées dans un dossier serveur commun, résolvaient toutes
+`OutilsTAA/export.json`. Le modèle non propriétaire du JSON pouvait être
+bloqué par `ProjectIdentityMismatchError`.
+
+**Cause racine :** le résolveur dérivait le stockage du seul dossier du
+central, tandis que l'identité vérifiée dans le JSON distinguait déjà chaque
+fichier central.
+
+**Correction :** sous-dossier dédié à chaque central via nom de fichier et
+SHA-1 de l'identité normalisée ; JSON, verrou et sauvegardes indépendants.
+Pour préserver une configuration collaborative historique, l'ancien
+`OutilsTAA/export.json` demeure exploitable **uniquement** par le central
+dont l'identité correspond. Aucune migration automatique/destruction.
+
+**Règle préventive :** la clé de partition du stockage doit avoir au moins
+la même granularité que l'identité de validation ; tester deux centraux dans
+le même répertoire, y compris un central Revit lié.
+
+**Anti-régression :** `tests/test_export_collaborative_storage.py` et
+`tests/test_export_storage_bootstrap.py` : chemins indépendants,
+insensibilité à la casse, préservation de l'ancien JSON et priorité du
+nouveau stockage. **Validation Revit sur des maquettes centrales voisines
+encore nécessaire**.
