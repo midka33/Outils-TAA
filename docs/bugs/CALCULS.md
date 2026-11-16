@@ -138,3 +138,19 @@ métadonnées Revit qu'une seule fois.
 **Règle préventive :** ne jamais considérer qu'un ensemble de pièces sélectionnées représente toutes les occurrences d'un type de groupe. Ne pas approuver un réalignement si le membre concerné n'a pas été explicitement préparé ou si la valeur finale diffère. Aucune suppression/reconstruction de groupe.
 
 **Tests :** `test_member_alignment.py` : écriture d'un membre homologue hors filtre, alignement précédemment variable, durabilité de valeurs différentes, retour d'ID attendu, ID hors plan et valeur modifiée entraînant rollback, diagnostic sources/groupes vides. CI puis validation Revit obligatoires.
+
+### BUG-CALCULS-013 — Uniformisation écrasée par le réalignement Revit malgré les membres homologues
+
+**Retour utilisateur Revit 2025.4 du 16/11/2026, PR #59 (non fusionnée) :** mode **« Autoriser des valeurs différentes » validé OK** ; mode **« Conserver une valeur commune » KO**. Pendant la restauration, l'élément ID **5630105** a vu son résultat prévu **380.286410009** remplacé par **324.979623715**. Transaction des 36 écritures annulée. Les valeurs sont des nombres en unités internes Revit dans le journal ; ne pas les qualifier arbitrairement de m².
+
+**Cause observée :** Revit remplace une valeur précédemment écrite au moment de `SetAllowVaryBetweenGroups(False)`. La documentation Autodesk confirme que cette méthode effectue un réalignement automatique ; l'ordre des membres homologues ne garantit pas à lui seul la valeur qu'elle retient. La cause précise de la valeur source 324.979623715 reste à identifier sur le RVT.
+
+**Correction expérimentale sur PR #59 :**
+- Pré-contrôle des consignes par couple `(ID du type de groupe, position de membre retournée par GetMemberIds())` : deux valeurs différentes au même emplacement sont refusées avant la transaction, avec type et pièces concernés.
+- `Document.Regenerate()` appelé **après les écritures et avant le rétablissement de l'alignement** du paramètre, seulement en mode uniforme, pour forcer les mises à jour différées. Hypothèse : Revit pouvait employer des valeurs/caches non encore régénérés. L'appel doit être testé dans Revit ; ce n'est **pas** une preuve de correction.
+- Si Revit remplace encore une valeur, erreur contextualisée avec ID et type de groupe et maintien du rollback. Aucune écriture forcée après le réalignement et aucune suppression/reconstruction de groupes.
+- Mode valeurs différentes validé laissé inchangé.
+
+**Règle préventive :** ne jamais considérer `SetAllowVaryBetweenGroups(False)` comme une simple propriété booléenne sans effet sur les données. Vérifier les valeurs effectives après régénération et réalignement et annuler dès qu'elles diffèrent. Ne jamais annoncer l'uniformisation comme résolue sans essai réel Revit.
+
+**Anti-régression :** `test_member_alignment.py` : conflit de valeurs homologues 380.286410009 / 324.979623715 avant transaction, restauration qui écrase une valeur, ordre `writes → Document.Regenerate → SetAllowVaryBetweenGroups(False)` simulé. Tests sur une copie du RVT obligatoires, en confirmant l'ID 5630105.
