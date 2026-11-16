@@ -23,11 +23,16 @@ Conditions :
 - conserver une copie d'une ancienne configuration locale sur Poste A pour le
   test de migration.
 
-Le fichier partagé attendu est :
+Le fichier partagé attendu est maintenant propre à chaque central :
 
 ```text
-<dossier du central>\OutilsTAA\export.json
+<dossier du central>\OutilsTAA\<nom-central>_<empreinte>\export.json
 ```
+
+**Compatibilité :** une maquette ayant déjà sa configuration dans l'ancien
+`<dossier du central>\OutilsTAA\export.json` continue de l'utiliser
+tant que le JSON porte sa propre identité centrale. Ne pas déplacer ce fichier
+pour les tests.
 
 ## 2. COLLAB-01 — Même configuration à l'ouverture
 
@@ -161,7 +166,7 @@ Rejouer une fois avec B créant `export.json` pendant que A a la confirmation ou
 
 **Attendu :**
 
-- chemins `OutilsTAA\export.json` distincts ;
+- chemins `OutilsTAA\<nom-central>_<empreinte>\export.json` distincts ;
 - aucune donnée d'un projet dans l'autre.
 
 ## 10. COLLAB-09 — Copie locale et central
@@ -224,3 +229,31 @@ Consigner dans l'issue #25 :
 - résultat de chaque COLLAB ;
 - éventuels écarts ;
 - décision Go / No-Go.
+
+
+## 14. COLLAB-09B — Plusieurs maquettes centrales dans le même dossier (nouveau)
+
+**Motif :** les maquettes Architecture / Contexte / Structure peuvent partager
+un répertoire serveur et être liées entre elles dans Revit. Vérifier la
+séparation de leurs réglages Export **même si les centraux sont voisins**.
+
+1. Mettre à jour l'extension de test sur les postes concernés ; laisser
+   l'extension de production sur serveur inchangée.
+2. Depuis sa copie locale, ouvrir la maquette A, puis Export. Vérifier que
+   l'ancienne configuration (dossiers, réglages, révision) est préservée.
+   Si elle utilisait déjà `OutilsTAA/export.json`, ce chemin peut rester
+   affiché pour A.
+3. Ouvrir la copie locale d'une maquette centrale B dans **le même dossier**.
+   Ouvrir Export. Le chemin de configuration doit être **différent** de A.
+4. Créer `TEST_B` dans B ; fermer et rouvrir Export de B.
+5. Revenir à A : `TEST_B` ne doit pas être présent ; la configuration
+   historique de A doit être intacte.
+6. Répéter avec une maquette C si nécessaire.
+
+**Attendu :** chaque central dispose d'une configuration distincte ;
+l'ancien JSON reste intact et n'est utilisé que par son propriétaire ;
+aucun fichier JSON n'est copié, effacé ou fusionné automatiquement.
+Les copies locales du **même** central pointent toujours vers le même JSON.
+
+**Attention :** ne pas supprimer l'ancien `OutilsTAA/export.json`. Les
+liens Revit n'impliquent aucun partage des organisations Export.
