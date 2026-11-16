@@ -212,3 +212,114 @@ def test_frozen_exclusion_survives_regular_parent_save(tmp_path):
     _, automatic_children = resolve_dynamic(new_parent, sheets)
     assert [item.name for item in automatic_children] == ["B"]
     assert second_session.get(frozen.id) is not None
+
+
+def test_unfreeze_only_selected_group_and_restore_live_sheets(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    a = _FakeSheet("A101", "A")
+    b = _FakeSheet("B101", "B")
+    c = _FakeSheet("C101", "C")
+    original_groups = resolve_dynamic(parent, [a, b, c])[1]
+    frozen_a = original_groups[0]
+    frozen_b = original_groups[1]
+    assert repo.freeze_dynamic_group(parent.id, frozen_a) is True
+    # Le gel d'un autre groupe doit continuer à fonctionner.
+    assert repo.freeze_dynamic_group(parent.id, frozen_b) is True
+
+    # Une modification manuelle n'est pas conservée après réactivation.
+    stored = repo.get(frozen_a.id)
+    stored.name = "A renommé manuellement"
+    stored.items = []
+    repo.save(stored)
+    new_a = _FakeSheet("A102", "A")
+    assert repo.unfreeze_dynamic_group(parent.id, frozen_a.id) is True
+
+    second_session = CarnetRepository(str(tmp_path / "publication.json"))
+    root = second_session.get(parent.id)
+    assert root.source.mode == PublicationSource.DYNAMIC
+    assert root.source.frozen_group_ids == [frozen_b.id]
+    assert second_session.get(frozen_a.id) is None
+    assert second_session.get(frozen_b.id) is not None
+    _, groups = resolve_dynamic(root, [a, new_a, b, c])
+    assert [group.name for group in groups] == ["A", "C"]
+    assert [item.unique_id for item in groups[0].items] == ["A101", "A102"]
+    assert [item.unique_id for item in second_session.get(frozen_b.id).items] == ["B101"]
+    assert len(set(g.id for g in groups)) == len(groups)
+
+
+def test_unfreeze_rejects_nested_folders_without_mutation(tmp_path):
+    from publication_folder import PublicationFolder
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    group = resolve_dynamic(parent, [_FakeSheet("A101", "A")])[1][0]
+    repo.freeze_dynamic_group(parent.id, group)
+    child = PublicationFolder("Dossier manuel", "nested", group.id)
+    repo.save_folder(child)
+    try:
+        repo.unfreeze_dynamic_group(parent.id, group.id)
+    except ValueError as exc:
+        assert "enfants" in str(exc)
+    else:
+        raise AssertionError("La conversion ne doit pas effacer des descendants")
+    assert repo.get(group.id) is not None
+    assert group.id in repo.get(parent.id).source.frozen_group_ids
+
+
+def test_unfreeze_rejects_nested_publication_sets(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    group = resolve_dynamic(parent, [_FakeSheet("A101", "A")])[1][0]
+    repo.freeze_dynamic_group(parent.id, group)
+    nested = PublicationSet(
+        "Sous-dossier manuel", source=PublicationSource(PublicationSource.MANUAL),
+        set_id="nested-set", persistent=True, folder_id=group.id)
+    repo.save(nested)
+    try:
+        repo.unfreeze_dynamic_group(parent.id, group.id)
+    except ValueError as exc:
+        assert "sous-dossiers" in str(exc)
+    else:
+        raise AssertionError("Des sous-dossiers manuels ne doivent pas être perdus")
+    assert repo.get("nested-set") is not None
+    assert repo.get(group.id) is not None
+
+
+def test_unfreeze_invalid_selection_does_not_erase_manual_data(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    group = resolve_dynamic(parent, [_FakeSheet("A101", "A")])[1][0]
+    repo.freeze_dynamic_group(parent.id, group)
+    for bad_parent, bad_group in [
+        ("wrong-parent", group.id),
+        (parent.id, "ordinary-manual-group"),
+    ]:
+        try:
+            repo.unfreeze_dynamic_group(bad_parent, bad_group)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Un mauvais identifiant ne doit rien changer")
+    assert repo.get(group.id) is not None
+    assert group.id in repo.get(parent.id).source.frozen_group_ids
+
+
+def test_unfreeze_when_no_current_matching_sheet_can_reappear(tmp_path):
+    from dynamic_sheet_groups import resolve_dynamic
+    repo = CarnetRepository(str(tmp_path / "publication.json"))
+    parent = _create_parent(repo)
+    sheet = _FakeSheet("A101", "A")
+    group = resolve_dynamic(parent, [sheet])[1][0]
+    repo.freeze_dynamic_group(parent.id, group)
+    # La valeur A a disparu : revenir au mode automatique permet de
+    # réafficher le groupe si des feuilles A réapparaissent plus tard.
+    repo.unfreeze_dynamic_group(parent.id, group.id)
+    _, now = resolve_dynamic(repo.get(parent.id), [_FakeSheet("B101", "B")])
+    assert [item.name for item in now] == ["B"]
+    _, later = resolve_dynamic(repo.get(parent.id),
+                               [sheet, _FakeSheet("B101", "B")])
+    assert [item.name for item in later] == ["A", "B"]
