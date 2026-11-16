@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 from common.exceptions import ValidationError
 from common.transaction import RevitTransaction
 from calculation.models import RoomCalculationItem
+from calculation_diagnostics import group_conflicts, design_option_summary
 from calculation.workflow_models import (
     CalculationExecutionReport,
     WriteOperation,
@@ -25,6 +26,8 @@ class PreparedCalculation(object):
         total_rooms,
         filtered_rooms,
         warnings=None,
+        conflicts=None,
+        design_options=None,
     ):
         self.request = request
         self.result = result
@@ -33,6 +36,11 @@ class PreparedCalculation(object):
         self.total_rooms = int(total_rooms)
         self.filtered_rooms = int(filtered_rooms)
         self.warnings = list(warnings or [])
+        self.group_conflicts = list(conflicts or [])
+        self.design_options = list(design_options or [])
+        # Choix explicite par utilisateur; 'restore' preserve l'ancien comportement.
+        self.group_mode = "restore"
+        self.uniform_values = {}
 
 
 class RoomCalculationWorkflow(object):
@@ -125,6 +133,11 @@ class RoomCalculationWorkflow(object):
                 "valider la transaction.".format(request.target_parameter.name)
             )
 
+        conflicts = []
+        if self._selection_requires_group_override(filtered, request.target_parameter):
+            conflicts = group_conflicts(self.document, room_by_key, operations)
+        variants = design_option_summary(self.document, filtered)
+
         return PreparedCalculation(
             request=request,
             result=result,
@@ -133,11 +146,35 @@ class RoomCalculationWorkflow(object):
             total_rooms=len(rooms),
             filtered_rooms=len(filtered),
             warnings=warnings,
+            conflicts=conflicts,
+            design_options=variants,
         )
 
     def execute(self, prepared, progress=None):
         valid = []
         failed = []
+
+        if prepared.group_conflicts and prepared.group_mode == "restore":
+            raise ValidationError(
+                "Conflits de valeurs entre occurrences : un choix utilisateur "
+                "est obligatoire avant l'ecriture."
+            )
+        if prepared.group_mode not in ("restore", "vary", "uniform"):
+            raise ValidationError("Mode de groupes non reconnu.")
+        if prepared.group_mode == "uniform":
+            required = set(item["type_key"] for item in prepared.group_conflicts)
+            if set(prepared.uniform_values) != required:
+                raise ValidationError("Une valeur commune doit etre choisie pour chaque type de groupe.")
+            for item in prepared.group_conflicts:
+                allowed = [candidate["value"] for candidate in item["candidates"]]
+                if not item["uniform_safe"] or prepared.uniform_values[item["type_key"]] not in allowed:
+                    raise ValidationError("Uniformisation non sure pour le type de groupe '{}' .".format(item["name"]))
+            uniform_by_room = {}
+            for item in prepared.group_conflicts:
+                for room_key in item["room_keys"]:
+                    uniform_by_room[room_key] = prepared.uniform_values[item["type_key"]]
+        else:
+            uniform_by_room = {}
 
         total_ops = len(prepared.operations)
         for index, operation in enumerate(prepared.operations, 1):
@@ -157,7 +194,7 @@ class RoomCalculationWorkflow(object):
                 prepared_value = self.writer.prepare_value(
                     prepared.request.source_parameter,
                     prepared.request.target_parameter,
-                    operation.value,
+                    uniform_by_room.get(operation.room_key, operation.value),
                     prepared.request.output_unit_type_id,
                 )
                 parameter = self._validate_target_on_room(
@@ -224,9 +261,12 @@ class RoomCalculationWorkflow(object):
                             )
                         )
 
-                realigned = self._restore_group_alignment(
-                    enabled_definitions
-                )
+                if prepared.group_mode in ("restore", "uniform"):
+                    realigned = self._restore_group_alignment(enabled_definitions)
+                else:
+                    realigned = []
+                if prepared.group_mode in ("vary", "uniform") and failed:
+                    raise ValidationError("Ecriture incomplete : annulation de securite.")
                 if realigned:
                     raise ValidationError(
                         "La restauration de l'alignement par type de groupe "
@@ -238,6 +278,16 @@ class RoomCalculationWorkflow(object):
                     )
 
             successful = temporary_success
+            if prepared.group_mode == "vary" and enabled_definitions:
+                prepared.warnings.append(
+                    "Reglage du parametre conserve : valeurs differentes "
+                    "autorisees entre occurrences de groupes."
+                )
+            elif prepared.group_mode == "uniform" and prepared.group_conflicts:
+                prepared.warnings.append(
+                    "Valeurs communes retenues par type de groupe, "
+                    "alignement du parametre preserve."
+                )
         except Exception as error:
             rollback_message = "Transaction annulée : {}.".format(error)
             for operation, room, prepared_value, parameter in valid:
