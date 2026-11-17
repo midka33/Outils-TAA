@@ -1,5 +1,17 @@
 # Roadmap Outils TAA
 
+## Préparation de la release v1.5.0 — 17 novembre 2026
+
+- [x] **Export** : dossiers automatiques selon paramètres Revit, conversion d'un groupe en manuel et retour en automatique ; validation utilisateur dans Revit.
+- [x] **Export** : stockage collaboratif par projet central et gestion des conflits, fusionné dans `main`.
+- [x] **À propos** : version centralisée et commande en premier dans le ruban OutilsTAA, validée visuellement dans Revit.
+- [x] **Calculs** : parcours actuel par variantes/groupes livré dans `main`, protections des valeurs alignées.
+- [ ] **Release v1.5.0** : validation ZIP, quatre suites CI, installateur et publication du tag sur SHA testé.
+- [ ] **Recette multi-postes SMB et nouveaux scénarios groupes complexes** : validation opérationnelle sur l'environnement de l'agence ; ne pas présenter comme acquise.
+- [ ] **Installation CMD v1.5.0 sur poste Windows** : tester téléchargement, SHA, sauvegarde et restauration avant déploiement général.
+
+[Notes de version](docs/release/Notes_v1.5.0.md) · [Checklist](docs/release/Preparation_v1.5.0.md).
+
 ## État d'ensemble au 3 novembre 2026
 
 **Version courante : Outils TAA v1.4.0 — Export, publiée le 3 novembre 2026**. Les six campagnes de recette **EXPORT-01 à EXPORT-06** sont confirmées dans Revit 2025.4 ; le tag et les six actifs ont été vérifiés sur GitHub Releases. Le tag pointe sur le SHA testé `21336b3df7f54ea2b4692384ba414e048bfae89e`. Consulter `docs/release/Preparation_Export_v1.4.0.md` et `docs/release/Notes_v1.4.0.md`.
