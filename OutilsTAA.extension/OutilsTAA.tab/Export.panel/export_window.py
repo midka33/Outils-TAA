@@ -14,6 +14,7 @@ from System.Windows.Media import Stretch
 from System.Windows.Shapes import Path as IconPath
 
 from export_report_window import PublicationReportWindow
+from about_window import AboutWindow
 from carnet_manager_window import CarnetManagerWindow
 from publication_folder import PublicationFolder, _folder_targets, _set_targets
 from publication_overview import formats_for, summarize_publication
@@ -209,6 +210,10 @@ class ExportWindow(forms.WPFWindow):
         except StorageError as exc:
             self._show_storage_error(exc, action)
             return False, None
+
+    def About_Click(self, sender, args):
+        """Informations sur la version installée de la suite Outils TAA."""
+        AboutWindow(owner=self).ShowDialog()
 
     def Window_Activated(self, sender, args):
         """Signale une révision plus récente sans recharger automatiquement."""
