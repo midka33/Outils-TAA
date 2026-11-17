@@ -499,3 +499,11 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Validation utilisateur confirmée :** les quatre vérifications demandées pour la réversibilité (DYN-17 à DYN-20) ont été réalisées avec succès dans Revit 2025.4 : retour du sous-dossier figé en automatique et icône associée, conservation de l'état des autres groupes sans doublon après actualisation/réouverture, dialogue de confirmation, protections des sous-dossiers enfants et absence de commande sur les dossiers manuels ordinaires. Le gel individuel (DYN-12 à DYN-16) était déjà déclaré réussi par l'utilisateur.
 
 **Tests automatisés :** 500 tests Export réussis au commit `b4f115165600403ed7d6df55e4a32ea9299796fa` ; les workflows Export collaboratif et contrat ruban sont verts sur ce SHA. **Statut :** fonctionnalité validée dans Revit, prête à fusionner dans `main`. Aucune release supplémentaire demandée à ce stade.
+
+### Export — Bouton À propos et version commune (17 novembre 2026)
+
+**Demande utilisateur :** avant la prochaine release, ajouter un bouton « À propos » affichant le numéro de version de la suite Outils TAA.
+
+**Branche :** `feat/about-version-taa` — PR dédiée. **Implémentation :** bouton dans l'en-tête d'Export ; dialogue WPF conforme à la charte TAA ; lecture locale centralisée de `OutilsTAA.extension/version.json` par `lib/common/taa_version.py`, réutilisable par les autres modules. Le dernier numéro publié confirmé reste `1.4.1`, avec canal `development` pour la copie courante (fonctionnalités non encore publiées). Pas de numéro de future release fixé ni de publication effectuée.
+
+**Non-régression attendue :** ne changer aucun comportement Export (publication, persistance collaborative, PDF/DWG, sélection et dossiers dynamiques). Test automatisé de manifeste et contrat XAML ajouté. **État :** code proposé et enregistré sur branche ; CI / recette Revit encore à confirmer. **Prochaine action :** ouvrir le dialogue dans Revit 2025.4, valider puis préparer séparément la PR de release et le changement de numéro.
