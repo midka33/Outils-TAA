@@ -1991,3 +1991,5 @@ inchangé et prioritaire pour les configurations historiques du même projet.
 Revit 2025.4 à contrôler avant fusion.
 
 **Retour UI Revit (17/11/2026) :** la capture de l'utilisateur montre l'onglet OutilsTAA du ruban, sans bouton À propos. La première implémentation était seulement dans la fenêtre Export (confirmée par `grep AboutButton`), d'où le malentendu. Correction ciblée : ajouter le bundle autonome `Informations.panel/APropos.pushbutton` avec `script.py`, `bundle.yaml` et `icon.png` dans le ruban, sans retirer le bouton secondaire dans Export. Recette de visibilité réelle après **rechargement pyRevit** et vérification du chemin d'extension actif toujours nécessaire.
+
+**Limite ruban connue — À propos :** le panneau Informations est placé en dernier à droite des autres panneaux OutilsTAA. L'API standard du ruban Revit/pyRevit ne fournit pas d'ancrage fiable à l'extrémité droite de la fenêtre lorsque le ruban est plus large que les panneaux. Ne pas introduire de repositionnement WPF interne ou d'espacement calculé sans décision explicite de supporter une solution expérimentale et une recette Revit multi-résolutions.
