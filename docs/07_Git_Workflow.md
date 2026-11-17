@@ -1384,3 +1384,8 @@ Le fichier `OutilsTAA.extension/version.json` constitue désormais la source de 
 **Lors d'une release validée :** la PR de release doit mettre à jour `version` avec le nouveau numéro décidé, basculer `channel` à `stable`, aligner `last_published` et vérifier que les métadonnées embarquées correspondent au tag publié. Recontrôler le bouton À propos dans Revit 2025.4 à partir de l'archive/installation finale. Ne jamais déduire automatiquement le numéro d'une prochaine release de l'existence d'une branche `main`.
 
 **Tests :** `tests/test_about_version.py` vérifie la lecture du manifeste, son traitement si absent/invalide, le futur passage à stable et le câblage XAML/WPF. Les tests automatisés ne remplacent pas l'ouverture du dialogue dans Revit.
+
+
+### Emplacement du bouton À propos dans pyRevit
+
+L'accès principal aux métadonnées de version est le bundle `OutilsTAA.tab/Informations.panel/APropos.pushbutton` (script, bundle.yaml et icône PNG). Le panneau est créé automatiquement par pyRevit lors du rechargement de l'extension ; le bouton interne à Export est un raccourci vers la même fenêtre. La présence d'un bouton dans `ui.xaml` d'Export ne le crée **pas** dans le ruban Revit. Les tests doivent vérifier ces deux interfaces distinctement.
