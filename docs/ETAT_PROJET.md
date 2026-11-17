@@ -493,3 +493,9 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Revit validé utilisateur :** les cinq tests de gel individuel sont tous réussis ; le sous-dossier figé reste manuel, les autres se synchronisent et l'état persiste après réouverture.
 
 **Amélioration implémentée, non encore validée Revit :** « Rendre ce sous-dossier automatique » uniquement sur les enfants précédemment figés d'un parent encore dynamique. Une mutation atomique réactive le groupe et retire son snapshot manuel ; confirmation explicite de la perte des réglages/modifications manuels propres au sous-dossier. Protections contre les suppressions de descendants, les paramètres Revit non disponibles et les états collaboratifs obsolètes. Tests unitaires ajoutés. **Ne pas fusionner #55 avant DYN-17 à DYN-20 et CI du dernier commit.**
+
+### PR #55 — Validation finale Revit de la réversibilité (17 novembre 2026)
+
+**Validation utilisateur confirmée :** les quatre vérifications demandées pour la réversibilité (DYN-17 à DYN-20) ont été réalisées avec succès dans Revit 2025.4 : retour du sous-dossier figé en automatique et icône associée, conservation de l'état des autres groupes sans doublon après actualisation/réouverture, dialogue de confirmation, protections des sous-dossiers enfants et absence de commande sur les dossiers manuels ordinaires. Le gel individuel (DYN-12 à DYN-16) était déjà déclaré réussi par l'utilisateur.
+
+**Tests automatisés :** 500 tests Export réussis au commit `b4f115165600403ed7d6df55e4a32ea9299796fa` ; les workflows Export collaboratif et contrat ruban sont verts sur ce SHA. **Statut :** fonctionnalité validée dans Revit, prête à fusionner dans `main`. Aucune release supplémentaire demandée à ce stade.
