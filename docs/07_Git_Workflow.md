@@ -1389,3 +1389,6 @@ Le fichier `OutilsTAA.extension/version.json` constitue désormais la source de 
 ### Emplacement du bouton À propos dans pyRevit
 
 L'accès principal aux métadonnées de version est le bundle `OutilsTAA.tab/Informations.panel/APropos.pushbutton` (script, bundle.yaml et icône PNG). Le panneau est créé automatiquement par pyRevit lors du rechargement de l'extension ; le bouton interne à Export est un raccourci vers la même fenêtre. La présence d'un bouton dans `ui.xaml` d'Export ne le crée **pas** dans le ruban Revit. Les tests doivent vérifier ces deux interfaces distinctement.
+
+
+**Ordre des modules dans le ruban :** `OutilsTAA.tab/bundle.yaml` fixe l'ordre des panneaux à l'ouverture de Revit : Informations en premier (`[beforeall:]`), suivi de Calculs, Export, PlansDeVente. **À chaque ajout d'un panneau**, inscrire son nom dans cette liste et compléter le test `test_about_panel_is_first_in_tab_layout_without_hiding_modules` pour préserver le premier emplacement d'À propos et la visibilité de tous les modules. Ne pas réorganiser les onglets Revit ou injecter de contrôles WPF internes pour ce besoin.
