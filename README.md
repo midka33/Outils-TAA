@@ -13,8 +13,8 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 
 | Module | Statut |
 |---|---|
-| **Export** | **v1.4.0** — explorateur des mises en page, publication PDF/DWG, héritage et persistance validés dans Revit 2025.4 (PR #39) |
-| **Calculs des pièces** | Fonctions livrées en v1.0.3 ; résolution interactive des divergences de groupes hors périmètre |
+| **Export** | **v1.5.0 (en préparation)** — dossiers automatiques réversibles, configuration collaborative par central et publication PDF/DWG ; partie fonctionnelle validée dans Revit 2025.4 |
+| **Calculs des pièces** | Sommes par groupes et variantes avec revue WPF, protections de l'alignement des paramètres Revit ; cas complexes à vérifier sur copie de maquette |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
 | **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |
@@ -26,7 +26,15 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
 
-## Release courante — Outils TAA v1.4.0
+## Prochaine release — Outils TAA v1.5.0
+
+**Publication en préparation au 17 novembre 2026**. La dernière version déjà publiée reste **v1.4.1**. La v1.5.0 regroupe les dossiers automatiques de publication par paramètres Revit, le gel individuel et sa réversibilité, la configuration collaborative par central, le bouton **À propos** donnant la version de la suite et des améliorations du calcul des pièces en groupes/variantes.
+
+[Notes utilisateur v1.5.0](docs/release/Notes_v1.5.0.md) · [Préparation et contrôles](docs/release/Preparation_v1.5.0.md) · [Tutoriel Export v1.5.0](docs/release/Tutoriel_Export_v1.5.0.md).
+
+**Attention :** une partie des traitements multi-postes SMB et des cas avancés de groupes Revit nécessite encore une recette spécifique en agence. Le tag et les fichiers de la v1.5.0 ne seront déclarés publiés qu'après réussite de la CI et vérification de la release.
+
+## Historique — Outils TAA v1.4.0
 
 La **v1.4.0**, **publiée sur GitHub le 3 novembre 2026**, stabilise l'évolution du module **Export**, intégrée à `main` via la **PR #39** : explorateur de mises en page escamotable, filtres et sélection multiple, ajout et réorganisation des feuilles, renommage des dossiers, publication PDF/DWG par sous-dossier et classement des fichiers par format.
 
