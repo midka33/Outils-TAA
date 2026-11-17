@@ -1,6 +1,6 @@
 # Index de la documentation Outils TAA
 
-**Version courante : Outils TAA v1.4.0**  
+**Prochaine version préparée : Outils TAA v1.5.0 (dernière stable publiée : v1.4.1)**  
 **Cible : Autodesk Revit 2025.4 / pyRevit 5.x**
 
 Ce fichier indique quelles documentations décrivent le comportement **actuel**.
@@ -34,6 +34,7 @@ Compléments techniques encore actifs :
 - `24_Export_Reglages_DWG.md` — réglages et stratégie DWG.
 - `15_Export_Stage08_Dynamique.md` — évolution future non raccordée à la publication.
 - `27_Export_Configuration_Collaborative.md` — contrat de stockage collaboratif Export V1.2 (issue #25).
+- `28_Export_Dossiers_Dynamiques.md` — dossier automatique par paramètre
 - `28_Export_Recette_Collaborative_Revit.md` — recette Revit multi-postes COLLAB-01 à COLLAB-11.
 
 Les anciennes étapes, audits et recettes de campagne sont sous
@@ -66,7 +67,19 @@ La spécification de développement détaillée des étapes 01 à 09 est archiv�
 
 **Référence actuelle :** [`26_Deploiement_Agence.md`](26_Deploiement_Agence.md) — extension unique sur serveur, chemins pyRevit référencés sur les postes, mises à jour centralisées, précautions de redémarrage, sauvegarde et retour arrière. Mode de déploiement de référence confirmé le 12/11/2026 ; installateur CMD conservé comme alternative.
 
-## Release courante
+## Prochaine release v1.5.0 — préparation
+
+**Version candidate 1.5.0** : dossiers automatiques et réversibles, stockage collaboratif, bouton À propos dans le ruban, améliorations des calculs de pièces. La v1.5.0 ne devient publiée qu'après contrôle du tag et des actifs de GitHub Releases.
+
+- [Notes v1.5.0](release/Notes_v1.5.0.md) — liste des nouveautés, précautions et installation.
+- [Checklist v1.5.0](release/Preparation_v1.5.0.md) — matrice des tests et publication.
+- [Tutoriel Export v1.5.0](release/Tutoriel_Export_v1.5.0.md).
+- [Tutoriel Calculs des pièces v1.5.0](release/Tutoriel_Calculs_Pieces_v1.5.0.md).
+- [Tutoriel Plans de vente v1.5.0](release/Tutoriel_Plans_de_Vente_v1.5.0.md).
+
+**Version stable précédente : v1.4.1** (notes : [Notes_v1.4.1.md](release/Notes_v1.4.1.md)).
+
+## Historique — v1.4.0
 
 **Outils TAA v1.4.0 — Export** : explorateur de mises en page, publications PDF/DWG multi-dossiers et options de sortie séparées. La recette **EXPORT-01 à EXPORT-06** est validée par l'utilisateur dans Revit 2025.4 ; voir la [PR #39](https://github.com/midka33/Outils-TAA/pull/39).
 
@@ -80,7 +93,7 @@ Le dossier `release/` contient uniquement les documents de cette version :
 
 Les documents de la précédente release v1.3.0 sont archivés sous `archive/releases/v1.3.0/`. Ceux de v1.2.0 et des versions antérieures restent dans leurs archives respectives.
 
-**Release publiée et vérifiée le 3 novembre 2026 :** [Outils TAA v1.4.0 sur GitHub](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0), tag `v1.4.0` pointant sur le SHA `21336b3d`, avec six actifs et 754 tests automatisés réussis dans la CI de publication. La recette d'installation Windows du CMD reste à confirmer.
+**Archive publiée et vérifiée le 3 novembre 2026 :** [Outils TAA v1.4.0 sur GitHub](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0), tag `v1.4.0` pointant sur le SHA `21336b3d`, avec six actifs et 754 tests automatisés réussis dans la CI de publication. La recette d'installation Windows du CMD reste à confirmer.
 
 ## Archives
 
