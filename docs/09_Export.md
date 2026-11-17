@@ -9,7 +9,7 @@
 
 ## Bouton « À propos » — métadonnées de version de la suite
 
-Un bouton **À propos**, placé dans l'en-tête de la fenêtre Export, ouvre un dialogue WPF compact reprenant la charte Outils TAA. Il affiche le **numéro de version de la suite** à partir de `OutilsTAA.extension/version.json`, la dernière version stable publiée et le statut de la copie installée.
+Le dialogue de version est accessible depuis **l'onglet OutilsTAA du ruban Revit**, dans le panneau **Informations** via le bouton **À propos**. Il est également accessible par le bouton **À propos** situé dans l'en-tête de la fenêtre Export. Ces deux commandes ouvrent la même fenêtre WPF au thème Outils TAA. Il affiche le **numéro de version de la suite** à partir de `OutilsTAA.extension/version.json`, la dernière version stable publiée et le statut de la copie installée.
 
 Ce numéro concerne la **suite Outils TAA** (pas la version de Revit ni celle du module Export). Le fichier de métadonnées est partagé par les modules : aucun numéro n'est codé en dur dans la fenêtre. La lecture est locale, compatible avec une extension déployée sur lecteur réseau, et ne nécessite ni Git, ni accès Internet, ni droit administrateur. En cas de manifeste absent ou invalide, la fenêtre affiche explicitement **indisponible**, sans inventer un numéro de version.
 
@@ -1989,3 +1989,5 @@ inchangé et prioritaire pour les configurations historiques du même projet.
 
 **Statut :** implémenté sur la PR #30 ; tests automatisés et validation
 Revit 2025.4 à contrôler avant fusion.
+
+**Retour UI Revit (17/11/2026) :** la capture de l'utilisateur montre l'onglet OutilsTAA du ruban, sans bouton À propos. La première implémentation était seulement dans la fenêtre Export (confirmée par `grep AboutButton`), d'où le malentendu. Correction ciblée : ajouter le bundle autonome `Informations.panel/APropos.pushbutton` avec `script.py`, `bundle.yaml` et `icon.png` dans le ruban, sans retirer le bouton secondaire dans Export. Recette de visibilité réelle après **rechargement pyRevit** et vérification du chemin d'extension actif toujours nécessaire.
