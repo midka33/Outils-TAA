@@ -21,9 +21,12 @@ def test_installed_version_is_loaded_from_extension_manifest():
     assert loaded["available"]
     assert loaded["version"] == metadata["version"]
     assert loaded["last_published"] == metadata["last_published"]
-    assert loaded["channel"] == "development"
+    assert loaded["channel"] == metadata["channel"]
     assert manifest_path() == str(EXT / "version.json")
-    assert "développement" in display_version(loaded)
+    assert loaded["channel"] == "stable"
+    assert loaded["version"] == "1.5.0"
+    assert loaded["last_published"] == loaded["version"]
+    assert display_version(loaded) == "1.5.0"
     assert metadata["last_published"] in display_release(loaded)
 
 

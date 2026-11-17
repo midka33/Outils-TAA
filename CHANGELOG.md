@@ -6,6 +6,34 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-11-17 — Dossiers automatiques, collaboration et version de la suite
+
+**Candidat release** ; la publication et le SHA de tag doivent être confirmés par le workflow `release-v1.5.0.yml`.
+
+### Ajouté
+- **Export :** dossiers automatiques alimentés par `paramètre de feuille = valeur`, regroupement optionnel par second paramètre, aperçu du nombre de feuilles et de sous-dossiers.
+- **Export :** actualisation des groupes et des nouvelles feuilles avant aperçu/publication ; icône dédiée. Conversion parent entier en manuel ou gel d'un seul sous-dossier, avec **retour réversible au mode automatique**.
+- **Export :** configuration collaborative JSON par projet central, avec état partagé/local, import d'anciennes configurations et protection des écritures concurrentes.
+- **Suite :** bouton **À propos** en premier dans le ruban OutilsTAA ; version centrale dans `version.json` et dialogue WPF partagé avec Export.
+
+### Amélioré
+- **Calculs des pièces :** traitement des variantes et groupes Revit, confirmation WPF plus lisible, diagnostics et rollback ; évolution prudente des paramètres alignés entre occurrences.
+- **Qualité / livraison :** contrôle des versions et de l'archive ; vérification SHA-256 de l'installateur CMD corrigée pour viser précisément le ZIP de v1.5.0.
+
+### Conservé / limites
+- Plans de vente V1.1 inchangé par rapport à la v1.4.1.
+- Copie exacte du navigateur de projet Revit non incluse dans les dossiers automatiques ; configuration multi-postes SMB réelle non totalement qualifiée.
+- Cas avancés de groupes Revit nécessitant une édition manuelle du type : ne jamais forcer une uniformisation incompatible.
+
+### Validation
+- Recettes Revit confirmées pour dossiers automatiques, gel individuel, réversibilité et fenêtre À propos.
+- CI de release et recette de l'installateur Windows à enregistrer séparément avant la déclaration de publication.
+
+## [1.4.1] — 2026-11-05 — Stabilisation Export et Plans de vente
+
+Correctifs des noms DWG, actualisation des listes de feuilles, bouton d'effacement de sélection, options avancées et persistance des options des Plans de vente. Voir `docs/release/Notes_v1.4.1.md`.
+
+
 ## [1.4.0] — 2026-11-03 — Export : explorateur de feuilles et publication (PR #39)
 
 **Publiée le 3 novembre 2026** : [GitHub Releases v1.4.0](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0), tag sur `21336b3df7f54ea2b4692384ba414e048bfae89e`. Validation sur ce SHA : **754 tests automatisés réussis**, ZIP contrôlé et empreintes SHA-256 vérifiées. L'installateur CMD attend encore sa recette d'installation Windows.
