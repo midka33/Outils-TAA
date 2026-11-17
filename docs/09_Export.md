@@ -7,6 +7,18 @@
 
 ---
 
+## Bouton « À propos » — métadonnées de version de la suite
+
+Le dialogue de version est accessible depuis **l'onglet OutilsTAA du ruban Revit**, dans le panneau **Informations** via le bouton **À propos**. Il est également accessible par le bouton **À propos** situé dans l'en-tête de la fenêtre Export. Ces deux commandes ouvrent la même fenêtre WPF au thème Outils TAA. Il affiche le **numéro de version de la suite** à partir de `OutilsTAA.extension/version.json`, la dernière version stable publiée et le statut de la copie installée.
+
+Ce numéro concerne la **suite Outils TAA** (pas la version de Revit ni celle du module Export). Le fichier de métadonnées est partagé par les modules : aucun numéro n'est codé en dur dans la fenêtre. La lecture est locale, compatible avec une extension déployée sur lecteur réseau, et ne nécessite ni Git, ni accès Internet, ni droit administrateur. En cas de manifeste absent ou invalide, la fenêtre affiche explicitement **indisponible**, sans inventer un numéro de version.
+
+**État avant la prochaine release :** version de référence `1.4.1`, canal `development` : le dialogue indique `1.4.1 (développement)` et précise que cette copie contient des modifications postérieures à la dernière release publiée `v1.4.1`.
+
+**Contrôle requis pour la prochaine release :** modifier une seule fois `OutilsTAA.extension/version.json` dans la PR de release (nouveau numéro approuvé, `channel: stable`, `last_published` cohérent), puis vérifier le dialogue dans Revit et l'archive livrée avant d'apposer le tag.
+
+**Recette Revit à réaliser :** ouvrir Export, cliquer sur À propos, vérifier l'affichage sans erreur de XAML, la version et le canal de la copie utilisée, puis fermer le dialogue et vérifier que sélection, réglages, aperçu et publication restent inchangés. **Statut :** implémentation sur branche, validation Revit en attente.
+
 ## Effacement explicite de la sélection cumulée (correctif candidat)
 
 La sélection de mises en page est conservée lorsque les filtres changent : une feuille masquée par le filtre actif reste sélectionnée pour l'ajout. Un bouton **Effacer la sélection**, placé entre le compteur et **Ajouter**, vide volontairement l'ensemble des feuilles sélectionnées, visibles et masquées, sans changer les filtres. Le compteur existant indique le total sélectionné. Après un ajout réussi, la sélection est toujours remise à zéro. Correctif BUG-EXPORT-063, à valider sous Revit 2025.4 avant publication.
@@ -1977,3 +1989,10 @@ inchangé et prioritaire pour les configurations historiques du même projet.
 
 **Statut :** implémenté sur la PR #30 ; tests automatisés et validation
 Revit 2025.4 à contrôler avant fusion.
+
+**Retour UI Revit (17/11/2026) :** la capture de l'utilisateur montre l'onglet OutilsTAA du ruban, sans bouton À propos. La première implémentation était seulement dans la fenêtre Export (confirmée par `grep AboutButton`), d'où le malentendu. Correction ciblée : ajouter le bundle autonome `Informations.panel/APropos.pushbutton` avec `script.py`, `bundle.yaml` et `icon.png` dans le ruban, sans retirer le bouton secondaire dans Export. Recette de visibilité réelle après **rechargement pyRevit** et vérification du chemin d'extension actif toujours nécessaire.
+
+**Limite ruban connue — À propos :** le panneau Informations est placé en dernier à droite des autres panneaux OutilsTAA. L'API standard du ruban Revit/pyRevit ne fournit pas d'ancrage fiable à l'extrémité droite de la fenêtre lorsque le ruban est plus large que les panneaux. Ne pas introduire de repositionnement WPF interne ou d'espacement calculé sans décision explicite de supporter une solution expérimentale et une recette Revit multi-résolutions.
+
+
+**Précision du placement « À propos » (17 novembre 2026) :** le besoin final concerne la position du panneau relativement aux autres modules, pas l'ancrage à une extrémité de l'écran. « À propos / Informations » doit être **en premier à gauche**, devant Calculs, Export et Plans de vente. Le tab `OutilsTAA.tab/bundle.yaml` contient un ordre explicite avec directive `[beforeall:]`. Les nouveaux modules devront être ajoutés à cette liste. L'icône À propos utilise le même fond orange exact `#FD8B5A` que Plans de vente. Vérifier après rechargement de pyRevit.

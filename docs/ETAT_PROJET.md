@@ -499,3 +499,43 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Validation utilisateur confirmée :** les quatre vérifications demandées pour la réversibilité (DYN-17 à DYN-20) ont été réalisées avec succès dans Revit 2025.4 : retour du sous-dossier figé en automatique et icône associée, conservation de l'état des autres groupes sans doublon après actualisation/réouverture, dialogue de confirmation, protections des sous-dossiers enfants et absence de commande sur les dossiers manuels ordinaires. Le gel individuel (DYN-12 à DYN-16) était déjà déclaré réussi par l'utilisateur.
 
 **Tests automatisés :** 500 tests Export réussis au commit `b4f115165600403ed7d6df55e4a32ea9299796fa` ; les workflows Export collaboratif et contrat ruban sont verts sur ce SHA. **Statut :** fonctionnalité validée dans Revit, prête à fusionner dans `main`. Aucune release supplémentaire demandée à ce stade.
+
+### Export — Bouton À propos et version commune (17 novembre 2026)
+
+**Demande utilisateur :** avant la prochaine release, ajouter un bouton « À propos » affichant le numéro de version de la suite Outils TAA.
+
+**Branche :** `feat/about-version-taa` — PR dédiée. **Implémentation :** bouton dans l'en-tête d'Export ; dialogue WPF conforme à la charte TAA ; lecture locale centralisée de `OutilsTAA.extension/version.json` par `lib/common/taa_version.py`, réutilisable par les autres modules. Le dernier numéro publié confirmé reste `1.4.1`, avec canal `development` pour la copie courante (fonctionnalités non encore publiées). Pas de numéro de future release fixé ni de publication effectuée.
+
+**Non-régression attendue :** ne changer aucun comportement Export (publication, persistance collaborative, PDF/DWG, sélection et dossiers dynamiques). Test automatisé de manifeste et contrat XAML ajouté. **État :** code proposé et enregistré sur branche ; CI / recette Revit encore à confirmer. **Prochaine action :** ouvrir le dialogue dans Revit 2025.4, valider puis préparer séparément la PR de release et le changement de numéro.
+
+**Contrôle CI PR #60 (17 novembre 2026) :** 505 tests Export réussis au commit `cf886b14bc171c6826ad49720d5ba6e6d88db83a`. Les workflows Export collaboratif, contrat ruban et tests Calculs des pièces sont également verts. L'ajout du présent bilan est uniquement documentaire. **Recette dans Revit non encore effectuée**, PR Draft, pas de fusion ni release.
+
+
+### Bouton À propos dans le ruban OutilsTAA (17 novembre 2026)
+
+**Retour utilisateur :** la commande À propos, présente dans le code XAML d'Export, n'était pas visible dans l'onglet OutilsTAA de Revit parce qu'elle n'avait été créée que dans la fenêtre Export, pas dans le ruban pyRevit. Vérification GitHub : le fichier local contient `AboutButton`, tandis que l'interface représentée par la capture est le ruban Revit.
+
+**Correction implémentée sur la PR #60** (`feat/about-version-taa`) : création du bouton de ruban global `OutilsTAA.tab/Informations.panel/APropos.pushbutton` (script IronPython, bundle.yaml, icon.png), qui ouvre la fenêtre À propos existante et lit la version depuis le manifeste central `version.json`. Accessible indépendamment d'Export et sans document Revit actif. Le bouton interne à Export est conservé en accès secondaire. Aucun changement des moteurs de production, de publication ou de stockage.
+
+**Contrôles :** ajout du test `tests/test_about_ribbon_button.py` (bouton, icône, chemin d'import, absence de dépendance à un document Revit) ; CI à vérifier. **Recette dans Revit 2025.4 encore requise :** récupérer la PR #60, redémarrer/recharger pyRevit, constater le panneau Informations sur le ruban OutilsTAA, cliquer À propos, vérifier la version et la fermeture. Si le bouton est absent, comparer le chemin pyRevit chargé au répertoire Git modifié. Aucun merge/release effectué.
+
+### Ruban OutilsTAA — demande d'alignement « À propos » au bord droit (17 novembre 2026)
+
+**Retour Revit utilisateur :** le bouton À propos de la PR #60 est bien visible et son icône jugée conforme. Demande supplémentaire : l'ancrer systématiquement à l'extrême droite de la fenêtre Revit, au-delà de la zone vide du ruban, y compris lors du redimensionnement.
+
+**Étude API :** la documentation Autodesk sur le ruban décrit un positionnement ordonné des panneaux de gauche à droite, sans contrat officiel d'alignement à droite pour un panneau de commande. Un bundle pyRevit garantit l'ordre des panneaux mais pas l'ancrage au bord droit de la fenêtre. Une intervention WPF interne pour ajouter un espacement dynamique serait non prise en charge et risquerait une régression lors d'un changement de résolution ou de version. Référence Autodesk : https://help.autodesk.com/view/RVT/2025/FRA/?guid=GUID-944577E2-5A10-4356-B0B6-3B81BCDA9491 ; guidelines API : https://help.autodesk.com/cloudhelp/2024/ENU/Revit-API/files/Revit_API_Developers_Guide/Appendices/API_User_Interface_Guidelines/Revit_API_Revit_API_Developers_Guide_Appendices_API_User_Interface_Guidelines_Ribbon_Guidelines_html.html.
+
+**Décision de prudence proposée :** conserver « Informations / À propos » comme dernier panneau à droite des autres outils, sans prétendre à un alignement dynamique sur le bord de l'écran. Aucune modification du code du ruban sur ce point ; pas de validation fictive d'une capacité non prise en charge. PR #60 non fusionnée, pas de nouvelle release.
+
+
+### Ajustement final de la PR #60 — ordre des panneaux et couleur (17 novembre 2026)
+
+**Précision de la demande :** l'utilisateur a corrigé sa direction : « À propos » doit être **le premier panneau, à gauche des autres modules**, et non à l'extrémité droite de l'écran. Le problème d'ancrage au bord droit n'est donc plus une demande active.
+
+**Implémentation :** ajout de `OutilsTAA.tab/bundle.yaml` avec disposition explicite des quatre panneaux : `Informations[beforeall:]`, `Calculs`, `Export`, `PlansDeVente`. Ainsi « À propos » précède les modules existants. **Maintenance :** inscrire tout futur panneau dans cette liste pour éviter qu'il soit caché par un chargeur pyRevit traitant `layout` comme une liste exhaustive ; le test `test_about_panel_is_first_in_tab_layout_without_hiding_modules` vérifie cette règle.
+
+**Couleur du pictogramme :** ancien fond `#FA641E` remplacé par **`#FD8B5A`**, exactement la couleur dominante du pictogramme `PlansDeVente.pushbutton/icon.png`. Forme « i » et transparence conservées. Test de non-régression sur l'asset PNG ajouté.
+
+**État :** modifications GitHub sur PR #60, CI à vérifier sur SHA de code ; validation Revit de la nouvelle position et du pictogramme à effectuer. Aucun merge ni release.
+
+**CI vérifiée au commit `9ff341721adea79cf45c6299ee34bd91f8de8a9d` :** 511 tests Export réussis ; workflows « Export ribbon contract », « Export — configuration collaborative » et « Calculs des pièces — tests hors Revit » verts. Ce commit documentaire final ne modifie ni code ni icône. Position à gauche et couleur de l'icône restent à confirmer dans Revit 2025.4 après rechargement. PR #60 toujours Draft, non fusionnée, aucune release.

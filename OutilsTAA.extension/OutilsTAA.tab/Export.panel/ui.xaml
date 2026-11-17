@@ -10,6 +10,7 @@
         <Border Width="40" Height="40" CornerRadius="4" Background="{DynamicResource TaaBrand}" Margin="0,0,12,0" DockPanel.Dock="Left">
           <TextBlock Text="TAA" Foreground="{DynamicResource TaaSurface}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Border>
+        <Button x:Name="AboutButton" DockPanel.Dock="Right" Content="À propos" Click="About_Click" MinWidth="92" MinHeight="28" Margin="12,0,0,0" Padding="9,4" VerticalAlignment="Center" ToolTip="Afficher la version de la suite Outils TAA"/>
         <StackPanel VerticalAlignment="Center">
           <TextBlock Text="Export" FontSize="20" FontWeight="SemiBold" Margin="0" />
           <TextBlock Text="Publication PDF et DWG · Outils TAA" Foreground="{DynamicResource TaaSecondary}" FontSize="12" Margin="0,3,0,0" />
