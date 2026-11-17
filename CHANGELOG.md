@@ -8,7 +8,7 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [1.5.0] — 2026-11-17 — Dossiers automatiques, collaboration et version de la suite
 
-**Candidat release** ; la publication et le SHA de tag doivent être confirmés par le workflow `release-v1.5.0.yml`.
+**Tag `v1.5.0` confirmé** sur `b14ec914cc27e47c13561c54a1f9a841cb07ff10` (17 novembre 2026). La CI de préparation a réussi : 945 tests, ZIP de 214 entrées et SHA-256 vérifiés. Le contrôle indépendant des six actifs GitHub Releases reste à effectuer.
 
 ### Ajouté
 - **Export :** dossiers automatiques alimentés par `paramètre de feuille = valeur`, regroupement optionnel par second paramètre, aperçu du nombre de feuilles et de sous-dossiers.
