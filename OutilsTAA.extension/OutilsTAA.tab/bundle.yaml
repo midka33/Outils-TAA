@@ -1,0 +1,9 @@
+# Ordre explicite des panneaux de l'onglet OutilsTAA (pyRevit 5.x).
+# Informations doit rester avant les outils métier, même après ajout
+# d'un autre panneau. Ajouter les futurs panneaux à la suite de cette liste
+# pour qu'ils soient visibles dans toutes les versions de pyRevit.
+layout:
+  - Informations[beforeall:]
+  - Calculs
+  - Export
+  - PlansDeVente
