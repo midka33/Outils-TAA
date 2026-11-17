@@ -526,3 +526,14 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Étude API :** la documentation Autodesk sur le ruban décrit un positionnement ordonné des panneaux de gauche à droite, sans contrat officiel d'alignement à droite pour un panneau de commande. Un bundle pyRevit garantit l'ordre des panneaux mais pas l'ancrage au bord droit de la fenêtre. Une intervention WPF interne pour ajouter un espacement dynamique serait non prise en charge et risquerait une régression lors d'un changement de résolution ou de version. Référence Autodesk : https://help.autodesk.com/view/RVT/2025/FRA/?guid=GUID-944577E2-5A10-4356-B0B6-3B81BCDA9491 ; guidelines API : https://help.autodesk.com/cloudhelp/2024/ENU/Revit-API/files/Revit_API_Developers_Guide/Appendices/API_User_Interface_Guidelines/Revit_API_Revit_API_Developers_Guide_Appendices_API_User_Interface_Guidelines_Ribbon_Guidelines_html.html.
 
 **Décision de prudence proposée :** conserver « Informations / À propos » comme dernier panneau à droite des autres outils, sans prétendre à un alignement dynamique sur le bord de l'écran. Aucune modification du code du ruban sur ce point ; pas de validation fictive d'une capacité non prise en charge. PR #60 non fusionnée, pas de nouvelle release.
+
+
+### Ajustement final de la PR #60 — ordre des panneaux et couleur (17 novembre 2026)
+
+**Précision de la demande :** l'utilisateur a corrigé sa direction : « À propos » doit être **le premier panneau, à gauche des autres modules**, et non à l'extrémité droite de l'écran. Le problème d'ancrage au bord droit n'est donc plus une demande active.
+
+**Implémentation :** ajout de `OutilsTAA.tab/bundle.yaml` avec disposition explicite des quatre panneaux : `Informations[beforeall:]`, `Calculs`, `Export`, `PlansDeVente`. Ainsi « À propos » précède les modules existants. **Maintenance :** inscrire tout futur panneau dans cette liste pour éviter qu'il soit caché par un chargeur pyRevit traitant `layout` comme une liste exhaustive ; le test `test_about_panel_is_first_in_tab_layout_without_hiding_modules` vérifie cette règle.
+
+**Couleur du pictogramme :** ancien fond `#FA641E` remplacé par **`#FD8B5A`**, exactement la couleur dominante du pictogramme `PlansDeVente.pushbutton/icon.png`. Forme « i » et transparence conservées. Test de non-régression sur l'asset PNG ajouté.
+
+**État :** modifications GitHub sur PR #60, CI à vérifier sur SHA de code ; validation Revit de la nouvelle position et du pictogramme à effectuer. Aucun merge ni release.
