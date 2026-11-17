@@ -10,7 +10,12 @@ class PublicationSource(object):
     TEMPORARY = "TEMPORARY"
     DYNAMIC = "DYNAMIC"
 
-    def __init__(self, mode, parameter_name=None, parameter_value=None):
+    def __init__(self, mode, parameter_name=None, parameter_value=None,
+                 group_parameter=None, frozen_group_ids=None):
         self.mode = mode
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value
+        self.group_parameter = group_parameter
+
+        # IDs des groupes convertis individuellement en dossiers manuels.
+        self.frozen_group_ids = list(frozen_group_ids or [])

@@ -1,0 +1,159 @@
+# Export — Dossiers dynamiques de mises en page (spécification V1)
+
+**Cible :** Autodesk Revit 2025.4 / pyRevit 5.x.  
+**Statut :** première implémentation sur la PR #55 (Draft). Les tests automatisés sont exécutés par la CI ; recette Revit 2025.4 encore nécessaire avant fusion.  
+**Base :** Outils TAA v1.4.1 et code `main` courant.  
+**Objectif :** réemployer les paramètres et l'organisation du navigateur de projet Revit dans les dossiers de publication Export, sans duplication manuelle.
+
+## Implémentation actuelle (branche PR #55)
+
+- Nouveau bouton **Dossier automatique** dans la barre de l'arborescence, ouvrant l'assistant de création en mode Automatique.
+- Règle de sélection **paramètre = valeur exacte**, et sous-dossiers facultatifs par un second paramètre.
+- Calcul de listes de feuilles en mémoire lors de la construction du TreeView et avant aperçu ou publication ; mise à jour des feuilles sources à l'actualisation.
+- Groupes virtuels à identifiants stables. Aucun enregistrement JSON des modifications automatiques de feuilles.
+- Clic droit sur le dossier automatique **Rendre ce dossier manuel** : fige les feuilles et groupes en une mutation atomique du repository.
+- Le champ facultatif `source.group_parameter` est compatible avec le **schéma JSON 8** ; le stockage partagé utilise la couche `_mutate` pour la conversion.
+- Suppression, renommage et glisser-déposer des sous-dossiers virtuels interdits ; le contenu automatique doit être figé avant un reclassement manuel.
+- **Limite :** copie exacte de l'organisation native du navigateur Revit via `BrowserOrganization` non implémentée dans cette première version. Les paramètres de sélection et de groupe doivent être explicitement choisis.
+- **Limite :** les changements sont pris en compte à l'ouverture et à l'actualisation, pas par un écouteur permanent Revit.
+- **Sécurité :** les paramètres de même nom sur une feuille déclenchent une erreur au lieu de sélectionner un paramètre ambigu.
+
+## 1. Création
+
+Action « Nouveau dossier automatique » dans l'arborescence Export :
+
+- Nom du dossier (libre).
+- Paramètre de feuille de sélection (liste issue du document Revit).
+- Valeur à retenir (liste distincte ; comparaison explicite « égale à »).
+- Option « Créer automatiquement des sous-dossiers selon un paramètre » (facultative) et sélection du second paramètre.
+- Aperçu du nombre de feuilles trouvées et des sous-dossiers qui seraient créés avant confirmation.
+
+Exemple : dossier `A5000 Carnet de repérages DEP`, filtre `Carnet = A5000`, sous-dossiers par `Sous-carnet` : A / B / C. Les paramètres et valeurs sont choisis par l'utilisateur : ne jamais déduire les groupes du préfixe du numéro de feuille.
+
+## 2. Contrat de recalcul
+
+- Au lancement d'Export et sur action « Actualiser », relire les feuilles Revit courantes et reconstruire la liste des correspondances.
+- Une nouvelle feuille qui satisfait la règle entre alors automatiquement dans le dossier approprié ; un changement de valeur peut la déplacer ou la retirer de **ce dossier dynamique uniquement**.
+- Aucun événement Revit permanent en arrière-plan pour la V1 ; la mise à jour est automatique lors de l'ouverture/actualisation, avant l'aperçu et avant la publication pour éviter de publier une liste périmée.
+- Identifier les feuilles par `UniqueId` ; ne jamais écrire les paramètres ni la structure du navigateur de Revit.
+- En cas de paramètre supprimé, de lecture impossible ou de documents indisponibles, conserver la dernière configuration, signaler un état non résolu et **bloquer la publication dynamique**, plutôt que traiter le résultat vide comme une suppression.
+- Les feuilles sans valeur de regroupement ont un comportement explicite : placer dans un sous-dossier « Sans valeur » (configurable ultérieurement), sans les perdre silencieusement.
+- Ne jamais déplacer, renommer ou effacer les dossiers manuels adjacents pendant le recalcul.
+
+## 3. Conversion en manuel
+
+Action explicite « Rendre ce dossier manuel » avec confirmation.
+
+- Résoudre le périmètre une dernière fois, puis **figer** les feuilles (et les sous-dossiers générés) en structure manuelle persistante.
+- Conserver les identifiants des dossiers, l'ordre existant, les réglages PDF/DWG hérités et les surcharges.
+- La conversion est unidirectionnelle dans la V1 ; retransformer un dossier manuel en automatique nécessite la définition d'une nouvelle règle et un aperçu.
+- Après conversion, une nouvelle feuille Revit correspondant aux anciens critères n'est plus ajoutée.
+- Ne pas modifier le navigateur Revit.
+
+## 4. Stockage et intégrité
+
+Le repository historique utilise le schéma JSON 8, avec `PublicationFolder` et `PublicationSet`. Le modèle `PublicationSource` possède déjà les modes `MANUAL`, `PARAMETER`, `TEMPORARY` et `DYNAMIC`, mais la résolution persistante actuelle repose sur une liste de feuilles sauvegardées.
+
+Proposition : ajouter aux dossiers automatiques un objet de règle dédié, versionné, décrivant le mode dynamique, l'identité stable des paramètres (BuiltInParameter / GUID partagé lorsque disponible, nom de secours), les valeurs exactes, le regroupement et le statut de conversion. Garder les `items` sérialisés comme *snapshot de secours*, pas comme source d'autorité pendant le mode dynamique.
+
+Toute modification du JSON doit être compatible avec les anciens dossiers et préserver les champs inconnus nécessaires à la future PR #30 (révisions/verrouillage). Si le schéma change, prévoir migration testée, sauvegarde préalable et rejet sûr d'un fichier de version future, sans écrasement.
+
+**Interdiction :** écriture automatique du JSON uniquement parce que les feuilles Revit ont changé, sans mutation métier explicite. Calculer un modèle effectif en mémoire, avec persistance contrôlée. En mode collaboratif futur, utiliser le repository sûr et sa révision optimiste.
+
+## 5. Intégration navigateur Revit
+
+Deux modes distincts :
+
+1. **Règle par paramètres choisis** : indépendante de la règle d'organisation active du navigateur Revit.
+2. **Reprendre l'organisation actuelle du navigateur Revit** (option ultérieure / faisabilité API) : `BrowserOrganization.GetCurrentBrowserOrganizationForSheets(document)` et `GetFolderItems(sheet.Id)` existent en Revit 2025 et exposent les niveaux d'organisation et les identifiants de paramètres. Vérifier filtres, ordre, niveaux sans valeur et éventuels paramètres calculés dans Revit avant d'annoncer une copie fidèle.
+
+Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation affichée dans Revit.
+
+## 6. Tests de recette
+
+- DYN-01 : dossier filtré par paramètre/valeur et ajout initial de toutes les feuilles correspondantes.
+- DYN-02 : créer une nouvelle feuille correspondante dans Revit ; rouvrir Export ou Actualiser ; elle apparaît automatiquement.
+- DYN-03 : changer la valeur principale d'une feuille ; elle quitte le dossier concerné, sans être supprimée du RVT ou d'un dossier manuel.
+- DYN-04 : sous-dossiers construits à partir d'un second paramètre, y compris nouvelle valeur de groupe.
+- DYN-05 : renommer/renuméroter une feuille ; conserver identité et montrer les libellés courants.
+- DYN-06 : figer le dossier en manuel ; les feuilles et les réglages sont conservés ; nouvelles feuilles non ajoutées.
+- DYN-07 : tester paramètres homonymes, vides, absents ; ne pas publier silencieusement des feuilles incorrectes.
+- DYN-08 : aucun changement du navigateur de projet Revit.
+- DYN-09 : compatibilité et non-régression des anciens JSON / dossiers manuels / ordre / héritage / PDF-DWG.
+- DYN-10 : fermeture/réouverture, aperçu et publication identiques au périmètre dynamique résolu.
+- DYN-11 : tester le maintien des champs de concurrence lorsqu'un backend partagé est activé ultérieurement.
+
+**Recette Revit :** création, aperçu, identification graphique et actualisation confirmés fonctionnels par l'utilisateur le 16 novembre 2026. La conversion individuelle d'un sous-dossier nécessite encore une validation dans Revit avant fusion.
+
+## Retour Revit et correctif UI — 16 novembre 2026
+
+**Observation Revit 2025.4 :** le bouton de création automatique était placé à tort dans l'en-tête central de l'arborescence. Son clic provoquait une erreur de chargement WPF `System.Xaml.XamlObjectWriterException` / `UIElementCollection`, avant affichage de la fenêtre.
+
+**Cause confirmée dans le XAML :** caractères littéraux `\\n` placés entre les `RadioButton` `ModeDynamic` et `ModeManual` du `StackPanel`, interprétés comme un objet `String` au lieu d'un `UIElement`.
+
+**Correction implémentée sur la PR #55 :** suppression du texte parasite ; bouton « Dossier auto » déplacé dans « Mises en page Revit », sur la même ligne que « Ajouter », en conservant « Effacer la sélection ». Ajout d'un test de structure XAML et d'emplacement.
+
+**Statut :** correction proposée et implémentée, tests CI à vérifier sur SHA final, recette Revit à refaire ; aucune validation finale ni fusion.
+
+## Ajustements ergonomiques — retour Revit du 16 novembre 2026
+
+**Validation utilisateur :** l'actualisation automatique des feuilles fonctionne bien ; le signalement initial d'absence de mise à jour est retiré. Aucun correctif de synchronisation supplémentaire n'est nécessaire.
+
+**Corrections UI proposées et implémentées sur PR #55 :**
+- Le bouton **Dossier auto** ouvre l'assistant directement en mode exclusivement automatique, sans afficher les modes Par paramètre, Manuel ou Temporaire. Ces modes restent conservés dans le composant historique pour les autres usages.
+- L'aperçu affiche en direct le nombre total de feuilles correspondantes, le nombre de sous-dossiers qui seraient créés, ainsi que le détail « nom du sous-dossier — nombre de feuilles » ; le calcul réutilise `resolve_dynamic`, sans écrire le JSON.
+- Les dossiers automatiques et leurs sous-dossiers calculés utilisent un pictogramme dossier/synchronisation turquoise (`TaaAutoFolderIcon`), différent du dossier manuel orange.
+
+**Tests ciblés :** test de contrat WPF du mode exclusif, du calcul d'aperçu, du thème et des identifiants ; CI et validation Revit à confirmer sur le commit final.
+
+**Recette Revit restante :** vérifier l'ouverture de la fenêtre sans radios, la mise à jour de l'aperçu lors du changement de valeur et de paramètre de sous-dossier, l'identification visuelle du dossier créé puis sa conversion manuelle (qui doit reprendre l'icône standard). La stabilité de l'actualisation déjà constatée ne doit pas être régressée.
+
+**Contrôle GitHub — 16/11/2026 :** 488 tests Export réussis et workflows « Export — configuration collaborative » / « Export ribbon contract » verts au commit `4111b9ca4de1be9f6d9a219a41e9170f3e23aca0`. La branche a été réalignée sur `main` (les évolutions récentes du module Calculs des pièces ont été conservées) ; recette UI sous Revit encore à confirmer.
+
+## Conversion individuelle d'un sous-dossier — 16 novembre 2026
+
+**Demande :** le clic droit sur le dossier parent fige actuellement tous les groupes ; pouvoir figer seulement l'un des sous-dossiers et conserver les autres automatiques.
+
+**Implémentation PR #55 :**
+- Clic droit sur un sous-dossier généré : **Figer uniquement ce sous-dossier**.
+- Le sous-dossier est résolu à nouveau depuis la maquette Revit, puis copié en dossier manuel dans le JSON partagé.
+- Dans **la même transaction**, le parent conserve sa règle dynamique et enregistre l'identifiant du groupe dans `source.frozen_group_ids`. Les recalculs suivants ignorent ce groupe : ni doublon, ni nouvelles feuilles ajoutées à ce sous-dossier.
+- Les autres sous-dossiers continuent à se recalculer depuis Revit ; le sous-dossier figé passe de l'icône synchronisée à l'icône dossier manuel.
+- Le clic droit sur le **parent** conserve l'action historique « Rendre ce dossier manuel », qui fige ensuite les autres groupes sans dupliquer ceux déjà manuels.
+- Le stockage conserve le schéma JSON 8 (champ optionnel), les anciens JSON restent lisibles, l'écriture reste atomique via `_mutate` pour le partage collaboratif.
+- Il n'existe pas encore de commande pour retransformer individuellement un groupe manuel en groupe automatique ; sa suppression ne retire pas automatiquement son exclusion du parent.
+
+**Recette supplémentaire :**
+- DYN-12 : créer un parent dynamique avec A, B et C. Figer uniquement B par clic droit. A et C restent synchronisés, B devient manuel.
+- DYN-13 : créer une nouvelle feuille Revit ayant la valeur B ; elle ne doit pas s'ajouter à B. Créer une nouvelle feuille de valeur C : elle doit apparaître dans C.
+- DYN-14 : renommer/renuméroter une feuille figée et réouvrir Export ; son libellé suit Revit, mais son appartenance à B ne change pas.
+- DYN-15 : fermer et rouvrir Export ; B reste manuel, sans doublon. Convertir ensuite le parent en manuel ; conserver A, B et C.
+- DYN-16 : sauvegarder les réglages du parent après un gel individuel ; ses exclusions doivent persister.
+
+**Statut :** code implémenté, suite automatisée à confirmer sur le dernier commit, validation Revit de ces nouveaux scénarios restante.
+
+## Réversibilité d'un sous-dossier figé — 16 novembre 2026
+
+**Demande :** après validation Revit par l'utilisateur des 5 tests de gel individuel (DYN-12 à DYN-16, scénario global), permettre de retrouver le mode automatique sans figer ni modifier les autres sous-dossiers.
+
+**Implémenté (PR #55, non fusionnée) :**
+- Clic droit sur un sous-dossier manuel précédemment figé : **Rendre ce sous-dossier automatique**. L'action ne s'affiche que si son identifiant figure dans les exclusions du parent `source.frozen_group_ids`.
+- Après confirmation des effets, une mutation atomique du JSON partagé retire uniquement le snapshot manuel et son identifiant d'exclusion ; la règle du dossier parent et les autres sous-dossiers sont inchangés.
+- Le sous-dossier retrouve son contenu d'après les paramètres Revit actuels et l'icône automatique. S'il ne correspond actuellement à aucune feuille, il disparaît de l'arbre puis réapparaît lors d'une future correspondance.
+- **Important :** les ajouts/retraits manuels et les éventuels réglages propres au sous-dossier figé sont abandonnés lors du retour en mode automatique ; la confirmation utilisateur le précise.
+- Refus de l'opération si le sous-dossier contient un dossier enfant (pour éviter de supprimer une organisation manuelle), si la règle du parent a changé en stockage collaboratif ou si les paramètres Revit sont devenus illisibles. Ne touche pas aux feuilles du modèle Revit.
+- Aucune migration de schéma ; champ optionnel `frozen_group_ids` du JSON 8 conservé.
+
+**Recette Revit complémentaire :**
+- DYN-17 : figer B, modifier ses feuilles et les paramètres Revit, puis clic droit sur B → « Rendre ce sous-dossier automatique » ; vérifier que B retrouve les feuilles correspondant aux valeurs actuelles et l'icône turquoise.
+- DYN-18 : vérifier que A et C restent automatiques et que le nombre de sous-dossiers n'a aucun doublon après Actualiser, fermeture et réouverture.
+- DYN-19 : vérifier la confirmation avant suppression des modifications manuelles, et le refus si B contient un sous-dossier enfant.
+- DYN-20 : vérifier qu'un dossier manuel ordinaire et un sous-dossier d'un parent devenu entièrement manuel ne proposent pas cette action.
+
+**État de validation :** réversibilité implémentée et tests automatisés ajoutés ; validation Revit DYN-17 à DYN-20 en attente. Les scénarios de gel individuel précédents ont été confirmés par l'utilisateur.
+
+## Validation finale de la réversibilité — 17 novembre 2026
+
+**Recette Revit confirmée par l'utilisateur :** les tests DYN-17 à DYN-20 de retour individuel au mode automatique sont tous réussis. Les cinq vérifications antérieures de gel individuel avaient également été confirmées. Cela couvre : recalcul des feuilles et changement d'icône, absence de doublon après actualisation et réouverture, conservation des autres groupes, confirmation avant remplacement du contenu manuel et refus lorsque des descendants empêchent la conversion.
+
+**Tests CI :** 500 tests Export réussis, configuration collaborative et ruban verts sur `b4f115165600403ed7d6df55e4a32ea9299796fa`. Le nouveau changement dans ce commit de suivi est documentaire uniquement. **Décision :** la fonctionnalité peut être fusionnée à `main`. La publication d'une release reste une étape distincte.

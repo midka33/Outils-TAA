@@ -29,6 +29,102 @@ class CarnetController(object):
     def create_from_parameter(self, parameter_name, name_template=None):
         return self.carnet_service.create_from_parameter(parameter_name, name_template)
 
+    def preview_dynamic(self, parameter_name, parameter_value,
+                        group_parameter=None):
+        """Aperçu en mémoire, calculé avec la règle utilisée à la création.
+
+        Ne lit ni ne modifie les dossiers du repository et n'écrit pas de JSON.
+        """
+        from publication_source import PublicationSource
+        from publication_set import PublicationSet
+        from dynamic_sheet_groups import resolve_dynamic
+        source = PublicationSource(
+            PublicationSource.DYNAMIC, parameter_name,
+            parameter_value, group_parameter)
+        sample = PublicationSet(
+            "Aperçu", items=[], source=source, set_id="dynamic-preview",
+            persistent=False, folder_id="default")
+        direct, groups = resolve_dynamic(
+            sample, self.export_service.get_sheets())
+        return {
+            "sheet_count": len(direct) + sum(len(g.items or []) for g in groups),
+            "group_count": len(groups),
+            "groups": [(group.name, len(group.items or [])) for group in groups],
+        }
+
+    def create_dynamic_persistent(self, name, parameter_name, parameter_value,
+                                  group_parameter=None, parent_id='default'):
+        import uuid
+        from publication_source import PublicationSource
+        from publication_set import PublicationSet
+        if not name or not str(name).strip() or not parameter_name:
+            raise ValueError('Nom et paramètre de sélection obligatoires.')
+        source = PublicationSource(PublicationSource.DYNAMIC, parameter_name,
+                                   parameter_value, group_parameter)
+        obj = PublicationSet(str(name).strip(), items=[], source=source,
+                             set_id=str(uuid.uuid4()), persistent=True,
+                             folder_id=parent_id)
+        # Vérifier la règle avant de créer le dossier en stockage.
+        from dynamic_sheet_groups import resolve_dynamic
+        resolve_dynamic(obj, self.export_service.get_sheets())
+        return self.save_persistent(obj)
+
+    def freeze_dynamic(self, publication_set):
+        from dynamic_sheet_groups import resolve_dynamic
+        direct, groups = resolve_dynamic(
+            publication_set, self.export_service.get_sheets())
+        return self.repository.freeze_dynamic(publication_set, direct, groups)
+
+    def freeze_dynamic_group(self, selected_group):
+        """Fige uniquement le groupe sélectionné, depuis l'état Revit courant."""
+        from publication_source import PublicationSource
+        from dynamic_sheet_groups import resolve_dynamic
+        if not getattr(selected_group, "dynamic_virtual", False):
+            raise ValueError("Sélectionnez un sous-dossier automatique.")
+        parent_id = getattr(selected_group, "folder_id", None)
+        parent = self.repository.get(parent_id) if self.repository else None
+        if (parent is None or parent.source is None
+                or parent.source.mode != PublicationSource.DYNAMIC):
+            raise ValueError("Le dossier automatique parent a changé. Actualisez Export.")
+        _, current_groups = resolve_dynamic(
+            parent, self.export_service.get_sheets())
+        current = next((group for group in current_groups
+                        if str(group.id) == str(selected_group.id)), None)
+        if current is None:
+            raise ValueError(
+                "Ce sous-dossier n'existe plus dans les feuilles Revit. Actualisez Export.")
+        return self.repository.freeze_dynamic_group(parent.id, current)
+
+    def unfreeze_dynamic_group(self, selected_group):
+        """Rend un enfant figé à nouveau dynamique suivant son parent Revit."""
+        from copy import copy
+        from publication_source import PublicationSource
+        from dynamic_sheet_groups import resolve_dynamic
+        if (selected_group is None
+                or not getattr(selected_group, "persistent", False)
+                or getattr(selected_group, "dynamic_virtual", False)):
+            raise ValueError("Sélectionnez un sous-dossier manuel précédemment figé.")
+        group_id = str(getattr(selected_group, "id", "") or "")
+        parent_id = getattr(selected_group, "folder_id", None)
+        parent = self.repository.get(parent_id) if self.repository else None
+        if (not group_id or parent is None or parent.source is None
+                or parent.source.mode != PublicationSource.DYNAMIC
+                or group_id not in parent.source.frozen_group_ids):
+            raise ValueError(
+                "Ce sous-dossier n'est plus figé sous un dossier automatique. "
+                "Actualisez Export.")
+
+        # Vérifie la lisibilité des paramètres Revit avant de remplacer
+        # la copie manuelle ; ce contrôle ne modifie jamais le stockage.
+        candidate = copy(parent)
+        candidate.source = PublicationSource(
+            PublicationSource.DYNAMIC, parent.source.parameter_name,
+            parent.source.parameter_value, parent.source.group_parameter,
+            [uid for uid in parent.source.frozen_group_ids
+             if str(uid) != group_id])
+        resolve_dynamic(candidate, self.export_service.get_sheets())
+        return self.repository.unfreeze_dynamic_group(parent.id, group_id)
+
     def create_manual_persistent(self, name, items, output_directory=None,
                                  filename_template_id=None):
         publication_set = self.carnet_service.create_manual_persistent(
