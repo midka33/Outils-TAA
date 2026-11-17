@@ -509,3 +509,12 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Non-régression attendue :** ne changer aucun comportement Export (publication, persistance collaborative, PDF/DWG, sélection et dossiers dynamiques). Test automatisé de manifeste et contrat XAML ajouté. **État :** code proposé et enregistré sur branche ; CI / recette Revit encore à confirmer. **Prochaine action :** ouvrir le dialogue dans Revit 2025.4, valider puis préparer séparément la PR de release et le changement de numéro.
 
 **Contrôle CI PR #60 (17 novembre 2026) :** 505 tests Export réussis au commit `cf886b14bc171c6826ad49720d5ba6e6d88db83a`. Les workflows Export collaboratif, contrat ruban et tests Calculs des pièces sont également verts. L'ajout du présent bilan est uniquement documentaire. **Recette dans Revit non encore effectuée**, PR Draft, pas de fusion ni release.
+
+
+### Bouton À propos dans le ruban OutilsTAA (17 novembre 2026)
+
+**Retour utilisateur :** la commande À propos, présente dans le code XAML d'Export, n'était pas visible dans l'onglet OutilsTAA de Revit parce qu'elle n'avait été créée que dans la fenêtre Export, pas dans le ruban pyRevit. Vérification GitHub : le fichier local contient `AboutButton`, tandis que l'interface représentée par la capture est le ruban Revit.
+
+**Correction implémentée sur la PR #60** (`feat/about-version-taa`) : création du bouton de ruban global `OutilsTAA.tab/Informations.panel/APropos.pushbutton` (script IronPython, bundle.yaml, icon.png), qui ouvre la fenêtre À propos existante et lit la version depuis le manifeste central `version.json`. Accessible indépendamment d'Export et sans document Revit actif. Le bouton interne à Export est conservé en accès secondaire. Aucun changement des moteurs de production, de publication ou de stockage.
+
+**Contrôles :** ajout du test `tests/test_about_ribbon_button.py` (bouton, icône, chemin d'import, absence de dépendance à un document Revit) ; CI à vérifier. **Recette dans Revit 2025.4 encore requise :** récupérer la PR #60, redémarrer/recharger pyRevit, constater le panneau Informations sur le ruban OutilsTAA, cliquer À propos, vérifier la version et la fermeture. Si le bouton est absent, comparer le chemin pyRevit chargé au répertoire Git modifié. Aucun merge/release effectué.
