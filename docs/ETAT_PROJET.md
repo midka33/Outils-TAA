@@ -537,3 +537,5 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **Couleur du pictogramme :** ancien fond `#FA641E` remplacé par **`#FD8B5A`**, exactement la couleur dominante du pictogramme `PlansDeVente.pushbutton/icon.png`. Forme « i » et transparence conservées. Test de non-régression sur l'asset PNG ajouté.
 
 **État :** modifications GitHub sur PR #60, CI à vérifier sur SHA de code ; validation Revit de la nouvelle position et du pictogramme à effectuer. Aucun merge ni release.
+
+**CI vérifiée au commit `9ff341721adea79cf45c6299ee34bd91f8de8a9d` :** 511 tests Export réussis ; workflows « Export ribbon contract », « Export — configuration collaborative » et « Calculs des pièces — tests hors Revit » verts. Ce commit documentaire final ne modifie ni code ni icône. Position à gauche et couleur de l'icône restent à confirmer dans Revit 2025.4 après rechargement. PR #60 toujours Draft, non fusionnée, aucune release.
