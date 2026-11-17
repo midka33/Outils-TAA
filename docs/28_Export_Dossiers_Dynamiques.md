@@ -151,3 +151,9 @@ Ne pas présenter le mode 1 comme une synchronisation exacte de l'organisation a
 - DYN-20 : vérifier qu'un dossier manuel ordinaire et un sous-dossier d'un parent devenu entièrement manuel ne proposent pas cette action.
 
 **État de validation :** réversibilité implémentée et tests automatisés ajoutés ; validation Revit DYN-17 à DYN-20 en attente. Les scénarios de gel individuel précédents ont été confirmés par l'utilisateur.
+
+## Validation finale de la réversibilité — 17 novembre 2026
+
+**Recette Revit confirmée par l'utilisateur :** les tests DYN-17 à DYN-20 de retour individuel au mode automatique sont tous réussis. Les cinq vérifications antérieures de gel individuel avaient également été confirmées. Cela couvre : recalcul des feuilles et changement d'icône, absence de doublon après actualisation et réouverture, conservation des autres groupes, confirmation avant remplacement du contenu manuel et refus lorsque des descendants empêchent la conversion.
+
+**Tests CI :** 500 tests Export réussis, configuration collaborative et ruban verts sur `b4f115165600403ed7d6df55e4a32ea9299796fa`. Le nouveau changement dans ce commit de suivi est documentaire uniquement. **Décision :** la fonctionnalité peut être fusionnée à `main`. La publication d'une release reste une étape distincte.
