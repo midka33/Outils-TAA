@@ -44,3 +44,27 @@ def test_version_centralized_for_ribbon_and_export_dialog():
     assert "from lib.common.taa_version import (" in dialog
     assert "read_version()" in dialog
     assert (EXTENSION / "version.json").is_file()
+
+def test_about_panel_is_first_in_tab_layout_without_hiding_modules():
+    """L'ordre des panneaux est explicite et les modules métier restent présents."""
+    tab_manifest = (TAB / "bundle.yaml").read_text(encoding="utf-8")
+    lines = [line.strip()[2:].strip() for line in tab_manifest.splitlines()
+             if line.strip().startswith("- ")]
+    assert lines[0] == "Informations[beforeall:]"
+    assert lines[1:] == ["Calculs", "Export", "PlansDeVente"]
+    declared = set(item.split("[", 1)[0] for item in lines)
+    existing = set(path.name[:-len(".panel")] for path in TAB.glob("*.panel"))
+    assert declared == existing, (
+        "Un panneau OutilsTAA non listé pourrait disparaître du ruban : {}"
+        .format(existing - declared))
+
+
+def test_about_icon_matches_taa_brand_orange():
+    """Icône harmonisée exactement sur l'orange officiel de Plans de vente.
+
+    Test à empreinte : détecte la réintroduction du fond orange plus foncé
+    tout en évitant une dépendance à Pillow dans le workflow CI.
+    """
+    import hashlib
+    result = hashlib.sha256((BUTTON / "icon.png").read_bytes()).hexdigest()
+    assert result == "cfde0ed9fa9f16599b590248b1f301907674aaf81c528a31180fe9a5b1068c60"
