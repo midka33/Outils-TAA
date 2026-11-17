@@ -1374,3 +1374,13 @@ Le pipeline v1.4.0 est déclenché sur l'intégration de ses notes dans `main`, 
 Le pipeline a terminé avec succès ses deux jobs le **3 novembre 2026** : 754 tests automatisés, archive ZIP vérifiée, empreintes SHA-256 correctes et création de six actifs de release. Le tag `v1.4.0` pointe vers `21336b3df7f54ea2b4692384ba414e048bfae89e`. Référence : [release publique](https://github.com/midka33/Outils-TAA/releases/tag/v1.4.0) et [run GitHub Actions](https://github.com/midka33/Outils-TAA/actions/runs/41667879829).
 
 Cette attestation complète les règles générales ci-dessus sans modifier les branches de fonctionnalités en cours.
+
+## Métadonnées de version embarquées — ajout novembre 2026
+
+Le fichier `OutilsTAA.extension/version.json` constitue désormais la source de version de l'extension distribuée (bouton **À propos** dans Export). Le module commun `lib/common/taa_version.py` lit cette valeur depuis l'installation, sans accès Git, GitHub ou Internet. La version n'est pas récupérée depuis les titres du README ou des tutoriels, susceptibles de rester historiques.
+
+**Entre deux releases :** conserver le numéro de dernière base stable avec `channel: development` et afficher explicitement le caractère non publié de la copie de travail. La branche actuelle est en développement après `v1.4.1`.
+
+**Lors d'une release validée :** la PR de release doit mettre à jour `version` avec le nouveau numéro décidé, basculer `channel` à `stable`, aligner `last_published` et vérifier que les métadonnées embarquées correspondent au tag publié. Recontrôler le bouton À propos dans Revit 2025.4 à partir de l'archive/installation finale. Ne jamais déduire automatiquement le numéro d'une prochaine release de l'existence d'une branche `main`.
+
+**Tests :** `tests/test_about_version.py` vérifie la lecture du manifeste, son traitement si absent/invalide, le futur passage à stable et le câblage XAML/WPF. Les tests automatisés ne remplacent pas l'ouverture du dialogue dans Revit.
