@@ -539,3 +539,15 @@ L'utilisateur confirme que les feuilles se mettent bien à jour ; ne pas ouvrir 
 **État :** modifications GitHub sur PR #60, CI à vérifier sur SHA de code ; validation Revit de la nouvelle position et du pictogramme à effectuer. Aucun merge ni release.
 
 **CI vérifiée au commit `9ff341721adea79cf45c6299ee34bd91f8de8a9d` :** 511 tests Export réussis ; workflows « Export ribbon contract », « Export — configuration collaborative » et « Calculs des pièces — tests hors Revit » verts. Ce commit documentaire final ne modifie ni code ni icône. Position à gauche et couleur de l'icône restent à confirmer dans Revit 2025.4 après rechargement. PR #60 toujours Draft, non fusionnée, aucune release.
+
+## Publication Outils TAA v1.5.0 — 17 novembre 2026
+
+**PR #60 :** bouton À propos et version centrale fusionnés dans main, commit `798f84b32cb928c54d0ba867d5a896717ec600fe`; présence en première position et fenêtre WPF confirmées par capture utilisateur dans Revit 2025.4.
+
+**PR #61 :** dossier de release, manifeste `1.5.0 stable`, notes, trois tutoriels, workflow et installateur fusionnés, commit exact de main `b14ec914cc27e47c13561c54a1f9a841cb07ff10`.
+
+**CI de préparation de la PR #61 :** 516 tests Export + 3 ruban + 125 Calculs + 301 Plans de vente, soit **945 tests réussis**. ZIP utilisateur de 214 entrées validé, manifest stable et SHA-256 du ZIP et CMD vérifiés. L'installateur v1.5.0 corrige la vérification SHA qui cherchait v1.4.0 dans l'ancienne version.
+
+**Tag GitHub :** `v1.5.0` créé et vérifié sur **le même SHA `b14ec914cc27e47c13561c54a1f9a841cb07ff10`** (comparaison avec main : identique). Le workflow publie automatiquement la release GitHub sur main uniquement après sa propre validation. **Limite de vérification de cette session :** l'outil connecté confirme le tag et le manifeste, mais ne permet pas de lister directement les six actifs de la page de release ; ne pas inventer leur contrôle indépendant. Confirmer le ZIP, le CMD, `SHA256SUMS.txt` et les trois tutoriels sur https://github.com/midka33/Outils-TAA/releases/tag/v1.5.0 avant déploiement de masse.
+
+**Recettes restant à effectuer :** test de l'installateur CMD sur un poste Windows, deux postes concurrents en stockage SMB collaboratif, cas complexes de groupes Revit. Aucune suppression des anciennes releases ou des branches métiers.

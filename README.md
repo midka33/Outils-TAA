@@ -13,7 +13,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 
 | Module | Statut |
 |---|---|
-| **Export** | **v1.5.0 (en préparation)** — dossiers automatiques réversibles, configuration collaborative par central et publication PDF/DWG ; partie fonctionnelle validée dans Revit 2025.4 |
+| **Export** | **v1.5.0** — dossiers automatiques réversibles, configuration collaborative par central et publication PDF/DWG ; partie fonctionnelle validée dans Revit 2025.4 |
 | **Calculs des pièces** | Sommes par groupes et variantes avec revue WPF, protections de l'alignement des paramètres Revit ; cas complexes à vérifier sur copie de maquette |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
@@ -26,13 +26,13 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 | **Annotation** | 📋 Planifié |
 | **Utilitaires** | 📋 Planifié |
 
-## Prochaine release — Outils TAA v1.5.0
+## Release v1.5.0 — Outils TAA
 
-**Publication en préparation au 17 novembre 2026**. La dernière version déjà publiée reste **v1.4.1**. La v1.5.0 regroupe les dossiers automatiques de publication par paramètres Revit, le gel individuel et sa réversibilité, la configuration collaborative par central, le bouton **À propos** donnant la version de la suite et des améliorations du calcul des pièces en groupes/variantes.
+**Tag `v1.5.0` créé et vérifié le 17 novembre 2026**, sur le commit `b14ec914cc27e47c13561c54a1f9a841cb07ff10`. La version antérieure est **v1.4.1**. La v1.5.0 regroupe les dossiers automatiques de publication par paramètres Revit, le gel individuel et sa réversibilité, la configuration collaborative par central, le bouton **À propos** donnant la version de la suite et des améliorations du calcul des pièces en groupes/variantes.
 
 [Notes utilisateur v1.5.0](docs/release/Notes_v1.5.0.md) · [Préparation et contrôles](docs/release/Preparation_v1.5.0.md) · [Tutoriel Export v1.5.0](docs/release/Tutoriel_Export_v1.5.0.md).
 
-**Attention :** une partie des traitements multi-postes SMB et des cas avancés de groupes Revit nécessite encore une recette spécifique en agence. Le tag et les fichiers de la v1.5.0 ne seront déclarés publiés qu'après réussite de la CI et vérification de la release.
+**Attention :** une partie des traitements multi-postes SMB et des cas avancés de groupes Revit nécessite encore une recette spécifique en agence. La CI de préparation a réussi et le tag correspond au SHA de publication ; la présence des six actifs de la page Releases reste à contrôler explicitement avant diffusion large.
 
 ## Historique — Outils TAA v1.4.0
 

@@ -6,7 +6,8 @@
 - [x] **Export** : stockage collaboratif par projet central et gestion des conflits, fusionné dans `main`.
 - [x] **À propos** : version centralisée et commande en premier dans le ruban OutilsTAA, validée visuellement dans Revit.
 - [x] **Calculs** : parcours actuel par variantes/groupes livré dans `main`, protections des valeurs alignées.
-- [ ] **Release v1.5.0** : validation ZIP, quatre suites CI, installateur et publication du tag sur SHA testé.
+- [x] **Release v1.5.0** : préparation et publication du tag sur SHA exact de `main`, 945 tests, ZIP et SHA-256 contrôlés.
+- [ ] **Vérifier les six actifs GitHub Releases v1.5.0** : ZIP, CMD, SHA256SUMS et les trois tutoriels ; recette du CMD Windows à faire.
 - [ ] **Recette multi-postes SMB et nouveaux scénarios groupes complexes** : validation opérationnelle sur l'environnement de l'agence ; ne pas présenter comme acquise.
 - [ ] **Installation CMD v1.5.0 sur poste Windows** : tester téléchargement, SHA, sauvegarde et restauration avant déploiement général.
 

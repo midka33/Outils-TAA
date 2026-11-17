@@ -1,6 +1,6 @@
 # Index de la documentation Outils TAA
 
-**Prochaine version préparée : Outils TAA v1.5.0 (dernière stable publiée : v1.4.1)**  
+**Version taguée : Outils TAA v1.5.0 — 17 novembre 2026**  
 **Cible : Autodesk Revit 2025.4 / pyRevit 5.x**
 
 Ce fichier indique quelles documentations décrivent le comportement **actuel**.
@@ -67,9 +67,9 @@ La spécification de développement détaillée des étapes 01 à 09 est archiv�
 
 **Référence actuelle :** [`26_Deploiement_Agence.md`](26_Deploiement_Agence.md) — extension unique sur serveur, chemins pyRevit référencés sur les postes, mises à jour centralisées, précautions de redémarrage, sauvegarde et retour arrière. Mode de déploiement de référence confirmé le 12/11/2026 ; installateur CMD conservé comme alternative.
 
-## Prochaine release v1.5.0 — préparation
+## Outils TAA v1.5.0 — livraison
 
-**Version candidate 1.5.0** : dossiers automatiques et réversibles, stockage collaboratif, bouton À propos dans le ruban, améliorations des calculs de pièces. La v1.5.0 ne devient publiée qu'après contrôle du tag et des actifs de GitHub Releases.
+**Tag GitHub `v1.5.0` confirmé** sur `b14ec914cc27e47c13561c54a1f9a841cb07ff10` ; 945 tests automatisés et archive contrôlés sur la PR de release. Dossiers automatiques et réversibles, stockage collaboratif, bouton À propos dans le ruban et améliorations des calculs de pièces. Le contrôle des six actifs téléchargeables reste à terminer avant diffusion générale.
 
 - [Notes v1.5.0](release/Notes_v1.5.0.md) — liste des nouveautés, précautions et installation.
 - [Checklist v1.5.0](release/Preparation_v1.5.0.md) — matrice des tests et publication.
