@@ -8,6 +8,11 @@ import codecs
 import json
 import os
 
+try:
+    _string_type = basestring  # IronPython 2.7
+except NameError:
+    _string_type = str  # CPython 3
+
 
 def manifest_path():
     """L'extension peut être installée dans tout répertoire (y compris réseau)."""
@@ -30,9 +35,9 @@ def read_version(path=None):
         number = data.get("version")
         channel = data.get("channel")
         last_published = data.get("last_published")
-        if (not isinstance(number, str) or not number.strip()
+        if (not isinstance(number, _string_type) or not number.strip()
                 or channel not in ("stable", "development")
-                or not isinstance(last_published, str)
+                or not isinstance(last_published, _string_type)
                 or not last_published.strip()):
             raise ValueError("Métadonnées de version invalides.")
         return {
