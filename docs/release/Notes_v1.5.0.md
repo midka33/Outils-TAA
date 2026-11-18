@@ -63,6 +63,8 @@ Le module Plans de vente **V1.1**, y compris le fonctionnement avec fichiers li�
 
 **Fichiers livrés :** une archive ZIP de l'extension et les trois tutoriels **Export**, **Calculs des pièces** et **Plans de vente**. Les archives « Source code » sont affichées automatiquement par GitHub et ne constituent pas le paquet d'installation recommandé.
 
+**Intégrité :** le ZIP a été contrôlé par **SHA-256** durant la publication ; GitHub affiche son empreinte à côté du fichier.
+
 ## Compatibilité, qualité et limites
 
 - Compatible : **Revit 2025.4 / pyRevit 5.x**, Windows, scripts IronPython/WPF ; sans Dynamo.
