@@ -53,21 +53,22 @@ Le module Plans de vente **V1.1**, y compris le fonctionnement avec fichiers li�
 
 ## Installer ou mettre à jour
 
-1. Fermer entièrement Revit.
-2. Télécharger `INSTALLER_Outils_TAA_v1.5.0.cmd` dans les actifs de cette release et l'exécuter sur le poste de travail Windows.
-3. L'installateur télécharge l'archive `Outils-TAA_v1.5.0.zip`, vérifie sa **somme SHA-256** et conserve une sauvegarde de la précédente extension avant remplacement. Il ne nécessite **pas de droits administrateur** pour le répertoire utilisateur cible.
-4. Redémarrer Revit, ouvrir l'onglet **OutilsTAA** puis **À propos** : la version doit indiquer **1.5.0**, sans mention « développement ».
+1. **Fermer entièrement Revit**.
+2. Télécharger **`Outils-TAA_v1.5.0.zip`** dans les fichiers de cette release.
+3. Identifier le chemin de l'extension **`OutilsTAA.extension`** réellement chargée par pyRevit. **Sauvegarder** son contenu avant toute modification.
+4. Extraire le ZIP, puis remplacer le contenu de l'extension existante par le dossier **`OutilsTAA.extension`** de l'archive, dans **le même emplacement**. Éviter de créer une seconde copie de l'extension qui pourrait être chargée en parallèle.
+5. Redémarrer Revit, ouvrir l'onglet **OutilsTAA**, puis **À propos** : la version doit indiquer **1.5.0 — stable**.
 
-**Installation d'agence centralisée :** si pyRevit pointe vers une extension partagée sur le serveur, l'installateur utilisateur ne met **pas** à jour cette copie réseau. Utiliser la procédure décrite dans `docs/26_Deploiement_Agence.md`, après sauvegarde et contrôle des droits.
+**Installation d'agence centralisée :** lorsque pyRevit utilise une extension partagée sur un serveur, réaliser la mise à jour **sur cette copie réseau**, conformément à la procédure `docs/26_Deploiement_Agence.md`, après sauvegarde et vérification des droits. Ne pas installer une copie utilisateur concurrente.
 
-**Fichiers livrés :** archive ZIP de l'extension, installateur CMD, fichier `SHA256SUMS.txt` et tutoriels des trois modules.
+**Fichiers livrés :** une archive ZIP de l'extension et les trois tutoriels **Export**, **Calculs des pièces** et **Plans de vente**. Les archives « Source code » sont affichées automatiquement par GitHub et ne constituent pas le paquet d'installation recommandé.
 
 ## Compatibilité, qualité et limites
 
 - Compatible : **Revit 2025.4 / pyRevit 5.x**, Windows, scripts IronPython/WPF ; sans Dynamo.
 - Dossiers manuels et configurations existantes conservés ; le stockage Export reste au **schéma JSON 8**.
 - Les campagnes de gel individuel, de réversibilité et d'actualisation des dossiers automatiques ainsi que la fenêtre À propos ont été confirmées sous Revit 2025.4 par l'utilisateur.
-- La qualification en réseau multi-postes, l'installation via CMD sur un poste Windows cible et les cas Revit complexes du module Calculs restent à contrôler sur les maquettes/environnements concernés.
+- La qualification en réseau multi-postes, la mise à jour manuelle depuis le ZIP sur un poste Windows cible et les cas Revit complexes du module Calculs restent à contrôler sur les maquettes/environnements concernés.
 - Cette release ne contient pas les modules futurs en préparation (cotations, étiquetage, légendes, giration des véhicules).
 
 **Historique :** [différences depuis v1.4.1](https://github.com/midka33/Outils-TAA/compare/v1.4.1...v1.5.0).
