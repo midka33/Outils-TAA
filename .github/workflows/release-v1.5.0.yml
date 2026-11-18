@@ -125,18 +125,34 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "v1.5.0" >/dev/null 2>&1; then
-            echo "v1.5.0 existe deja : aucune modification ni republication."
-            exit 0
+            echo "v1.5.0 deja publiee : mise a jour des notes et retrait des seuls assets secondaires."
+            gh release edit "v1.5.0" --notes-file docs/release/Notes_v1.5.0.md
+            for asset in "INSTALLER_Outils_TAA_v1.5.0.cmd" "SHA256SUMS.txt"; do
+              if gh release view "v1.5.0" --json assets --jq '.assets[].name' | grep -Fxq "$asset"; then
+                gh release delete-asset "v1.5.0" "$asset" --yes
+              fi
+            done
+          else
+            gh release create "v1.5.0" \
+              dist/Outils-TAA_v1.5.0.zip \
+              dist/Tutoriel_Export_v1.5.0.md \
+              dist/Tutoriel_Calculs_Pieces_v1.5.0.md \
+              dist/Tutoriel_Plans_de_Vente_v1.5.0.md \
+              --title "Outils TAA v1.5.0 - Dossiers automatiques, collaboration et A propos" \
+              --notes-file docs/release/Notes_v1.5.0.md \
+              --target "$RELEASE_COMMIT"
           fi
-          gh release create "v1.5.0" \
-            dist/Outils-TAA_v1.5.0.zip \
-            dist/INSTALLER_Outils_TAA_v1.5.0.cmd \
-            dist/SHA256SUMS.txt \
-            dist/Tutoriel_Export_v1.5.0.md \
-            dist/Tutoriel_Calculs_Pieces_v1.5.0.md \
-            dist/Tutoriel_Plans_de_Vente_v1.5.0.md \
-            --title "Outils TAA v1.5.0 - Dossiers automatiques, collaboration et A propos" \
-            --notes-file docs/release/Notes_v1.5.0.md \
-            --target "$RELEASE_COMMIT" \
 
-          gh release view "v1.5.0" --json tagName,url,isDraft,isPrerelease
+          # Les archives Source code sont ajoutees automatiquement par GitHub.
+          actual_assets="$(gh release view "v1.5.0" --json assets --jq '.assets[].name' | sort)"
+          expected_assets="$(printf '%s\n' \
+            'Outils-TAA_v1.5.0.zip' \
+            'Tutoriel_Export_v1.5.0.md' \
+            'Tutoriel_Calculs_Pieces_v1.5.0.md' \
+            'Tutoriel_Plans_de_Vente_v1.5.0.md' | sort)"
+          if [ "$actual_assets" != "$expected_assets" ]; then
+            echo "Liste des assets de release inattendue"
+            diff -u <(printf '%s\n' "$expected_assets") <(printf '%s\n' "$actual_assets") || true
+            exit 1
+          fi
+          gh release view "v1.5.0" --json tagName,url,isDraft,isPrerelease,assets
