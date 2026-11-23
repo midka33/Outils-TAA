@@ -14,6 +14,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Paramètres des pièces : défaut « N° Appartement », remplacement littéral de texte, champs WPF explicitement éditables et aperçu compact ; validation sous Revit encore nécessaire.
 - Paramètres des pièces : deux fenêtres WPF dédiées par commande, colonne de réglages densifiée et focus clavier initial explicite ; tests Revit à réaliser.
 - Renommage multiple WPF : sélection initiale des pièces/familles et des paramètres d'instance/type, puis éditeur en trois colonnes avec ajout, remplacement et formatage sous transaction.
+- Renommage multiple : séparation d'**Ajouter** et **Supprimer** pour quatre opérations indépendantes (Ajouter, Supprimer, Remplacer, Formater) ; aucune modification de la numérotation validée dans Revit.
 - Tests statiques anti-régression et registre `docs/bugs/PARAMETRES.md` ; **971 tests hors Revit réussis**, recette Revit du correctif à effectuer.
 
 ### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)

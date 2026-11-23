@@ -42,6 +42,21 @@ def test_two_stage_three_column_rename_contract():
     assert "transaction.RollBack()" in service
 
 
+def test_rename_editor_exposes_four_distinct_operations():
+    source = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    cls = next(node for node in module.body
+               if isinstance(node, ast.ClassDef) and node.name == "RenameEditorWindow")
+    assignments = {target.id: ast.literal_eval(node.value)
+                   for node in cls.body if isinstance(node, ast.Assign)
+                   for target in node.targets if isinstance(target, ast.Name)
+                   and target.id in ("MODES", "ADD_CODES", "REMOVE_CODES")}
+    assert assignments["MODES"] == ("Ajouter", "Supprimer", "Remplacer", "Formater")
+    assert assignments["ADD_CODES"] == ("add_start", "add_end")
+    assert assignments["REMOVE_CODES"] == ("remove_start", "remove_end")
+    assert 'return "replace" if mode == 2 else "format"' in source
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

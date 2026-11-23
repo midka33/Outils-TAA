@@ -36,6 +36,12 @@ et d'un moteur de formatage littéral restreint. Recette Revit en attente ;
 types de familles et saisie clavier restent des points sensibles.
 Après cette étape : **975 tests automatisés réussis, 87 avertissements**.
 
+**Retour Revit du 23/11 :** l'utilisateur confirme que la fenêtre **Numéroter
+les pièces** est bonne ; la conserver intacte. Dans le renommage, la catégorie
+mixte Ajouter/Supprimer est scindée en **quatre opérations de premier niveau** :
+Ajouter, Supprimer, Remplacer, Formater. Recette des nouvelles options WPF à faire.
+Suite de non-régression : **976 tests réussis, 87 avertissements** hors Revit.
+
 Branche locale `feature/room-parameter-tools`, issue de `main` au commit
 `149df13bb818f44fa7c17aca6973bf3e47eaa69f` (v1.5.0).
 Décision utilisateur : nouveau panneau **Paramètres** avec deux boutons

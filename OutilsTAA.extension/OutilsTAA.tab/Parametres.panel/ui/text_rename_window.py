@@ -121,8 +121,9 @@ class RenameSelectionWindow(forms.WPFWindow):
 
 
 class RenameEditorWindow(forms.WPFWindow):
-    MODES = ("Ajouter / supprimer", "Remplacer", "Formater")
-    ADD_CODES = ("add_start", "add_end", "remove_start", "remove_end")
+    MODES = ("Ajouter", "Supprimer", "Remplacer", "Formater")
+    ADD_CODES = ("add_start", "add_end")
+    REMOVE_CODES = ("remove_start", "remove_end")
 
     def __init__(self, selection):
         self.context = selection
@@ -158,13 +159,18 @@ class RenameEditorWindow(forms.WPFWindow):
         mode = self.ModeCombo.SelectedIndex
         self.OperationCombo.Items.Clear()
         if mode == 0:
-            labels = ("Ajouter au début", "Ajouter à la fin",
-                      "Supprimer au début", "Supprimer à la fin")
-            self.OperationLabel.Text = "POSITION / ACTION"
-            self.InputLabel.Text = "TEXTE À AJOUTER OU SUPPRIMER"
+            labels = ("Au début", "À la fin")
+            self.OperationLabel.Text = "POSITION DE L'AJOUT"
+            self.InputLabel.Text = "TEXTE À AJOUTER"
             self.ExtraLabel.Text = "SÉPARATEUR"
             self.InputText.Text, self.ExtraText.Text = "BAT", "-"
         elif mode == 1:
+            labels = ("Au début", "À la fin")
+            self.OperationLabel.Text = "POSITION DE LA SUPPRESSION"
+            self.InputLabel.Text = "TEXTE À SUPPRIMER"
+            self.ExtraLabel.Text = "SÉPARATEUR"
+            self.InputText.Text, self.ExtraText.Text = "BAT", "-"
+        elif mode == 2:
             labels = ("Remplacer toutes les occurrences",)
             self.OperationLabel.Text = "REMPLACEMENT LITTÉRAL"
             self.InputLabel.Text, self.ExtraLabel.Text = "RECHERCHER", "REMPLACER PAR"
@@ -177,7 +183,7 @@ class RenameEditorWindow(forms.WPFWindow):
         for label in labels:
             self.OperationCombo.Items.Add(label)
         self.OperationCombo.SelectedIndex = 0
-        self.ExtraText.IsEnabled = mode != 2
+        self.ExtraText.IsEnabled = mode != 3
         self.AddOnce.Visibility = Visibility.Visible if mode == 0 else Visibility.Collapsed
         self.clear_preview()
 
@@ -194,7 +200,9 @@ class RenameEditorWindow(forms.WPFWindow):
         mode = self.ModeCombo.SelectedIndex
         if mode == 0:
             return self.ADD_CODES[self.OperationCombo.SelectedIndex]
-        return "replace" if mode == 1 else "format"
+        if mode == 1:
+            return self.REMOVE_CODES[self.OperationCombo.SelectedIndex]
+        return "replace" if mode == 2 else "format"
 
     def _signature(self):
         return (tuple(item.UniqueId for item in self._included()), self.ModeCombo.SelectedIndex,

@@ -111,14 +111,28 @@ texte, ouvrir deux fenêtres successives :
    **opération**, **aperçu avant/après**), avec boutons de validation et
    possibilité de décocher des éléments avant actualisation de l'aperçu.
 
-Les opérations comprennent **Ajouter/supprimer** (début/fin), **Remplacer**
-(toutes les occurrences littérales) et **Formater** avec les jetons explicites
-`{valeur}`, `{index}` et `{famille}`. Les autres jetons, conversions et
-spécificateurs de format sont refusés ; le résultat vide est ignoré. L'éditeur
-réutilise `room_parameters.text_transform_engine` et le nouveau moteur pur
+**Retour utilisateur Revit du 23/11 :** la fenêtre **Numéroter les pièces**
+est confirmée fonctionnelle ; aucune modification de ce module n'est nécessaire
+pour la présente étape.
+
+Le renommage propose désormais **quatre opérations distinctes** :
+
+- **Ajouter** : insertion au début ou à la fin, avec séparateur facultatif et
+  option pour éviter un ajout répété ;
+- **Supprimer** : suppression exacte au début ou à la fin, avec séparateur ;
+- **Remplacer** : remplacement de toutes les occurrences littérales ;
+- **Formater** : composition avec les jetons explicites
+  `{valeur}`, `{index}` et `{famille}`.
+
+Les autres jetons, conversions et spécificateurs de format sont refusés ;
+le résultat vide est ignoré. L'éditeur réutilise
+`room_parameters.text_transform_engine` et le nouveau moteur pur
 `room_parameters.format_engine`. Les services Revit sont isolés dans
 `services/text_rename_service.py` ; toute écriture est effectuée dans une
 transaction unique avec vérification des valeurs de départ et rollback.
+
+Suite après séparation des opérations : **976 tests réussis,
+87 avertissements** hors Revit. Les quatre modes doivent être vérifiés en WPF.
 
 Les types de familles sont **dédupliqués par UniqueId** lors de la collecte
 (plusieurs occurrences ne provoquent pas plusieurs écritures sur le type).
