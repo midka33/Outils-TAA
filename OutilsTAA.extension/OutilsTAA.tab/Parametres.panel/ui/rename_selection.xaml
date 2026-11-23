@@ -1,0 +1,53 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Outils TAA — Sélection des éléments" Width="850" Height="610"
+        MinWidth="720" MinHeight="480" WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource TAABackgroundBrush}" FontFamily="Segoe UI" FontSize="12">
+  <Grid Margin="16">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,12">
+      <TextBlock Text="ÉTAPE 1 — CHOISIR LES ÉLÉMENTS" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TAAOrangeBrush}"/>
+      <TextBlock Text="Catégorie, paramètres d'instance ou de type, périmètre et sélection individuelle." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
+    </StackPanel>
+    <Grid Grid.Row="1" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,8,0">
+        <TextBlock Text="CATÉGORIE" FontWeight="Bold" Margin="0,0,0,4"/>
+        <ComboBox Name="CategoryCombo" Height="28" SelectionChanged="ScopeChanged"/>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Margin="0,0,8,0">
+        <TextBlock Text="PARAMÈTRES DE FAMILLE" FontWeight="Bold" Margin="0,0,0,4"/>
+        <ComboBox Name="LevelCombo" Height="28" SelectionChanged="ScopeChanged"/>
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+        <TextBlock Text="PÉRIMÈTRE" FontWeight="Bold" Margin="0,0,0,4"/>
+        <ComboBox Name="ScopeCombo" Height="28" SelectionChanged="ScopeChanged"/>
+      </StackPanel>
+    </Grid>
+    <Border Grid.Row="2" Background="{DynamicResource TAAPanelBrush}" BorderBrush="{DynamicResource TAABorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10">
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,7">
+          <TextBlock Text="ÉLÉMENTS À RENOMMER" FontWeight="Bold"/>
+          <TextBlock Name="FoundText" DockPanel.Dock="Right" HorizontalAlignment="Right" Foreground="{DynamicResource TAASecondaryTextBrush}"/>
+        </DockPanel>
+        <DataGrid Name="ObjectsGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False"
+                  HeadersVisibility="Column" RowHeight="21" ColumnHeaderHeight="26" RowHeaderWidth="0">
+          <DataGrid.Columns>
+            <DataGridCheckBoxColumn Header="Inclure" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="68"/>
+            <DataGridTextColumn Header="Pièce / Famille / Type" Binding="{Binding Label}" IsReadOnly="True" Width="*"/>
+          </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+          <TextBlock Text="PARAMÈTRE TEXTE À MODIFIER" FontWeight="Bold" Margin="0,0,0,4"/>
+          <ComboBox Name="ParameterCombo" Height="28" DisplayMemberPath="Label"/>
+          <TextBlock Name="SelectionMessage" Foreground="{DynamicResource TAASecondaryTextBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <DockPanel Grid.Row="3" Margin="0,12,0,0" LastChildFill="False">
+      <Button Content="Annuler" DockPanel.Dock="Right" Width="100" Height="32" Margin="8,0,0,0" Click="CancelSelection" Style="{DynamicResource TAASecondaryButton}"/>
+      <Button Name="ContinueButton" Content="Continuer vers le renommage" DockPanel.Dock="Right" Width="225" Height="32" Click="ContinueSelection" Style="{DynamicResource TAAPrimaryButton}"/>
+    </DockPanel>
+  </Grid>
+</Window>

@@ -9,6 +9,33 @@ déplacés dans `Commandes.stack` pour l'affichage compact demandé. Recette des
 deux commandes et contrôle visuel du ruban **à refaire après publication**.
 Registre : `docs/bugs/PARAMETRES.md`.
 
+**Retour de Reload du 23/11 :** pyRevit ignore `Commandes.stack` avec
+`The name already exists:Numeroter` ; anciens boutons encore visibles.
+Correction locale : commandes renommées en interne pour éviter la collision
+avec la session précédente. **Test après fermeture complète et réouverture
+de Revit toujours en attente ; aucune validation visuelle acquise.**
+Suite de non-régression locale : **971 tests réussis, 87 avertissements**.
+
+**Deuxième retour Revit du 23/11 :** ruban compact confirmé après redémarrage.
+Nouvelle itération locale : destination par défaut « N° Appartement », opération
+texte « Remplacer », attributs explicites des zones de saisie et lignes d'aperçu
+compactes. Le grisé des pièces déjà cliquées dans la vue Revit reste à concevoir
+et à valider. Pas de validation clavier WPF après changement.
+Tests de cette itération : **973 réussis, 87 avertissements** hors Revit.
+
+**Troisième retour UI du 23/11 :** l'utilisateur demande désormais deux fenêtres
+distinctes et confirme que les champs de numérotation restent non saisissables.
+Deux XAML spécifiques créés, contrôleur métier partagé, réglages gauche
+resserrés, tentative de correction du focus clavier. À confirmer dans Revit.
+Suite automatisée après cette refonte : **973 tests réussis, 87 avertissements**.
+
+**Décision suivante du 23/11 — Renommage multiple :** deux étapes WPF, dont
+la deuxième comporte trois colonnes. Sélection pièces/familles puis choix
+instance/type pour les familles. Ajout d'un service Revit de renommage générique
+et d'un moteur de formatage littéral restreint. Recette Revit en attente ;
+types de familles et saisie clavier restent des points sensibles.
+Après cette étape : **975 tests automatisés réussis, 87 avertissements**.
+
 Branche locale `feature/room-parameter-tools`, issue de `main` au commit
 `149df13bb818f44fa7c17aca6973bf3e47eaa69f` (v1.5.0).
 Décision utilisateur : nouveau panneau **Paramètres** avec deux boutons

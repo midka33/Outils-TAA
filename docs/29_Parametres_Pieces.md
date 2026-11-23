@@ -1,6 +1,8 @@
 # Outils TAA — Paramètres des pièces (développement V1)
 
-**État :** bêta WPF/Revit implémentée et remise en conformité statique ; recette réelle en attente.
+**État :** bêta WPF/Revit avec deux fenêtres dédiées ; 973 tests automatisés
+réussis (87 avertissements), saisie clavier Revit à confirmer et grisage
+de sélection toujours ouvert.
 **Cible :** Revit 2025.4, pyRevit 5.x (IronPython), WPF.
 **Branche :** `feature/room-parameter-tools`.
 
@@ -67,6 +69,78 @@ sont adaptés au niveau de dossier supplémentaire. Référence : documentation
 pyRevit sur les bundles `.stack`.
 
 Voir `docs/bugs/PARAMETRES.md` pour BUG-PARAM-001 et BUG-PARAM-002.
+
+**Retour de rechargement du 23/11 :** `Commandes.stack` a été ignoré car
+`Numeroter` existait déjà dans la session Revit ; les anciens grands boutons
+sont restés affichés. Les identifiants internes ont été remplacés par
+`TAA_NumeroterPieces` et `TAA_ModifierTextePieces` sans changer les libellés.
+Pour évaluer cette correction, fermer **toutes** les fenêtres Revit, rouvrir
+Revit puis vérifier le ruban. L'affichage compact n'est pas encore validé.
+Voir également BUG-PARAM-003.
+
+## Troisième retour UI — fenêtres séparées (23 novembre 2026)
+
+L'utilisateur revient sur le choix précédent d'une fenêtre commune : **deux
+fenêtres WPF distinctes sont désormais demandées et implémentées**, l'une
+réservée à Numéroter, l'autre à Modifier le texte. Chaque bouton ouvre directement
+sa fenêtre, sans commutateur de mode. Les deux fenêtres conservent les mêmes
+services Revit, moteurs purs, aperçu et confirmation transactionnelle.
+
+La colonne des options est davantage compactée : marges verticales de libellés
+de 8/3 px, saisies à 26 px, listes à 28 px et commandes à 30 px. Les deux
+fichiers XAML sont `ui/numbering_parameters.xaml` et
+`ui/text_parameters.xaml`. `room_parameters_window.py` reste le contrôleur
+commun et reçoit le mode initial immuable à l'ouverture.
+
+**BUG-PARAM-004 persistant dans la précédente livraison :** la saisie n'a
+toujours pas fonctionné sous Revit. Un focus clavier explicite est désormais
+demandé au premier rendu WPF et les anciennes préférences vides ne remplacent
+plus les valeurs par défaut de numérotation. **Cela reste une hypothèse de
+correction, à tester en Revit ; la cause racine exacte n'est pas confirmée.**
+
+## Renommage multiple — sélection puis éditeur en trois colonnes
+
+**Décision utilisateur du 23 novembre 2026 :** pour la commande Modifier le
+texte, ouvrir deux fenêtres successives :
+
+1. `ui/rename_selection.xaml` : choisir **Pièces** ou **Familles** ; pour les
+   familles, choisir les **paramètres d'instance** ou les **paramètres de type** ;
+   sélectionner le périmètre (sélection actuelle, vue active, projet entier),
+   cocher les éléments visés puis sélectionner le paramètre texte modifiable.
+2. `ui/rename_editor.xaml` : trois colonnes simultanées (**liste des éléments**,
+   **opération**, **aperçu avant/après**), avec boutons de validation et
+   possibilité de décocher des éléments avant actualisation de l'aperçu.
+
+Les opérations comprennent **Ajouter/supprimer** (début/fin), **Remplacer**
+(toutes les occurrences littérales) et **Formater** avec les jetons explicites
+`{valeur}`, `{index}` et `{famille}`. Les autres jetons, conversions et
+spécificateurs de format sont refusés ; le résultat vide est ignoré. L'éditeur
+réutilise `room_parameters.text_transform_engine` et le nouveau moteur pur
+`room_parameters.format_engine`. Les services Revit sont isolés dans
+`services/text_rename_service.py` ; toute écriture est effectuée dans une
+transaction unique avec vérification des valeurs de départ et rollback.
+
+Les types de familles sont **dédupliqués par UniqueId** lors de la collecte
+(plusieurs occurrences ne provoquent pas plusieurs écritures sur le type).
+Un avertissement signale qu'une modification de paramètre de type concerne
+toutes ses occurrences dans la maquette, même celles hors du périmètre initial.
+Les éléments de groupes sont exclus pour la sélection des instances.
+Le nom propre de la famille ou du type n'est **pas** directement renommé : la
+V1 agit exclusivement sur les **paramètres texte modifiables** disponibles.
+
+**Statut :** implémentation locale, test de contrats et moteurs hors Revit.
+Recette Revit et ergonomie WPF encore ouvertes, en particulier focus clavier,
+collecte des familles, portée réelle des paramètres de type et annulation.
+Suite complète : **975 tests réussis et 87 avertissements** hors Revit.
+
+## Retours UI — deuxième essai Revit du 23 novembre 2026
+
+- **Ruban compact : validé visuellement par l'utilisateur après fermeture et réouverture de Revit.** Le correctif de renommage interne du commit local suivant reste une précaution non nécessaire à cette validation.
+- **Champs de saisie :** l'utilisateur ne peut modifier ni les valeurs initiales/pas de numérotation, ni le texte/séparateur. Propriétés WPF explicites d'édition, de focus et de contraste ajoutées ; **cause non confirmée et nouvelle recette Revit impérative** (BUG-PARAM-004).
+- **Destination par défaut :** « N° Appartement » sélectionné si le paramètre texte existe et est modifiable ; sinon première option disponible. Ce défaut ne change pas les valeurs des autres paramètres.
+- **Modification de texte :** nouvelle opération « Remplacer un texte ». Les deux champs deviennent « Texte à rechercher » et « Remplacer par ». Remplace toutes les occurrences littérales du texte recherché, avec possibilité de remplacer par une chaîne vide tant que le résultat complet n'est pas vide. Contrôle dans l'aperçu avant transaction.
+- **Compacité :** champs et listes de gauche ramenés à 28 px, lignes de l'aperçu de droite à 19 px, en-têtes à 24 px.
+- **Sélection ordonnée :** les pièces cliquées plusieurs fois restent dédupliquées (comportement existant). L'atténuation graphique/grisage *dans la vue Revit* n'est pas encore implémentée ; il faut définir un mécanisme de surbrillance temporaire compatible Revit et réversible avant écriture.
 
 Contrôle après correctifs : **971 tests automatisés réussis hors Revit**, dont
 les tests statiques du `.stack`, du chargement de `System.Data` et des chemins

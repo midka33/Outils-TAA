@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-"""Fenêtre WPF unique pour les deux commandes, aucun dialogue d'étape."""
+"""Contrôleur partagé par deux fenêtres WPF indépendantes, une par outil."""
 
 import os
 import clr
@@ -11,6 +11,7 @@ clr.AddReference("System.Data")
 from pyrevit import DB, forms, revit
 from System.Data import DataTable
 from System.Windows import Visibility
+from System.Windows.Input import Keyboard
 from common.logger import get_logger
 from common.settings import JsonSettingsStore
 from common.wpf_resources import load_resource_dictionary
@@ -32,11 +33,13 @@ class RoomParametersWindow(forms.WPFWindow):
     SCOPES = ("Sélection actuelle", "Vue active", "Projet entier")
     NUMBER_OPERATIONS = ("Chiffres", "Lettres")
     TEXT_OPERATIONS = ("Ajouter au début", "Ajouter à la fin",
-                       "Supprimer au début", "Supprimer à la fin")
-    TEXT_CODES = ("add_start", "add_end", "remove_start", "remove_end")
+                       "Supprimer au début", "Supprimer à la fin", "Remplacer un texte")
+    TEXT_CODES = ("add_start", "add_end", "remove_start", "remove_end", "replace")
 
     def __init__(self, initial_mode):
-        xaml = os.path.join(os.path.dirname(__file__), "room_parameters.xaml")
+        self.numbering = initial_mode == "number"
+        xaml = os.path.join(os.path.dirname(__file__),
+                            "numbering_parameters.xaml" if self.numbering else "text_parameters.xaml")
         forms.WPFWindow.__init__(self, xaml)
         theme = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "resources", "ui", "taa_theme.xaml"))
         load_resource_dictionary(self, theme)
@@ -48,15 +51,18 @@ class RoomParametersWindow(forms.WPFWindow):
         self.last_report = None
         self.skipped_count = 0
         self.settings = _settings_store()
-        for item in ("Numéroter", "Modifier le texte"):
-            self.ModeCombo.Items.Add(item)
         for item in self.SCOPES:
             self.ScopeCombo.Items.Add(item)
         self.ScopeCombo.SelectedIndex = 0
-        self.ModeCombo.SelectedIndex = 0 if initial_mode == "number" else 1
         self.load_parameters()
         self.update_mode()
         self.restore_preferences(initial_mode)
+        self.ContentRendered += self._focus_initial_text
+
+    def _focus_initial_text(self, sender, args):
+        # Donne explicitement le focus clavier à la fenêtre WPF dans Revit.
+        self.InputText.Focus()
+        Keyboard.Focus(self.InputText)
 
     def restore_preferences(self, initial_mode):
         try:
@@ -66,8 +72,13 @@ class RoomParametersWindow(forms.WPFWindow):
             index = values.get("operation", 0)
             if isinstance(index, int) and 0 <= index < self.OperationCombo.Items.Count:
                 self.OperationCombo.SelectedIndex = index
-            self.InputText.Text = values.get("input", self.InputText.Text)
-            self.ExtraText.Text = values.get("extra", self.ExtraText.Text)
+            # Ne pas restaurer une chaîne vide sauvegardée par l'ancienne UI.
+            saved_input = values.get("input")
+            if saved_input is not None and str(saved_input).strip():
+                self.InputText.Text = saved_input
+            saved_extra = values.get("extra")
+            if saved_extra is not None and (not self.numbering or str(saved_extra).strip()):
+                self.ExtraText.Text = saved_extra
             self.AddOnce.IsChecked = bool(values.get("add_once", True))
             self.SharedValues.IsChecked = bool(values.get("allow_shared", False))
             scope = values.get("scope", self.SCOPES[0])
@@ -77,7 +88,7 @@ class RoomParametersWindow(forms.WPFWindow):
             LOGGER.exception("Préférences de paramètres non restaurées")
 
     def save_preferences(self):
-        key = "number" if self.ModeCombo.SelectedIndex == 0 else "text"
+        key = "number" if self.numbering else "text"
         try:
             self.settings.set(key, {
                 "operation": self.OperationCombo.SelectedIndex,
@@ -95,29 +106,39 @@ class RoomParametersWindow(forms.WPFWindow):
         for option in self.parameter_options:
             self.ParameterCombo.Items.Add(option)
         if self.parameter_options:
-            self.ParameterCombo.SelectedIndex = 0
+            preferred = next((index for index, option in enumerate(self.parameter_options)
+                              if option.Label.split(" [ID ")[0].strip().lower() == "n° appartement"), 0)
+            self.ParameterCombo.SelectedIndex = preferred
+
+    def update_operation_labels(self):
+        numbering = self.numbering
+        replacing = not numbering and self.OperationCombo.SelectedIndex == 4
+        self.InputLabel.Text = ("VALEUR INITIALE" if numbering else
+                                "TEXTE À RECHERCHER" if replacing else
+                                "TEXTE À AJOUTER OU SUPPRIMER")
+        self.ExtraLabel.Text = ("PAS" if numbering else
+                                "REMPLACER PAR" if replacing else "SÉPARATEUR")
+        self.AddOnce.Visibility = Visibility.Collapsed if numbering or replacing else Visibility.Visible
 
     def update_mode(self):
-        numbering = self.ModeCombo.SelectedIndex == 0
+        numbering = self.numbering
         self.OperationCombo.Items.Clear()
         for option in (self.NUMBER_OPERATIONS if numbering else self.TEXT_OPERATIONS):
             self.OperationCombo.Items.Add(option)
         self.OperationCombo.SelectedIndex = 0
         self.OperationLabel.Text = "TYPE DE SÉQUENCE" if numbering else "OPÉRATION"
-        self.InputLabel.Text = "VALEUR INITIALE" if numbering else "TEXTE À AJOUTER OU SUPPRIMER"
-        self.ExtraLabel.Text = "PAS" if numbering else "SÉPARATEUR"
         self.InputText.Text = "001" if numbering else "BAT"
         self.ExtraText.Text = "1" if numbering else "-"
         self.SharedValues.Visibility = Visibility.Visible if numbering else Visibility.Collapsed
-        self.AddOnce.Visibility = Visibility.Collapsed if numbering else Visibility.Visible
+        self.update_operation_labels()
         self.SelectButton.IsEnabled = numbering
         self.ScopeCombo.IsEnabled = not numbering
         self.MessageText.Text = ""
         self.clear_preview()
 
-    def ModeChanged(self, sender, args):
-        if hasattr(self, "OperationCombo"):
-            self.update_mode()
+    def OperationChanged(self, sender, args):
+        if hasattr(self, "InputLabel") and hasattr(self, "AddOnce"):
+            self.update_operation_labels()
 
     def clear_preview(self):
         self.changes = {}
@@ -129,7 +150,7 @@ class RoomParametersWindow(forms.WPFWindow):
 
     def _signature(self):
         option = self.ParameterCombo.SelectedItem
-        return (self.ModeCombo.SelectedIndex, option.Id if option else None,
+        return (self.numbering, option.Id if option else None,
                 self.OperationCombo.SelectedIndex, self.InputText.Text, self.ExtraText.Text,
                 self.ScopeCombo.SelectedIndex, bool(self.SharedValues.IsChecked),
                 bool(self.AddOnce.IsChecked))
@@ -172,7 +193,7 @@ class RoomParametersWindow(forms.WPFWindow):
         if selected is None:
             self.MessageText.Text = "Aucun paramètre texte modifiable disponible."
             return
-        numbering = self.ModeCombo.SelectedIndex == 0
+        numbering = self.numbering
         try:
             rooms = self.picked if numbering else collect_rooms(self.ScopeCombo.SelectedItem)
             operation = (("digits" if self.OperationCombo.SelectedIndex == 0 else "letters")
@@ -231,7 +252,7 @@ class RoomParametersWindow(forms.WPFWindow):
             self.MessageText.Text = "Aucune modification admissible sélectionnée."
             return
         excluded_count = len(self.changes) - len(selected)
-        if self.ModeCombo.SelectedIndex == 0:
+        if self.numbering:
             # Les lignes décochées restent inchangées : elles doivent compter
             # comme valeurs existantes pour le contrôle final des doublons.
             selected_keys = set(item[0].UniqueId for item in selected)
@@ -249,7 +270,7 @@ class RoomParametersWindow(forms.WPFWindow):
             self.last_report = {
                 "updated": count, "excluded": excluded_count,
                 "skipped": self.skipped_count,
-                "mode": self.ModeCombo.SelectedIndex,
+                "mode": "number" if self.numbering else "text",
                 "parameter": self.ParameterCombo.SelectedItem.Label,
             }
             self.FooterText.Text = "{} pièce(s) modifiée(s). Annulation possible dans Revit.".format(count)

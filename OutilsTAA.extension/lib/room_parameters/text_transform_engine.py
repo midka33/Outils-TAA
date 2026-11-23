@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import unicodedata
 
 
-OPERATIONS = ("add_start", "add_end", "remove_start", "remove_end")
+OPERATIONS = ("add_start", "add_end", "remove_start", "remove_end", "replace")
 
 
 def _validate_literal(text, allow_blank=False):
@@ -25,6 +25,11 @@ def transform(value, operation, affix, separator="", add_once=False):
     _validate_literal(separator, allow_blank=True)
     if value is None or not value.strip():
         return value
+    if operation == "replace":
+        # Ici « separator » représente le nouveau texte. Remplacement littéral
+        # de toutes les occurrences, sans expression régulière.
+        result = value.replace(affix, separator)
+        return result if result.strip() else value
     at_start = operation.endswith("start")
     token = affix + separator if at_start else separator + affix
     if operation.startswith("add"):

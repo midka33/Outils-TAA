@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "OutilsTAA.extensio
 from room_parameters.numbering_engine import parse_sequence, sequence_value, proposed_assignments
 from room_parameters.text_transform_engine import transform
 from room_parameters.duplicate_checker import detect_collisions
+from room_parameters.format_engine import format_value
 
 
 @pytest.mark.parametrize("start,mode,expected", [
@@ -58,10 +59,27 @@ def test_add_once_preserves_value():
     assert transform("BAT-001", "add_start", "BAT", "-", False) == "BAT-BAT-001"
 
 
+def test_replace_literal_all_occurrences_and_preserve_nonblank():
+    assert transform("BAT-C101-BAT", "replace", "BAT", "LOG") == "LOG-C101-LOG"
+    assert transform("BAT-C101", "replace", "ABSENT", "LOG") == "BAT-C101"
+    assert transform("BAT", "replace", "BAT", "") == "BAT"
+    assert transform("BAT-C101", "replace", "BAT-", "") == "C101"
+
+
 def test_no_blank_write_and_no_partial_match():
     assert transform("BAT", "remove_start", "BAT") == "BAT"
     assert transform("BATIMENT", "remove_start", "BAT", "-") == "BATIMENT"
     assert transform("", "add_start", "BAT") == ""
+
+
+def test_format_engine_explicit_tokens_and_literals():
+    assert format_value("C101", "{famille}-{valeur}-{index}", 4, "Porte") == "Porte-C101-4"
+    assert format_value("X", "{{valeur}}-{index}", 2) == "{valeur}-2"
+    assert format_value("X", "", 1) == "X"
+    with pytest.raises(ValueError):
+        format_value("X", "{valeur.__class__}", 1)
+    with pytest.raises(ValueError):
+        format_value("X", "{index:03d}", 1)
 
 
 def test_duplicate_checker_ignores_replaced_old_values():

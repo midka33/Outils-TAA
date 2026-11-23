@@ -1,35 +1,33 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Outils TAA — Paramètres des pièces" Width="1050" Height="680"
+        Title="Outils TAA — Numéroter les pièces" Width="1050" Height="640"
         MinWidth="850" MinHeight="550" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource TAABackgroundBrush}" FontFamily="Segoe UI" FontSize="13">
   <Grid Margin="18">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <StackPanel Margin="0,0,0,12">
-      <TextBlock Text="PARAMÈTRES DES PIÈCES" FontWeight="Bold" FontSize="21" Foreground="{DynamicResource TAATextBrush}"/>
-      <TextBlock Text="Configuration à gauche, aperçu et contrôle à droite — sans fenêtre supplémentaire" Foreground="{DynamicResource TAASecondaryTextBrush}"/>
+    <StackPanel Margin="0,0,0,8">
+      <TextBlock Text="NUMÉROTER LES PIÈCES" FontWeight="Bold" FontSize="19" Foreground="{DynamicResource TAAOrangeBrush}"/>
+      <TextBlock Text="Choisissez la séquence, puis cliquez sur les pièces dans l'ordre." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
     </StackPanel>
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions><ColumnDefinition Width="340"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <Border Background="{DynamicResource TAAPanelBrush}" BorderBrush="{DynamicResource TAABorderBrush}" BorderThickness="1" CornerRadius="7" Padding="16">
+      <Border Background="{DynamicResource TAAPanelBrush}" BorderBrush="{DynamicResource TAABorderBrush}" BorderThickness="1" CornerRadius="7" Padding="12">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel>
-            <TextBlock Text="OUTIL" FontWeight="Bold" Foreground="{DynamicResource TAAOrangeBrush}" Margin="0,0,0,8"/>
-            <ComboBox Name="ModeCombo" Height="32" SelectionChanged="ModeChanged"/>
-            <TextBlock Text="PARAMÈTRE DE DESTINATION" FontWeight="Bold" Margin="0,18,0,7"/>
-            <ComboBox Name="ParameterCombo" Height="32" DisplayMemberPath="Label"/>
-            <TextBlock Name="OperationLabel" Text="TYPE DE SÉQUENCE" FontWeight="Bold" Margin="0,18,0,7"/>
-            <ComboBox Name="OperationCombo" Height="32"/>
-            <TextBlock Name="InputLabel" Text="VALEUR DE DÉPART" FontWeight="Bold" Margin="0,18,0,7"/>
-            <TextBox Name="InputText" Text="001" Padding="8" Height="32"/>
-            <TextBlock Name="ExtraLabel" Text="PAS" FontWeight="Bold" Margin="0,18,0,7"/>
-            <TextBox Name="ExtraText" Text="1" Padding="8" Height="32"/>
-            <CheckBox Name="SharedValues" Content="Autoriser les valeurs partagées" Margin="0,18,0,8"/>
-            <CheckBox Name="AddOnce" Content="Ne pas répéter un texte déjà présent" Margin="0,3,0,8" IsChecked="True"/>
-            <TextBlock Text="PÉRIMÈTRE" FontWeight="Bold" Margin="0,18,0,7"/>
-            <ComboBox Name="ScopeCombo" Height="32"/>
-            <Button Name="SelectButton" Content="Sélectionner les pièces dans Revit" Style="{DynamicResource TAASecondaryButton}" Height="36" Margin="0,12,0,0" Click="SelectRooms"/>
-            <Button Content="Actualiser l'aperçu" Style="{DynamicResource TAASecondaryButton}" Height="36" Margin="0,8,0,0" Click="RefreshPreview"/>
+            <TextBlock Text="PARAMÈTRE DE DESTINATION" FontWeight="Bold" Margin="0,0,0,3"/>
+            <ComboBox Name="ParameterCombo" Height="28" DisplayMemberPath="Label"/>
+            <TextBlock Name="OperationLabel" Text="TYPE DE SÉQUENCE" FontWeight="Bold" Margin="0,8,0,3"/>
+            <ComboBox Name="OperationCombo" Height="28" SelectionChanged="OperationChanged"/>
+            <TextBlock Name="InputLabel" Text="VALEUR INITIALE" FontWeight="Bold" Margin="0,8,0,3"/>
+            <TextBox Name="InputText" Text="001" Padding="6,2" Height="26" IsReadOnly="False" IsEnabled="True" Focusable="True" Background="White" Foreground="#252525"/>
+            <TextBlock Name="ExtraLabel" Text="PAS" FontWeight="Bold" Margin="0,8,0,3"/>
+            <TextBox Name="ExtraText" Text="1" Padding="6,2" Height="26" IsReadOnly="False" IsEnabled="True" Focusable="True" Background="White" Foreground="#252525"/>
+            <CheckBox Name="SharedValues" Content="Autoriser les valeurs partagées" Margin="0,9,0,3"/>
+            <CheckBox Name="AddOnce" Content="Ne pas répéter un texte déjà présent" Visibility="Collapsed"/>
+            <TextBlock Text="PÉRIMÈTRE" FontWeight="Bold" Margin="0,9,0,3"/>
+            <ComboBox Name="ScopeCombo" Height="26"/>
+            <Button Name="SelectButton" Content="Sélectionner les pièces dans Revit" Style="{DynamicResource TAASecondaryButton}" Height="30" Margin="0,8,0,0" Click="SelectRooms"/>
+            <Button Content="Actualiser l'aperçu" Style="{DynamicResource TAASecondaryButton}" Height="30" Margin="0,5,0,0" Click="RefreshPreview"/>
           </StackPanel>
         </ScrollViewer>
       </Border>
@@ -42,7 +40,8 @@
           </DockPanel>
           <DataGrid Name="PreviewGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False"
                     IsReadOnly="False" HeadersVisibility="Column" SelectionMode="Extended"
-                    GridLinesVisibility="Horizontal" RowHeaderWidth="0">
+                    GridLinesVisibility="Horizontal" RowHeaderWidth="0" RowHeight="19"
+                    ColumnHeaderHeight="24" FontSize="11">
             <DataGrid.Columns>
               <DataGridCheckBoxColumn Header="Appliquer" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="72"/>
               <DataGridTextColumn Header="Pièce" Binding="{Binding RoomLabel}" IsReadOnly="True" Width="*"/>

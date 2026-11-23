@@ -10,6 +10,10 @@ Le format suit les principes de *Keep a Changelog*.
 
 - Corrigé le chargement IronPython de `System.Data` avant l'import de `DataTable` (erreur constatée sur les deux boutons dans Revit).
 - Présentation compacte du ruban avec `Commandes.stack` (deux boutons empilés, icône et libellé), conformément à la capture utilisateur.
+- Prévention du conflit de noms pyRevit lors du déplacement des boutons dans `Commandes.stack` : identifiants internes distincts ; vérification après redémarrage complet de Revit encore attendue.
+- Paramètres des pièces : défaut « N° Appartement », remplacement littéral de texte, champs WPF explicitement éditables et aperçu compact ; validation sous Revit encore nécessaire.
+- Paramètres des pièces : deux fenêtres WPF dédiées par commande, colonne de réglages densifiée et focus clavier initial explicite ; tests Revit à réaliser.
+- Renommage multiple WPF : sélection initiale des pièces/familles et des paramètres d'instance/type, puis éditeur en trois colonnes avec ajout, remplacement et formatage sous transaction.
 - Tests statiques anti-régression et registre `docs/bugs/PARAMETRES.md` ; **971 tests hors Revit réussis**, recette Revit du correctif à effectuer.
 
 ### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)
