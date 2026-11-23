@@ -5,5 +5,6 @@
 layout:
   - Informations[beforeall:]
   - Calculs
+  - Parametres
   - Export
   - PlansDeVente

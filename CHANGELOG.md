@@ -6,6 +6,17 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)
+
+- Ajout du panneau **Paramètres** avec deux boutons indépendants, **Numéroter les pièces** et **Modifier le texte**.
+- Fenêtre WPF unique à deux colonnes, prévisualisation avant/après, exclusions par ligne et confirmation intégrée, thème et icônes TAA.
+- Moteurs purs : séquences numériques/alphabétiques avec pas, transformations de texte, contrôle des collisions réévalué après exclusions.
+- Service Revit spécifique pour la collecte, les paramètres et l'écriture en transaction avec rollback ; pièces groupées exclues en V1 et numéro natif protégé.
+- Préférences locales via `JsonSettingsStore`, logger TAA et rapport synthétique intégré.
+- **969 tests automatisés réussis hors Revit** au commit local `130ce71` ; 87 avertissements non bloquants.
+- **Non testé sous Revit 2025.4 / pyRevit 5.x** : sélection par clic et retour WPF modal, interface, droits d'écriture en maquette réelle et performances restent à valider.
+
+
 ## [1.5.0] — 2026-11-17 — Dossiers automatiques, collaboration et version de la suite
 
 **Tag `v1.5.0` confirmé** sur `b14ec914cc27e47c13561c54a1f9a841cb07ff10` (17 novembre 2026). La CI de préparation a réussi : 945 tests, ZIP de 214 entrées et SHA-256 vérifiés. Le contrôle indépendant des six actifs GitHub Releases reste à effectuer.

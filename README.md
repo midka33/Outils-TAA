@@ -15,6 +15,7 @@ Suite d'outils métier développée pour **Autodesk Revit 2025.4** avec **pyRevi
 |---|---|
 | **Export** | **v1.5.0** — dossiers automatiques réversibles, configuration collaborative par central et publication PDF/DWG ; partie fonctionnelle validée dans Revit 2025.4 |
 | **Calculs des pièces** | Sommes par groupes et variantes avec revue WPF, protections de l'alignement des paramètres Revit ; cas complexes à vérifier sur copie de maquette |
+| **Paramètres des pièces** | 🧪 Bêta sur `feature/room-parameter-tools` — nouveau panneau avec **Numéroter** et **Modifier le texte**, une fenêtre WPF commune, aperçu avant/après et écriture transactionnelle. **Non inclus dans v1.5.0 ni validé dans Revit.** [Spécification et recette](docs/29_Parametres_Pieces.md) |
 | **Plans de vente** | V1.1 fichiers liés — livrée avec Outils TAA v1.3.0 |
 | **Carnets de menuiseries extérieures** | 🧩 Préparation — production automatisée des carnets de mise en page des menuiseries extérieures |
 | **Plans de repérage** | 🧩 Préparation — génération automatisée des plans de repérage et de leurs mises en page |

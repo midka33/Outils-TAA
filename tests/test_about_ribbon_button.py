@@ -51,7 +51,7 @@ def test_about_panel_is_first_in_tab_layout_without_hiding_modules():
     lines = [line.strip()[2:].strip() for line in tab_manifest.splitlines()
              if line.strip().startswith("- ")]
     assert lines[0] == "Informations[beforeall:]"
-    assert lines[1:] == ["Calculs", "Export", "PlansDeVente"]
+    assert lines[1:] == ["Calculs", "Parametres", "Export", "PlansDeVente"]
     declared = set(item.split("[", 1)[0] for item in lines)
     existing = set(path.name[:-len(".panel")] for path in TAB.glob("*.panel"))
     assert declared == existing, (

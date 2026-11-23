@@ -1,5 +1,30 @@
 # Outils TAA — État de reprise du développement
 
+## Nouveau chantier indépendant — Paramètres des pièces (23/11/2026)
+
+Branche locale `feature/room-parameter-tools`, issue de `main` au commit
+`149df13bb818f44fa7c17aca6973bf3e47eaa69f` (v1.5.0).
+Décision utilisateur : nouveau panneau **Paramètres** avec deux boutons
+indépendants **Numéroter** et **Modifier texte** ; préserver **Calculs des pièces**.
+Moteurs métier purs créés (`lib/room_parameters`) et **20 tests ciblés réussis**
+hors Revit ; **965 tests de la suite complète réussis** (87 avertissements).
+Documentation : `docs/29_Parametres_Pieces.md`.
+**Point d'arrêt demandé : conception des interfaces WPF** — présenter trois
+approches, recueillir le choix avant d'implémenter le XAML.
+**Suite du 23/11 :** utilisateur a choisi la proposition 3 et demandé une seule
+fenêtre sans parcours en plusieurs fenêtres. Première implémentation des deux
+boutons et d'un XAML commun avec prévisualisation et confirmation intégrées.
+Le raccordement Revit/WPF reste **non testé en condition réelle** ; première
+suite de raccordement : **968 tests hors Revit réussis**.
+
+**Audit de conformité du 23/11 :** charte WPF commune raccordée,
+services Revit séparés du code-behind, icônes ajoutées, préférences locales,
+logs et résumé d'exécution intégrés ; contrôle de doublons réévalué après
+exclusions. Suite complète : **969 tests automatisés réussis** ; aucune
+recette dans Revit. Détails et limites : `docs/29_Parametres_Pieces.md`.
+`main` inchangée ; branche non fusionnée.
+
+
 **Mise à jour initiale :** 2026-11-05  
 **Cible :** Autodesk Revit 2025.4 / pyRevit 5.x  
 **Dépôt :** `midka33/Outils-TAA`  

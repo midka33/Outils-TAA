@@ -46,6 +46,11 @@ Les anciennes étapes, audits et recettes de campagne sont sous
 
 - `18_Calculs_Pieces_Tests_Revit.md` — campagne de validation Revit.
 
+## Paramètres des pièces (développement indépendant)
+
+- `29_Parametres_Pieces.md` — architecture V1 du nouveau panneau Paramètres et
+  état des moteurs avant conception des interfaces WPF.
+
 ## Plans de vente
 
 **Référence fonctionnelle principale :** `20_Plans_de_Vente.md`
