@@ -8,15 +8,24 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 PANEL = ROOT / "OutilsTAA.extension" / "OutilsTAA.tab" / "Parametres.panel"
+STACK = PANEL / "Commandes.stack"
 
 
 def test_both_buttons_open_same_window_with_distinct_mode():
     for folder, mode in (("Numeroter.pushbutton", "number"),
                          ("ModifierTexte.pushbutton", "text")):
-        script = (PANEL / folder / "script.py").read_text(encoding="utf-8")
+        script = (STACK / folder / "script.py").read_text(encoding="utf-8")
         ast.parse(script)
         assert "from room_parameters_window import launch" in script
         assert 'launch("{}")'.format(mode) in script
+        assert 'os.path.join(os.path.dirname(__file__), "..", "..")' in script
+
+
+def test_compact_revit_ribbon_stack_structure():
+    assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
+    stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")
+    assert "- Numeroter" in stack and "- ModifierTexte" in stack
+    assert len(list(STACK.glob("*.pushbutton"))) == 2
 
 
 def test_single_window_has_preview_and_confirmation_controls():
@@ -55,3 +64,9 @@ def test_taa_theme_and_business_separation():
     assert "commit_changes(selected)" in source
     assert "check_collisions(" in source
     assert "self.settings.set(" in source
+
+
+def test_system_data_assembly_loaded_before_import():
+    source = (PANEL / "ui" / "room_parameters_window.py").read_text(encoding="utf-8")
+    assert 'clr.AddReference("System.Data")' in source
+    assert source.index('clr.AddReference("System.Data")') < source.index("from System.Data import DataTable")

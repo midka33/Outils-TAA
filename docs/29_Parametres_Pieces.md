@@ -52,6 +52,25 @@ Le premier raccordement comprend :
 **Limite importante :** aucune exécution WPF ni sélection par clic n'a encore
 été testée dans Revit. Le schéma `Hide()` → sélection → `Show()` sur une fenêtre
 modale requiert une recette sur copie de RVT avant usage en production.
+
+## Retour Revit initial — 23 novembre 2026
+
+L'utilisateur confirme que les deux boutons de la bêta publiée échouent au
+chargement sur `ImportError: No module named Data` dans IronPython. Correctif
+proposé : `clr.AddReference("System.Data")` avant l'import `DataTable` ;
+aucun succès Revit encore confirmé pour cette révision.
+
+Sur demande de présentation, les commandes passent dans
+`Parametres.panel/Commandes.stack/` (deux petits boutons superposés avec
+icônes et libellés d'une ligne). Les chemins calculés dans les points d'entrée
+sont adaptés au niveau de dossier supplémentaire. Référence : documentation
+pyRevit sur les bundles `.stack`.
+
+Voir `docs/bugs/PARAMETRES.md` pour BUG-PARAM-001 et BUG-PARAM-002.
+
+Contrôle après correctifs : **971 tests automatisés réussis hors Revit**, dont
+les tests statiques du `.stack`, du chargement de `System.Data` et des chemins
+des deux points d'entrée. **Validation réelle Revit toujours en attente.**
 **Mise en conformité du 23/11 :** services Revit extraits dans
 `services/room_parameter_edit_service.py` (collecte, paramétrage, préparation,
 collisions, écriture) ; code-behind WPF limité au parcours et à l'affichage.

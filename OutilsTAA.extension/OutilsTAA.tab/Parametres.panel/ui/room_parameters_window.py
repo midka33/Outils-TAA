@@ -4,6 +4,9 @@ from __future__ import unicode_literals
 """Fenêtre WPF unique pour les deux commandes, aucun dialogue d'étape."""
 
 import os
+import clr
+
+clr.AddReference("System.Data")
 
 from pyrevit import DB, forms, revit
 from System.Data import DataTable

@@ -6,6 +6,12 @@ Le format suit les principes de *Keep a Changelog*.
 
 ## [Unreleased]
 
+### Correctif bêta Paramètres — 2026-11-23
+
+- Corrigé le chargement IronPython de `System.Data` avant l'import de `DataTable` (erreur constatée sur les deux boutons dans Revit).
+- Présentation compacte du ruban avec `Commandes.stack` (deux boutons empilés, icône et libellé), conformément à la capture utilisateur.
+- Tests statiques anti-régression et registre `docs/bugs/PARAMETRES.md` ; **971 tests hors Revit réussis**, recette Revit du correctif à effectuer.
+
 ### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)
 
 - Ajout du panneau **Paramètres** avec deux boutons indépendants, **Numéroter les pièces** et **Modifier le texte**.

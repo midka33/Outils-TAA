@@ -10,6 +10,7 @@ que les règles correspondant au module sur lequel il travaille.
 
 - [Export](EXPORT.md) — 67 fiches.
 - [Calculs des pièces](CALCULS.md) — 6 fiches.
+- [Paramètres des pièces](PARAMETRES.md) — registre de la nouvelle bêta.
 - [Plans de vente](PLANS_DE_VENTE.md) — 27 fiches.
 - [Commun](COMMON.md) — 1 fiche(s) transversale(s).
 - [Tests et livraison](TESTS.md) — 5 fiches.

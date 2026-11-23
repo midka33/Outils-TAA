@@ -2,6 +2,13 @@
 
 ## Nouveau chantier indépendant — Paramètres des pièces (23/11/2026)
 
+**Retour de premier essai Revit (23/11) :** les deux boutons échouent à l'import
+`System.Data.DataTable` sous IronPython (`ImportError: No module named Data`).
+Correctif local : chargement explicite de l'assembly avant import ; boutons
+déplacés dans `Commandes.stack` pour l'affichage compact demandé. Recette des
+deux commandes et contrôle visuel du ruban **à refaire après publication**.
+Registre : `docs/bugs/PARAMETRES.md`.
+
 Branche locale `feature/room-parameter-tools`, issue de `main` au commit
 `149df13bb818f44fa7c17aca6973bf3e47eaa69f` (v1.5.0).
 Décision utilisateur : nouveau panneau **Paramètres** avec deux boutons
