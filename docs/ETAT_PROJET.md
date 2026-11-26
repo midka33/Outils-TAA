@@ -61,6 +61,11 @@ des identifiants internes ; doublons homonymes suffixés `(2)`, `(3)` pour évit
 les choix implicites. Recette Revit attendue.
 Contrôles : 11 contrats WPF et essais ciblés d'alias réussis ; compilation
 Python réussie. Suite complète indisponible (absence de `pytest`).
+
+**Ajustement UI du 26/11 — Formater :** le sélecteur « Paramètre à insérer »
+est désormais placé avant le champ FORMAT ; la ligne désactivée « Non utilisé »
+est masquée dans ce mode. Les champs nécessaires aux autres opérations restent
+visibles. Contrat statique ajouté ; validation visuelle dans Revit en attente.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

@@ -85,6 +85,17 @@ def test_format_mode_lists_and_inserts_available_revit_parameters():
     assert "DB.StorageType.Double" in service
 
 
+def test_format_layout_places_parameter_picker_above_format_and_hides_unused_row():
+    ET.parse(PANEL / "ui" / "rename_editor.xaml")
+    # L'ordre visuel suit l'ordre du XAML dans le panneau des opérations.
+    xml_source = (PANEL / "ui" / "rename_editor.xaml").read_text(encoding="utf-8")
+    assert xml_source.index('Name="FormatFields"') < xml_source.index('Name="InputLabel"')
+    source = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    assert "NON UTILISÉ" not in source
+    assert 'self.ExtraLabel.Visibility = Visibility.Collapsed if mode == 3 else Visibility.Visible' in source
+    assert 'self.ExtraText.Visibility = Visibility.Collapsed if mode == 3 else Visibility.Visible' in source
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

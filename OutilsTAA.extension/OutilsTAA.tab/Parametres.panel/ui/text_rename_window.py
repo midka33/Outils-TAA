@@ -202,12 +202,14 @@ class RenameEditorWindow(forms.WPFWindow):
         else:
             labels = ("Format personnalisé",)
             self.OperationLabel.Text = "MODÈLE"
-            self.InputLabel.Text, self.ExtraLabel.Text = "FORMAT", "NON UTILISÉ"
+            self.InputLabel.Text = "FORMAT"
             self.InputText.Text, self.ExtraText.Text = "{famille}-{valeur}-{index}", ""
         for label in labels:
             self.OperationCombo.Items.Add(label)
         self.OperationCombo.SelectedIndex = 0
         self.ExtraText.IsEnabled = mode != 3
+        self.ExtraLabel.Visibility = Visibility.Collapsed if mode == 3 else Visibility.Visible
+        self.ExtraText.Visibility = Visibility.Collapsed if mode == 3 else Visibility.Visible
         self.AddOnce.Visibility = Visibility.Visible if mode == 0 else Visibility.Collapsed
         self.FormatFields.Visibility = Visibility.Visible if mode == 3 else Visibility.Collapsed
         self.clear_preview()
