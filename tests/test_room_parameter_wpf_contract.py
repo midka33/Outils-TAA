@@ -67,6 +67,19 @@ def test_rename_editor_displays_chosen_parameter_instead_of_element_name():
     assert 'parameter.AsString() or "(vide)"' in source
 
 
+def test_format_mode_lists_and_inserts_available_revit_parameters():
+    xaml = ET.parse(PANEL / "ui" / "rename_editor.xaml").getroot()
+    names = {element.get("Name") for element in xaml.iter()}
+    assert {"FormatFields", "FormatParameterCombo", "InsertParameterButton"}.issubset(names)
+    source = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
+    assert "readable_text_parameters(self.elements)" in source
+    assert 'self.FormatFields.Visibility = Visibility.Visible if mode == 3' in source
+    assert 'self.InputText.SelectedText = "{" + option.Token + "}"' in source
+    assert "parameter_token(id_value(candidate.Id))" in service
+    assert "candidate.AsString() or \"\"" in service
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

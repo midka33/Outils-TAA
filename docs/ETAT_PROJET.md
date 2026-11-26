@@ -47,6 +47,13 @@ Amélioration UI demandée : remplacer l'affichage « Élément » par la valeur
 du paramètre choisi à l'étape 1 dans la liste et l'aperçu du renommage.
 Identifiants `UniqueId` préservés pour la sélection et l'écriture ; recette
 de ce nouvel affichage encore à effectuer dans Revit.
+
+**Demande du 26/11 — mode Formater :** ajout d'une liste des paramètres texte
+disponibles sur les éléments sélectionnés et insertion de jetons liés aux ID
+Revit (`{param_...}`). Résolution des valeurs par élément lors de l'aperçu,
+sans modifier le paramètre cible ; recette WPF/Revit attendue.
+Contrôles : 11 contrats WPF en exécution directe et formatage pur validés,
+compilation Python réussie. `pytest` absent : suite complète non relancée.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

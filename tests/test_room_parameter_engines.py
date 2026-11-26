@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "OutilsTAA.extensio
 from room_parameters.numbering_engine import parse_sequence, sequence_value, proposed_assignments
 from room_parameters.text_transform_engine import transform
 from room_parameters.duplicate_checker import detect_collisions
-from room_parameters.format_engine import format_value
+from room_parameters.format_engine import format_value, parameter_token
 
 
 @pytest.mark.parametrize("start,mode,expected", [
@@ -80,6 +80,18 @@ def test_format_engine_explicit_tokens_and_literals():
         format_value("X", "{valeur.__class__}", 1)
     with pytest.raises(ValueError):
         format_value("X", "{index:03d}", 1)
+
+
+def test_format_engine_inserts_revit_parameters_by_stable_identifier():
+    assert parameter_token(954978) == "param_954978"
+    assert parameter_token(-1006900) == "param_m1006900"
+    values = {"param_954978": "C101", "param_m1006900": "Séjour"}
+    assert (format_value("", "{param_954978}-{param_m1006900}-{index}", 2,
+                         parameters=values) == "C101-Séjour-2")
+    with pytest.raises(ValueError):
+        format_value("X", "{param_954978}", 1, parameters={})
+    with pytest.raises(ValueError):
+        format_value("X", "{valeur}", 1, parameters={"commande": "invalide"})
 
 
 def test_duplicate_checker_ignores_replaced_old_values():

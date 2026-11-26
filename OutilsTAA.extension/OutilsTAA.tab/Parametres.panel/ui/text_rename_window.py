@@ -14,7 +14,7 @@ from System.Windows.Input import Keyboard
 from common.logger import get_logger
 from common.wpf_resources import load_resource_dictionary
 from text_rename_service import (
-    collect_targets, target_label, writable_text_parameters,
+    collect_targets, target_label, writable_text_parameters, readable_text_parameters,
     prepare_text_renames, commit_text_renames,
 )
 from room_parameter_edit_service import parameter_of
@@ -155,6 +155,11 @@ class RenameEditorWindow(forms.WPFWindow):
                        for obj in self.elements))
         self.table = table
         self.ObjectsGrid.ItemsSource = table.DefaultView
+        for option in readable_text_parameters(self.elements):
+            self.FormatParameterCombo.Items.Add(option)
+        if self.FormatParameterCombo.Items.Count:
+            self.FormatParameterCombo.SelectedIndex = 0
+        self.InsertParameterButton.IsEnabled = self.FormatParameterCombo.Items.Count > 0
         for mode in self.MODES:
             self.ModeCombo.Items.Add(mode)
         self.ModeCombo.SelectedIndex = 0
@@ -198,6 +203,16 @@ class RenameEditorWindow(forms.WPFWindow):
         self.OperationCombo.SelectedIndex = 0
         self.ExtraText.IsEnabled = mode != 3
         self.AddOnce.Visibility = Visibility.Visible if mode == 0 else Visibility.Collapsed
+        self.FormatFields.Visibility = Visibility.Visible if mode == 3 else Visibility.Collapsed
+        self.clear_preview()
+
+    def InsertFormatParameter(self, sender, args):
+        option = self.FormatParameterCombo.SelectedItem
+        if option is None or self.ModeCombo.SelectedIndex != 3:
+            return
+        self.InputText.SelectedText = "{" + option.Token + "}"
+        self.InputText.Focus()
+        Keyboard.Focus(self.InputText)
         self.clear_preview()
 
     def InputsChanged(self, sender, args):

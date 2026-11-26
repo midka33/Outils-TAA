@@ -8,7 +8,7 @@ from room_parameter_edit_service import (
     collect_rooms, id_value, parameter_of, ParameterOption, room_label,
 )
 from room_parameters.text_transform_engine import transform
-from room_parameters.format_engine import format_value
+from room_parameters.format_engine import format_value, parameter_token
 
 
 def _family_instances(scope):
@@ -72,6 +72,21 @@ def writable_text_parameters(elements):
     return sorted(found.values(), key=lambda option: option.Label.lower())
 
 
+def readable_text_parameters(elements):
+    """Sources texte, y compris paramètres Revit natifs ou en lecture seule."""
+    found = {}
+    for element in elements:
+        for parameter in element.Parameters:
+            if parameter.StorageType != DB.StorageType.String:
+                continue
+            key = id_value(parameter.Id)
+            if key not in found:
+                option = ParameterOption(parameter)
+                option.Token = parameter_token(key)
+                found[key] = option
+    return sorted(found.values(), key=lambda option: option.Label.lower())
+
+
 def prepare_text_renames(elements, parameter_id, operation, before_text, after_text,
                          add_once=False):
     """Constitue l'aperçu ; chaque type de famille n'apparaît qu'une seule fois."""
@@ -86,7 +101,12 @@ def prepare_text_renames(elements, parameter_id, operation, before_text, after_t
         if operation == "format":
             family_name = (element.Symbol.Family.Name if isinstance(element, DB.FamilyInstance)
                            else element.Family.Name if isinstance(element, DB.FamilySymbol) else "")
-            after = format_value(before, before_text, index, family_name)
+            param_values = {}
+            for candidate in element.Parameters:
+                if candidate.StorageType == DB.StorageType.String:
+                    key = parameter_token(id_value(candidate.Id))
+                    param_values[key] = candidate.AsString() or ""
+            after = format_value(before, before_text, index, family_name, param_values)
         else:
             after = transform(before, operation, before_text, after_text, add_once)
         if before == after:

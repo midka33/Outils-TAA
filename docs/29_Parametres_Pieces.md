@@ -138,6 +138,23 @@ Le renommage propose désormais **quatre opérations distinctes** :
 - **Formater** : composition avec les jetons explicites
   `{valeur}`, `{index}` et `{famille}`.
 
+**Amélioration du 26/11 — paramètres disponibles dans Formater :**
+la colonne Opération affiche, uniquement en mode **Formater**, une liste
+des paramètres **texte présents** sur les éléments sélectionnés, y compris
+les paramètres en lecture seule utilisables comme sources. Le bouton
+« Insérer dans le format » ajoute un jeton stable, par exemple
+`{param_954978}` pour le paramètre Revit d'ID `954978` ; les identifiants
+natifs négatifs utilisent `{param_m...}`. Les valeurs de ces jetons sont
+lues **individuellement sur chaque élément** lors de la prévisualisation.
+Si un paramètre référencé manque sur un élément, le modèle est rejeté avec
+un message d'erreur plutôt que d'insérer silencieusement une autre valeur.
+Le paramètre de destination reste celui choisi à l'étape 1 ; la liste du
+mode Formater ne modifie pas cette destination.
+Contrôles hors Revit de cette itération : **11 contrats WPF réussis**,
+cas positif et rejets de jetons invalides vérifiés, compilation Python
+réussie. Suite `pytest` complète indisponible dans l'environnement courant
+(`No module named pytest`) ; aucune nouvelle validation Revit annoncée.
+
 Les autres jetons, conversions et spécificateurs de format sont refusés ;
 le résultat vide est ignoré. L'éditeur réutilise
 `room_parameters.text_transform_engine` et le nouveau moteur pur

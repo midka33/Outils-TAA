@@ -35,6 +35,14 @@
           <TextBox Name="ExtraText" Height="28" Padding="6,3" Background="White" Foreground="#252525" IsReadOnly="False"/>
           <CheckBox Name="AddOnce" Margin="0,12,0,4" Content="Ne pas répéter un texte déjà présent" IsChecked="True"/>
           <TextBlock Text="Format : {valeur}, {index}, {famille}" TextWrapping="Wrap" Foreground="{DynamicResource TAASecondaryTextBrush}" Margin="0,12,0,0"/>
+          <StackPanel Name="FormatFields" Visibility="Collapsed" Margin="0,12,0,0">
+            <TextBlock Text="PARAMÈTRE À INSÉRER" FontWeight="Bold" Margin="0,0,0,4"/>
+            <ComboBox Name="FormatParameterCombo" Height="28" DisplayMemberPath="Label"/>
+            <Button Name="InsertParameterButton" Content="Insérer dans le format" Height="30" Margin="0,6,0,0"
+                    Style="{DynamicResource TAASecondaryButton}" Click="InsertFormatParameter"/>
+            <TextBlock Text="Les valeurs seront récupérées sur chaque élément." TextWrapping="Wrap"
+                       Foreground="{DynamicResource TAASecondaryTextBrush}" Margin="0,5,0,0"/>
+          </StackPanel>
           <Button Content="Actualiser l'aperçu" Style="{DynamicResource TAASecondaryButton}" Height="30" Margin="0,12,0,0" Click="RefreshPreview"/>
         </StackPanel>
       </Border>
