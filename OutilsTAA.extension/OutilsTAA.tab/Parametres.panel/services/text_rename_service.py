@@ -65,7 +65,11 @@ def collect_targets(category, scope, family_level="instance"):
             "Portes": DB.BuiltInCategory.OST_Doors,
         }
         built_in_category = categories[category]
-        if scope == "Sélection actuelle":
+        if category in ("Fenêtres", "Portes"):
+            # Les portes et fenêtres sont des FamilyInstance. Leurs types ne
+            # doivent jamais apparaître parmi les objets à modifier.
+            candidates = _family_instances(scope)
+        elif scope == "Sélection actuelle":
             candidates = [revit.doc.GetElement(element_id)
                           for element_id in revit.uidoc.Selection.GetElementIds()]
         else:

@@ -147,6 +147,16 @@ def test_rename_supports_six_model_categories_with_instance_text_parameters():
     assert 'if element.GroupId != DB.ElementId.InvalidElementId:' in service
 
 
+def test_windows_doors_use_family_instance_collector_and_explain_empty_selection():
+    controller = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
+    assert 'if category in ("Fenêtres", "Portes"):' in service
+    assert 'candidates = _family_instances(scope)' in service
+    assert 'collector.OfClass(DB.FamilyInstance).ToElements()' in service
+    assert 'if self.ScopeCombo.SelectedItem == "Sélection actuelle":' in controller
+    assert 'choisissez « Vue active » / « Projet entier »' in controller
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

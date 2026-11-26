@@ -96,6 +96,12 @@ dans le périmètre choisi, exclusion des types et éléments groupés ; éditio
 des paramètres texte d'instance uniquement. Les notes textuelles gardent leur
 édition directe. Tests de contrat ajoutés ; **recette dans Revit requise**
 pour chaque catégorie et pour les paramètres propres aux familles.
+
+**Retour utilisateur — portes/fenêtres vides (26/11) :** correction ciblée de
+la collecte avec `DB.FamilyInstance` pour ces deux catégories et message
+explicite lorsque le périmètre « Sélection actuelle » n'en contient pas.
+Cause exacte du retour non démontrée faute de trace d'exécution Revit ; recette
+sur sélection courante, vue active et projet entier toujours nécessaire.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

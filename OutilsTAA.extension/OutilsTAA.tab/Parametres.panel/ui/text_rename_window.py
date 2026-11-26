@@ -101,7 +101,12 @@ class RenameSelectionWindow(forms.WPFWindow):
             if self.category == "Textes" and self.elements:
                 self.SelectionMessage.Text = "Les textes se modifient directement, sans paramètre. Attention : les mises en forme locales peuvent changer."
             elif not self.elements:
-                self.SelectionMessage.Text = "Aucun élément trouvé pour ce périmètre."
+                if self.ScopeCombo.SelectedItem == "Sélection actuelle":
+                    self.SelectionMessage.Text = ("Aucun élément de cette catégorie dans la sélection Revit. "
+                                                  "Sélectionnez des éléments ou choisissez « Vue active » / « Projet entier ».")
+                else:
+                    self.SelectionMessage.Text = ("Aucun élément trouvé : vérifiez le périmètre, "
+                                                  "les groupes et les éventuels modèles liés.")
         except Exception as error:
             LOGGER.exception("Collecte de renommage impossible")
             self.elements = []
