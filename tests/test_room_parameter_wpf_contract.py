@@ -57,6 +57,16 @@ def test_rename_editor_exposes_four_distinct_operations():
     assert 'return "replace" if mode == 2 else "format"' in source
 
 
+def test_rename_editor_displays_chosen_parameter_instead_of_element_name():
+    source = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    assert 'parameter_name = selection.parameter_label.split(" [ID ")[0]' in source
+    assert 'self.ObjectsGrid.Columns[1].Header = parameter_name' in source
+    assert 'self.PreviewGrid.Columns[0].Header = parameter_name' in source
+    assert '"Label": _parameter_display(obj, self.parameter_id)' in source
+    assert '"Key": obj.UniqueId' in source  # identification interne inchangée
+    assert 'parameter.AsString() or "(vide)"' in source
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

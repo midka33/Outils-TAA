@@ -111,6 +111,20 @@ texte, ouvrir deux fenêtres successives :
    **opération**, **aperçu avant/après**), avec boutons de validation et
    possibilité de décocher des éléments avant actualisation de l'aperçu.
 
+**Retour de recette du 26/11/2026 :** le renommage fonctionne selon l'utilisateur.
+Dans la liste de la deuxième fenêtre, la colonne précédemment nommée
+« Élément » présente désormais **la valeur du paramètre de destination choisi
+à l'étape 1**, avec son nom en en-tête ; la première colonne de l'aperçu suit
+la même convention. Les éléments restent associés en interne à leur `UniqueId`
+pour garantir que le changement de présentation ne modifie pas la cible des
+transactions. Un paramètre manquant est marqué « (paramètre absent) » ; une
+valeur texte vide est affichée « (vide) ». Ce nouveau rendu doit être contrôlé
+dans Revit, sans étendre la validation précédente à cette révision.
+Contrôles disponibles dans l'environnement courant : **10 contrats statiques
+WPF réussis**, compilation Python du contrôleur réussie ; la suite `pytest`
+complète n'a pas pu être relancée (module absent). Le dernier résultat de
+suite complète avant cette modification reste **976 tests réussis**.
+
 **Retour utilisateur Revit du 23/11 :** la fenêtre **Numéroter les pièces**
 est confirmée fonctionnelle ; aucune modification de ce module n'est nécessaire
 pour la présente étape.

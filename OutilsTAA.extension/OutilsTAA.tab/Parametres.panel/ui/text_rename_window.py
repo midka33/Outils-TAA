@@ -17,6 +17,7 @@ from text_rename_service import (
     collect_targets, target_label, writable_text_parameters,
     prepare_text_renames, commit_text_renames,
 )
+from room_parameter_edit_service import parameter_of
 
 
 LOGGER = get_logger("OutilsTAA.Renommage")
@@ -34,6 +35,14 @@ def _rows(columns, items):
             row[name] = value
         table.Rows.Add(row)
     return table
+
+
+def _parameter_display(element, parameter_id):
+    """Valeur visible, indépendante de l'identifiant technique de l'objet."""
+    parameter = parameter_of(element, parameter_id)
+    if parameter is None:
+        return "(paramètre absent)"
+    return parameter.AsString() or "(vide)"
 
 
 class RenameSelectionWindow(forms.WPFWindow):
@@ -137,8 +146,12 @@ class RenameEditorWindow(forms.WPFWindow):
         self.ContextText.Text = "{} — {} — {}".format(selection.category,
             "Types" if selection.level == "type" else "Instances",
             selection.parameter_label)
+        parameter_name = selection.parameter_label.split(" [ID ")[0]
+        self.ObjectsGrid.Columns[1].Header = parameter_name
+        self.PreviewGrid.Columns[0].Header = parameter_name
         table = _rows((("Enabled", bool), ("Key", str), ("Label", str)),
-                      ({"Enabled": True, "Key": obj.UniqueId, "Label": target_label(obj)}
+                      ({"Enabled": True, "Key": obj.UniqueId,
+                        "Label": _parameter_display(obj, self.parameter_id)}
                        for obj in self.elements))
         self.table = table
         self.ObjectsGrid.ItemsSource = table.DefaultView
@@ -225,7 +238,7 @@ class RenameEditorWindow(forms.WPFWindow):
                 elements, self.parameter_id, self._operation(),
                 self.InputText.Text, self.ExtraText.Text, bool(self.AddOnce.IsChecked))
             table = _rows((("Label", str), ("Before", str), ("After", str), ("Status", str)),
-                          ({"Label": target_label(item[0]), "Before": item[2],
+                          ({"Label": item[2] or "(vide)", "Before": item[2],
                             "After": item[3], "Status": "Prêt"}
                            for item in self.changes.values()))
             self.PreviewGrid.ItemsSource = table.DefaultView

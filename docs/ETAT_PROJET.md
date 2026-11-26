@@ -42,6 +42,15 @@ mixte Ajouter/Supprimer est scindée en **quatre opérations de premier niveau**
 Ajouter, Supprimer, Remplacer, Formater. Recette des nouvelles options WPF à faire.
 Suite de non-régression : **976 tests réussis, 87 avertissements** hors Revit.
 
+**Retour utilisateur du 26/11 :** fonctionnement du renommage confirmé.
+Amélioration UI demandée : remplacer l'affichage « Élément » par la valeur
+du paramètre choisi à l'étape 1 dans la liste et l'aperçu du renommage.
+Identifiants `UniqueId` préservés pour la sélection et l'écriture ; recette
+de ce nouvel affichage encore à effectuer dans Revit.
+Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
+compilation Python et `git diff --check` réussis. `pytest` absent de
+l'environnement courant : pas de nouveau résultat de suite complète.
+
 Branche locale `feature/room-parameter-tools`, issue de `main` au commit
 `149df13bb818f44fa7c17aca6973bf3e47eaa69f` (v1.5.0).
 Décision utilisateur : nouveau panneau **Paramètres** avec deux boutons
