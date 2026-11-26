@@ -157,14 +157,22 @@ class RenameEditorWindow(forms.WPFWindow):
         self.table = table
         self.ObjectsGrid.ItemsSource = table.DefaultView
         options = readable_parameters(self.elements)
+        # Le paramètre de l'étape 1 est le point de départ du formatage.
+        self.default_format_token = "{valeur}"
         self.format_aliases = parameter_aliases(
             [(option.Label.split(" [ID ")[0], option.Token) for option in options])
         labels_by_token = {token: label for label, token in self.format_aliases.items()}
         for option in options:
             option.FormatLabel = labels_by_token[option.Token]
             self.FormatParameterCombo.Items.Add(option)
+            if option.Id == self.parameter_id:
+                self.default_format_token = "{" + option.FormatLabel + "}"
         if self.FormatParameterCombo.Items.Count:
             self.FormatParameterCombo.SelectedIndex = 0
+            for index, option in enumerate(options):
+                if option.Id == self.parameter_id:
+                    self.FormatParameterCombo.SelectedIndex = index
+                    break
         self.InsertParameterButton.IsEnabled = self.FormatParameterCombo.Items.Count > 0
         for mode in self.MODES:
             self.ModeCombo.Items.Add(mode)
@@ -203,7 +211,7 @@ class RenameEditorWindow(forms.WPFWindow):
             labels = ("Format personnalisé",)
             self.OperationLabel.Text = "MODÈLE"
             self.InputLabel.Text = "FORMAT"
-            self.InputText.Text, self.ExtraText.Text = "{famille}-{valeur}-{index}", ""
+            self.InputText.Text, self.ExtraText.Text = self.default_format_token, ""
         for label in labels:
             self.OperationCombo.Items.Add(label)
         self.OperationCombo.SelectedIndex = 0

@@ -96,6 +96,15 @@ def test_format_layout_places_parameter_picker_above_format_and_hides_unused_row
     assert 'self.ExtraText.Visibility = Visibility.Collapsed if mode == 3 else Visibility.Visible' in source
 
 
+def test_format_defaults_to_selected_destination_parameter():
+    source = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    assert 'self.default_format_token = "{valeur}"' in source
+    assert 'if option.Id == self.parameter_id:' in source
+    assert 'self.default_format_token = "{" + option.FormatLabel + "}"' in source
+    assert 'self.FormatParameterCombo.SelectedIndex = index' in source
+    assert 'self.InputText.Text, self.ExtraText.Text = self.default_format_token, ""' in source
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

@@ -66,6 +66,11 @@ Python réussie. Suite complète indisponible (absence de `pytest`).
 est désormais placé avant le champ FORMAT ; la ligne désactivée « Non utilisé »
 est masquée dans ce mode. Les champs nécessaires aux autres opérations restent
 visibles. Contrat statique ajouté ; validation visuelle dans Revit en attente.
+
+**Valeur initiale du format (26/11) :** le paramètre de destination choisi à
+l'étape 1 est présélectionné dans « Paramètre à insérer » et inséré par défaut
+dans FORMAT sous son nom lisible ; repli sur `{valeur}` si absent des sources
+lisibles. Recette dans Revit toujours nécessaire.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.
