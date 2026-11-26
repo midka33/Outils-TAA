@@ -62,12 +62,9 @@ class RenameSelectionWindow(forms.WPFWindow):
         self.level = "instance"
         self.CategoryCombo.Items.Add("Pièces")
         self.CategoryCombo.Items.Add("Textes")
-        self.LevelCombo.Items.Add("Instance")
-        self.LevelCombo.Items.Add("Type")
         for scope in self.SCOPES:
             self.ScopeCombo.Items.Add(scope)
         self.CategoryCombo.SelectedIndex = 0
-        self.LevelCombo.SelectedIndex = 0
         self.ScopeCombo.SelectedIndex = 0
         self._ready = True
         self.reload_targets()
@@ -78,8 +75,7 @@ class RenameSelectionWindow(forms.WPFWindow):
 
     def reload_targets(self):
         self.category = self.CategoryCombo.SelectedItem or "Pièces"
-        self.level = "type" if self.LevelCombo.SelectedIndex == 1 else "instance"
-        self.LevelCombo.IsEnabled = False
+        self.level = "instance"
         self.ParameterFields.IsEnabled = self.category != "Textes"
         self.ContinueButton.IsEnabled = False
         self.ParameterCombo.Items.Clear()

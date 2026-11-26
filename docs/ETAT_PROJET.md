@@ -84,6 +84,10 @@ ce qui est signalé dans l'interface. Fonctionnalités de familles retirées du
 sélecteur à la demande de l'utilisateur (code de service conservé). **Recette
 Revit nécessaire**, notamment annotations multi-lignes/formatées, sélection
 actuelle et vue active ; la numérotation n'a pas été modifiée.
+
+**Simplification de l'étape 1 (26/11) :** le champ « Niveau » a été retiré
+de l'interface et du contrôleur, les deux catégories restantes fonctionnant
+directement sur les instances. Validation WPF/Revit en attente.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

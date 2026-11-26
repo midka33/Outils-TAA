@@ -10,16 +10,12 @@
       <TextBlock Text="Choisir des textes ou des pièces, le périmètre et les éléments à modifier." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
     </StackPanel>
     <Grid Grid.Row="1" Margin="0,0,0,10">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
       <StackPanel Margin="0,0,8,0">
         <TextBlock Text="CATÉGORIE" FontWeight="Bold" Margin="0,0,0,4"/>
         <ComboBox Name="CategoryCombo" Height="28" SelectionChanged="ScopeChanged"/>
       </StackPanel>
-      <StackPanel Grid.Column="1" Margin="0,0,8,0">
-        <TextBlock Text="NIVEAU" FontWeight="Bold" Margin="0,0,0,4"/>
-        <ComboBox Name="LevelCombo" Height="28" SelectionChanged="ScopeChanged"/>
-      </StackPanel>
-      <StackPanel Grid.Column="2">
+      <StackPanel Grid.Column="1">
         <TextBlock Text="PÉRIMÈTRE" FontWeight="Bold" Margin="0,0,0,4"/>
         <ComboBox Name="ScopeCombo" Height="28" SelectionChanged="ScopeChanged"/>
       </StackPanel>

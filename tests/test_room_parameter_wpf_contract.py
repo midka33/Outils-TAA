@@ -28,7 +28,7 @@ def test_two_stage_three_column_rename_contract():
     editor = ET.parse(PANEL / "ui" / "rename_editor.xaml").getroot()
     selection_names = {element.get("Name") for element in selection.iter()}
     editor_names = {element.get("Name") for element in editor.iter()}
-    assert {"CategoryCombo", "LevelCombo", "ScopeCombo", "ParameterCombo",
+    assert {"CategoryCombo", "ScopeCombo", "ParameterCombo",
             "ObjectsGrid", "ContinueButton"}.issubset(selection_names)
     assert {"ObjectsGrid", "ModeCombo", "OperationCombo", "InputText",
             "ExtraText", "PreviewGrid", "ConfirmCheck", "ApplyButton"}.issubset(editor_names)
@@ -108,11 +108,14 @@ def test_format_defaults_to_selected_destination_parameter():
 def test_text_notes_bypass_parameter_selection_and_use_text_note_content():
     selection_xaml = ET.parse(PANEL / "ui" / "rename_selection.xaml").getroot()
     assert "ParameterFields" in {node.get("Name") for node in selection_xaml.iter()}
+    assert "LevelCombo" not in {node.get("Name") for node in selection_xaml.iter()}
     controller = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
     service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
     assert 'self.CategoryCombo.Items.Add("Pièces")' in controller
     assert 'self.CategoryCombo.Items.Add("Textes")' in controller
     assert 'self.CategoryCombo.Items.Add("Familles")' not in controller
+    assert "self.LevelCombo" not in controller
+    assert 'self.level = "instance"' in controller
     assert 'self.ParameterFields.IsEnabled = self.category != "Textes"' in controller
     assert 'if option is None and self.category != "Textes":' in controller
     assert 'options or self.category == "Textes"' in controller
