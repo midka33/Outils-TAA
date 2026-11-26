@@ -95,19 +95,36 @@ def collect_targets(category, scope, family_level="instance"):
                   key=lambda item: id_value(item.Id))
 
 
+def _element_name(element):
+    """Lecture robuste sous IronPython des noms d'ElementType/Family.
+
+    L'accès direct ``symbol.Name`` peut lever AttributeError('Name') alors
+    que le nom est bien disponible via le descripteur de DB.Element.
+    """
+    if element is None:
+        return "(inconnu)"
+    try:
+        return DB.Element.Name.GetValue(element)
+    except (AttributeError, TypeError):
+        parameter = element.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM)
+        if parameter is not None and parameter.AsString():
+            return parameter.AsString()
+        return "ID {}".format(id_value(element.Id))
+
+
 def target_label(element):
     if isinstance(element, DB.TextNote):
         return "{} (ID {})".format((element.Text or "").replace("\r", " ").replace("\n", " ")[:100], id_value(element.Id))
     if isinstance(element, DB.Architecture.Room):
         return room_label(element)
     if isinstance(element, DB.FamilyInstance):
-        return "{} — {} (ID {})".format(element.Symbol.Family.Name,
-                                       element.Symbol.Name, id_value(element.Id))
+        return "{} — {} (ID {})".format(_element_name(element.Symbol.Family),
+                                       _element_name(element.Symbol), id_value(element.Id))
     if isinstance(element, DB.FamilySymbol):
-        return "{} — Type : {} (ID {})".format(element.Family.Name,
-                                              element.Name, id_value(element.Id))
+        return "{} — Type : {} (ID {})".format(_element_name(element.Family),
+                                              _element_name(element), id_value(element.Id))
     return "{} — {} (ID {})".format(element.Category.Name if element.Category else "Élément",
-                                    element.Name, id_value(element.Id))
+                                    _element_name(element), id_value(element.Id))
 
 
 def writable_text_parameters(elements):
@@ -171,8 +188,8 @@ def prepare_text_renames(elements, parameter_id, operation, before_text, after_t
             continue
         before = (element.Text or "") if is_text_note else (parameter.AsString() or "")
         if operation == "format":
-            family_name = (element.Symbol.Family.Name if isinstance(element, DB.FamilyInstance)
-                           else element.Family.Name if isinstance(element, DB.FamilySymbol) else "")
+            family_name = (_element_name(element.Symbol.Family) if isinstance(element, DB.FamilyInstance)
+                           else _element_name(element.Family) if isinstance(element, DB.FamilySymbol) else "")
             param_values = {}
             for candidate in element.Parameters:
                 if candidate.StorageType in (DB.StorageType.String, DB.StorageType.Integer,

@@ -24,6 +24,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Renommage multiple : retrait du champ « Niveau », inutile avec les seules catégories Pièces et Textes.
 - Renommage multiple : ajout des fenêtres, sols, plafonds, toits, murs et portes en tant que catégories d'instances, avec choix d'un paramètre texte modifiable, aperçu et transaction contrôlée.
 - Renommage multiple : collecte des portes/fenêtres explicitement limitée aux `FamilyInstance` et aide au diagnostic lorsque le périmètre « Sélection actuelle » est vide.
+- Renommage multiple : correction de l'exception IronPython `Name` lors de la construction des libellés de portes/fenêtres ; lecture des noms via le descripteur `DB.Element.Name`.
 - Tests statiques anti-régression et registre `docs/bugs/PARAMETRES.md` ; **971 tests hors Revit réussis**, recette Revit du correctif à effectuer.
 
 ### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)

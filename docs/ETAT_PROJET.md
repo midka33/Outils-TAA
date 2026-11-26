@@ -102,6 +102,13 @@ la collecte avec `DB.FamilyInstance` pour ces deux catégories et message
 explicite lorsque le périmètre « Sélection actuelle » n'en contient pas.
 Cause exacte du retour non démontrée faute de trace d'exécution Revit ; recette
 sur sélection courante, vue active et projet entier toujours nécessaire.
+
+**Diagnostic confirmé par captures Revit (26/11) :** « Collecte impossible :
+Name » pour Fenêtres et Portes sur « Vue active ». Ce message désigne une
+exception lors de la construction des libellés (accès direct à `Symbol.Name`),
+pas une collecte nécessairement vide. Correctif : lecture des noms par
+`DB.Element.Name.GetValue` et repli sur l'identifiant. Test de contrat ajouté ;
+recette Revit requise.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

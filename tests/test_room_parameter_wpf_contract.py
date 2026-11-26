@@ -157,6 +157,15 @@ def test_windows_doors_use_family_instance_collector_and_explain_empty_selection
     assert 'choisissez « Vue active » / « Projet entier »' in controller
 
 
+def test_family_names_use_revit_element_descriptor_for_ironpython():
+    service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
+    assert 'DB.Element.Name.GetValue(element)' in service
+    assert '_element_name(element.Symbol)' in service
+    assert '_element_name(element.Symbol.Family)' in service
+    assert 'element.Symbol.Name' not in service
+    assert 'element.Symbol.Family.Name' not in service
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")
