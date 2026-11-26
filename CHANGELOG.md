@@ -22,6 +22,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Renommage multiple / Formater : préselection du paramètre cible de l'étape 1 et initialisation du format avec son nom lisible (repli `{valeur}` si indisponible).
 - Renommage multiple : sélection limitée à « Pièces » et « Textes ». Pour les annotations textuelles Revit, sélecteur de paramètre grisé et accès direct à l'éditeur, avec aperçu et écriture transactionnelle (attention aux mises en forme locales).
 - Renommage multiple : retrait du champ « Niveau », inutile avec les seules catégories Pièces et Textes.
+- Renommage multiple : ajout des fenêtres, sols, plafonds, toits, murs et portes en tant que catégories d'instances, avec choix d'un paramètre texte modifiable, aperçu et transaction contrôlée.
 - Tests statiques anti-régression et registre `docs/bugs/PARAMETRES.md` ; **971 tests hors Revit réussis**, recette Revit du correctif à effectuer.
 
 ### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)

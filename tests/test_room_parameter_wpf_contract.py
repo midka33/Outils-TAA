@@ -127,6 +127,26 @@ def test_text_notes_bypass_parameter_selection_and_use_text_note_content():
     assert 'if (element.Text or "") != before' in service
 
 
+def test_rename_supports_six_model_categories_with_instance_text_parameters():
+    controller = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
+    expected = {
+        "Fenêtres": "OST_Windows",
+        "Sols": "OST_Floors",
+        "Plafonds": "OST_Ceilings",
+        "Toits": "OST_Roofs",
+        "Murs": "OST_Walls",
+        "Portes": "OST_Doors",
+    }
+    for label, bic in expected.items():
+        assert '"{}": DB.BuiltInCategory.{}'.format(label, bic) in service
+        assert '"{}"'.format(label) in controller
+    assert 'options = writable_text_parameters(self.elements) if self.category != "Textes" else []' in controller
+    assert '.WhereElementIsNotElementType().ToElements()' in service
+    assert 'item.GroupId == DB.ElementId.InvalidElementId' in service
+    assert 'if element.GroupId != DB.ElementId.InvalidElementId:' in service
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

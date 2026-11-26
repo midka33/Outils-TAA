@@ -86,8 +86,16 @@ Revit nécessaire**, notamment annotations multi-lignes/formatées, sélection
 actuelle et vue active ; la numérotation n'a pas été modifiée.
 
 **Simplification de l'étape 1 (26/11) :** le champ « Niveau » a été retiré
-de l'interface et du contrôleur, les deux catégories restantes fonctionnant
-directement sur les instances. Validation WPF/Revit en attente.
+de l'interface et du contrôleur : le renommage fonctionne directement sur les
+instances ou les annotations textuelles. Validation WPF/Revit en attente.
+
+**Extension des catégories (26/11) :** ajout de « Fenêtres », « Sols »,
+« Plafonds », « Toits », « Murs » et « Portes » à la sélection de renommage,
+en complément de « Pièces » et « Textes ». Collecte par `BuiltInCategory`
+dans le périmètre choisi, exclusion des types et éléments groupés ; édition
+des paramètres texte d'instance uniquement. Les notes textuelles gardent leur
+édition directe. Tests de contrat ajoutés ; **recette dans Revit requise**
+pour chaque catégorie et pour les paramètres propres aux familles.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

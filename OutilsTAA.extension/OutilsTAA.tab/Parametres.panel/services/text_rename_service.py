@@ -55,6 +55,36 @@ def collect_targets(category, scope, family_level="instance"):
     elif category == "Familles":
         instances = _family_instances(scope)
         items = [instance.Symbol for instance in instances] if family_level == "type" else instances
+    elif category in ("Fenêtres", "Sols", "Plafonds", "Toits", "Murs", "Portes"):
+        categories = {
+            "Fenêtres": DB.BuiltInCategory.OST_Windows,
+            "Sols": DB.BuiltInCategory.OST_Floors,
+            "Plafonds": DB.BuiltInCategory.OST_Ceilings,
+            "Toits": DB.BuiltInCategory.OST_Roofs,
+            "Murs": DB.BuiltInCategory.OST_Walls,
+            "Portes": DB.BuiltInCategory.OST_Doors,
+        }
+        built_in_category = categories[category]
+        if scope == "Sélection actuelle":
+            candidates = [revit.doc.GetElement(element_id)
+                          for element_id in revit.uidoc.Selection.GetElementIds()]
+        else:
+            if scope == "Vue active":
+                if not DB.FilteredElementCollector.IsViewValidForElementIteration(revit.doc, revit.doc.ActiveView.Id):
+                    raise ValueError("La vue active ne permet pas de collecter ces éléments.")
+                collector = DB.FilteredElementCollector(revit.doc, revit.doc.ActiveView.Id)
+            else:
+                collector = DB.FilteredElementCollector(revit.doc)
+            try:
+                candidates = list(collector.OfCategory(built_in_category)
+                                  .WhereElementIsNotElementType().ToElements())
+            finally:
+                collector.Dispose()
+        category_id = int(built_in_category)
+        items = [item for item in candidates if item is not None
+                 and item.Category is not None
+                 and id_value(item.Category.Id) == category_id
+                 and item.GroupId == DB.ElementId.InvalidElementId]
     else:
         raise ValueError("Catégorie inconnue.")
     return sorted({item.UniqueId: item for item in items}.values(),
@@ -72,7 +102,8 @@ def target_label(element):
     if isinstance(element, DB.FamilySymbol):
         return "{} — Type : {} (ID {})".format(element.Family.Name,
                                               element.Name, id_value(element.Id))
-    return "Élément ID {}".format(id_value(element.Id))
+    return "{} — {} (ID {})".format(element.Category.Name if element.Category else "Élément",
+                                    element.Name, id_value(element.Id))
 
 
 def writable_text_parameters(elements):
@@ -172,10 +203,8 @@ def commit_text_renames(changes):
                 continue
             if parameter.IsReadOnly or (parameter.AsString() or "") != before:
                 raise RuntimeError("Paramètre devenu non modifiable ou modifié depuis l'aperçu.")
-            if isinstance(element, DB.FamilyInstance) and element.GroupId != DB.ElementId.InvalidElementId:
-                raise RuntimeError("Une instance appartient désormais à un groupe.")
-            if isinstance(element, DB.Architecture.Room) and element.GroupId != DB.ElementId.InvalidElementId:
-                raise RuntimeError("Une pièce appartient désormais à un groupe.")
+            if element.GroupId != DB.ElementId.InvalidElementId:
+                raise RuntimeError("Un élément appartient désormais à un groupe.")
             if not parameter.Set(after) or parameter.AsString() != after:
                 raise RuntimeError("Écriture refusée : {}".format(target_label(element)))
         if transaction.Commit() != DB.TransactionStatus.Committed:

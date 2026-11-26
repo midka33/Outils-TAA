@@ -62,6 +62,8 @@ class RenameSelectionWindow(forms.WPFWindow):
         self.level = "instance"
         self.CategoryCombo.Items.Add("Pièces")
         self.CategoryCombo.Items.Add("Textes")
+        for category in ("Fenêtres", "Sols", "Plafonds", "Toits", "Murs", "Portes"):
+            self.CategoryCombo.Items.Add(category)
         for scope in self.SCOPES:
             self.ScopeCombo.Items.Add(scope)
         self.CategoryCombo.SelectedIndex = 0
@@ -87,7 +89,7 @@ class RenameSelectionWindow(forms.WPFWindow):
                            for obj in self.elements))
             self.table = table
             self.ObjectsGrid.ItemsSource = table.DefaultView
-            options = writable_text_parameters(self.elements) if self.category == "Pièces" else []
+            options = writable_text_parameters(self.elements) if self.category != "Textes" else []
             for option in options:
                 self.ParameterCombo.Items.Add(option)
             if options:

@@ -7,7 +7,7 @@
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Margin="0,0,0,12">
       <TextBlock Text="ÉTAPE 1 — CHOISIR LES ÉLÉMENTS" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TAAOrangeBrush}"/>
-      <TextBlock Text="Choisir des textes ou des pièces, le périmètre et les éléments à modifier." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
+      <TextBlock Text="Choisir la catégorie, le périmètre et les éléments à modifier." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
     </StackPanel>
     <Grid Grid.Row="1" Margin="0,0,0,10">
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -31,7 +31,7 @@
                   HeadersVisibility="Column" RowHeight="21" ColumnHeaderHeight="26" RowHeaderWidth="0">
           <DataGrid.Columns>
             <DataGridCheckBoxColumn Header="Inclure" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="68"/>
-            <DataGridTextColumn Header="Texte / Pièce" Binding="{Binding Label}" IsReadOnly="True" Width="*"/>
+            <DataGridTextColumn Header="Élément" Binding="{Binding Label}" IsReadOnly="True" Width="*"/>
           </DataGrid.Columns>
         </DataGrid>
         <StackPanel Name="ParameterFields" Grid.Row="2" Margin="0,8,0,0">
