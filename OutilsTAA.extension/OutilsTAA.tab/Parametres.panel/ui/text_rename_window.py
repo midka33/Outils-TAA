@@ -7,7 +7,7 @@ import os
 import clr
 clr.AddReference("System.Data")
 
-from pyrevit import forms, revit
+from pyrevit import DB, forms, revit
 from System.Data import DataTable
 from System.Windows import Visibility
 from System.Windows.Input import Keyboard
@@ -40,6 +40,8 @@ def _rows(columns, items):
 
 def _parameter_display(element, parameter_id):
     """Valeur visible, indépendante de l'identifiant technique de l'objet."""
+    if isinstance(element, DB.TextNote):
+        return element.Text or "(vide)"
     parameter = parameter_of(element, parameter_id)
     if parameter is None:
         return "(paramètre absent)"
@@ -59,7 +61,7 @@ class RenameSelectionWindow(forms.WPFWindow):
         self.category = "Pièces"
         self.level = "instance"
         self.CategoryCombo.Items.Add("Pièces")
-        self.CategoryCombo.Items.Add("Familles")
+        self.CategoryCombo.Items.Add("Textes")
         self.LevelCombo.Items.Add("Instance")
         self.LevelCombo.Items.Add("Type")
         for scope in self.SCOPES:
@@ -77,7 +79,8 @@ class RenameSelectionWindow(forms.WPFWindow):
     def reload_targets(self):
         self.category = self.CategoryCombo.SelectedItem or "Pièces"
         self.level = "type" if self.LevelCombo.SelectedIndex == 1 else "instance"
-        self.LevelCombo.IsEnabled = self.category == "Familles"
+        self.LevelCombo.IsEnabled = False
+        self.ParameterFields.IsEnabled = self.category != "Textes"
         self.ContinueButton.IsEnabled = False
         self.ParameterCombo.Items.Clear()
         self.SelectionMessage.Text = ""
@@ -88,17 +91,17 @@ class RenameSelectionWindow(forms.WPFWindow):
                            for obj in self.elements))
             self.table = table
             self.ObjectsGrid.ItemsSource = table.DefaultView
-            options = writable_text_parameters(self.elements)
+            options = writable_text_parameters(self.elements) if self.category == "Pièces" else []
             for option in options:
                 self.ParameterCombo.Items.Add(option)
             if options:
                 preferred = next((i for i, option in enumerate(options)
                                   if option.Label.split(" [ID ")[0].strip().lower() == "n° appartement"), 0)
                 self.ParameterCombo.SelectedIndex = preferred
-            self.ContinueButton.IsEnabled = bool(self.elements and options)
+            self.ContinueButton.IsEnabled = bool(self.elements and (options or self.category == "Textes"))
             self.FoundText.Text = "{} élément(s)".format(len(self.elements))
-            if self.category == "Familles" and self.level == "type":
-                self.SelectionMessage.Text = "Attention : modifier un type affecte toutes ses occurrences dans le projet."
+            if self.category == "Textes" and self.elements:
+                self.SelectionMessage.Text = "Les textes se modifient directement, sans paramètre. Attention : les mises en forme locales peuvent changer."
             elif not self.elements:
                 self.SelectionMessage.Text = "Aucun élément trouvé pour ce périmètre."
         except Exception as error:
@@ -110,7 +113,7 @@ class RenameSelectionWindow(forms.WPFWindow):
 
     def ContinueSelection(self, sender, args):
         option = self.ParameterCombo.SelectedItem
-        if option is None:
+        if option is None and self.category != "Textes":
             self.SelectionMessage.Text = "Choisissez un paramètre de destination."
             return
         self.ObjectsGrid.CommitEdit()
@@ -120,8 +123,8 @@ class RenameSelectionWindow(forms.WPFWindow):
         if not self.selection:
             self.SelectionMessage.Text = "Cochez au moins un élément."
             return
-        self.parameter_id = option.Id
-        self.parameter_label = option.Label
+        self.parameter_id = None if self.category == "Textes" else option.Id
+        self.parameter_label = "Texte de la note" if self.category == "Textes" else option.Label
         self.DialogResult = True
         self.Close()
 
@@ -156,7 +159,7 @@ class RenameEditorWindow(forms.WPFWindow):
                        for obj in self.elements))
         self.table = table
         self.ObjectsGrid.ItemsSource = table.DefaultView
-        options = readable_parameters(self.elements)
+        options = readable_parameters(self.elements) if self.context.category != "Textes" else []
         # Le paramètre de l'étape 1 est le point de départ du formatage.
         self.default_format_token = "{valeur}"
         self.format_aliases = parameter_aliases(

@@ -7,7 +7,7 @@
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Margin="0,0,0,12">
       <TextBlock Text="ÉTAPE 1 — CHOISIR LES ÉLÉMENTS" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TAAOrangeBrush}"/>
-      <TextBlock Text="Catégorie, paramètres d'instance ou de type, périmètre et sélection individuelle." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
+      <TextBlock Text="Choisir des textes ou des pièces, le périmètre et les éléments à modifier." Foreground="{DynamicResource TAASecondaryTextBrush}"/>
     </StackPanel>
     <Grid Grid.Row="1" Margin="0,0,0,10">
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -16,7 +16,7 @@
         <ComboBox Name="CategoryCombo" Height="28" SelectionChanged="ScopeChanged"/>
       </StackPanel>
       <StackPanel Grid.Column="1" Margin="0,0,8,0">
-        <TextBlock Text="PARAMÈTRES DE FAMILLE" FontWeight="Bold" Margin="0,0,0,4"/>
+        <TextBlock Text="NIVEAU" FontWeight="Bold" Margin="0,0,0,4"/>
         <ComboBox Name="LevelCombo" Height="28" SelectionChanged="ScopeChanged"/>
       </StackPanel>
       <StackPanel Grid.Column="2">
@@ -35,10 +35,10 @@
                   HeadersVisibility="Column" RowHeight="21" ColumnHeaderHeight="26" RowHeaderWidth="0">
           <DataGrid.Columns>
             <DataGridCheckBoxColumn Header="Inclure" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="68"/>
-            <DataGridTextColumn Header="Pièce / Famille / Type" Binding="{Binding Label}" IsReadOnly="True" Width="*"/>
+            <DataGridTextColumn Header="Texte / Pièce" Binding="{Binding Label}" IsReadOnly="True" Width="*"/>
           </DataGrid.Columns>
         </DataGrid>
-        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+        <StackPanel Name="ParameterFields" Grid.Row="2" Margin="0,8,0,0">
           <TextBlock Text="PARAMÈTRE TEXTE À MODIFIER" FontWeight="Bold" Margin="0,0,0,4"/>
           <ComboBox Name="ParameterCombo" Height="28" DisplayMemberPath="Label"/>
           <TextBlock Name="SelectionMessage" Foreground="{DynamicResource TAASecondaryTextBrush}" TextWrapping="Wrap" Margin="0,5,0,0"/>

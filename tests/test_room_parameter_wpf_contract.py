@@ -105,6 +105,25 @@ def test_format_defaults_to_selected_destination_parameter():
     assert 'self.InputText.Text, self.ExtraText.Text = self.default_format_token, ""' in source
 
 
+def test_text_notes_bypass_parameter_selection_and_use_text_note_content():
+    selection_xaml = ET.parse(PANEL / "ui" / "rename_selection.xaml").getroot()
+    assert "ParameterFields" in {node.get("Name") for node in selection_xaml.iter()}
+    controller = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
+    assert 'self.CategoryCombo.Items.Add("Pièces")' in controller
+    assert 'self.CategoryCombo.Items.Add("Textes")' in controller
+    assert 'self.CategoryCombo.Items.Add("Familles")' not in controller
+    assert 'self.ParameterFields.IsEnabled = self.category != "Textes"' in controller
+    assert 'if option is None and self.category != "Textes":' in controller
+    assert 'options or self.category == "Textes"' in controller
+    assert 'self.parameter_id = None if self.category == "Textes" else option.Id' in controller
+    assert 'elif category == "Textes":' in service
+    assert 'collector.OfClass(DB.TextNote)' in service
+    assert 'is_text_note = isinstance(element, DB.TextNote)' in service
+    assert 'element.Text = after' in service
+    assert 'if (element.Text or "") != before' in service
+
+
 def test_compact_revit_ribbon_stack_structure():
     assert (PANEL / "bundle.yaml").read_text(encoding="utf-8").strip().endswith("- Commandes")
     stack = (STACK / "bundle.yaml").read_text(encoding="utf-8")

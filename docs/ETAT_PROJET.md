@@ -71,6 +71,19 @@ visibles. Contrat statique ajouté ; validation visuelle dans Revit en attente.
 l'étape 1 est présélectionné dans « Paramètre à insérer » et inséré par défaut
 dans FORMAT sous son nom lisible ; repli sur `{valeur}` si absent des sources
 lisibles. Recette dans Revit toujours nécessaire.
+
+**Validation utilisateur du 26/11 :** le format par défaut affichant le
+paramètre choisi à l'étape 1 fonctionne dans Revit.
+
+**Nouvelle évolution — catégories de renommage (26/11) :** seules les catégories
+« Pièces » et « Textes » sont proposées dans le premier écran. Les textes sont
+des annotations `DB.TextNote` : choix de paramètre grisé, passage à l'étape 2
+sans ce choix, aperçu avant/après et transaction atomique. Pour les annotations,
+l'écriture passe par `TextNote.Text` ; la mise en forme locale peut être affectée,
+ce qui est signalé dans l'interface. Fonctionnalités de familles retirées du
+sélecteur à la demande de l'utilisateur (code de service conservé). **Recette
+Revit nécessaire**, notamment annotations multi-lignes/formatées, sélection
+actuelle et vue active ; la numérotation n'a pas été modifiée.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.
