@@ -72,12 +72,13 @@ def writable_text_parameters(elements):
     return sorted(found.values(), key=lambda option: option.Label.lower())
 
 
-def readable_text_parameters(elements):
-    """Sources texte, y compris paramètres Revit natifs ou en lecture seule."""
+def readable_parameters(elements):
+    """Sources de formatage lisibles (texte, nombres, références Revit)."""
     found = {}
     for element in elements:
         for parameter in element.Parameters:
-            if parameter.StorageType != DB.StorageType.String:
+            if parameter.StorageType not in (DB.StorageType.String, DB.StorageType.Integer,
+                                             DB.StorageType.Double, DB.StorageType.ElementId):
                 continue
             key = id_value(parameter.Id)
             if key not in found:
@@ -85,6 +86,21 @@ def readable_text_parameters(elements):
                 option.Token = parameter_token(key)
                 found[key] = option
     return sorted(found.values(), key=lambda option: option.Label.lower())
+
+
+def parameter_display_value(parameter):
+    if parameter.StorageType == DB.StorageType.String:
+        return parameter.AsString() or ""
+    display = parameter.AsValueString()
+    if display:
+        return display
+    if parameter.StorageType == DB.StorageType.Integer:
+        return str(parameter.AsInteger())
+    if parameter.StorageType == DB.StorageType.Double:
+        return str(parameter.AsDouble())
+    if parameter.StorageType == DB.StorageType.ElementId:
+        return str(id_value(parameter.AsElementId()))
+    return ""
 
 
 def prepare_text_renames(elements, parameter_id, operation, before_text, after_text,
@@ -103,9 +119,10 @@ def prepare_text_renames(elements, parameter_id, operation, before_text, after_t
                            else element.Family.Name if isinstance(element, DB.FamilySymbol) else "")
             param_values = {}
             for candidate in element.Parameters:
-                if candidate.StorageType == DB.StorageType.String:
+                if candidate.StorageType in (DB.StorageType.String, DB.StorageType.Integer,
+                                             DB.StorageType.Double, DB.StorageType.ElementId):
                     key = parameter_token(id_value(candidate.Id))
-                    param_values[key] = candidate.AsString() or ""
+                    param_values[key] = parameter_display_value(candidate)
             after = format_value(before, before_text, index, family_name, param_values)
         else:
             after = transform(before, operation, before_text, after_text, add_once)

@@ -140,12 +140,15 @@ Le renommage propose désormais **quatre opérations distinctes** :
 
 **Amélioration du 26/11 — paramètres disponibles dans Formater :**
 la colonne Opération affiche, uniquement en mode **Formater**, une liste
-des paramètres **texte présents** sur les éléments sélectionnés, y compris
+des paramètres **lisibles présents** sur les éléments sélectionnés (texte,
+nombres et références Revit), y compris
 les paramètres en lecture seule utilisables comme sources. Le bouton
 « Insérer dans le format » ajoute un jeton stable, par exemple
 `{param_954978}` pour le paramètre Revit d'ID `954978` ; les identifiants
 natifs négatifs utilisent `{param_m...}`. Les valeurs de ces jetons sont
 lues **individuellement sur chaque élément** lors de la prévisualisation.
+Pour les paramètres numériques, la valeur affichée dans les unités et
+paramètres de format Revit est privilégiée ; la valeur brute sert de repli.
 Si un paramètre référencé manque sur un élément, le modèle est rejeté avec
 un message d'erreur plutôt que d'insérer silencieusement une autre valeur.
 Le paramètre de destination reste celui choisi à l'étape 1 ; la liste du

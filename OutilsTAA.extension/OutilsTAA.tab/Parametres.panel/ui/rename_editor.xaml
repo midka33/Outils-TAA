@@ -40,7 +40,7 @@
             <ComboBox Name="FormatParameterCombo" Height="28" DisplayMemberPath="Label"/>
             <Button Name="InsertParameterButton" Content="Insérer dans le format" Height="30" Margin="0,6,0,0"
                     Style="{DynamicResource TAASecondaryButton}" Click="InsertFormatParameter"/>
-            <TextBlock Text="Les valeurs seront récupérées sur chaque élément." TextWrapping="Wrap"
+            <TextBlock Text="Valeurs texte ou numériques récupérées sur chaque élément." TextWrapping="Wrap"
                        Foreground="{DynamicResource TAASecondaryTextBrush}" Margin="0,5,0,0"/>
           </StackPanel>
           <Button Content="Actualiser l'aperçu" Style="{DynamicResource TAASecondaryButton}" Height="30" Margin="0,12,0,0" Click="RefreshPreview"/>

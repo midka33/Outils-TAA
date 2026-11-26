@@ -48,7 +48,7 @@ du paramètre choisi à l'étape 1 dans la liste et l'aperçu du renommage.
 Identifiants `UniqueId` préservés pour la sélection et l'écriture ; recette
 de ce nouvel affichage encore à effectuer dans Revit.
 
-**Demande du 26/11 — mode Formater :** ajout d'une liste des paramètres texte
+**Demande du 26/11 — mode Formater :** ajout d'une liste des paramètres lisibles
 disponibles sur les éléments sélectionnés et insertion de jetons liés aux ID
 Revit (`{param_...}`). Résolution des valeurs par élément lors de l'aperçu,
 sans modifier le paramètre cible ; recette WPF/Revit attendue.

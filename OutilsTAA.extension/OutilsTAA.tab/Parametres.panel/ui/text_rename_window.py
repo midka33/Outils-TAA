@@ -14,7 +14,7 @@ from System.Windows.Input import Keyboard
 from common.logger import get_logger
 from common.wpf_resources import load_resource_dictionary
 from text_rename_service import (
-    collect_targets, target_label, writable_text_parameters, readable_text_parameters,
+    collect_targets, target_label, writable_text_parameters, readable_parameters,
     prepare_text_renames, commit_text_renames,
 )
 from room_parameter_edit_service import parameter_of
@@ -155,7 +155,7 @@ class RenameEditorWindow(forms.WPFWindow):
                        for obj in self.elements))
         self.table = table
         self.ObjectsGrid.ItemsSource = table.DefaultView
-        for option in readable_text_parameters(self.elements):
+        for option in readable_parameters(self.elements):
             self.FormatParameterCombo.Items.Add(option)
         if self.FormatParameterCombo.Items.Count:
             self.FormatParameterCombo.SelectedIndex = 0

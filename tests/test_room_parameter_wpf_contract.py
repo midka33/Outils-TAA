@@ -73,11 +73,13 @@ def test_format_mode_lists_and_inserts_available_revit_parameters():
     assert {"FormatFields", "FormatParameterCombo", "InsertParameterButton"}.issubset(names)
     source = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
     service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
-    assert "readable_text_parameters(self.elements)" in source
+    assert "readable_parameters(self.elements)" in source
     assert 'self.FormatFields.Visibility = Visibility.Visible if mode == 3' in source
     assert 'self.InputText.SelectedText = "{" + option.Token + "}"' in source
     assert "parameter_token(id_value(candidate.Id))" in service
-    assert "candidate.AsString() or \"\"" in service
+    assert "parameter_display_value(candidate)" in service
+    assert "DB.StorageType.Integer" in service
+    assert "DB.StorageType.Double" in service
 
 
 def test_compact_revit_ribbon_stack_structure():
