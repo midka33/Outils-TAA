@@ -109,6 +109,20 @@ exception lors de la construction des libellés (accès direct à `Symbol.Name`)
 pas une collecte nécessairement vide. Correctif : lecture des noms par
 `DB.Element.Name.GetValue` et repli sur l'identifiant. Test de contrat ajouté ;
 recette Revit requise.
+
+**Validation Revit du 26/11 :** l'utilisateur confirme « ça marche, c'est
+tout bon » après correction des noms de portes/fenêtres. Cette validation
+porte sur les listes de ces catégories, pas encore sur l'écriture des paramètres
+de type.
+
+**Extension Instance/Type (26/11) :** pour fenêtres, portes, sols, plafonds,
+toits et murs, la liste de l'étape 1 présente désormais `[Instance]` et
+`[Type]` devant chaque paramètre texte modifiable. Le choix d'un paramètre
+de type convertit la sélection d'occurrences en `ElementType` uniques
+(`UniqueId`) ; l'aperçu et la transaction opèrent ensuite sur ces types et
+affichent un avertissement sur leur portée projet. Le champ « Niveau » reste
+supprimé. Pièces et notes textuelles inchangées. **Recette Revit nécessaire :**
+type partagé par plusieurs occurrences, format, validation/Undo et exclusions.
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

@@ -16,7 +16,7 @@ from common.wpf_resources import load_resource_dictionary
 from room_parameters.format_engine import parameter_aliases
 from text_rename_service import (
     collect_targets, target_label, writable_text_parameters, readable_parameters,
-    prepare_text_renames, commit_text_renames,
+    collect_target_types, prepare_text_renames, commit_text_renames,
 )
 from room_parameter_edit_service import parameter_of
 
@@ -56,8 +56,10 @@ class RenameSelectionWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, os.path.join(UI_DIR, "rename_selection.xaml"))
         load_resource_dictionary(self, THEME)
         self.elements = []
+        self.types = []
         self.parameter_id = None
         self.selection = []
+        self.affected_instance_count = 0
         self.category = "Pièces"
         self.level = "instance"
         self.CategoryCombo.Items.Add("Pièces")
@@ -89,12 +91,25 @@ class RenameSelectionWindow(forms.WPFWindow):
                            for obj in self.elements))
             self.table = table
             self.ObjectsGrid.ItemsSource = table.DefaultView
-            options = writable_text_parameters(self.elements) if self.category != "Textes" else []
+            options = []
+            self.types = []
+            if self.category != "Textes":
+                options = writable_text_parameters(self.elements)
+                for option in options:
+                    option.Level = "instance"
+                    option.Label = "[Instance] " + option.Label
+                if self.category != "Pièces":
+                    self.types = collect_target_types(self.elements)
+                    for option in writable_text_parameters(self.types):
+                        option.Level = "type"
+                        option.Label = "[Type] " + option.Label
+                        options.append(option)
             for option in options:
                 self.ParameterCombo.Items.Add(option)
             if options:
                 preferred = next((i for i, option in enumerate(options)
-                                  if option.Label.split(" [ID ")[0].strip().lower() == "n° appartement"), 0)
+                                  if option.Level == "instance" and
+                                  option.Label.split(" [ID ")[0].replace("[Instance] ", "").strip().lower() == "n° appartement"), 0)
                 self.ParameterCombo.SelectedIndex = preferred
             self.ContinueButton.IsEnabled = bool(self.elements and (options or self.category == "Textes"))
             self.FoundText.Text = "{} élément(s)".format(len(self.elements))
@@ -128,6 +143,15 @@ class RenameSelectionWindow(forms.WPFWindow):
             return
         self.parameter_id = None if self.category == "Textes" else option.Id
         self.parameter_label = "Texte de la note" if self.category == "Textes" else option.Label
+        self.level = option.Level if option is not None else "instance"
+        self.affected_instance_count = len(self.selection)
+        if self.level == "type":
+            # Plusieurs occurrences d'un même type ne doivent être modifiées
+            # qu'une seule fois. L'éditeur travaille sur les ElementType réels.
+            self.selection = collect_target_types(self.selection)
+            if not self.selection:
+                self.SelectionMessage.Text = "Aucun type modifiable pour cette sélection."
+                return
         self.DialogResult = True
         self.Close()
 
@@ -153,6 +177,10 @@ class RenameEditorWindow(forms.WPFWindow):
         self.ContextText.Text = "{} — {} — {}".format(selection.category,
             "Types" if selection.level == "type" else "Instances",
             selection.parameter_label)
+        if selection.level == "type":
+            self.MessageText.Text = ("Attention : chaque modification de type affectera toutes ses "
+                                     "occurrences dans le projet ({} occurrence(s) sélectionnée(s))."
+                                     .format(selection.affected_instance_count))
         parameter_name = selection.parameter_label.split(" [ID ")[0]
         self.ObjectsGrid.Columns[1].Header = parameter_name
         self.PreviewGrid.Columns[0].Header = parameter_name

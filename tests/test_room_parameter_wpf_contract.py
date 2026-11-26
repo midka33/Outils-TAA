@@ -141,7 +141,8 @@ def test_rename_supports_six_model_categories_with_instance_text_parameters():
     for label, bic in expected.items():
         assert '"{}": DB.BuiltInCategory.{}'.format(label, bic) in service
         assert '"{}"'.format(label) in controller
-    assert 'options = writable_text_parameters(self.elements) if self.category != "Textes" else []' in controller
+    assert 'if self.category != "Textes":' in controller
+    assert 'options = writable_text_parameters(self.elements)' in controller
     assert '.WhereElementIsNotElementType().ToElements()' in service
     assert 'item.GroupId == DB.ElementId.InvalidElementId' in service
     assert 'if element.GroupId != DB.ElementId.InvalidElementId:' in service
@@ -164,6 +165,22 @@ def test_family_names_use_revit_element_descriptor_for_ironpython():
     assert '_element_name(element.Symbol.Family)' in service
     assert 'element.Symbol.Name' not in service
     assert 'element.Symbol.Family.Name' not in service
+
+
+def test_type_parameters_are_listed_and_applied_once_per_unique_type():
+    controller = (PANEL / "ui" / "text_rename_window.py").read_text(encoding="utf-8")
+    service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
+    assert 'def collect_target_types(elements):' in service
+    assert 'type_id = element.GetTypeId()' in service
+    assert 'found[element_type.UniqueId] = element_type' in service
+    assert 'if isinstance(element_type, DB.ElementType):' in service
+    assert 'option.Label = "[Instance] " + option.Label' in controller
+    assert 'option.Label = "[Type] " + option.Label' in controller
+    assert 'self.types = collect_target_types(self.elements)' in controller
+    assert 'self.level = option.Level if option is not None else "instance"' in controller
+    assert 'self.selection = collect_target_types(self.selection)' in controller
+    assert 'if selection.level == "type":' in controller
+    assert 'toutes ses' in controller and 'occurrences dans le projet' in controller
 
 
 def test_compact_revit_ribbon_stack_structure():

@@ -127,6 +127,19 @@ def target_label(element):
                                     _element_name(element), id_value(element.Id))
 
 
+def collect_target_types(elements):
+    """Types uniques des occurrences, sans créer d'écriture sur les instances."""
+    found = {}
+    for element in elements:
+        type_id = element.GetTypeId()
+        if type_id == DB.ElementId.InvalidElementId:
+            continue
+        element_type = revit.doc.GetElement(type_id)
+        if isinstance(element_type, DB.ElementType):
+            found[element_type.UniqueId] = element_type
+    return sorted(found.values(), key=lambda item: id_value(item.Id))
+
+
 def writable_text_parameters(elements):
     found = {}
     for element in elements:
