@@ -104,7 +104,7 @@ def parameter_display_value(parameter):
 
 
 def prepare_text_renames(elements, parameter_id, operation, before_text, after_text,
-                         add_once=False):
+                         add_once=False, format_aliases=None):
     """Constitue l'aperçu ; chaque type de famille n'apparaît qu'une seule fois."""
     changes = {}
     skipped = 0
@@ -123,7 +123,8 @@ def prepare_text_renames(elements, parameter_id, operation, before_text, after_t
                                              DB.StorageType.Double, DB.StorageType.ElementId):
                     key = parameter_token(id_value(candidate.Id))
                     param_values[key] = parameter_display_value(candidate)
-            after = format_value(before, before_text, index, family_name, param_values)
+            after = format_value(before, before_text, index, family_name,
+                                 param_values, format_aliases)
         else:
             after = transform(before, operation, before_text, after_text, add_once)
         if before == after:

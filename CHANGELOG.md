@@ -17,6 +17,7 @@ Le format suit les principes de *Keep a Changelog*.
 - Renommage multiple : séparation d'**Ajouter** et **Supprimer** pour quatre opérations indépendantes (Ajouter, Supprimer, Remplacer, Formater) ; aucune modification de la numérotation validée dans Revit.
 - Renommage multiple : afficher dans la liste et l'aperçu les valeurs du paramètre choisi à l'étape de sélection, tout en conservant les identifiants internes de ciblage.
 - Renommage multiple / Formater : liste des paramètres disponibles (texte, valeurs numériques et références lisibles) et insertion de jetons de paramètres Revit, avec résolution individuelle dans l'aperçu et protection contre les références manquantes.
+- Renommage multiple / Formater : insertion de noms de paramètres lisibles dans le champ de format, avec résolution interne par identifiant et distinction des homonymes.
 - Tests statiques anti-régression et registre `docs/bugs/PARAMETRES.md` ; **971 tests hors Revit réussis**, recette Revit du correctif à effectuer.
 
 ### Branche `feature/room-parameter-tools` — 2026-11-23 (bêta non fusionnée)

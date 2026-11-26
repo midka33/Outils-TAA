@@ -37,7 +37,7 @@
           <TextBlock Text="Format : {valeur}, {index}, {famille}" TextWrapping="Wrap" Foreground="{DynamicResource TAASecondaryTextBrush}" Margin="0,12,0,0"/>
           <StackPanel Name="FormatFields" Visibility="Collapsed" Margin="0,12,0,0">
             <TextBlock Text="PARAMÈTRE À INSÉRER" FontWeight="Bold" Margin="0,0,0,4"/>
-            <ComboBox Name="FormatParameterCombo" Height="28" DisplayMemberPath="Label"/>
+            <ComboBox Name="FormatParameterCombo" Height="28" DisplayMemberPath="FormatLabel"/>
             <Button Name="InsertParameterButton" Content="Insérer dans le format" Height="30" Margin="0,6,0,0"
                     Style="{DynamicResource TAASecondaryButton}" Click="InsertFormatParameter"/>
             <TextBlock Text="Valeurs texte ou numériques récupérées sur chaque élément." TextWrapping="Wrap"

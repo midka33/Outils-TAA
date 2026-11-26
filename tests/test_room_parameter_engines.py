@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "OutilsTAA.extensio
 from room_parameters.numbering_engine import parse_sequence, sequence_value, proposed_assignments
 from room_parameters.text_transform_engine import transform
 from room_parameters.duplicate_checker import detect_collisions
-from room_parameters.format_engine import format_value, parameter_token
+from room_parameters.format_engine import format_value, parameter_token, parameter_aliases
 
 
 @pytest.mark.parametrize("start,mode,expected", [
@@ -92,6 +92,22 @@ def test_format_engine_inserts_revit_parameters_by_stable_identifier():
         format_value("X", "{param_954978}", 1, parameters={})
     with pytest.raises(ValueError):
         format_value("X", "{valeur}", 1, parameters={"commande": "invalide"})
+
+
+def test_format_engine_displays_names_and_resolves_underlying_parameter_ids():
+    names = parameter_aliases([
+        ("N° Appartement", "param_954978"),
+        ("Nom de pièce", "param_m1006900"),
+        ("N° Appartement", "param_123"),
+    ])
+    assert names == {"N° Appartement": "param_954978",
+                     "Nom de pièce": "param_m1006900",
+                     "N° Appartement (2)": "param_123"}
+    values = {"param_954978": "A002", "param_m1006900": "Séjour", "param_123": "AUTRE"}
+    assert format_value("", "{N° Appartement}-{Nom de pièce}", 1,
+                        parameters=values, aliases=names) == "A002-Séjour"
+    with pytest.raises(ValueError):
+        format_value("X", "{N° Appartement}", 1, parameters={}, aliases=names)
 
 
 def test_duplicate_checker_ignores_replaced_old_values():

@@ -54,6 +54,13 @@ Revit (`{param_...}`). Résolution des valeurs par élément lors de l'aperçu,
 sans modifier le paramètre cible ; recette WPF/Revit attendue.
 Contrôles : 11 contrats WPF en exécution directe et formatage pur validés,
 compilation Python réussie. `pytest` absent : suite complète non relancée.
+
+**Correction ergonomique du 26/11 :** le champ FORMAT doit montrer le nom des
+paramètres et non leur ID. Alias affichés `{Nom du paramètre}` résolus à partir
+des identifiants internes ; doublons homonymes suffixés `(2)`, `(3)` pour éviter
+les choix implicites. Recette Revit attendue.
+Contrôles : 11 contrats WPF et essais ciblés d'alias réussis ; compilation
+Python réussie. Suite complète indisponible (absence de `pytest`).
 Contrôles disponibles : 10 tests statiques WPF réussis en exécution directe,
 compilation Python et `git diff --check` réussis. `pytest` absent de
 l'environnement courant : pas de nouveau résultat de suite complète.

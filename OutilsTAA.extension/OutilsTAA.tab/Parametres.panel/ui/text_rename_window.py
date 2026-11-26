@@ -13,6 +13,7 @@ from System.Windows import Visibility
 from System.Windows.Input import Keyboard
 from common.logger import get_logger
 from common.wpf_resources import load_resource_dictionary
+from room_parameters.format_engine import parameter_aliases
 from text_rename_service import (
     collect_targets, target_label, writable_text_parameters, readable_parameters,
     prepare_text_renames, commit_text_renames,
@@ -155,7 +156,12 @@ class RenameEditorWindow(forms.WPFWindow):
                        for obj in self.elements))
         self.table = table
         self.ObjectsGrid.ItemsSource = table.DefaultView
-        for option in readable_parameters(self.elements):
+        options = readable_parameters(self.elements)
+        self.format_aliases = parameter_aliases(
+            [(option.Label.split(" [ID ")[0], option.Token) for option in options])
+        labels_by_token = {token: label for label, token in self.format_aliases.items()}
+        for option in options:
+            option.FormatLabel = labels_by_token[option.Token]
             self.FormatParameterCombo.Items.Add(option)
         if self.FormatParameterCombo.Items.Count:
             self.FormatParameterCombo.SelectedIndex = 0
@@ -210,7 +216,7 @@ class RenameEditorWindow(forms.WPFWindow):
         option = self.FormatParameterCombo.SelectedItem
         if option is None or self.ModeCombo.SelectedIndex != 3:
             return
-        self.InputText.SelectedText = "{" + option.Token + "}"
+        self.InputText.SelectedText = "{" + option.FormatLabel + "}"
         self.InputText.Focus()
         Keyboard.Focus(self.InputText)
         self.clear_preview()
@@ -251,7 +257,8 @@ class RenameEditorWindow(forms.WPFWindow):
             elements = self._included()
             self.changes, skipped = prepare_text_renames(
                 elements, self.parameter_id, self._operation(),
-                self.InputText.Text, self.ExtraText.Text, bool(self.AddOnce.IsChecked))
+                self.InputText.Text, self.ExtraText.Text, bool(self.AddOnce.IsChecked),
+                self.format_aliases)
             table = _rows((("Label", str), ("Before", str), ("After", str), ("Status", str)),
                           ({"Label": item[2] or "(vide)", "Before": item[2],
                             "After": item[3], "Status": "Prêt"}

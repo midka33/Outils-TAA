@@ -75,7 +75,10 @@ def test_format_mode_lists_and_inserts_available_revit_parameters():
     service = (PANEL / "services" / "text_rename_service.py").read_text(encoding="utf-8")
     assert "readable_parameters(self.elements)" in source
     assert 'self.FormatFields.Visibility = Visibility.Visible if mode == 3' in source
-    assert 'self.InputText.SelectedText = "{" + option.Token + "}"' in source
+    assert 'self.InputText.SelectedText = "{" + option.FormatLabel + "}"' in source
+    assert "parameter_aliases(" in source
+    assert "self.format_aliases)" in source
+    assert 'DisplayMemberPath="FormatLabel"' in (PANEL / "ui" / "rename_editor.xaml").read_text(encoding="utf-8")
     assert "parameter_token(id_value(candidate.Id))" in service
     assert "parameter_display_value(candidate)" in service
     assert "DB.StorageType.Integer" in service

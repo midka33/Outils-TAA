@@ -153,6 +153,19 @@ Si un paramètre référencé manque sur un élément, le modèle est rejeté av
 un message d'erreur plutôt que d'insérer silencieusement une autre valeur.
 Le paramètre de destination reste celui choisi à l'étape 1 ; la liste du
 mode Formater ne modifie pas cette destination.
+
+**Affichage lisible du modèle (26/11) :** le champ FORMAT et la liste des
+sources présentent les **noms des paramètres**, par exemple
+`{N° Appartement}-{Nom de pièce}`, et non plus les jetons techniques
+`{param_954978}-{param_m1006900}`. L'interface conserve une table
+`nom affiché → identifiant Revit` pour interpréter les valeurs de chaque
+élément lors de l'aperçu, sans perdre l'identité du paramètre. Les noms en
+double sont distingués visuellement par `(2)`, `(3)`... ; les jetons historiques
+`{param_...}` restent pris en charge pour compatibilité. Aucun changement de
+la transaction ou du choix de destination.
+Contrôles de cette itération : **11 contrats WPF exécutés avec succès**, essai
+du moteur d'alias avec noms homonymes et compilation Python réussis ; suite
+`pytest` complète non relancée (dépendance absente de cet environnement).
 Contrôles hors Revit de cette itération : **11 contrats WPF réussis**,
 cas positif et rejets de jetons invalides vérifiés, compilation Python
 réussie. Suite `pytest` complète indisponible dans l'environnement courant
